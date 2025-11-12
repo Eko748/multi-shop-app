@@ -1,0 +1,50 @@
+!.ftpignore
+
+# Git
+.git*
+.github/
+
+# Composer / Laravel / PHP
+# Abaikan seluruh folder public dan semua isinya
+/public/
+/public/**
+
+# Atau lebih spesifik
+/public/flat-able-lite/
+/public/flat-able-lite/**
+/public/**/*.js
+/public/**/*.scss
+/public/**/*.json
+/public/**/*.html
+/public/**/*.php
+
+# Jaga-jaga
+public
+public/*
+public/**/*
+
+vendor/
+.env
+.env.*
+storage/
+*.log
+
+# Node / JS / Frontend
+node_modules/
+npm-debug.log
+yarn-error.log
+dist/
+build/
+
+# OS / IDE / Editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.bak
+*.tmp
+
+# Dokumentasi dan lain-lain
+README.md
+LICENSE
+*.md

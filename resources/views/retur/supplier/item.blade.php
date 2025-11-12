@@ -1,0 +1,1315 @@
+<script>
+    async function getListData(limit = 10, page = 1, ascending = 0, search = '', customFilter = {}) {
+        $('#listData').html(`
+                <div class="col-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
+                    <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
+                        <div class="d-flex justify-content-center align-items-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="sr-only">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `);
+
+        let filterParams = {
+            ...customFilter
+        };
+
+        let getDataRest = await renderAPI(
+            'GET',
+            '{{ route('retur.supplier.get') }}', {
+                page: page,
+                limit: limit,
+                ascending: ascending,
+                search: search,
+                ...filterParams
+            }
+        ).then(function(response) {
+            return response;
+        }).catch(function(error) {
+            return error.response;
+        });
+
+        if (getDataRest && getDataRest.status === 200) {
+            const dataArray = getDataRest.data.data.item || [];
+            const total = getDataRest.data.data.total || null;
+
+            if (Array.isArray(dataArray) && dataArray.length > 0) {
+                let handleDataArray = await Promise.all(
+                    dataArray.map(item => handleData(item))
+                );
+                await setListData(handleDataArray, getDataRest.data.pagination, total);
+            } else {
+                $('#listData').html(`
+                    <div class="col-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
+                        <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
+                            <div class="text-center my-3" role="alert">
+                                Data tidak tersedia untuk ditampilkan.
+                            </div>
+                        </div>
+                    </div>
+                    `);
+                $('#countPage').text("0 - 0");
+                $('#totalPage').text("0");
+            }
+        } else {
+            let errorMessage = getDataRest?.data?.message || 'Data gagal dimuat';
+
+            $('#listData').html(`
+                <div class="col-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
+                    <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
+                        <div class="alert alert-warning text-center mt-4" role="alert">
+                            ${errorMessage}
+                        </div>
+                    </div>
+                </div>
+                `);
+            $('#countPage').text("0 - 0");
+            $('#totalPage').text("0");
+        }
+    }
+
+    async function handleData(data) {
+        const edit_button = `
+            <button onClick="openEditModal('${encodeURIComponent(JSON.stringify(data))}')"
+                class="action_button btn btn-outline-secondary btn-md"
+                title="Edit retur ${data.no_retur}"
+                data-id="${data?.id}" data-container="body" data-toggle="tooltip" data-placement="top">
+                <span class="text-dark">Edit</span>
+                <div class="icon text-warning">
+                    <i class="mb-1 fa fa-edit"></i>
+                </div>
+            </button>
+        `;
+
+        const detail_button = `
+            <button onClick="openDetailModal('${encodeURIComponent(JSON.stringify(data))}')"
+                class="action_button btn btn-outline-secondary btn-md"
+                title="Detail retur ${data.no_retur}"
+                data-id="${data?.id}" data-container="body" data-toggle="tooltip" data-placement="top">
+                <span class="text-dark">Detail</span>
+                <div class="icon text-info">
+                    <i class="mb-1 fa fa-book"></i>
+                </div>
+            </button>
+        `;
+
+        let verify_button = '';
+        if (data.verified === true) {
+            verify_button = `
+            <button onClick="verifyData('${encodeURIComponent(JSON.stringify(data))}')"
+                class="action_button btn btn-outline-secondary btn-md"
+                title="Verifikasi retur ${data.no_retur}"
+                data-id="${data?.id}" data-container="body" data-toggle="tooltip" data-placement="top">
+                <span class="text-dark">Verify</span>
+                <div class="icon text-success">
+                    <i class="mb-1 fa fa-check-circle"></i>
+                </div>
+            </button>
+        `;
+        }
+
+        // === Keterangan (status + selisih) ===
+        let statusBadge = '';
+        let keteranganBadge = '';
+        let totalSelisih = '';
+
+        if (data.status === 'proses') {
+            statusBadge = `<span class="badge badge-info p-2">
+                <i class="fa fa-spinner fa-spin"></i> Proses
+            </span>`;
+        } else if (data.status === 'selesai') {
+            statusBadge = `<span class="badge badge-success p-2">
+                <i class="fa fa-circle-check"></i> Selesai
+            </span>`;
+        } else {
+            statusBadge = `<span class="badge badge-info p-2">
+            <i class="fa fa-balance-scale"></i> Tidak ada
+        </span>`;
+        }
+
+        if (data.keterangan === 'rugi') {
+            keteranganBadge = `<span class="badge badge-danger p-2">
+                <i class="fa fa-arrow-down"></i> Rugi - ${data.total_selisih}
+            </span>`;
+            totalSelisih = `<span class="ml-2 text-danger">${data.total_selisih}</span>`;
+        } else if (data.keterangan === 'untung') {
+            keteranganBadge = `<span class="badge badge-success p-2">
+                <i class="fa fa-arrow-up"></i> Untung - ${data.total_selisih}
+            </span>`;
+            totalSelisih = `<span class="ml-2 text-success">${data.total_selisih}</span>`;
+        } else {
+            keteranganBadge = `<span class="badge badge-info p-2">
+                <i class="fa fa-balance-scale"></i> Seimbang
+            </span>`;
+        }
+
+        const status = `
+            <div class="d-flex align-items-center">
+                ${statusBadge}
+            </div>
+        `;
+
+        // === Info tambahan ===
+        let infoText = 'Dibuat oleh:';
+        let infoUser = `${data.created_by || '-'}`;
+        let infoTime = `${data.tanggal || '-'}`;
+
+        return {
+            id: data?.id ?? '-',
+            supplier: data?.supplier ?? '-',
+            no_retur: data?.no_retur ?? '-',
+            tipe_retur: data?.tipe_retur ?? '-',
+            total_refund: data?.total_refund ?? '-',
+            qty: data?.qty ?? '-',
+            total_hpp: data?.total_hpp ?? '-',
+            total_selisih: data?.total_selisih ?? '-',
+            tanggal: infoTime ?? '-',
+            edit_button,
+            detail_button,
+            verify_button,
+            status,
+            statusBadge,
+            totalSelisih,
+            info: `
+                <div>
+                    <small class="text-muted">${infoText}</small>
+                    <small class="text-bold">${infoUser}</small>
+                </div>
+            `
+        };
+    }
+
+    async function setListData(dataList, pagination, total) {
+        totalPage = pagination.total_pages;
+        currentPage = pagination.current_page;
+        let display_from = ((defaultLimitPage * (currentPage - 1)) + 1);
+        let display_to = Math.min(display_from + dataList.length - 1, pagination.total);
+        let tdClass = 'text-wrap align-top';
+
+        let getDataTable = `
+        <div class="col-12">
+            <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover m-0">
+                            <thead class="glossy-thead">
+                                <tr>
+                                    <th scope="col" class="${tdClass} text-center" style="width:5%">No</th>
+                                    <th scope="col" class="${tdClass}" style="width:10%">Tanggal</th>
+                                    <th scope="col" class="${tdClass}" style="width:10%">Informasi</th>
+                                    <th scope="col" class="${tdClass}" style="width:7%">Status</th>
+                                    <th scope="col" class="${tdClass}" style="width:7%">No Retur</th>
+                                    <th scope="col" class="${tdClass}" style="width:7%">Suplier</th>
+                                    <th scope="col" class="${tdClass}" style="width:10%">Tipe</th>
+                                    <th scope="col" class="${tdClass} text-right" style="width:7%">Qty</th>
+                                    <th scope="col" class="${tdClass} text-right" style="width:12%">Total Hpp Ganti Barang</th>
+                                    <th scope="col" class="${tdClass} text-right" style="width:12%">Total Refund</th>
+                                    <th scope="col" class="${tdClass} text-center" style="width:10%">Aksi</th>
+                                </tr>
+                            </thead>
+                            <thead>
+                                <tr>
+                                    <th colspan="8"></th>
+                                    <th colspan="1" class="${tdClass} text-right"><span class="badge badge-primary">${total.hpp.format || 0}</span></th>
+                                    <th colspan="1" class="${tdClass} text-right"><span class="badge badge-primary">${total.refund.format || 0}</span></th>
+                                    <th colspan="1"></th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+
+        dataList.forEach((element, index) => {
+            const number = display_from + index;
+            getDataTable += `
+                <tr class="glossy-tr">
+                    <td class="${tdClass} text-center">${number}</td>
+                    <td class="${tdClass}">${element.tanggal}</td>
+                    <td class="${tdClass}">${element.info}</td>
+                    <td class="${tdClass}">${element.statusBadge}</td>
+                    <td class="${tdClass}">${element.no_retur}</td>
+                    <td class="${tdClass}">${element.supplier}</td>
+                    <td class="${tdClass}">${element.tipe_retur}</td>
+                    <td class="${tdClass} text-right">${element.qty}</td>
+                    <td class="${tdClass} text-right">${element.total_hpp}</td>
+                    <td class="${tdClass} text-right">${element.total_refund}</td>
+                    <td class="${tdClass}">
+                        <div class="d-flex justify-content-start flex-column flex-sm-row align-items-center align-items-sm-start mx-3" style="gap: 0.5rem;">
+                            ${element.edit_button || ''}
+                            ${element.detail_button || ''}
+                            ${element.verify_button || ''}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        getDataTable += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+
+        $('#listData').html(getDataTable);
+        $('#totalPage').text(pagination.total);
+        $('#countPage').text(`${display_from} - ${display_to}`);
+        $('[data-toggle="tooltip"]').tooltip();
+        renderPagination();
+    }
+
+    async function saveData(mode, encodedData) {
+        $(document).off("click", "#save-btn").on("click", "#save-btn", async function(e) {
+            e.preventDefault();
+
+            const btn = $(this);
+            const saveButton = this;
+
+            if (saveButton.disabled) return;
+
+            let method = 'POST';
+            let url = `{{ route('retur.supplier.post') }}`;
+
+            const tipe_retur = $('#tipe_retur').val();
+            const tanggal = $('#tanggal').val();
+            const rows = $('#tableReturItems tbody tr.item-row');
+
+            if (rows.length === 0) {
+                notificationAlert('warning', 'Peringatan', 'Tidak ada item retur yang dipilih.');
+                return;
+            }
+
+            // ================== MODE ADD ==================
+            let formData = {};
+            if (mode === 'add') {
+                const groupedData = {};
+                let total_qty = 0;
+                let total_hpp = 0;
+
+                rows.each(function() {
+                    const row = $(this);
+                    const supplier_id = row.data('supplier');
+                    const id = parseInt(row.data('id'));
+                    const barang_id = row.data('barang');
+                    const qty = parseInt(row.find('.qty').val()) || 0;
+                    const hpp = parseFloat(row.data('hpp')) || 0;
+                    const harga_jual = parseFloat(row.data('harga_jual')) || 0;
+
+                    total_qty += qty;
+                    total_hpp += (hpp * qty);
+
+                    if (!groupedData[supplier_id]) groupedData[supplier_id] = [];
+                    groupedData[supplier_id].push({
+                        id,
+                        barang_id,
+                        qty,
+                        hpp,
+                        harga_jual
+                    });
+                });
+
+                const retur = Object.keys(groupedData).map(supplier_id => ({
+                    supplier_id,
+                    detail: groupedData[supplier_id]
+                }));
+
+                formData = {
+                    toko_id: {{ auth()->user()->id_toko }},
+                    created_by: {{ auth()->user()->id }},
+                    tipe_retur,
+                    tanggal,
+                    qty: total_qty,
+                    total_hpp: total_hpp,
+                    retur
+                };
+            }
+
+            // ================== MODE EDIT ==================
+            else if (mode === 'edit') {
+                let data = {};
+                if (encodedData && typeof encodedData === 'string' && encodedData.trim() !== '') {
+                    try {
+                        data = JSON.parse(decodeURIComponent(encodedData));
+                    } catch (err) {
+                        notificationAlert('error', 'Error',
+                            'Terjadi kesalahan saat membaca data enkripsi.');
+                    }
+                }
+
+                const groupedData = {};
+                let total_hpp = 0;
+                let total_qty = 0;
+                let subtotal_refund = 0;
+                let subtotal_hpp = 0;
+                let subtotal_selisih = 0;
+
+                rows.each(function() {
+                    const row = $(this);
+                    const supplier_id = row.data('supplier');
+                    const id = parseInt(row.data('id'));
+                    const barang_id = row.data('barang');
+                    const hpp = parseFloat(row.data('hpp')) || 0;
+                    const harga_jual = parseFloat(row.data('harga_jual')) || 0;
+
+                    const kompensasi = row.find('.kompensasi').val() || null;
+                    const qty_refund = parseInt(row.find('.qty_refund').val()) || 0;
+                    const qty_barang = parseInt(row.find('.qty_barang').val()) || 0;
+                    const jumlah_refund = parseFloat(row.find('.jumlah-refund').val()) || 0;
+
+                    const total_refund = parseFloat(row.find('.total-refund').text().replace(
+                        /[^0-9,-]+/g, "")) || 0;
+                    const total_hpp_row = parseFloat(row.find('.total-hpp').text().replace(
+                        /[^0-9,-]+/g, "")) || 0;
+                    const selisih = parseFloat(row.find('.selisih').text().replace(/[^0-9,-]+/g,
+                        "")) || 0;
+
+                    const totalQty = qty_refund + qty_barang;
+                    total_qty += totalQty;
+                    total_hpp += total_hpp_row;
+                    subtotal_refund += total_refund;
+                    subtotal_hpp += total_hpp_row;
+                    subtotal_selisih += selisih;
+
+                    if (!groupedData[supplier_id]) groupedData[supplier_id] = [];
+
+                    groupedData[supplier_id].push({
+                        id,
+                        barang_id,
+                        kompensasi,
+                        qty_refund,
+                        qty_barang,
+                        jumlah_refund,
+                        total_refund,
+                        total_hpp: total_hpp_row,
+                        selisih,
+                        hpp,
+                        harga_jual,
+                        retur_id: data.id,
+                        updated_by: '{{ auth()->user()->id }}'
+                    });
+                });
+
+                const retur = Object.keys(groupedData).map(supplier_id => ({
+                    supplier_id,
+                    detail: groupedData[supplier_id]
+                }));
+
+                formData = {
+                    id: data.id,
+                    toko_id: {{ auth()->user()->id_toko }},
+                    tipe_retur,
+                    tanggal,
+                    qty: total_qty,
+                    total_qty: parseInt($('#total_qty_retur').text()),
+                    total_hpp: total_hpp,
+                    subtotal_refund,
+                    subtotal_hpp,
+                    subtotal_selisih,
+                    updated_by: '{{ auth()->user()->id }}',
+                    retur
+                };
+
+                method = 'PUT';
+                url = `{{ route('retur.supplier.put') }}`;
+            }
+
+            // ================== KONFIRMASI & SIMPAN ==================
+            swal({
+                title: "Konfirmasi",
+                text: `Apakah Anda yakin ingin menyimpan data retur ini?`,
+                type: "question",
+                showCancelButton: true,
+                confirmButtonColor: '#2ecc71',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Ya, Simpan',
+                cancelButtonText: 'Batal',
+                reverseButtons: true,
+            }).then(async (willSave) => {
+                if (!willSave) return;
+
+                saveButton.disabled = true;
+                const originalContent = btn.html();
+                btn.html(
+                    `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Menyimpan`
+                );
+                loadingPage(true);
+
+                try {
+                    const response = await renderAPI(method, url, formData);
+                    loadingPage(false);
+
+                    if (response.status >= 200 && response.status < 300) {
+                        notificationAlert('success', 'Pemberitahuan', response.data
+                            .message || 'Data berhasil disimpan.');
+                        isDataSaved = true;
+
+                        setTimeout(async function() {
+                            await getListData(defaultLimitPage, currentPage,
+                                defaultAscending, defaultSearch,
+                                customFilter);
+                        }, 500);
+
+                        setTimeout(() => $('#modal-form').modal('hide'), 500);
+                    } else {
+                        notificationAlert('info', 'Pemberitahuan', response.data.message ||
+                            'Terjadi kesalahan saat menyimpan.');
+                        saveButton.disabled = false;
+                        btn.html(originalContent);
+                    }
+                } catch (error) {
+                    loadingPage(false);
+
+                    const response = error?.response?.data;
+                    const errors = response?.errors || {};
+                    const message = response?.message ||
+                        'Terjadi kesalahan saat menyimpan data.';
+
+                    let allErrors = [];
+
+                    if (Object.keys(errors).length > 0) {
+                        Object.values(errors).forEach(errArray => {
+                            if (Array.isArray(errArray)) {
+                                allErrors = allErrors.concat(errArray);
+                            } else {
+                                allErrors.push(errArray);
+                            }
+                        });
+                    }
+
+                    const fullMessage = allErrors.length > 0 ? allErrors.join('<br>') :
+                        message;
+
+                    notificationAlert(
+                        'error',
+                        'Kesalahan',
+                        fullMessage
+                    );
+
+                    saveButton.disabled = false;
+                    btn.html(originalContent);
+                }
+            });
+        });
+    }
+
+    async function verifyData(encodedData) {
+        let data = JSON.parse(decodeURIComponent(encodedData));
+
+        swal({
+            title: `Verify Data Retur ${data.no_retur}`,
+            text: "Apakah anda yakin?",
+            type: "question",
+            showCancelButton: true,
+            confirmButtonText: "Ya, Verifikasi!",
+            cancelButtonText: "Tidak, Batal!",
+            confirmButtonColor: '#2ecc71',
+            cancelButtonColor: '#6c757d',
+            reverseButtons: true,
+            confirmButtonClass: "btn btn-success",
+            cancelButtonClass: "btn btn-secondary",
+        }).then(async (result) => {
+            let postDataRest = await renderAPI(
+                'PUT',
+                `{{ route('retur.supplier.verify') }}`, {
+                    id: data.id,
+                    updated_by: '{{ auth()->user()->id }}'
+                }
+            ).then(res => res).catch(err => err.response);
+
+            if (postDataRest.status == 200) {
+                setTimeout(function() {
+                    getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
+                        customFilter);
+                }, 500);
+                notificationAlert('success', 'Pemberitahuan', postDataRest.data.message);
+            }
+        }).catch(swal.noop);
+    }
+
+    function openAddModal() {
+        renderModalForm('add');
+        $('#save-btn')
+            .removeClass('btn-primary d-none')
+            .addClass('btn-success')
+            .prop('disabled', false)
+            .html('<i class="fa fa-save mr-1"></i>Simpan');
+
+        $('#modal-form').modal('show');
+    }
+
+    async function getDetailData(id) {
+        try {
+            let response = await renderAPI(
+                    'GET',
+                    '{{ route('retur.supplier.getData') }}', {
+                        id: id,
+                    }
+                ).then(res => res)
+                .catch(err => err.response);
+
+            if (response?.data) {
+                const items = response.data.data;
+
+                return encodeURIComponent(JSON.stringify(items));
+            } else {
+                notificationAlert('warning', 'Perhatian', 'Data harga barang tidak ditemukan.');
+            }
+        } catch (err) {
+            notificationAlert('error', 'Error', 'Gagal mengambil data.');
+        }
+    }
+
+    async function openEditModal(encodedData) {
+        try {
+            const decoded = JSON.parse(decodeURIComponent(encodedData));
+            const selectedId = decoded?.id;
+            let data = null;
+
+            if (selectedId) {
+                data = await getDetailData(selectedId);
+            } else {
+                notificationAlert('warning', 'Peringatan', 'ID retur tidak ditemukan.');
+            }
+
+            await renderModalForm('edit', data);
+
+            $('#save-btn')
+                .removeClass('btn-success')
+                .addClass('btn-primary')
+                .prop('disabled', false)
+                .html('<i class="fa fa-edit mr-1"></i>Update');
+
+            $('#modal-form').modal('show');
+
+
+        } catch (e) {
+            console.error(e);
+            notificationAlert('error', 'Error', 'Terjadi kesalahan saat memuat data untuk diedit.');
+        }
+    }
+
+    async function openDetailModal(encodedData) {
+        let data = JSON.parse(decodeURIComponent(encodedData));
+        await renderModalDetail();
+
+        await $('#save-btn')
+            .removeClass('btn-success')
+            .addClass('btn-primary d-none')
+            .prop('disabled', true)
+            .html('<i class="fa fa-edit mr-1"></i>Update');
+
+        await $('#modal-form').modal('show');
+
+        fetchConfigMap.getListData2 = {
+            fn: getListData2,
+            getConfig: () => ({
+                limit: defaultLimitPage2,
+                page: currentPage2,
+                asc: defaultAscending2,
+                search: defaultSearch2,
+                filter: customFilter2,
+                id: data.id
+            }),
+            setPage: (val) => currentPage2 = val,
+            getTotalPage: () => totalPage3,
+            setSearch: (val) => defaultSearch2 = val,
+            setLimit: (val) => {
+                defaultLimitPage2 = val;
+            }
+        };
+
+        await Promise.all([
+            getListData2(
+                defaultLimitPage2,
+                currentPage2,
+                defaultAscending2,
+                defaultSearch2,
+                customFilter2 = {
+                    id: data.id
+                },
+            ),
+            searchList('getListData2', '#limitPage2', '.tb-search2'),
+        ]);
+    }
+
+    async function renderModalForm(mode = 'add', encodedData = '') {
+        let data = {};
+
+        if (encodedData && typeof encodedData === 'string' && encodedData.trim() !== '') {
+            try {
+                data = JSON.parse(decodeURIComponent(encodedData));
+            } catch (err) {
+                notificationAlert('error', 'Error', 'Terjadi kesalahan saat membaca data enkripsi.');
+            }
+        }
+
+        const modalTitle = mode === 'edit' ?
+            `<i class="fa fa-edit mr-1"></i>Edit Retur : No. ${data.no_retur}` :
+            `<i class="fa fa-undo mr-1"></i>Form Retur`;
+
+        $('#modalLabel').html(modalTitle);
+
+        const tdClass = 'text-wrap align-top';
+        const now = new Date();
+        const pad = (n) => n.toString().padStart(2, '0');
+        const currentDateTime =
+            `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+        let headInput = '';
+        let tableData = '';
+
+        if (mode === 'edit') {
+            headInput = `
+            <div class="form-group">
+                <div class="row">
+                    <div class="col-md-6 mb-2">
+                        <span><i class="fa fa-random mr-1"></i>Tipe Retur : <b>${data.tipe_retur_text}</b></span>
+                    </div>
+                    <div class="col-md-6 mb-2">
+                        <span><i class="fa fa-cubes mr-1"></i>Total Qty : <b id="total_qty_retur">${data.qty}</b></span>
+                    </div>
+                    <div class="col-md-6 mb-2">
+                        <span><i class="fa fa-calendar mr-1"></i>Tanggal : <b>${data.tanggal}</b></span>
+                    </div>
+                    <div class="col-md-6 mb-2">
+                        <span><i class="fa fa-coins mr-1"></i>Total HPP : <b>${formatRupiah(data.total_hpp)}</b></span>
+                    </div>
+                </div>
+            </div>`;
+
+            const supplier = data.supplier ? data.supplier : {
+                id: '-',
+                nama_supplier: '-'
+            };
+            const supplierRow = `
+            <tr class="supplier-row table-active font-weight-bold" data-supplier="${supplier.id}">
+                <td colspan="9">
+                    <i class="fa fa-truck mr-1"></i> Supplier: ${supplier.nama_supplier}
+                </td>
+            </tr>`;
+
+            let itemRows = '';
+            data.detail.forEach((d, index) => {
+                const kompensasi = d.tipe_kompensasi || null;
+                const jumlahRefund = (parseFloat(d.jumlah_refund) || 0).toFixed(0);
+
+                itemRows += `
+                <tr class="item-row"
+                    data-id="${d.id}"
+                    data-supplier="${supplier.id}"
+                    data-barang="${d.barang_id}"
+                    data-hpp="${d.hpp}"
+                    data-harga_jual="${d.harga_jual}">
+                    <td class="align-top text-center">${index + 1}</td>
+                    <td class="align-top text-wrap">
+                        <details><summary>${d.barang?.nama_barang || '-'}</summary>
+                        <hr><p>${d.keterangan || ''}</p></details>
+                    </td>
+                    <td class="align-top">
+                        <select class="form-control kompensasi">
+                            <option selected>-- Pilih --</option>
+                            <option value="refund" ${kompensasi === 'refund' ? 'selected' : ''}>Refund</option>
+                            <option value="barang" ${kompensasi === 'barang' ? 'selected' : ''}>Barang Sejenis</option>
+                            <option value="kombinasi" ${kompensasi === 'kombinasi' ? 'selected' : ''}>Kombinasi</option>
+                        </select>
+                    </td>
+                    <td class="align-top align-items-start">
+                        <input type="number" class="form-control qty" value="${d.qty}" min="1">
+                    </td>
+                    <td class="align-top text-right">
+                        <input type="number" class="form-control jumlah-refund" value="${jumlahRefund}" min="0">
+                    </td>
+                    <td class="align-top text-right hpp">${formatRupiah(d.hpp)}</td>
+                    <td class="align-top text-right total-refund">${formatRupiah(d.total_refund || 0)}</td>
+                    <td class="align-top text-right total-hpp">${formatRupiah(d.total_hpp)}</td>
+                    <td class="align-top text-right selisih">${formatRupiah(d.selisih || 0)}</td>
+                </tr>`;
+            });
+
+            tableData = supplierRow + itemRows;
+        } else {
+            headInput = `
+            <div class="form-group">
+                <div class="row">
+                    <div class="col-md-8 mb-2">
+                        <label for="tipe_retur"><i class="fa fa-random mr-1"></i>Tipe Retur <sup class="text-danger">*</sup></label>
+                        <select class="form-control" id="tipe_retur" name="tipe_retur" required>
+                            <option value="">- Pilih -</option>
+                            <option value="pembelian">Pembelian Barang</option>
+                            <option value="member">Retur Member</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <label for="tanggal"><i class="fa fa-calendar mr-1"></i>Tanggal <sup class="text-danger">*</sup></label>
+                        <input type="datetime-local" class="form-control" id="tanggal" name="tanggal" value="${currentDateTime}" required>
+                    </div>
+                </div>
+                <div id="extra-select" class="form-group">
+                    <div class="row">
+                        <div class="col-md-12 d-none" id="supplier-wrapper">
+                            <label for="supplier"><i class="fa fa-user mr-1"></i>Suplier <sup class="text-danger">*</sup></label>
+                            <select class="form-control select2" id="supplier" name="supplier"></select>
+                        </div>
+                        <div class="col-md-12 d-none" id="qrcode-wrapper">
+                            <label for="qrcode_pembelian"><i class="fa fa-qrcode mr-1"></i>QR Code Pembelian <sup class="text-danger">*</sup></label>
+                            <select class="form-control select2" id="qrcode_pembelian" name="qrcode_pembelian"></select>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+            tableData = `
+            <tr class="no-data">
+                <td class="${tdClass} text-center" colspan="4">
+                    <div class="text-center my-3">
+                        <i class="fa fa-circle-info mr-1"></i>Tidak ada data retur.
+                    </div>
+                </td>
+            </tr>`;
+        }
+
+        const tableHeader = mode === 'edit' ?
+            `
+        <tr>
+            <th class="text-center" style="width:5%">No</th>
+            <th class="text-left" style="width:15%">Barang</th>
+            <th class="text-left" style="width:15%">Kompensasi</th>
+            <th class="text-left" style="width:15%">Qty</th>
+            <th class="text-right" style="width:15%">Refund (Rp)</th>
+            <th class="text-right" style="width:10%">Hpp</th>
+            <th class="text-right" style="width:15%">Total Refund</th>
+            <th class="text-right" style="width:10%">Total Hpp</th>
+            <th class="text-right" style="width:10%">Selisih</th>
+        </tr>` :
+            `
+        <tr>
+            <th class="text-center" style="width:5%">No</th>
+            <th class="text-left" style="width:30%">Barang</th>
+            <th class="text-left" style="width:20%">Qty</th>
+            <th class="text-right" style="width:20%">Hpp</th>
+            <th class="text-right" style="width:20%">Harga Jual</th>
+            <th class="text-center" style="width:5%">Aksi</th>
+        </tr>`;
+
+        const formContent = `
+        <form id="form-retur">
+            <style>
+                #form-retur .select2-container{width:100% !important; max-width:100%;}
+                #form-retur .select2-selection{min-height:35px;}
+                #form-retur .select2-selection__rendered{line-height:33px;}
+                #form-retur .select2-selection__arrow{height:33px;}
+                .table-responsive{overflow-x:auto;}
+                #tableReturItems{min-width:900px;}
+            </style>
+
+            ${headInput}
+
+            <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover m-0" id="tableReturItems">
+                            <thead class="glossy-thead">${tableHeader}</thead>
+                            <tbody>${tableData}</tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </form>`;
+
+        $('#modal-data').html(formContent);
+
+        await saveData(mode, encodedData);
+        initKompensasiLogic();
+
+        if (mode === 'edit') {
+            const table = $('#tableReturItems');
+
+            // ========== Tambahkan baris subtotal di bawah tabel ==========
+            if (!table.find('tfoot').length) {
+                table.append(`
+            <tfoot class="font-weight-bold bg-light">
+                <tr>
+                    <td colspan="5" class="text-left"><small class="text-muted"><sup class="text-danger mr-1">**</sup>Harap isi Qty dari kompensasi retur sampai batas maksimal.</span></td>
+                    <td colspan="1" class="text-right">Subtotal :</td>
+                    <td class="text-right subtotal-refund">Rp 0</td>
+                    <td class="text-right subtotal-hpp">Rp 0</td>
+                    <td class="text-right subtotal-selisih">Rp 0</td>
+                </tr>
+            </tfoot>
+        `);
+            }
+        }
+        const returTable = initReturTableEvents();
+        returTable.checkEmptyTable();
+
+        $('#tipe_retur').on('change', async function() {
+            const val = $(this).val();
+            if (val === 'member') {
+                $('#supplier-wrapper').removeClass('d-none');
+                $('#qrcode-wrapper').addClass('d-none');
+                await returTable.getHarga('#supplier');
+            } else if (val === 'pembelian') {
+                $('#qrcode-wrapper').removeClass('d-none');
+                $('#supplier-wrapper').addClass('d-none');
+                await returTable.getHarga('#qrcode_pembelian');
+            } else {
+                $('#supplier-wrapper, #qrcode-wrapper').addClass('d-none');
+            }
+        });
+
+        let selectOptions = [{
+                id: '#supplier',
+                isUrl: '{{ route('retur.supplier.getSupplier') }}',
+                placeholder: 'Pilih Suplier',
+                isModal: '#modal-form',
+            },
+            {
+                id: '#qrcode_pembelian',
+                isUrl: '{{ route('retur.supplier.getQRCode') }}',
+                placeholder: 'Isi dari QR Code pada menu Detail Pembelian Barang',
+                isModal: '#modal-form',
+                isMinimun: 3,
+            }
+        ];
+
+        await selectData(selectOptions);
+    }
+
+    function initKompensasiLogic() {
+        const table = $('#tableReturItems');
+
+        // ========== Saat pertama kali render ==========
+        table.find('tr.item-row').each(function() {
+            const row = $(this);
+            const qty = row.find('.qty').val() || row.data('qty') || 0;
+            row.attr('data-max', qty);
+            row.find('td:eq(3)').html(`<span>${qty}</span>`);
+            row.find('td:eq(4)').html(
+                `<span class="text-muted fst-italic">Pilih Kompensasi terlebih dahulu</span>`
+            );
+        });
+
+        // ========== Saat pilih kompensasi ==========
+        table.on('change', '.kompensasi', function() {
+            const row = $(this).closest('tr');
+            const kompensasi = $(this).val();
+            const maxQty = parseInt(row.attr('data-max')) || 0;
+            const qtyCell = row.find('td:eq(3)');
+            const refundCell = row.find('td:eq(4)');
+            const hpp = parseFloat(row.data('hpp')) || 0;
+
+            qtyCell.empty();
+            refundCell.empty();
+
+            const makeInput = (type, placeholder) => `
+            <div class="position-relative mb-1">
+                <input type="number" class="form-control ${type}" value="0" min="0" max="${maxQty}" placeholder="${placeholder}">
+                <div class="d-flex justify-content-between align-items-start">
+                    <small class="font-weight-bold">${placeholder}</small>
+                    <small class="text-danger maks-text">Maks: ${maxQty}</small>
+                </div>
+            </div>
+        `;
+
+            if (kompensasi === 'refund') {
+                qtyCell.append(makeInput('qty_refund', 'Qty Refund'));
+                refundCell.append(
+                    `<input type="number" class="form-control jumlah-refund" value="0" min="0" placeholder="Nominal Refund">`
+                );
+            } else if (kompensasi === 'barang') {
+                qtyCell.append(makeInput('qty_barang', 'Qty Barang'));
+                refundCell.append(
+                    `<span>${formatRupiah(hpp)}<br><small class="text-muted">Dalam bentuk barang</small></span>`
+                );
+            } else if (kompensasi === 'kombinasi') {
+                qtyCell.append(`
+                <div class="d-flex flex-column gap-1 position-relative">
+                    ${makeInput('qty_refund', 'Qty Refund')}
+                    ${makeInput('qty_barang', 'Qty Barang')}
+                    <small class="text-muted text-end d-block sisa-text" style="font-size:11px;">Sisa maksimal: ${maxQty}</small>
+                </div>
+            `);
+                refundCell.append(`
+                <div class="d-flex flex-column gap-1">
+                    <input type="number" class="form-control jumlah-refund" value="0" min="0" placeholder="Nominal Refund">
+                    <span class="mt-3">${formatRupiah(hpp)}<br><small class="text-muted">Dalam bentuk barang</small></span>
+                </div>
+            `);
+            } else {
+                qtyCell.html(`<span>${maxQty}</span>`);
+                refundCell.html(`<span class="text-muted fst-italic">Pilih Kompensasi terlebih dahulu</span>`);
+            }
+
+            // Reset kolom hasil
+            row.find('.total-refund').text(formatRupiah(0));
+            row.find('.total-hpp').text(formatRupiah(0));
+            row.find('.selisih').text(formatRupiah(0));
+
+            // Update subtotal
+            updateSubTotal();
+        });
+
+        // ========== Saat ubah nilai qty atau jumlah refund ==========
+        // ========== Saat ubah qty refund / barang ==========
+        table.on('input', '.qty_refund, .qty_barang', function() {
+            const row = $(this).closest('tr');
+            const maxQty = parseInt(row.attr('data-max')) || 0;
+            const hpp = parseFloat(row.data('hpp')) || 0;
+
+            let refundInput = row.find('.qty_refund');
+            let barangInput = row.find('.qty_barang');
+            let refundVal = parseInt(refundInput.val()) || 0;
+            let barangVal = parseInt(barangInput.val()) || 0;
+            const jumlahRefund = parseFloat(row.find('.jumlah-refund').val()) || 0;
+
+            // ======== Batasi qty agar saling menyesuaikan ========
+            if (refundInput.length && barangInput.length) {
+                if (refundVal + barangVal > maxQty) {
+                    const trigger = $(this).is('.qty_refund') ? 'refund' : 'barang';
+                    if (trigger === 'refund') {
+                        refundVal = Math.min(refundVal, maxQty);
+                        barangVal = Math.max(0, maxQty - refundVal);
+                        barangInput.val(barangVal);
+                    } else {
+                        barangVal = Math.min(barangVal, maxQty);
+                        refundVal = Math.max(0, maxQty - barangVal);
+                        refundInput.val(refundVal);
+                    }
+                }
+
+                const sisaQty = Math.max(0, maxQty - (refundVal + barangVal));
+                row.find('.sisa-text').text(`Sisa maksimal: ${sisaQty}`);
+                refundInput.closest('.position-relative').find('.maks-text').text(
+                    `Maks: ${maxQty - barangVal}`);
+                barangInput.closest('.position-relative').find('.maks-text').text(
+                    `Maks: ${maxQty - refundVal}`);
+            } else {
+                const currentInput = $(this);
+                const usedVal = parseInt(currentInput.val()) || 0;
+                if (usedVal > maxQty) currentInput.val(maxQty);
+                currentInput.closest('.position-relative').find('.maks-text').text(
+                    `Maks: ${Math.max(0, maxQty - usedVal)}`);
+            }
+
+            updateRowAndSubtotal(row);
+        });
+
+        // ========== Saat ubah nominal refund ==========
+        table.on('input', '.jumlah-refund', function() {
+            const row = $(this).closest('tr');
+            updateRowAndSubtotal(row);
+        });
+
+        // ========== Fungsi perhitungan baris dan subtotal ==========
+        function updateRowAndSubtotal(row) {
+            const hpp = parseFloat(row.data('hpp')) || 0;
+            const komp = row.find('.kompensasi').val();
+
+            const qtyRefund = parseInt(row.find('.qty_refund').val()) || 0;
+            const qtyBarang = parseInt(row.find('.qty_barang').val()) || 0;
+            const jumlahRefund = parseFloat(row.find('.jumlah-refund').val()) || 0;
+
+            const totalQty = qtyRefund + qtyBarang;
+            const totalHpp = totalQty * hpp;
+            let totalRefund = 0;
+
+            if (komp === 'refund') totalRefund = qtyRefund * jumlahRefund;
+            else if (komp === 'barang') totalRefund = qtyBarang * hpp;
+            else if (komp === 'kombinasi') totalRefund = (qtyRefund * jumlahRefund) + (qtyBarang * hpp);
+
+            const selisih = Math.abs(totalRefund - totalHpp);
+
+            row.find('.total-refund').text(formatRupiah(totalRefund));
+            row.find('.total-hpp').text(formatRupiah(totalHpp));
+            row.find('.selisih').text(formatRupiah(selisih));
+
+            updateSubTotal();
+        }
+
+        // ========== Fungsi Hitung Subtotal ==========
+        function updateSubTotal() {
+            let totalRefund = 0;
+            let totalHpp = 0;
+
+            table.find('tbody tr.item-row').each(function() {
+                const refund = parseFloat($(this).find('.total-refund').text().replace(/[^0-9,-]+/g, "")) || 0;
+                const hpp = parseFloat($(this).find('.total-hpp').text().replace(/[^0-9,-]+/g, "")) || 0;
+
+                totalRefund += refund;
+                totalHpp += hpp;
+            });
+
+            // Hitung selisih subtotal (tanpa minus)
+            const totalSelisih = Math.abs(totalRefund - totalHpp);
+
+            // Update tampilan subtotal
+            table.find('.subtotal-refund').text(formatRupiah(totalRefund));
+            table.find('.subtotal-hpp').text(formatRupiah(totalHpp));
+            table.find('.subtotal-selisih').text(formatRupiah(totalSelisih));
+        }
+    }
+
+    function renderTable(items, mode = 'add') {
+        const tbody = $('#tableReturItems tbody');
+        tbody.find('.no-data').remove();
+
+        items.forEach(item => {
+            // === Cek apakah sudah ada supplier group ===
+            let supplierGroup = tbody.find(`tr.supplier-row[data-supplier="${item.supplier_id}"]`);
+            if (supplierGroup.length === 0) {
+                const supplierRow = `
+            <tr class="supplier-row table-active font-weight-bold" data-supplier="${item.supplier_id}">
+                <td colspan="${mode === 'edit' ? 8 : 9}">
+                    <i class="fa fa-truck mr-1"></i> Supplier: ${item.nama_supplier}
+                </td>
+                ${
+                    mode === 'add'
+                        ? `<td class="text-center">
+                            <button type="button" class="btn btn-sm btn-danger remove-supplier" data-supplier="${item.supplier_id}">
+                                <i class="fa fa-trash-alt"></i>
+                            </button>
+                        </td>`
+                        : ''
+                }
+            </tr>`;
+                tbody.append(supplierRow);
+            }
+
+            const rowCount = tbody.find(`tr.item-row[data-supplier="${item.supplier_id}"]`).length + 1;
+
+            // === Row untuk mode ADD ===
+            const newRowAdd = `
+            <tr class="item-row"
+                data-id="${item.id}"
+                data-supplier="${item.supplier_id}"
+                data-barang="${item.barang_id}"
+                data-hpp="${item.hpp}"
+                data-harga_jual="${item.harga_jual}">
+                <td class="align-top text-center">${rowCount}</td>
+                <td class="align-top text-wrap">
+                    <details>
+                        <summary>${item.barang} => ${item.qrcode}</summary>
+                        <hr><p>${item.tgl}</p>
+                    </details>
+                </td>
+                <td class="align-top align-items-start">
+                    <input type="number" class="form-control qty" value="1" min="1" max="${item.qty_now}">
+                    <small class="text-danger qty-info">Maks: ${item.qty_now}</small>
+                </td>
+                <td class="align-top text-right">${formatRupiah(item.hpp)}</td>
+                <td class="align-top text-right">${formatRupiah(item.harga_jual)}</td>
+                <td class="align-top text-center">
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-item">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </td>
+            </tr>`;
+
+            // === Row untuk mode EDIT ===
+            const newRowEdit = `
+            <tr class="item-row"
+                data-id="${item.id}"
+                data-supplier="${item.supplier_id}"
+                data-barang="${item.barang_id}"
+                data-hpp="${item.hpp}"
+                data-harga_jual="${item.harga_jual}">
+                <td class="align-top text-center">${rowCount}</td>
+                <td class="align-top text-wrap">
+                    <details>
+                        <summary>${item.barang}</summary>
+                        <hr><p>${item.tgl}</p>
+                    </details>
+                </td>
+                <td class="align-top">
+                    <select class="form-control kompensasi">
+                        <option value="">-- Pilih --</option>
+                        <option value="refund">Refund</option>
+                        <option value="barang">Barang Sejenis</option>
+                        <option value="kombinasi">Kombinasi</option>
+                    </select>
+                </td>
+                <td class="align-top align-items-start">
+                    <input type="number" class="form-control qty" value="1" min="1" max="${item.qty_now}">
+                    <small class="text-danger qty-info">Maks: ${item.qty_now}</small>
+                </td>
+                <td class="align-top text-right">
+                    <input type="number" class="form-control jumlah-refund" value="0" min="0">
+                </td>
+                <td class="align-top text-right total-refund">${formatRupiah(0)}</td>
+                <td class="align-top text-right hpp">${formatRupiah(item.hpp)}</td>
+                <td class="align-top text-right selisih">${formatRupiah(0)}</td>
+            </tr>`;
+
+            // Tambahkan ke tabel sesuai mode
+            tbody.find(`tr.supplier-row[data-supplier="${item.supplier_id}"]`).last().after(
+                mode === 'add' ? newRowAdd : newRowEdit
+            );
+        });
+
+        reIndexRows();
+    }
+
+    function initReturTableEvents() {
+        async function getHarga(selector) {
+            $(selector).off('select2:select').on('select2:select', async function(e) {
+                const selectedId = e.params.data.id;
+                if (!selectedId) return;
+
+                try {
+                    let response = await renderAPI(
+                            'GET',
+                            '{{ route('retur.supplier.getHargaBarang') }}', {
+                                id: selectedId,
+                                tipe: $('#tipe_retur').val()
+                            }
+                        ).then(res => res)
+                        .catch(err => err.response);
+
+                    if (response?.data) {
+                        const items = response.data.data;
+
+                        items.forEach(item => handleAddItem(item));
+
+                        setTimeout(() => {
+                            $(selector).val(null).trigger('change.select2');
+                        }, 150);
+
+                        checkEmptyTable();
+                    } else {
+                        notificationAlert('warning', 'Perhatian', 'Data harga barang tidak ditemukan.');
+                    }
+                } catch (err) {
+                    notificationAlert('error', 'Error', 'Gagal mengambil harga barang.');
+                }
+            });
+        }
+
+        function handleAddItem(item) {
+            const tbody = $('#tableReturItems tbody');
+            const existingRow = tbody.find(
+                `.item-row[data-barang="${item.barang_id}"][data-supplier="${item.supplier_id}"]`);
+
+            if (existingRow.length > 0) {
+                // Barang sudah ada, tambahkan qty jika belum mencapai maks
+                const qtyInput = existingRow.find('.qty');
+                const currentQty = parseInt(qtyInput.val());
+                const maxQty = parseInt(qtyInput.attr('max'));
+
+                if (currentQty < maxQty) {
+                    qtyInput.val(currentQty + 1).trigger('input');
+                } else {
+                    notificationAlert('warning', 'Perhatian',
+                        `Qty maksimum untuk ${item.barang} telah tercapai (${maxQty}).`);
+                }
+
+                reIndexRows();
+                checkEmptyTable();
+                return;
+            }
+
+            // Jika supplier row belum ada, buat dulu
+            let supplierGroup = tbody.find(`tr.supplier-row[data-supplier="${item.supplier_id}"]`);
+            if (supplierGroup.length === 0) {
+                const supplierRow = `
+            <tr class="supplier-row table-active font-weight-bold" data-supplier="${item.supplier_id}">
+                <td colspan="5">
+                    <i class="fa fa-truck mr-1"></i> Supplier: ${item.nama_supplier}
+                </td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-danger remove-supplier" data-supplier="${item.supplier_id}">
+                        <i class="fa fa-trash-alt"></i>
+                    </button>
+                </td>
+            </tr>`;
+                tbody.append(supplierRow);
+            }
+
+            const rowCount = tbody.find(`tr.item-row[data-supplier="${item.supplier_id}"]`).length + 1;
+
+            const newRow = `
+                <tr class="item-row" data-id="${item.id}" data-supplier="${item.supplier_id}" data-barang="${item.barang_id}" data-hpp="${item.hpp}" data-harga_jual="${item.harga_jual}">
+                    <td class="align-top text-center">${rowCount}</td>
+                    <td class="align-top text-wrap">
+                        <details><summary>${item.barang} => ${item.qrcode}</summary><hr><p>${item.tgl}</p></details>
+                    </td>
+                    <td class="align-top align-items-start">
+                        <input type="number" class="form-control qty" value="1" min="1" max="${item.qty_now}">
+                        <small class="text-danger qty-info">Maks: ${item.qty_now}</small>
+                    </td>
+                    <td class="align-top text-right">${formatRupiah(item.hpp)}</td>
+                    <td class="align-top text-right">${formatRupiah(item.harga_jual)}</td>
+                    <td class="align-top text-center">
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-item"><i class="fa fa-times"></i></button>
+                    </td>
+                </tr>`;
+
+            tbody.find(`tr.supplier-row[data-supplier="${item.supplier_id}"]`).last().after(newRow);
+
+            reIndexRows();
+            checkEmptyTable();
+        }
+
+        $(document).off('click', '.remove-item').on('click', '.remove-item', function() {
+            const row = $(this).closest('tr');
+            const supplierId = row.data('supplier');
+
+            row.remove();
+
+            const tbody = $('#tableReturItems tbody');
+            if (tbody.find(`.item-row[data-supplier="${supplierId}"]`).length === 0) {
+                tbody.find(`.supplier-row[data-supplier="${supplierId}"]`).remove();
+            }
+
+            reIndexRows();
+            checkEmptyTable();
+        });
+
+        $(document).off('click', '.remove-supplier').on('click', '.remove-supplier', function() {
+            const supplierId = $(this).data('supplier');
+            const tbody = $('#tableReturItems tbody');
+
+            tbody.find(`.item-row[data-supplier="${supplierId}"]`).remove();
+            tbody.find(`.supplier-row[data-supplier="${supplierId}"]`).remove();
+
+            reIndexRows();
+            checkEmptyTable();
+        });
+
+        function reIndexRows() {
+            let no = 1;
+            $('#tableReturItems tbody .item-row').each(function() {
+                $(this).find('td:first').text(no++);
+            });
+        }
+
+        function checkEmptyTable() {
+            const tbody = $('#tableReturItems tbody');
+            const rows = tbody.find('tr.item-row');
+            const colCount = $('#tableReturItems thead tr th').length;
+
+            if (rows.length === 0) {
+                $('#tipe_retur').prop('disabled', false);
+                if (tbody.find('.no-data').length === 0) {
+                    tbody.append(`
+                    <tr class="no-data">
+                        <td class="text-center align-top" colspan="${colCount}">
+                            <div class="text-center my-3">
+                                <i class="fa fa-circle-info mr-1"></i>Tidak ada data retur.
+                            </div>
+                        </td>
+                    </tr>
+                `);
+                }
+            } else {
+                $('#tipe_retur').prop('disabled', true);
+                tbody.find('.no-data').remove();
+            }
+        }
+
+        return {
+            getHarga,
+            handleAddItem,
+            checkEmptyTable
+        };
+    }
+</script>

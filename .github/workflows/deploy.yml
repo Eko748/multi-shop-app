@@ -1,0 +1,67 @@
+name: 🚀 Deploy ke Niagahoster (2 Domain)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: 📦 Upload ke dua domain (lumoa.app & gloef.app)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v3
+
+      # === LUMOA ===
+      - name: ⬇️ Download sync state lumoa
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: ftp-sync-state-lumoa
+
+      - name: 🗂 Upload ke FTP lumoa.app
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_HOST_LUMOA }}
+          username: ${{ secrets.FTP_USERNAME_LUMOA }}
+          password: ${{ secrets.FTP_PASSWORD_LUMOA }}
+          protocol: ftp
+          port: ${{ secrets.FTP_PORT_LUMOA }}
+          local-dir: ./
+          server-dir: ../gss/
+          exclude: .ftpignore
+          sync-state-name: ftp-sync-state-lumoa
+
+      - name: ⬆️ Upload sync state lumoa
+        uses: actions/upload-artifact@v4
+        with:
+          name: ftp-sync-state-lumoa
+          path: .ftp-deploy-sync-state.json
+
+      # === GLOEF ===
+      - name: ⬇️ Download sync state gloef
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: ftp-sync-state-gloef
+
+      - name: 🗂 Upload ke FTP gloef.app
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_HOST_GLOEF }}
+          username: ${{ secrets.FTP_USERNAME_GLOEF }}
+          password: ${{ secrets.FTP_PASSWORD_GLOEF }}
+          protocol: ftp
+          port: ${{ secrets.FTP_PORT_GLOEF }}
+          local-dir: ./
+          server-dir: ../gss/
+          exclude: .ftpignore
+          sync-state-name: ftp-sync-state-gloef
+
+      - name: ⬆️ Upload sync state gloef
+        uses: actions/upload-artifact@v4
+        with:
+          name: ftp-sync-state-gloef
+          path: .ftp-deploy-sync-state.json

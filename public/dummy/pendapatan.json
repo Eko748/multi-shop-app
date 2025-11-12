@@ -1,0 +1,10 @@
+{
+    "error": false,
+    "message": "Successfully",
+    "status_code": 200,
+    "data": {
+        "total": 10000,
+        "laba_kotor": 7000,
+        "laba_bersih": 3000
+    }
+}

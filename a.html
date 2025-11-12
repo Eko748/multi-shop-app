@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Header — Efek Light Hijau</title>
+  <style>
+    :root{
+      --header-height: 80px;
+      --glass-bg: rgba(255,255,255,0.06);
+      --accent:  #2ecc71; /* green accent */
+      --accent-weak: rgba(46,204,113,0.12);
+      --text: rgba(255,255,255,0.95);
+      --glass-border: rgba(255,255,255,0.06);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background: linear-gradient(180deg,#071120 0%, #0b1520 100%);
+      color:var(--text);
+      min-height:100vh;
+    }
+
+    /* Page hero so header sits on top of something interesting */
+    .hero{
+      height:380px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background-image: url('https://images.unsplash.com/photo-1503264116251-35a269479413?auto=format&fit=crop&w=1600&q=60');
+      background-size:cover;
+      background-position:center;
+      position:relative;
+      overflow:hidden;
+    }
+    .hero::after{
+      content:"";
+      position:absolute;inset:0;
+      background:linear-gradient(180deg, rgba(5,12,20,0.45), rgba(5,12,20,0.65));
+    }
+
+    /* Header */
+    header.site-header{
+      position:fixed;
+      left:0;right:0;top:16px;
+      height:var(--header-height);
+      margin:0 auto;
+      max-width:1200px;
+      padding:12px 20px;
+      z-index:60;
+      display:flex;align-items:center;justify-content:space-between;
+      backdrop-filter: blur(8px) saturate(110%);
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border:1px solid var(--glass-border);
+      border-radius:14px;
+      box-shadow: 0 6px 30px rgba(2,6,10,0.6);
+      overflow:hidden;
+    }
+
+    /* Sweeping green light */
+    .site-header::before{
+      content:"";
+      position:absolute;left:-40%;top:-40%;
+      width:60%;height:180%;
+      transform:translateX(-100%) rotate(8deg);
+      background: linear-gradient(90deg, transparent 0%, rgba(46,204,113,0.06) 30%, rgba(46,204,113,0.18) 50%, rgba(46,204,113,0.06) 70%, transparent 100%);
+      filter:blur(18px);
+      /* animation */
+      animation: sweep 6s linear infinite;
+      pointer-events:none;
+      mix-blend-mode: screen;
+    }
+
+    @keyframes sweep{
+      0%{transform: translateX(-140%) rotate(8deg);}
+      50%{transform: translateX(40%) rotate(8deg);}
+      100%{transform: translateX(220%) rotate(8deg);}
+    }
+
+    /* Respect reduced motion */
+    @media (prefers-reduced-motion: reduce){
+      .site-header::before{animation:none;opacity:0.6}
+    }
+
+    .brand{
+      display:flex;align-items:center;gap:12px;z-index:10;
+    }
+    .logo{
+      width:40px;height:40px;border-radius:8px;display:inline-grid;place-items:center;
+      background:linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+      border:1px solid rgba(255,255,255,0.04);
+      box-shadow: 0 4px 12px rgba(2,6,10,0.5) inset;
+      color:var(--text);
+      font-weight:700;
+      font-size:18px;
+    }
+    .site-title{font-weight:600}
+    .site-tag{font-size:12px;opacity:0.78}
+
+    nav.main-nav{display:flex;gap:18px;align-items:center;z-index:10}
+    nav.main-nav a{color:var(--text);text-decoration:none;padding:8px 10px;border-radius:8px;font-weight:500;opacity:0.92}
+    nav.main-nav a:hover{background:var(--accent-weak);color:var(--text)}
+
+    .cta{padding:10px 14px;border-radius:10px;background:linear-gradient(90deg,var(--accent),#00b96b);color:#042017;font-weight:700}
+    .cta:active{transform:translateY(1px)}
+
+    /* Mobile */
+    .hamburger{display:none;z-index:15}
+    .mobile-menu{display:none}
+
+    /* Make header smaller on scroll */
+    header.site-header.shrink{height:60px;padding:8px 16px}
+
+    /* Demo content below */
+    .content{padding:24px;max-width:900px;margin:24px auto;color:rgba(255,255,255,0.92)}
+
+    @media (max-width:820px){
+      nav.main-nav{display:none}
+      .hamburger{display:block}
+      .cta{display:none}
+      header.site-header{padding:10px}
+      .mobile-menu{position:fixed;top:calc(var(--header-height) + 26px);right:20px;background:var(--glass-bg);backdrop-filter:blur(10px);border-radius:12px;padding:12px;border:1px solid var(--glass-border);display:none;z-index:70}
+      .mobile-menu a{display:block;padding:10px;border-radius:8px}
+    }
+  </style>
+</head>
+<body>
+
+  <header class="site-header" id="siteHeader" role="banner" aria-label="Site header">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">E</div>
+      <div>
+        <div class="site-title">Ekoweb</div>
+        <div class="site-tag">UI yang bersih & modern</div>
+      </div>
+    </div>
+
+    <nav class="main-nav" role="navigation" aria-label="Main navigation">
+      <a href="#">Beranda</a>
+      <a href="#">Fitur</a>
+      <a href="#">Harga</a>
+      <a href="#">Kontak</a>
+    </nav>
+
+    <div style="display:flex;gap:12px;align-items:center;">
+      <button class="cta">Daftar</button>
+      <button class="hamburger" id="btnHamb" aria-expanded="false" aria-controls="mobileMenu" aria-label="Buka menu">☰</button>
+    </div>
+
+    <div class="mobile-menu" id="mobileMenu" role="menu" aria-hidden="true">
+      <a href="#">Beranda</a>
+      <a href="#">Fitur</a>
+      <a href="#">Harga</a>
+      <a href="#">Kontak</a>
+    </div>
+  </header>
+
+  <section class="hero" aria-hidden="true">
+    <div style="position:relative;z-index:10;text-align:center;color:#eafaf1;max-width:900px;padding:20px;">
+      <h1 style="margin:0 0 10px;font-size:34px;line-height:1.05">Header modern dengan efek light hijau</h1>
+      <p style="margin:0;opacity:0.9">Efek transparan melintas dari kiri ke kanan memberi kesan energi dan fokus pada navigasi.</p>
+    </div>
+  </section>
+
+  <main class="content">
+    <h2>Sekilas cara pakainya</h2>
+    <ol>
+      <li>Salin file ini sebagai <code>index.html</code>.</li>
+      <li>Letakkan file di server atau buka langsung di browser.</li>
+      <li>Ganti logo/text, link, atau gaya warna pada <code>:root</code> untuk menyesuaikan.</li>
+    </ol>
+
+    <p>Tip: jika ingin efek lebih lembut kurangi <code>filter:blur(18px)</code> atau ubah <code>rgba</code> pada pseudo-element <code>::before</code>.</p>
+  </main>
+
+  <script>
+    // Mobile menu toggle + small header shrink on scroll
+    (function(){
+      const btn = document.getElementById('btnHamb');
+      const menu = document.getElementById('mobileMenu');
+      const header = document.getElementById('siteHeader');
+
+      btn.addEventListener('click', ()=>{
+        const expanded = btn.getAttribute('aria-expanded') === 'true';
+        btn.setAttribute('aria-expanded', String(!expanded));
+        menu.style.display = expanded ? 'none' : 'block';
+        menu.setAttribute('aria-hidden', String(expanded));
+      });
+
+      let lastScroll = 0;
+      window.addEventListener('scroll', ()=>{
+        const y = window.scrollY;
+        if(y > 60) header.classList.add('shrink'); else header.classList.remove('shrink');
+        lastScroll = y;
+      }, {passive:true});
+
+      // Pause sweep animation when user hovers header (optional UX)
+      header.addEventListener('mouseenter', ()=> header.style.setProperty('--paused','paused'))
+      header.addEventListener('mouseleave', ()=> header.style.removeProperty('--paused'))
+    })();
+  </script>
+</body>
+</html>

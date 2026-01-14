@@ -9,9 +9,12 @@ use Endroid\QrCode\Encoding\Encoding;
 
 class QrGenerator
 {
+    /**
+     * Generate QR + simpan ke storage
+     */
     public static function generate()
     {
-        $qrValue = 'QR-' . bin2hex(random_bytes(6));
+        $qrValue = self::generateValue();
 
         $fileName = "{$qrValue}.png";
         $path = "qrcodes/pembelian/{$fileName}";
@@ -33,5 +36,23 @@ class QrGenerator
             'path'  => $path,
             'file'  => $fileName
         ];
+    }
+
+    /**
+     * 🔹 HANYA generate nama file (tanpa QR, tanpa storage)
+     */
+    public static function generateFileName()
+    {
+        $qrValue = self::generateValue();
+
+        return "{$qrValue}.png";
+    }
+
+    /**
+     * 🔹 Centralized QR value generator
+     */       
+    private static function generateValue()
+    {
+        return 'QR-' . bin2hex(random_bytes(6));
     }
 }

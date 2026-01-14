@@ -43,6 +43,37 @@
     </style>
 
     <style>
+                .new_footer_top .footer_bg {
+            position: absolute;
+            bottom: 0;
+            background: url("{{ asset('images/footer/footer_bg.png') }}") no-repeat center 0;
+            width: 100%;
+            height: 266px;
+        }
+
+        .new_footer_top .footer_bg .footer_bg_one {
+            background: url("{{ asset('images/footer/volks.gif') }}") no-repeat center center;
+            width: 330px;
+            height: 105px;
+            background-size: 100%;
+            position: absolute;
+            bottom: 0;
+            left: 30%;
+            animation: myfirst 22s linear infinite;
+        }
+
+        .new_footer_top .footer_bg .footer_bg_two {
+            background: url("{{ asset(' images/footer/cyclist.gif') }}") no-repeat center center;
+            width: 88px;
+            height: 100px;
+            background-size: 100%;
+            bottom: 0;
+            left: 38%;
+            position: absolute;
+            -webkit-animation: myfirst 30s linear infinite;
+            animation: myfirst 30s linear infinite;
+        }
+
         .b-brand b {
             font-family: 'Orbitron', sans-serif;
             font-size: 30px;

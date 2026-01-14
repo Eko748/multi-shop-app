@@ -63,7 +63,7 @@
         }
 
         .new_footer_top .footer_bg .footer_bg_two {
-            background: url("{{ asset(' images/footer/cyclist.gif') }}") no-repeat center center;
+            background: url("{{ asset('images/footer/cyclist.gif') }}") no-repeat center center;
             width: 88px;
             height: 100px;
             background-size: 100%;

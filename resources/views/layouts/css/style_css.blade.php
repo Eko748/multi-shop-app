@@ -43,7 +43,7 @@
     </style>
 
     <style>
-                .new_footer_top .footer_bg {
+        .new_footer_top .footer_bg {
             position: absolute;
             bottom: 0;
             background: url("{{ asset('images/footer/footer_bg.png') }}") no-repeat center 0;
@@ -223,7 +223,3 @@
             /* Mengatur teks di sisi kanan untuk tampilan harga */
         }
     </style>
-
-
-
-    {{-- {{ asset('ElaAdmin-master/assets/css/lib/chosen/chosen.min.css') }}" --}}

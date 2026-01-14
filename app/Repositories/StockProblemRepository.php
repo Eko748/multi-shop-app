@@ -7,30 +7,30 @@ use Illuminate\Support\Facades\DB;
 
 class StockProblemRepository
 {
-    /**
-     * Dapatkan ringkasan stok bermasalah (status hilang/mati).
-     */
     public function getStockProblem(): array
     {
-        $stokProblem = StockBarangBermasalah::select(
-            'status',
-            DB::raw('SUM(qty) as total_qty'),
-            DB::raw('SUM(total_hpp) as total_hpp')
-        )
-        ->whereIn('status', ['hilang', 'mati'])
-        ->groupBy('status')
-        ->get()
-        ->keyBy('status');
+        $stokProblem = StockBarangBermasalah::with('batch')
+            ->whereIn('status', ['hilang', 'mati'])
+            ->get()
+            ->groupBy('status')
+            ->map(function ($group) {
+
+                $totalQty = $group->sum('qty');
+
+                $totalHpp = $group->sum(function ($item) {
+                    $hpp = $item->batch->hpp_akhir ?? 0;
+                    return $item->qty * $hpp;
+                });
+
+                return [
+                    'qty'       => $totalQty,
+                    'total_hpp' => $totalHpp,
+                ];
+            });
 
         return [
-            'stock_hilang' => [
-                'qty'       => $stokProblem['hilang']->total_qty ?? 0,
-                'total_hpp' => $stokProblem['hilang']->total_hpp ?? 0,
-            ],
-            'stock_mati' => [
-                'qty'       => $stokProblem['mati']->total_qty ?? 0,
-                'total_hpp' => $stokProblem['mati']->total_hpp ?? 0,
-            ],
+            'stock_hilang' => $stokProblem['hilang'] ?? ['qty' => 0, 'total_hpp' => 0],
+            'stock_mati'   => $stokProblem['mati']   ?? ['qty' => 0, 'total_hpp' => 0],
         ];
     }
 }

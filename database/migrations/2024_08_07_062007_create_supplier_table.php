@@ -9,13 +9,15 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('supplier', function (Blueprint $table) {
-            $table->id('id');
-            $table->string('nama_supplier');
+            $table->id();
+            $table->string('nama');
             $table->string('email')->nullable();
+            $table->string('telepon')->nullable();
             $table->text('alamat')->nullable();
-            $table->string('contact')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
+            $table->timestamps();
             $table->softDeletes();
         });
     }
-
 };

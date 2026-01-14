@@ -16,7 +16,7 @@
                         <a href="{{ route('dashboard.index') }}"
                             class="nav-link {{ request()->routeIs('dashboard.*') ? $nav_link : '' }}">
                             <span class="pcoded-micon"><i class="feather icon-home"></i></span>
-                            <span class="pcoded-mtext">Dashboard</span>
+                            {{-- <span class="pcoded-mtext">Dashboard</span> --}}
                         </a>
                     </li>
                 @endif

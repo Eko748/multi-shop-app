@@ -28,8 +28,8 @@
                                 <input type="hidden" name="id" id="">
 
                                 <div class="form-group">
-                                    <label for="nama_supplier" class=" form-control-label">Nama Supplier<span style="color: red">*</span></label>
-                                    <input type="text" id="nama_supplier" name="nama_supplier" placeholder="Contoh : Supplier1" class="form-control">
+                                    <label for="nama" class=" form-control-label">Nama Supplier<span style="color: red">*</span></label>
+                                    <input type="text" id="nama" name="nama" placeholder="Contoh : Supplier1" class="form-control">
                                 </div>
                                 <div class="form-group">
                                     <label for="email" class=" form-control-label">Email<span style="color: red">*</span></label>
@@ -40,8 +40,8 @@
                                     <textarea name="alamat" id="alamat" rows="4" placeholder="Contoh : Jl. Nyimas Gandasari No.18 Plered - Cirebon" class="form-control"></textarea>
                                 </div>
                                 <div class="form-group">
-                                    <label for="contact" class=" form-control-label">Contact<span style="color: red">*</span></label>
-                                    <input type="number" id="contact" name="contact" placeholder="Contoh : 081xxxxxxxxx" class="form-control">
+                                    <label for="telepon" class=" form-control-label">Telepon<span style="color: red">*</span></label>
+                                    <input type="number" id="telepon" name="telepon" placeholder="Contoh : 081xxxxxxxxx" class="form-control">
                                 </div>
                                 <br>
                                 <div class="form-group">

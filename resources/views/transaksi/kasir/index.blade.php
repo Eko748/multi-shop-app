@@ -365,7 +365,7 @@
         let selectOptions = [{
             id: '#id_member',
             isFilter: {
-                id_toko: '{{ auth()->user()->id_toko }}',
+                id_toko: '{{ auth()->user()->toko_id }}',
             },
             isUrl: '{{ route('master.member') }}',
             placeholder: 'Pilih Member',
@@ -374,7 +374,7 @@
             id: '#barang',
             isFilter: {
                 is_name: 1,
-                id_toko: '{{ auth()->user()->id_toko }}',
+                id_toko: '{{ auth()->user()->toko_id }}',
             },
             isUrl: '{{ route('master.qrbarcode') }}',
             placeholder: 'Pilih Barang',
@@ -389,7 +389,7 @@
                 y: 'top',
             }
         });
-        const user_id_toko = '{{ auth()->user()->id_toko }}';
+        const user_id_toko = '{{ auth()->user()->toko_id }}';
 
         let initialModalFormHTML;
 
@@ -429,7 +429,7 @@
                     limit: limit,
                     ascending: ascending,
                     search: search,
-                    id_toko: '{{ auth()->user()->id_toko }}',
+                    id_toko: '{{ auth()->user()->toko_id }}',
                     ...filterParams
                 }
             ).then(function(response) {
@@ -843,7 +843,7 @@
                     'DELETE',
                     `{{ route('pengembalian.delete') }}`, {
                         id: id,
-                        id_toko: {{ auth()->user()->id_toko }}
+                        id_toko: {{ auth()->user()->toko_id }}
                     }
                 ).then(function(response) {
                     return response;

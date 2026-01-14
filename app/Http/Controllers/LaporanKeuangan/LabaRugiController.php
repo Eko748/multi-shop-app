@@ -30,8 +30,7 @@ class LabaRugiController extends Controller
             $month = $request->get('month', Carbon::now()->month);
             $year  = $request->get('year', Carbon::now()->year);
 
-            // 🔹 Panggil service
-            $hasil = $this->labaRugiService->hitungDetailLabaRugi($month, $year);
+            $hasil = $this->labaRugiService->hitungDetailLabaRugi($month, $year, $request->toko_id);
 
             return response()->json([
                 'error'   => false,

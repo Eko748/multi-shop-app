@@ -16,10 +16,9 @@ return new class extends Migration
             $table->uuid('public_id')->unique();
             $table->foreignId('dompet_kategori_id')->nullable()
                 ->constrained('td_dompet_kategori')->onDelete('set null');
-            $table->unsignedBigInteger('kas_jenis_barang')->nullable()->index();
+            $table->unsignedBigInteger('kas_id')->nullable()->index();
             $table->decimal('saldo', 15, 2);
             $table->decimal('harga_beli', 15, 2);
-            $table->char('kas')->nullable();
             $table->timestamps();
             $table->softDeletes();
             $table->foreignId('created_by')->nullable()

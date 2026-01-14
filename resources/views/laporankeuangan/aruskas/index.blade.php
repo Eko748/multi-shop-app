@@ -112,10 +112,7 @@
                                                 <th class="text-nowrap align-middle" rowspan="5">Subjek</th>
                                                 <th class="text-nowrap align-middle" rowspan="5">Kategori</th>
                                                 <th class="text-nowrap align-middle" rowspan="5">Item</th>
-                                                <th class="text-nowrap align-middle" rowspan="5">Sat</th>
-                                                <th class="text-nowrap align-middle" rowspan="5">Jml</th>
-                                                <th class="text-nowrap align-middle" rowspan="5">HST</th>
-                                                <th class="text-nowrap align-middle" rowspan="5">Nilai Transaksi</th>
+                                                <th class="text-nowrap align-middle" rowspan="5">Nominal</th>
                                                 <th class="text-nowrap th-data align-middle text-white bg-info">Saldo Akhir
                                                 </th>
                                                 <th class="text-nowrap th-data align-middle text-white bg-info text-right"
@@ -325,6 +322,7 @@
                     limit: limit,
                     ascending: ascending,
                     search: search,
+                    toko_id: {{ auth()->user()->toko_id }},
                     ...filterParams
                 }
             ).then(function(response) {
@@ -340,6 +338,13 @@
                 );
                 await totalListData(getDataRest.data.data_total);
                 await setListData(handleDataArray);
+                if (getDataRest.data.data.length == 0) {
+                    let errorRow = `
+                    <tr class="text-dark">
+                        <th class="text-center" colspan="${$('#head-table th').length}"> ${getDataRest.data.message} </th>
+                    </tr>`;
+                    $('#listData').html(errorRow);
+                }
             } else {
                 await totalListData(null);
                 let errorMessage = getDataRest?.data?.message || 'Data gagal dimuat';
@@ -352,23 +357,13 @@
         }
 
         async function handleData(data) {
-            const formatDate = (input) => {
-                if (!input) return '-';
-                const dateOnly = input.split(' ')[0] || input;
-                const [day, month, year] = dateOnly.split('-');
-                if (!day || !month || !year) return '-';
-                return `${day}-${month}-${year}`;
-            };
 
             return {
                 id: data?.id ?? '-',
-                tgl: formatDate(data?.tgl),
+                tgl: data?.tgl,
                 subjek: data?.subjek ?? '-',
                 kategori: data?.kategori ?? '-',
                 item: data?.item ?? '-',
-                sat: data?.sat ?? '-',
-                jml: data?.jml ?? 0,
-                hst: data?.hst ?? 0,
                 nilai_transaksi: data?.nilai_transaksi ?? 0,
                 kas_kecil_in: data?.kas_kecil_in ?? 0,
                 kas_kecil_out: data?.kas_kecil_out ?? 0,
@@ -392,9 +387,6 @@
                         <td class="${classCol} td-data">${element.subjek}</td>
                         <td class="${classCol}">${element.kategori}</td>
                         <td class="${classCol} td-data">${element.item}</td>
-                        <td class="${classCol} text-center">${element.sat}</td>
-                        <td class="${classCol} text-center">${element.jml}</td>
-                        <td class="${classCol} text-right">${element.hst.toLocaleString()}</td>
                         <td class="${classCol} text-right">${element.nilai_transaksi.toLocaleString()}</td>
                         <td class="${classCol} text-right">${element.kas_kecil_in.toLocaleString()}</td>
                         <td class="${classCol} text-right">${element.kas_kecil_out.toLocaleString()}</td>

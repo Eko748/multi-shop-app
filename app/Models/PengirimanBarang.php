@@ -12,46 +12,35 @@ class PengirimanBarang extends Model
 
     protected $table = 'pengiriman_barang';
 
-    protected $fillable = [
-        'no_resi',
-        'toko_pengirim',
-        'nama_pengirim',
-        'ekspedisi',
-        'toko_penerima',
-        'tgl_kirim',
-        'tgl_terima',
-        'total_item',
-        'total_nilai',
-        'status',
-        'tipe_pengiriman',
-    ];
+    protected $guarded = [];
 
-    public function tokof()
+    public function tokoAsal()
     {
-        return $this->belongsTo(Toko::class, 'id_toko', 'id');
-    }
-    public function toko()
-    {
-        return $this->belongsTo(Toko::class, 'toko_pengirim', 'id');
+        return $this->belongsTo(Toko::class, 'toko_asal_id', 'id');
     }
 
-    public function tokos()
+    public function tokoTujuan()
     {
-        return $this->belongsTo(Toko::class, 'toko_penerima', 'id');
+        return $this->belongsTo(Toko::class, 'toko_tujuan_id', 'id');
     }
 
-    public function user()
+    public function sender()
     {
-        return $this->belongsTo(User::class, 'nama_pengirim', 'id');
+        return $this->belongsTo(User::class, 'send_by');
     }
 
-    public function barang()
+    public function verified()
     {
-        return $this->belongsTo(Barang::class, 'id_barang', 'id');
+        return $this->belongsTo(User::class, 'verified_by');
     }
 
-    public function detail()
+    public function pengirimanBarangDetail()
     {
-        return $this->hasMany(DetailPengirimanBarang::class, 'id_pengiriman_barang');
+        return $this->hasMany(PengirimanBarangDetail::class, 'pengiriman_barang_id');
+    }
+
+    public function temp()
+    {
+        return $this->hasMany(PengirimanBarangDetailTemp::class, 'pengiriman_barang_id');
     }
 }

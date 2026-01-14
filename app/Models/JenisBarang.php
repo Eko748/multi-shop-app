@@ -28,6 +28,11 @@ class JenisBarang extends Model
         return $this->hasMany(Barang::class, 'id_barang', 'id');
     }
 
+    public function pembelianBarang()
+    {
+        return $this->hasMany(PembelianBarang::class, 'jenis_barang_id', 'id');
+    }
+
     public function brand()
     {
         return $this->hasMany(Brand::class, 'id_brand_barang', 'id');

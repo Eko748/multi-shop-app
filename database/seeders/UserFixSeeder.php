@@ -29,14 +29,12 @@ class UserFixSeeder extends Seeder
             User::updateOrCreate(
                 ['id' => $item['id']],
                 [
-                    'id_toko'       => $item['id_toko'],
-                    'id_level'      => $item['id_level'],
+                    'toko_id'       => $item['toko_id'],
+                    'role_id'       => $item['role_id'],
                     'nama'          => $item['nama'],
                     'username'      => $item['username'],
                     'password'      => $item['password'], // diasumsikan sudah hashed
-                    'email'         => $item['email'],
                     'alamat'        => $item['alamat'],
-                    'no_hp'         => $item['no_hp'],
                     'ip_login'      => $item['ip_login'],
                     'last_activity' => $item['last_activity'],
                     'deleted_at'    => $item['deleted_at'],

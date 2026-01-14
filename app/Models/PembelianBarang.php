@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use App\Http\Controllers\BarangController;
@@ -12,38 +13,29 @@ class PembelianBarang extends Model
 
     protected $table = 'pembelian_barang';
 
-    public $timestamps = false;
+    protected $guarded = [];
 
-    protected $fillable = [
-        'id_supplier',
-        'id_users',
-        'no_nota',
-        'tgl_nota',
-        'total_item',
-        'total_nilai',
-        'label',
-        'status',
-        'tipe'
+    protected $casts = [
+        'verified_at' => 'datetime',
     ];
 
     public function detail()
     {
-        return $this->hasMany(DetailPembelianBarang::class, 'id_pembelian_barang');
+        return $this->hasMany(PembelianBarangDetail::class, 'pembelian_barang_id');
     }
 
     public function supplier()
     {
-        return $this->belongsTo(Supplier::class, 'id_supplier');
+        return $this->belongsTo(Supplier::class, 'supplier_id');
     }
 
-    public function barang()
+    public function jenisBarang()
     {
-        return $this->belongsTo(Barang::class, 'id_barang');
+        return $this->belongsTo(JenisBarang::class, 'jenis_barang_id');
     }
 
     public function level_harga()
     {
         return $this->belongsTo(LevelHarga::class, 'id_level_harga');
     }
-
 }

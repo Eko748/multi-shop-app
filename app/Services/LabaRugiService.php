@@ -2,308 +2,178 @@
 
 namespace App\Services;
 
-use App\Models\DetailKasir;
-use App\Models\Pemasukan;
-use App\Models\Pengeluaran;
-use App\Models\JenisPengeluaran;
+use App\Models\{Pemasukan, Pengeluaran, PengeluaranTipe, KasTransaksi};
 use App\Models\PenjualanNonFisikDetail;
-use App\Models\ReturMemberDetail;
-use App\Models\ReturSupplierDetail;
+use App\Models\ReturMember;
+use App\Models\{LabaRugi, LabaRugiTahunan};
 use App\Models\StockBarangBermasalah;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
+use App\Models\TransaksiKasir;
 
 class LabaRugiService
 {
-    public function hitungLabaRugi($month, $year)
+    public function hitungLabaRugi($month, $year, $tokoId)
     {
-        return $this->hitungDetailLabaRugi($month, $year, true);
+        return $this->hitungDetailLabaRugi($month, $year, $tokoId, true);
     }
 
-    public function hitungLabaRugiRange($month, $year)
+    public function hitungLabaRugiTahunSebelumnya($year, $tokoId)
+    {
+        $query = LabaRugiTahunan::where('tahun', '<', $year);
+
+        if ($tokoId !== 'all') {
+            $query->where('toko_id', $tokoId);
+        }
+
+        return (float) $query->sum('laba_bersih');
+    }
+
+    public function hitungLabaRugiRange($month, $year, $tokoId)
     {
         $results = [];
 
-        // ============ PENJUALAN UMUM ============
-        $kasir = DetailKasir::join('barang as b', 'b.id', '=', 'detail_kasir.id_barang')
-            ->join('stock_barang as sb', 'sb.id_barang', '=', 'b.id')
-            ->whereYear('detail_kasir.created_at', $year)
-            ->whereMonth('detail_kasir.created_at', '<=', $month)
-            ->whereNull('detail_kasir.deleted_at')
-            ->whereNull('b.deleted_at')
-            ->whereNull('sb.deleted_at')
-            ->selectRaw('MONTH(detail_kasir.created_at) as bulan, SUM(detail_kasir.total_harga) as total')
-            ->groupBy('bulan')
-            ->pluck('total', 'bulan');
+        $query = LabaRugi::where('tahun', $year)
+            ->where('bulan', '<=', $month);
 
-        $penjualanNF = [];
-        if (Schema::hasTable('td_penjualan_nonfisik_detail')) {
-            $penjualanNF = PenjualanNonFisikDetail::whereYear('created_at', $year)
-                ->whereMonth('created_at', '<=', $month)
-                ->selectRaw('MONTH(created_at) as bulan, SUM(harga_jual * qty) as total')
-                ->groupBy('bulan')
-                ->pluck('total', 'bulan');
+        if ($tokoId !== 'all') {
+            $query->where('toko_id', $tokoId);
         }
 
-        // ============ PENDAPATAN LAINNYA ============
-        $pemasukan = Pemasukan::whereNotIn('id_jenis_pemasukan', [1, 2])
-            ->whereYear('tanggal', $year)
-            ->whereMonth('tanggal', '<=', $month)
-            ->selectRaw('MONTH(tanggal) as bulan, SUM(nilai) as total')
-            ->groupBy('bulan')
-            ->pluck('total', 'bulan')
-            ->map(fn($v) => (float) $v);
+        $data = $query
+            ->pluck('laba_bersih', 'bulan')
+            ->toArray();
 
-        $keuntunganRefundSuplier = ReturSupplierDetail::where('qty_refund', '>', 0)
-            ->whereYear('created_at', $year)
-            ->whereMonth('created_at', '<=', $month)
-            ->where('keterangan', 'untung')
-            ->selectRaw('MONTH(created_at) as bulan, SUM(selisih) as total')
-            ->groupBy('bulan')
-            ->pluck('total', 'bulan')
-            ->map(fn($v) => (float) $v);
-
-        $pendapatanLainnya = collect(range(1, $month))->mapWithKeys(function ($i) use ($pemasukan, $keuntunganRefundSuplier) {
-            return [$i => ($pemasukan[$i] ?? 0) + ($keuntunganRefundSuplier[$i] ?? 0)];
-        });
-
-        // ============ RETUR MEMBER (Refund + Barang) ============
-        $returMemberRefund = ReturMemberDetail::whereYear('created_at', $year)
-            ->whereMonth('created_at', '<=', $month)
-            ->where('qty_refund', '>', 0)
-            ->selectRaw('MONTH(created_at) as bulan, SUM(total_refund) as total')
-            ->groupBy('bulan')
-            ->pluck('total', 'bulan');
-
-        // $returMemberBarang = ReturMemberDetail::whereYear('created_at', $year)
-        //     ->whereMonth('created_at', '<=', $month)
-        //     ->where('qty_barang', '>', 0)
-        //     ->selectRaw('MONTH(created_at) as bulan, SUM(total_hpp_barang) as total')
-        //     ->groupBy('bulan')
-        //     ->pluck('total', 'bulan');
-
-        // Total retur = nilai negatif (karena pengurang pendapatan)
-        $nilaiReturMember = $returMemberRefund->map(function ($value, $key) {
-            return -abs($value + ($returMemberBarang[$key] ?? 0));
-        });
-
-        // ============ HPP PENJUALAN ============
-        $hppKasir = DB::table('detail_kasir as dk')
-            ->join('kasir as k', 'dk.id_kasir', '=', 'k.id')
-            ->join('detail_pembelian_barang as dpb', 'dk.id_detail_pembelian', '=', 'dpb.id')
-            ->join('pembelian_barang as pb', 'dpb.id_pembelian_barang', '=', 'pb.id')
-            ->join('barang as b', 'dpb.id_barang', '=', 'b.id')
-            ->join('stock_barang as sb', 'sb.id_barang', '=', 'b.id')
-            ->whereYear('dk.created_at', $year)
-            ->whereMonth('dk.created_at', '<=', $month)
-            ->whereNull('dk.deleted_at')
-            ->whereNull('k.deleted_at')
-            ->whereNull('dpb.deleted_at')
-            ->whereNull('pb.deleted_at')
-            ->whereNull('b.deleted_at')
-            ->whereNull('sb.deleted_at')
-            ->selectRaw('MONTH(dk.created_at) as bulan, SUM(dk.qty * dpb.harga_barang) as total')
-            ->groupBy('bulan')
-            ->pluck('total', 'bulan');
-
-        $hppPenjualanNF = PenjualanNonFisikDetail::whereYear('created_at', $year)
-            ->whereMonth('created_at', '<=', $month)
-            ->selectRaw('MONTH(created_at) as bulan, SUM(hpp * qty) as total')
-            ->groupBy('bulan')
-            ->pluck('total', 'bulan');
-
-        // ============ HPP RETUR ============
-        $hppRetur = ReturMemberDetail::whereYear('created_at', $year)
-            ->whereMonth('created_at', '<=', $month)
-            ->selectRaw('MONTH(created_at) as bulan, SUM(total_hpp) as total')
-            ->groupBy('bulan')
-            ->pluck('total', 'bulan')
-            ->map(fn($v) => -abs($v)); // nilai negatif (pengurang HPP total)
-
-        // ============ BEBAN OPERASIONAL ============
-        $pengeluaran = Pengeluaran::whereYear('tanggal', $year)
-            ->whereMonth('tanggal', '<=', $month)
-            ->selectRaw('MONTH(tanggal) as bulan, SUM(nilai) as total')
-            ->groupBy('bulan')
-            ->pluck('total', 'bulan');
-
-        $hppReturBarang = ReturMemberDetail::whereYear('created_at', $year)
-            ->whereMonth('created_at', '<=', $month)
-            ->where('qty_barang', '>', 0)
-            ->selectRaw('MONTH(created_at) as bulan, SUM(total_hpp_barang) as total')
-            ->groupBy('bulan')
-            ->pluck('total', 'bulan');
-
-        $stockBermasalah = StockBarangBermasalah::where('status', 'hilang')
-            ->whereYear('created_at', $year)
-            ->whereMonth('created_at', '<=', $month)
-            ->selectRaw('MONTH(created_at) as bulan, SUM(total_hpp) as total')
-            ->groupBy('bulan')
-            ->pluck('total', 'bulan')
-            ->map(fn($v) => (float) $v); // pastikan semua angka float
-
-        $kerugianRefundSuplier = ReturSupplierDetail::where('qty_refund', '>', 0)
-            ->whereYear('created_at', $year)
-            ->whereMonth('created_at', '<=', $month)
-            ->where('keterangan', 'rugi')
-            ->selectRaw('MONTH(created_at) as bulan, SUM(selisih) as total')
-            ->groupBy('bulan')
-            ->pluck('total', 'bulan')
-            ->map(fn($v) => (float) $v);
-
-        // ======= HITUNG PER BULAN =======
         for ($i = 1; $i <= $month; $i++) {
-            // 1. Penjualan
-            $penjualan = ($kasir[$i] ?? 0) + ($penjualanNF[$i] ?? 0);
-
-            // 2. Pendapatan total (sama seperti hitungDetail)
-            $pendapatan = $penjualan + ($pendapatanLainnya[$i] ?? 0) + ($nilaiReturMember[$i] ?? 0);
-
-            // 3. HPP total
-            $hpp = ($hppKasir[$i] ?? 0) + ($hppPenjualanNF[$i] ?? 0) + ($hppRetur[$i] ?? 0) + ($hppReturBarang[$i] ?? 0);
-
-            // 4. Beban total
-            $beban = ($pengeluaran[$i] ?? 0) + ($stockBermasalah[$i] ?? 0) + ($kerugianRefundSuplier[$i] ?? 0);
-
-            // 5. Laba/Rugi
-            $results[$i] = $pendapatan - $hpp - $beban;
+            $results[$i] = $data[$i] ?? 0;
         }
 
         return $results;
     }
 
-    public function hitungDetailLabaRugi($month, $year, $isNeraca = false)
+    public function hitungDetailLabaRugi($month, $year, $tokoId = 'all', $isNeraca = false)
     {
-        // Penjualan Umum
-        $kasir = DetailKasir::join('barang as b', 'b.id', '=', 'detail_kasir.id_barang')
-            ->join('stock_barang as sb', 'sb.id_barang', '=', 'b.id')
-            ->whereMonth('detail_kasir.created_at', $month)
-            ->whereYear('detail_kasir.created_at', $year)
-            ->whereNull('detail_kasir.deleted_at')
-            ->whereNull('b.deleted_at')
-            ->whereNull('sb.deleted_at')
-            ->sum('detail_kasir.total_harga');
+        // Helper closure untuk filter toko
+        $filterToko = function ($query) use ($tokoId) {
+            $query->whereHas('kas', function ($q) use ($tokoId) {
+                if ($tokoId !== 'all') {
+                    $q->where('toko_id', $tokoId);
+                }
+            });
+        };
 
-        if (Schema::hasTable('td_penjualan_nonfisik_detail')) {
-            $penjualanNF = PenjualanNonFisikDetail::whereMonth('created_at', $month)
-                ->whereYear('created_at', $year)
-                ->sum(DB::raw('harga_jual * qty'));
-        } else {
-            $penjualanNF = 0;
-        }
+        // ============================
+        // PENDAPATAN
+        // ============================
 
-        // Pendapatan Lainnya
-        $pemasukan = Pemasukan::whereNotIn('id_jenis_pemasukan', [1, 2])
+        $penjualanUmum = KasTransaksi::where('tipe', 'in')
+            ->where('sumber_type', TransaksiKasir::class)
             ->whereMonth('tanggal', $month)
             ->whereYear('tanggal', $year)
-            ->sum('nilai');
+            ->where($filterToko)
+            ->sum('total_nominal');
 
-        $keuntunganRefundSuplier = ReturSupplierDetail::where('qty_refund', '>', 0)
-            ->whereMonth('created_at', $month)
-            ->whereYear('created_at', $year)
-            ->where('keterangan', 'untung')->sum('selisih');
+        $penjualanNF = KasTransaksi::where('tipe', 'in')
+            ->where('sumber_type', PenjualanNonFisikDetail::class)
+            ->whereMonth('tanggal', $month)
+            ->whereYear('tanggal', $year)
+            ->where($filterToko)
+            ->sum('total_nominal');
 
-        $kerugianRefundSuplier = ReturSupplierDetail::where('qty_refund', '>', 0)
-            ->whereMonth('created_at', $month)
-            ->whereYear('created_at', $year)
-            ->where('keterangan', 'rugi')->sum('selisih');
+        $pendapatanLainnya = KasTransaksi::where('tipe', 'in')
+            ->where('sumber_type', Pemasukan::class)
+            ->whereMonth('tanggal', $month)
+            ->whereYear('tanggal', $year)
+            ->where($filterToko)
+            ->whereHasMorph('sumber', [Pemasukan::class], function ($q) {
+                $q->whereNotIn('pemasukan_tipe_id', [1, 2]);
+            })
+            ->sum('total_nominal');
 
-        $pendapatanLainnya = $pemasukan + $keuntunganRefundSuplier - $kerugianRefundSuplier;
+        $nilaiReturMember = KasTransaksi::where('tipe', 'in')
+            ->where('sumber_type', ReturMember::class)
+            ->whereMonth('tanggal', $month)
+            ->whereYear('tanggal', $year)
+            ->where($filterToko)
+            ->sum('total_nominal');
 
-        // Asset Retur
-        $returMemberRefund = ReturMemberDetail::whereMonth('created_at', $month)
-            ->whereYear('created_at', $year)
-            ->where('qty_refund', '>', 0)
-            ->sum('total_refund');
+        $pendapatanNonTransaksi = 0;
 
-        // $returMemberBarang = ReturMemberDetail::whereMonth('created_at', $month)
-        //     ->whereYear('created_at', $year)
-        //     ->where('qty_barang', '>', 0)
-        //     ->sum('total_hpp_barang');
+        $penjualanUmum += $penjualanNF;
+        $totalPendapatan = $penjualanUmum + $pendapatanLainnya + $nilaiReturMember + $pendapatanNonTransaksi;
 
-        $penjualanUmum = $kasir + $penjualanNF;
-
-        $nilaiReturMember = -abs($returMemberRefund);
-
-        $totalPendapatan = $penjualanUmum + $pendapatanLainnya + $nilaiReturMember;
-
-        // HPP Penjualan
-        $hppKasir = DB::table('detail_kasir as dk')
-            ->join('kasir as k', 'dk.id_kasir', '=', 'k.id')
-            ->join('detail_pembelian_barang as dpb', 'dk.id_detail_pembelian', '=', 'dpb.id')
-            ->join('pembelian_barang as pb', 'dpb.id_pembelian_barang', '=', 'pb.id')
-            ->join('barang as b', 'dpb.id_barang', '=', 'b.id')
-            ->join('stock_barang as sb', 'sb.id_barang', '=', 'b.id') // filter barang valid
-            ->whereMonth('dk.created_at', $month)
-            ->whereYear('dk.created_at', $year)
-            ->whereNull('dk.deleted_at')
-            ->whereNull('k.deleted_at')
-            ->whereNull('dpb.deleted_at')
-            ->whereNull('pb.deleted_at')
-            ->whereNull('b.deleted_at')
-            ->whereNull('sb.deleted_at')
-            ->sum(DB::raw('dk.qty * dpb.harga_barang')) ?? 0;
-
-        $hppPenjualanNF = PenjualanNonFisikDetail::whereMonth('created_at', $month)
-            ->whereYear('created_at', $year)
-            ->sum(DB::raw('hpp * qty'));
-
-        $hppPenjualan = $hppKasir + $hppPenjualanNF;
-
-        // HPP Retur
-        $hppretur = ReturMemberDetail::whereMonth('created_at', $month)
-            ->whereYear('created_at', $year)
-            ->sum('total_hpp');
-
-        $hppretur = -abs($hppretur);
-
-        $hppBarangGanti = ReturMemberDetail::whereMonth('created_at', $month)
-            ->whereYear('created_at', $year)
-            ->where('qty_barang', '>', 0)
-            ->sum('total_hpp_barang');
-
-        $hppBarangGanti = $hppBarangGanti;
+        // ============================
+        // HPP (sementara 0)
+        // ============================
+        $hppPenjualan = 0;
+        $hppretur = 0;
+        $hppBarangGanti = 0;
 
         $total_hpp = $hppPenjualan + $hppretur + $hppBarangGanti;
 
-        // Beban Operasional
-        $jenisPengeluaran = JenisPengeluaran::where('id', '!=', 11)->get();
-        $totalBeban = 0;
+        // ============================
+        // BEBAN OPERASIONAL
+        // ============================
+
+        $pengeluaran = KasTransaksi::where('tipe', 'out')
+            ->where('sumber_type', Pengeluaran::class)
+            ->whereMonth('kas_transaksi.tanggal', $month)
+            ->whereYear('kas_transaksi.tanggal', $year)
+            ->where($filterToko)
+            ->join('pengeluaran', 'kas_transaksi.sumber_id', '=', 'pengeluaran.id')
+            ->selectRaw('pengeluaran.pengeluaran_tipe_id, SUM(kas_transaksi.total_nominal) as total')
+            ->groupBy('pengeluaran.pengeluaran_tipe_id')
+            ->get()
+            ->keyBy('pengeluaran_tipe_id');
+
         $bebanOperasional = [];
+        $totalBeban = 0;
 
-        foreach ($jenisPengeluaran as $index => $jenis) {
-            $totalNilai = Pengeluaran::where('id_jenis_pengeluaran', $jenis->id)
-                ->whereMonth('tanggal', $month)
-                ->whereYear('tanggal', $year)
-                ->sum('nilai');
+        $jenisList = PengeluaranTipe::where('id', '!=', 11)->get();
 
-            $totalBeban += $totalNilai;
+        foreach ($jenisList as $index => $jenis) {
+
+            $nilai = isset($pengeluaran[$jenis->id])
+                ? (float) $pengeluaran[$jenis->id]->total
+                : 0;
+
+            $label = '3.' . ($index + 1) . ' ' . $jenis->tipe;
+
             $bebanOperasional[] = [
-                'label' => '3.' . ($index + 1) . ' ' . $jenis->nama_jenis,
-                'value' => $totalNilai
+                'label' => $label,
+                'value' => $nilai
             ];
+
+            $totalBeban += $nilai;
         }
 
-        // Stock bermasalah
-        $stockBermasalah = StockBarangBermasalah::where('status', 'hilang')
-            ->whereMonth('created_at', $month)
-            ->whereYear('created_at', $year)
-            ->sum('total_hpp');
+        // ============================
+        // STOK HILANG / BARANG BERMASALAH
+        // ============================
 
-        // $kerugianRefundSuplier = ReturSupplierDetail::where('qty_refund', '>', 0)
-        //     ->whereMonth('created_at', $month)
-        //     ->whereYear('created_at', $year)
-        //     ->where('keterangan', 'rugi')->sum('selisih');
+        $stockBermasalah = KasTransaksi::where('tipe', 'out')
+            ->where('sumber_type', StockBarangBermasalah::class)
+            ->whereMonth('tanggal', $month)
+            ->whereYear('tanggal', $year)
+            ->where($filterToko)
+            ->sum('total_nominal');
 
-        // $bebanOperasional[] = ['label' => '3.11 Kerugian Retur ke Suplier', 'value' => $kerugianRefundSuplier];
-        $bebanOperasional[] = ['label' => '3.11 Stok Barang Hilang', 'value' => $stockBermasalah];
+        $nextNumber = count($jenisList) + 1;
+
+        $bebanOperasional[] = [
+            'label' => '3.' . $nextNumber . ' Stok Barang Hilang',
+            'value' => $stockBermasalah
+        ];
 
         $totalBeban += $stockBermasalah;
 
-        // $bebanOperasional[] = ['label' => '3.11 Biaya Retur Ganti Barang', 'value' => $biayaRetur];
-        $bebanOperasional[] = ['label' => 'Total Beban Operasional', 'value' => $totalBeban];
+        $bebanOperasional[] = [
+            'label' => 'Total Beban Operasional',
+            'value' => $totalBeban
+        ];
 
-        $total_labarugi = $totalPendapatan + -abs($total_hpp) - $totalBeban;
+        // ============================
+        // LABA RUGI
+        // ============================
+        $total_labarugi = $totalPendapatan - $total_hpp - $totalBeban;
 
         if ($isNeraca) {
             return (float) $total_labarugi;
@@ -319,11 +189,13 @@ class LabaRugiService
             $hppBarangGanti,
             $total_hpp,
             $bebanOperasional,
-            $total_labarugi
+            $total_labarugi,
+            $pendapatanNonTransaksi
         );
     }
 
-    protected function getDetailLaporan($penjualanUmum, $pendapatanLainnya, $assetRetur, $totalPendapatan, $hppPenjualan, $hppretur, $hppBarangGanti, $total_hpp, $bebanOperasional, $total_labarugi)
+
+    protected function getDetailLaporan($penjualanUmum, $pendapatanLainnya, $assetRetur, $totalPendapatan, $hppPenjualan, $hppretur, $hppBarangGanti, $total_hpp, $bebanOperasional, $total_labarugi, $pendapatanNonTransaksi)
     {
         return [
             [
@@ -332,6 +204,7 @@ class LabaRugiService
                     ['1.1 Penjualan Umum', number_format($penjualanUmum, 0, ',', '.')],
                     ['1.2 Pendapatan Lainnya', number_format($pendapatanLainnya, 0, ',', '.')],
                     ['1.3 Pengembalian Retur', number_format($assetRetur, 0, ',', '.')],
+                    ['1.4 Pendapatan Non Transaksi', number_format($pendapatanNonTransaksi, 0, ',', '.')],
                     ['Total Pendapatan', number_format($totalPendapatan, 0, ',', '.')]
                 ]
             ],

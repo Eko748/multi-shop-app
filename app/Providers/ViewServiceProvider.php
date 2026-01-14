@@ -18,7 +18,7 @@ class ViewServiceProvider extends ServiceProvider
             $permissions = DB::table('role_has_permissions')
                 ->join('permissions', 'role_has_permissions.permission_id', '=', 'permissions.id')
                 ->join('menus', 'permissions.menu_id', '=', 'menus.id')
-                ->where('role_has_permissions.role_id', $user->id_level)
+                ->where('role_has_permissions.role_id', $user->role_id)
                 ->select(
                     'permissions.id as permission_id',
                     'permissions.name as permission_name',

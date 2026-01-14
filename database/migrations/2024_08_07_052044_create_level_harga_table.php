@@ -12,10 +12,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('level_harga', function (Blueprint $table) {
-            $table->id('id')->primary();
+            $table->id();
             $table->string('nama_level_harga');
+            $table->timestamps();
             $table->softDeletes();
         });
     }
-
 };

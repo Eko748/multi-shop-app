@@ -152,7 +152,7 @@
                     limit: limit,
                     ascending: ascending,
                     search: search,
-                    id_toko: '{{ auth()->user()->id_toko }}',
+                    toko_id: {{ auth()->user()->toko_id }},
                     ...filterParams
                 }
             ).then(function(response) {
@@ -283,7 +283,7 @@
                     let postDataRest = await renderAPI(
                         'DELETE',
                         `member/delete/${id}`, {
-                            user_id: '{{ auth()->user()->id }}'
+                            user_id: {{ auth()->user()->id }}
                         }
                     ).then(function(response) {
                         return response;
@@ -381,7 +381,7 @@
 
             await $('#form-data').html(formContent);
 
-            const tokoId = mode === 'edit' ? data.id_toko : '{{ auth()->user()->id_toko }}';
+            const tokoId = mode === 'edit' ? data.id_toko : {{ auth()->user()->toko_id }};
 
             jenisBarangList.forEach(jb => {
                 selectOptions.push({

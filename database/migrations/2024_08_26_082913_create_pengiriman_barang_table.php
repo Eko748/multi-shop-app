@@ -10,19 +10,16 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('pengiriman_barang', function (Blueprint $table) {
-            $table->id('id');
-            $table->string('id_retur')->nullable();
-            $table->string('no_resi');
-            $table->string('toko_pengirim');
-            $table->string('nama_pengirim');
-            $table->string('ekspedisi');
-            $table->string('toko_penerima');
-            $table->dateTime('tgl_kirim');
-            $table->integer('total_item')->nullable();
-            $table->double('total_nilai')->nullable();
-            $table->dateTime('tgl_terima')->nullable();
+            $table->id();
+            $table->unsignedBigInteger('toko_asal_id');
+            $table->unsignedBigInteger('toko_tujuan_id');
             $table->enum('status', ['pending', 'progress', 'success', 'canceled'])->default('pending');
-            $table->enum('tipe_pengiriman', ['mutasi', 'reture'])->default('mutasi');
+            $table->string('no_resi');
+            $table->string('ekspedisi');
+            $table->unsignedBigInteger('send_by');
+            $table->timestamp('send_at');
+            $table->unsignedBigInteger('verified_by')->nullable();
+            $table->timestamp('verified_at')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

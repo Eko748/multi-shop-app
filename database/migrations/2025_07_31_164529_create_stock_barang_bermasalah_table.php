@@ -13,13 +13,10 @@ return new class extends Migration
     {
         Schema::create('stock_barang_bermasalah', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('stock_barang_id')->nullable()->index();
-            $table->string('status');
+            $table->unsignedBigInteger('stock_barang_batch_id');
+            $table->enum('status', ['hilang', 'mati', 'rusak']);
             $table->integer('qty');
-            $table->decimal('hpp', 15, 2);
-            $table->decimal('total_hpp', 15, 2);
             $table->timestamps();
-            $table->foreign('stock_barang_id')->references('id')->on('stock_barang')->onDelete('set null');
         });
     }
 

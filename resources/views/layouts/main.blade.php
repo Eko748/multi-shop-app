@@ -21,6 +21,7 @@
     <!-- prism css -->
     <link rel="stylesheet" href="{{ asset('css/fontawesome.min.css') }}">
     <link rel="stylesheet" href="{{ asset('css/select2.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/flatpickr.min.css') }}">
 
     @include('layouts.css.style_css')
     <style>
@@ -865,7 +866,8 @@
     <script src="{{ asset('js/notification.js') }}"></script>
     <script src="{{ asset('js/sweetalert2.js') }}"></script>
     @yield('asset_js')
-
+    <script src="{{ asset('js/flatpickr.js') }}"></script>
+    <script src="{{ asset('js/id.js') }}"></script>
     <script>
         function loadingPage(value) {
             if (value == true) {
@@ -1020,7 +1022,9 @@
                     isDisabled = false,
                     isMinimum = 0,
                     extraFields = null,
-                    isForm = false
+                    isForm = false,
+                    multiple = false,
+                    isImage = false,
                 }
                 of optionsArray) {
 
@@ -1086,12 +1090,25 @@
                     width: '100%',
                     disabled: isDisabled,
                     minimumInputLength: isMinimum,
+                    multiple: multiple,
                     language: {
                         errorLoading: function() {
                             return errorMessage;
                         }
                     }
                 };
+
+                if (isImage) {
+                    selectOption.escapeMarkup = function(m) {
+                        return m;
+                    };
+                    selectOption.templateResult = function(data) {
+                        return data.text;
+                    };
+                    selectOption.templateSelection = function(data) {
+                        return data.text;
+                    };
+                }
 
                 await $(id).select2(selectOption);
 
@@ -1137,90 +1154,36 @@
             }
         }
 
-        //         function openWhatsAppChat() {
-        //             const phoneNumber = '{{ env('NO_WA') }}' || '6289518775924';
-        //             const now = new Date();
-        //             const hours = now.getHours();
+        async function setDatePicker(params = 'tanggal') {
+            flatpickr(`#${params}`, {
+                locale: "id",
+                enableTime: true,
+                enableSeconds: true,
+                time_24hr: true,
+                secondIncrement: 1,
+                dateFormat: "Y-m-d H:i:S",
+                defaultDate: new Date(),
+                allowInput: true,
+                appendTo: document.querySelector('.modal-body'),
+                position: "above",
 
-        //             let greeting = "Pagi";
-        //             if (hours >= 12 && hours < 15) {
-        //                 greeting = "Siang";
-        //             } else if (hours >= 15 && hours < 18) {
-        //                 greeting = "Sore";
-        //             } else if (hours >= 18 || hours < 4) {
-        //                 greeting = "Malam";
-        //             }
+                onDayCreate: (dObj, dStr, fp, dayElem) => {
+                    dayElem.addEventListener('click', () => {
+                        fp.calendarContainer
+                            .querySelectorAll('.selected')
+                            .forEach(el => {
+                                el.style.backgroundColor = "#1abc9c";
+                                el.style.color = "#fff";
+                            });
+                    });
+                }
+            });
 
-        //             const message = `
-    // Selamat ${greeting} Admin GSS,
-    // Saya ingin menanyakan beberapa hal.
-    // Terima kasih.
-    // `.trim();
-
-
-        //             const encodedMessage = encodeURIComponent(message);
-
-        //             const whatsappURL = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
-        //             window.open(whatsappURL, "_blank");
-        //         }
-
-        // const whatsappButton = document.getElementById('whatsappButton');
-        // const dropdownContainer = document.getElementById('dropdownContainer');
-        // const customMessage = document.getElementById('customMessage');
-
-        // const now = new Date();
-        // const hours = now.getHours();
-        // let greeting = "Pagi";
-        // if (hours >= 12 && hours < 15) {
-        //     greeting = "Siang";
-        // } else if (hours >= 15 && hours < 18) {
-        //     greeting = "Sore";
-        // } else if (hours >= 18 || hours < 4) {
-        //     greeting = "Malam";
-        // }
-        // const defaultMessage = `Selamat ${greeting} Admin GSS,\nSaya ingin menanyakan beberapa hal.\nTerima kasih.`;
-        // customMessage.value = defaultMessage;
-
-        // whatsappButton.addEventListener('click', (e) => {
-        //     e.stopPropagation();
-        //     if (dropdownContainer.classList.contains('show')) {
-        //         dropdownContainer.classList.remove('show');
-        //         setTimeout(() => {
-        //             dropdownContainer.style.display = 'none';
-        //         }, 300);
-        //     } else {
-        //         dropdownContainer.style.display = 'flex';
-        //         setTimeout(() => {
-        //             dropdownContainer.classList.add('show');
-        //         }, 10);
-        //     }
-        // });
-
-        // document.addEventListener('click', (e) => {
-        //     if (!dropdownContainer.contains(e.target) && e.target !== whatsappButton) {
-        //         if (dropdownContainer.classList.contains('show')) {
-        //             dropdownContainer.classList.remove('show');
-        //             setTimeout(() => {
-        //                 dropdownContainer.style.display = 'none';
-        //             }, 300);
-        //         }
-        //     }
-        // });
-
-        // function sendMessage() {
-        //     const phoneNumber = '{{ env('NO_WA') }}' || '6289518775924';
-        //     const message = customMessage.value.trim();
-        //     const encodedMessage = encodeURIComponent(message);
-        //     const whatsappURL = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
-        //     window.open(whatsappURL, "_blank");
-
-        //     if (dropdownContainer.classList.contains('show')) {
-        //         dropdownContainer.classList.remove('show');
-        //         setTimeout(() => {
-        //             dropdownContainer.style.display = 'none';
-        //         }, 300);
-        //     }
-        // }
+            const inputField = document.querySelector(`#${params}`);
+            inputField.removeAttribute("readonly");
+            inputField.style.backgroundColor = "";
+            inputField.style.cursor = "pointer";
+        }
     </script>
     <!-- Required Js -->
     @yield('js')
@@ -1245,6 +1208,11 @@
             e.preventDefault();
             e.stopPropagation();
             $(this).next('.dropdown-menu').toggleClass('show');
+        });
+
+        $(document).on('input', '.rupiah', function() {
+            let value = this.value.replace(/\D/g, '');
+            this.value = value.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
         });
 
         // Klik di luar, baru nutup
@@ -1272,6 +1240,7 @@
                 }
             }
         }
+
 
         document.getElementById('fullscreenBtn')?.addEventListener('click', toggleFullscreen);
         document.getElementById('fullscreenBtnMobile')?.addEventListener('click', toggleFullscreen);

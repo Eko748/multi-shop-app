@@ -96,23 +96,6 @@ class ReturMemberController extends Controller
         }
     }
 
-    // public function getById($id)
-    // {
-    //     try {
-    //         $data = $this->service->findById($id);
-
-    //         if (!$data) {
-    //             return $this->error(404, 'Data tidak ditemukan');
-    //         }
-
-    //         return $this->success($data, 200, 'Berhasil');
-    //     } catch (Exception $e) {
-    //         return $this->error(500, "Gagal mengambil detail {$this->title[0]}", [
-    //             'exception' => $e->getMessage()
-    //         ]);
-    //     }
-    // }
-
     public function post(Request $request)
     {
         try {

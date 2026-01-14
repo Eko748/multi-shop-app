@@ -57,7 +57,7 @@ class NeracaController extends Controller
         try {
             $month = $request->input('month', now()->month);
             $year  = $request->input('year', now()->year);
-            $tokoId = $request->input('id_toko');
+            $tokoId = $request->input('toko_id');
 
             $data = $this->neracaKeuanganService->generateNeraca($month, $year, $tokoId);
 

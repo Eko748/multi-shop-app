@@ -35,12 +35,12 @@ class User extends Authenticatable
 
     public function leveluser(): BelongsTo
     {
-        return $this->belongsTo(Role::class, 'id_level');
+        return $this->belongsTo(Role::class, 'role_id');
     }
 
     public function toko(): BelongsTo
     {
-        return $this->belongsTo(Toko::class, 'id_toko');
+        return $this->belongsTo(Toko::class, 'toko_id');
     }
 
     public function user(): HasMany
@@ -50,7 +50,7 @@ class User extends Authenticatable
 
     public function role()
     {
-        return $this->belongsTo(\Spatie\Permission\Models\Role::class, 'id_level');
+        return $this->belongsTo(\Spatie\Permission\Models\Role::class, 'role_id');
     }
 
     public function getAllPermissionsAttribute()

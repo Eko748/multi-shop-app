@@ -203,7 +203,7 @@
                     limit: limit,
                     ascending: ascending,
                     search: search,
-                    id_toko: '{{ auth()->user()->id_toko }}',
+                    toko_id: '{{ auth()->user()->toko_id }}',
                     ...filterParams
                 }
             ).then(function(response) {
@@ -530,7 +530,7 @@
                         '{{ route('master.stockbarang.refresh-stok') }}', {
                             id: data.id,
                             id_barang: data.id_barang,
-                            id_toko: '{{ auth()->user()->id_toko }}',
+                            toko_id: '{{ auth()->user()->toko_id }}',
                             user_id: '{{ auth()->user()->id }}',
                             message: message,
                             pin: pin
@@ -559,44 +559,43 @@
             const rightCol = 'col-12 col-sm-12 col-md-12 col-lg-4 col-xl-4';
 
             const detailBarangHTML = canDetailBarang ? `
-        <div class="mb-2">
-            <div class="section-title">Detail Barang</div>
-            <div class="scroll-section">
-                <div class="table-responsive">
-                    <table class="table table-bordered table-striped">
-                        <thead class="thead-light">
-                            <tr class="tb-head">
-                                <th>#</th>
-                                <th>QR Code Pembelian</th>
-                                <th>Tgl Nota</th>
-                                <th>Stok</th>
-                                <th>Hpp Baru</th>
-                            </tr>
-                        </thead>
-                        <tbody id="modal-detail-barang-body"></tbody>
-                    </table>
+            <div class="mb-2">
+                <div class="section-title">Detail Barang</div>
+                <div class="scroll-section">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped">
+                            <thead class="thead-light">
+                                <tr class="tb-head">
+                                    <th>No.</th>
+                                    <th>QR Code</th>
+                                    <th>Stok</th>
+                                    <th>Harga Beli</th>
+                                </tr>
+                            </thead>
+                            <tbody id="modal-detail-barang-body"></tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
-        </div>` : '';
+            </div>` : '';
 
             const barangTokoHTML = `
-        <div class="mb-2">
-            <div class="section-title">Barang di Toko</div>
-            <div class="scroll-section">
-                <div class="table-responsive">
-                    <table class="table table-striped table-sm">
-                        <thead id="modal-stock-table-head">
-                            <tr>
-                                <th class="toko-col">Nama Toko</th>
-                                <th>Stok</th>
-                                <th class="level-header">Level Harga</th>
-                            </tr>
-                        </thead>
-                        <tbody id="modal-stock-table-body"></tbody>
-                    </table>
+            <div class="mb-2">
+                <div class="section-title">Barang di Toko</div>
+                <div class="scroll-section">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-sm">
+                            <thead id="modal-stock-table-head">
+                                <tr>
+                                    <th class="toko-col">Nama Toko</th>
+                                    <th>Stok</th>
+                                    <th class="level-header">Level Harga</th>
+                                </tr>
+                            </thead>
+                            <tbody id="modal-stock-table-body"></tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
-        </div>`;
+            </div>`;
 
             const aturHargaHTML = `
         <div class="${rightCol} mb-2">
@@ -615,38 +614,38 @@
             ${aturHargaHTML}`;
             } else if (canDetailBarang) {
                 content = `
-            <div class="${fullCol}">
-                ${detailBarangHTML}
-                ${barangTokoHTML}
-            </div>`;
+                <div class="${fullCol}">
+                    ${detailBarangHTML}
+                    ${barangTokoHTML}
+                </div>`;
             } else {
                 content = `
-            <div class="${fullCol}">
-                ${barangTokoHTML}
-            </div>`;
+                <div class="${fullCol}">
+                    ${barangTokoHTML}
+                </div>`;
             }
 
             $('body').append(`
-        <div class="modal fade" id="dynamicModal" tabindex="-1" role="dialog" aria-hidden="true">
-            <div class="modal-dialog modal-xl" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title modal-barang-title"></h5>
-                        <button type="button" class="btn-close reset-all close" data-bs-dismiss="modal"
-                                aria-label="Close"><i class="fa fa-xmark"></i></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="container-fluid">
-                            <div class="row">
-                                ${content}
+                <div class="modal fade" id="dynamicModal" tabindex="-1" role="dialog" aria-hidden="true">
+                    <div class="modal-dialog modal-xl" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title modal-barang-title"></h5>
+                                <button type="button" class="btn-close reset-all close" data-bs-dismiss="modal"
+                                        aria-label="Close"><i class="fa fa-xmark"></i></button>
                             </div>
+                            <div class="modal-body">
+                                <div class="container-fluid">
+                                    <div class="row">
+                                        ${content}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer"></div>
                         </div>
                     </div>
-                    <div class="modal-footer"></div>
                 </div>
-            </div>
-        </div>
-    `);
+            `);
         }
 
         async function renderTabStokBarang(stokData) {
@@ -656,9 +655,7 @@
             if (Array.isArray(stokData.per_toko) && stokData.per_toko.length > 0) {
                 showTokoColumn = true;
                 stokData.per_toko.forEach(toko => {
-                    const levelHargaToko = toko.level_harga?.length > 0 ?
-                        toko.level_harga.join(', ') :
-                        'Tidak Ada Level Harga';
+                    const levelHargaToko = toko.level_harga;
 
                     rows += `
                 <tr>
@@ -689,8 +686,8 @@
             const hppValue = stokData.hpp_awal || 0;
 
             let formContent = `
-        <form class="level-harga-form">
-            <input type="hidden" name="id_barang" value="${id_barang}">`;
+            <form class="level-harga-form">
+                <input type="hidden" name="id_barang" value="${id_barang}">`;
 
             let i = 0;
             for (const [levelName, levelVal] of Object.entries(stokData.level_harga || {})) {
@@ -702,28 +699,27 @@
                 const persen = hppValue > 0 ? (((cleanValue - hppValue) / hppValue) * 100).toFixed(2) : '0';
 
                 formContent += `
-            <div class="input-group mb-3">
-                <div class="input-group-prepend"><span class="input-group-text">${levelName}</span></div>
-                <input type="text" name="level_harga[]" id="${inputId}" class="form-control level-harga"
-                    placeholder="Atur harga baru" value="${cleanValue.toLocaleString('id-ID')}"
-                    data-raw-value="${cleanValue}" data-hpp-baru="${hppValue}">
-                <input type="hidden" id="${hiddenId}" name="${nameAttr}" value="${cleanValue}">
-                <input type="hidden" name="level_nama[]" value="${levelName}">
-                <div class="input-group-append"><span class="input-group-text" id="${persenId}">${persen}%</span></div>
-            </div>`;
+                <div class="input-group mb-3">
+                    <div class="input-group-prepend"><span class="input-group-text">${levelName}</span></div>
+                    <input type="text" name="level_harga[]" id="${inputId}" class="form-control level-harga"
+                        placeholder="Atur harga baru" value="${cleanValue.toLocaleString('id-ID')}"
+                        data-raw-value="${cleanValue}" data-hpp-baru="${hppValue}">
+                    <input type="hidden" id="${hiddenId}" name="${nameAttr}" value="${cleanValue}">
+                    <input type="hidden" name="level_nama[]" value="${levelName}">
+                    <div class="input-group-append"><span class="input-group-text" id="${persenId}">${persen}%</span></div>
+                </div>`;
                 i++;
             }
 
             formContent += `
-        <input type="hidden" id="hpp-baru-${id_barang}" value="${hppValue}">
-        <button type="submit" class="btn btn-primary w-100" id="btn-update-level-harga">
-            <i class="fa fa-save mr-1"></i>Update
-        </button>
-    </form>`;
+                <input type="hidden" id="hpp-baru-${id_barang}" value="${hppValue}">
+                <button type="submit" class="btn btn-primary w-100" id="btn-update-level-harga">
+                    <i class="fa fa-save mr-1"></i>Update
+                </button>
+            </form>`;
 
             $('#dynamic-harga-form').html(formContent);
 
-            // Event input
             document.querySelectorAll('.level-harga').forEach(input => {
                 input.addEventListener('input', function() {
                     let rawValue = this.value.replace(/[^0-9]/g, '');
@@ -733,10 +729,8 @@
                 });
             });
 
-            // Hitung awal
             document.querySelectorAll('.level-harga').forEach(input => calculatePercentage(input));
 
-            // Submit handler
             document.querySelector('.level-harga-form').addEventListener('submit', async function(e) {
                 e.preventDefault();
                 const form = this;
@@ -801,7 +795,6 @@
                         </button>
                     </div>
                 </td>
-                <td class="text-break" style="max-width: 250px; word-break: break-word;">${el.tgl_nota}</td>
                 <td>${el.qty}</td>
                 <td>${el.harga}</td>
             </tr>`).join('');

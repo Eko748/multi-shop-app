@@ -13,13 +13,13 @@ return new class extends Migration
     {
         Schema::create('pemasukan', function (Blueprint $table) {
             $table->id();
-            $table->string('id_toko');
-            $table->string('nama_pemasukan')->nullable();
-            $table->string('id_jenis_pemasukan')->nullable();
-            $table->unsignedBigInteger('kas_jenis_barang')->nullable()->index();
-            $table->char('label')->nullable();
-            $table->double('nilai')->nullable();
+            $table->unsignedBigInteger('kas_id');
+            $table->unsignedBigInteger('toko_id');
+            $table->unsignedBigInteger('pemasukan_tipe_id')->nullable();
+            $table->decimal('nominal', 15, 2)->nullable();
             $table->datetime('tanggal');
+            $table->string('keterangan')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

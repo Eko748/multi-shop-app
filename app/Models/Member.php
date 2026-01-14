@@ -12,26 +12,16 @@ class Member extends Model
     use HasFactory, SoftDeletes;
 
     protected $table = 'member';
-
-    protected $guarded = [''];
-
-    protected $primaryKey = 'id';
-    public $incrementing = true;
-    protected $keyType = 'int';
-
-    protected $hidden = [
-        'password',
-        'remember_token',
-    ];
+    protected $guarded = [];
 
     public function toko(): BelongsTo
     {
-        return $this->belongsTo(Toko::class, 'id_toko');
+        return $this->belongsTo(Toko::class, 'toko_id');
     }
 
-    public function jenis_barang(): BelongsTo
+    public function jenisBarang(): BelongsTo
     {
-        return $this->belongsTo(JenisBarang::class, 'id_jenis_barang');
+        return $this->belongsTo(JenisBarang::class, 'jenis_barang_id');
     }
 
     public function levelharga(): BelongsTo

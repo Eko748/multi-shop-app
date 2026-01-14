@@ -127,7 +127,7 @@
                         </div>
                         <div class="content">
                             <div class="d-flex justify-content-center">
-                                <div class="card w-75">
+                                <div class="card w-100">
                                     <div class="card-body p-2">
                                         <div class="table-responsive">
                                             <table class="table table-bordered table-striped m-0">
@@ -246,7 +246,7 @@
                         limit: limit,
                         ascending: ascending,
                         search: search,
-                        id_toko: '{{ auth()->user()->id_toko }}',
+                        toko_id: '{{ auth()->user()->toko_id }}',
                         ...filterParams
                     }
                 ).then(response => response)

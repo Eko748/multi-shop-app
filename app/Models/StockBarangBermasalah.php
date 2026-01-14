@@ -14,8 +14,8 @@ class StockBarangBermasalah extends Model
 
     protected $guarded = [];
 
-    public function stockBarang()
+    public function batch()
     {
-        return $this->belongsTo(StockBarang::class, 'stock_barang_id', 'id');
+        return $this->belongsTo(StockBarangBatch::class, 'stock_barang_batch_id');
     }
 }

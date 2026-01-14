@@ -12,35 +12,28 @@ class Pengeluaran extends Model
     use HasFactory, SoftDeletes;
 
     protected $table = 'pengeluaran';
-
-    protected $guarded = [''];
-
-    protected $keyType = 'string';
-
-    public $primaryKey = 'id';
-
-    protected $hidden = [
-        'password',
-        'remember_token',
+    protected $guarded = [];
+    protected $casts = [
+        'tanggal' => 'datetime',
     ];
 
-    public function jenis_pengeluaran(): BelongsTo
+    public function pengeluaranTipe(): BelongsTo
     {
-        return $this->belongsTo(JenisPengeluaran::class,'id_jenis_pengeluaran', 'id');
+        return $this->belongsTo(PengeluaranTipe::class, 'pengeluaran_tipe_id', 'id');
     }
 
-    public function toko(): BelongsTo{
-        return $this->belongsTo(Toko::class, 'id_toko', 'id');
+    public function toko(): BelongsTo
+    {
+        return $this->belongsTo(Toko::class, 'toko_id', 'id');
     }
 
-    public function detail_pengeluaran()
+    public function kas(): BelongsTo
     {
-        return $this->hasMany(DetailPengeluaran::class, 'id_pengeluaran', 'id');
+        return $this->belongsTo(Kas::class, 'kas_id', 'id');
     }
 
-    public function detailPengeluaran()
+    public function createdBy(): BelongsTo
     {
-        return $this->hasMany(DetailPengeluaran::class, 'id_pengeluaran');
+        return $this->belongsTo(User::class, 'created_by', 'id');
     }
-    
 }

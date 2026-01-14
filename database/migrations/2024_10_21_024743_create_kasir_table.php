@@ -11,20 +11,19 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('kasir', function (Blueprint $table) {
-            $table->id('id');
-            $table->string('id_member')->nullable();
-            $table->string('nama_guest')->nullable();
-            $table->string('id_users');
-            $table->dateTime('tgl_transaksi');
-            $table->string('id_toko');
-            $table->string('no_nota');
-            $table->integer('total_item');
-            $table->double('total_nilai');
-            $table->integer('total_diskon')->nullable();
-            $table->double('jml_bayar');
-            $table->double('kembalian');
-            $table->enum('metode', ['Tunai', 'Non-Tunai']);
+        Schema::create('transaksi_kasir', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('toko_id');
+            $table->string('nota')->unique();
+            $table->dateTime('tanggal');
+            $table->integer('total_qty');
+            $table->decimal('total_nominal', 15, 2);
+            $table->decimal('total_bayar', 15, 2);
+            $table->decimal('total_diskon', 15, 2)->nullable();
+            $table->enum('metode', ['cash', 'cashless'])->default('cash');
+            $table->string('guest')->nullable();
+            $table->unsignedBigInteger('member_id')->nullable();
+            $table->unsignedBigInteger('created_by');
             $table->timestamps();
             $table->softDeletes();
         });
@@ -35,6 +34,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('kasir');
+        Schema::dropIfExists('transaksi_kasir');
     }
 };

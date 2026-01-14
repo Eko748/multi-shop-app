@@ -14,14 +14,6 @@ class Toko extends Model
 
     protected $guarded = [''];
 
-    public $incrementing = false;
-
-    public $timestamps = false;
-
-    protected $keyType = 'string';
-
-    public $primaryKey = 'id';
-
     protected $casts = [
         'kasbon' => 'boolean',
     ];
@@ -69,5 +61,30 @@ class Toko extends Model
     public function kasir()
     {
         return $this->hasMany(Kasir::class, 'id_toko', 'id');
+    }
+
+    public function parent()
+    {
+        return $this->belongsTo(Toko::class, 'parent_id');
+    }
+
+    public function children()
+    {
+        return $this->hasMany(Toko::class, 'parent_id');
+    }
+
+    public function users()
+    {
+        return $this->hasMany(User::class);
+    }
+
+    public function stockBarangs()
+    {
+        return $this->hasMany(StockBarang::class);
+    }
+
+    public function kas()
+    {
+        return $this->hasMany(Kas::class);
     }
 }

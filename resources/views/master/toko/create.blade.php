@@ -12,11 +12,9 @@
                 <div class="col-xl-12">
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
-                            <!-- Tombol Tambah -->
                             <a href="{{ route('master.toko.index') }}" class="btn btn-danger">
                                 <i class="ti-plus menu-icon"></i> Kembali
                             </a>
-                            <!-- Input Search -->
                         </div>
                         <x-adminlte-alerts />
                         <div class="card-body table-border-style">
@@ -57,10 +55,10 @@
                                     <div class="row">
                                         <div class="col-md-6">
                                             <div class="form-group">
-                                                <label for="id_level_harga" class="form-control-label">Level Harga</label>
-                                                <select class="form-control" id="selector" name="id_level_harga[]"
+                                                <label for="level_harga" class="form-control-label">Level Harga</label>
+                                                <select class="form-control" id="selector" name="level_harga[]"
                                                     multiple>
-                                                    <option value="">~Silahkan Pilih~</option>
+                                                    <option value="">Pilih Level Harga</option>
                                                     @foreach ($levelharga as $lh)
                                                         <option value="{{ $lh->id }}">{{ $lh->nama_level_harga }}
                                                         </option>
@@ -70,10 +68,10 @@
                                         </div>
                                         <div class="col-md-6">
                                             <div class="form-group">
-                                                <label for="tipe_kas" class="form-control-label">Tipe Kas</label>
-                                                <select class="form-control" id="tipe_kas" name="tipe_kas">
-                                                    <option value="umum">Umum</option>
-                                                    <option value="barang">Jenis Barang</option>
+                                                <label for="kas_detail" class="form-control-label">Tipe Kas Jenis Barang</label>
+                                                <select class="form-control" id="kas_detail" name="kas_detail">
+                                                    <option value="1">Ya</option>
+                                                    <option value="0">Tidak</option>
                                                 </select>
                                             </div>
                                         </div>
@@ -102,7 +100,6 @@
                     </div>
                 </div>
             </div>
-            <!-- [ Main Content ] end -->
         </div>
     </div>
 

@@ -13,15 +13,15 @@ return new class extends Migration
     {
         Schema::create('stock_barang', function (Blueprint $table) {
             $table->id('id');
-            $table->string('id_barang')->nullable();
-            $table->string('nama_barang')->nullable();
-            $table->integer('stock')->nullable();
-            $table->double('hpp_awal')->nullable();
-            $table->double('hpp_baru')->nullable();
-            $table->double('nilai_total')->nullable();
+            $table->unsignedBigInteger('toko_id');
+            $table->unsignedBigInteger('barang_id');
+            $table->integer('stok')->default(0);
+            $table->decimal('hpp_awal', 15, 2)->nullable();
+            $table->decimal('hpp_baru', 15, 2)->nullable();
             $table->string('level_harga')->nullable();
             $table->timestamps();
             $table->softDeletes();
+            $table->unique(['toko_id', 'barang_id']);
         });
     }
 

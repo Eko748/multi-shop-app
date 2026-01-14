@@ -29,10 +29,10 @@ class SupplierSeeder extends Seeder
             Supplier::updateOrCreate(
                 ['id' => $item['id']],
                 [
-                    'nama_supplier' => $item['nama_supplier'],
+                    'nama' => $item['nama_supplier'],
                     'email'         => $item['email'],
                     'alamat'        => $item['alamat'],
-                    'contact'       => $item['contact'],
+                    'telepon'       => $item['contact'],
                     'deleted_at'    => $item['deleted_at'],
                 ]
             );

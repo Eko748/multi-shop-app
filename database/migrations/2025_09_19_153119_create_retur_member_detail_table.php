@@ -17,7 +17,7 @@ return new class extends Migration
             $table->foreignId('retur_id')->nullable()->constrained('retur_member')->nullOnDelete();
             $table->foreignId('supplier_id')->nullable()->constrained('supplier')->nullOnDelete();
             $table->foreignId('barang_id')->nullable()->constrained('barang')->nullOnDelete();
-            $table->foreignId('detail_kasir_id')->nullable()->constrained('detail_kasir')->nullOnDelete();
+            $table->foreignId('transaksi_kasir_detail_id')->nullable()->constrained('transaksi_kasir_detail')->nullOnDelete();
             $table->enum('tipe_kompensasi', ['refund', 'barang'])->nullable();
             $table->integer('qty_request');
             $table->integer('qty_barang')->default(0);

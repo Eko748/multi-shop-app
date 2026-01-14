@@ -8,10 +8,10 @@ return new class extends Migration
 {
     public function up()
     {
-        Schema::create('detail_hutang', function (Blueprint $table) {
+        Schema::create('hutang_detail', function (Blueprint $table) {
             $table->id();
-            $table->string('id_hutang');
-            $table->double('nilai');
+            $table->unsignedBigInteger('hutang_id');
+            $table->decimal('nominal', 15, 2)->nullable();
             $table->timestamps();
             $table->softDeletes();
         });
@@ -19,6 +19,6 @@ return new class extends Migration
 
     public function down()
     {
-        Schema::dropIfExists('detail_hutang');
+        Schema::dropIfExists('hutang_detail');
     }
 };

@@ -13,16 +13,16 @@ return new class extends Migration
     {
         Schema::create('pengeluaran', function (Blueprint $table) {
             $table->id();
-            $table->string('id_toko');
-            $table->string('nama_pengeluaran')->nullable();
-            $table->string('id_jenis_pengeluaran')->nullable();
-            $table->enum('is_asset', ['Asset Peralatan Kecil', 'Asset Peralatan Besar'])->nullable();
-            $table->unsignedBigInteger('kas_jenis_barang')->nullable()->index();
-            $table->char('label')->nullable();
-            $table->double('nilai')->nullable();
+            $table->unsignedBigInteger('kas_id');
+            $table->unsignedBigInteger('toko_id');
+            $table->unsignedBigInteger('pengeluaran_tipe_id')->nullable();
+            $table->decimal('nominal', 15, 2)->nullable();
             $table->datetime('tanggal');
-            $table->softDeletes();
+            $table->string('keterangan')->nullable();
+            $table->enum('aset', ['kecil', 'besar'])->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

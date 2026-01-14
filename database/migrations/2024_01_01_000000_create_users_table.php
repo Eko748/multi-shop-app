@@ -9,19 +9,17 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('users', function (Blueprint $table) {
-            $table->id('id');
-            $table->string('id_toko');
-            $table->string('id_level');
+            $table->id();
+            $table->unsignedBigInteger('toko_id');
+            $table->unsignedBigInteger('role_id');
             $table->string('nama');
             $table->string('username');
             $table->string('password');
-            $table->string('email');
-            $table->text('alamat');
-            $table->string('no_hp');
+            $table->text('alamat')->default('Cirebon');
             $table->string('ip_login')->nullable();
             $table->timestamp('last_activity')->nullable();
+            $table->timestamps();
             $table->softDeletes();
         });
     }
-
 };

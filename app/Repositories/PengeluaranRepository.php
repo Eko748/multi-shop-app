@@ -4,15 +4,28 @@ namespace App\Repositories;
 
 use App\Models\Pengeluaran;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class PengeluaranRepository
 {
-    public function getPengeluaranByMonthYear(int $month, int $year)
+    public function getPengeluaranAset(int $month, int $year): array
     {
-        return Pengeluaran::select('is_asset', DB::raw('SUM(nilai) as total'))
-            ->whereMonth('tanggal', $month)
-            ->whereYear('tanggal', $year)
-            ->groupBy('is_asset')
-            ->pluck('total', 'is_asset');
+        $endDate = Carbon::create($year, $month, 1)->endOfMonth();
+
+        $rawData = Pengeluaran::select(
+            'aset',
+            DB::raw('SUM(nominal) as total')
+        )
+            ->whereNotNull('aset')
+            ->whereDate('tanggal', '<=', $endDate)
+            ->groupBy('aset')
+            ->pluck('total', 'aset')
+            ->toArray();
+
+        // 🧱 Default hasil (wajib ada)
+        return [
+            'kecil' => (float) ($rawData['kecil'] ?? 0),
+            'besar' => (float) ($rawData['besar'] ?? 0),
+        ];
     }
 }

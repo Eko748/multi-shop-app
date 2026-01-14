@@ -129,11 +129,10 @@
                                 @if (hasAnyPermission(['POST /barang/store', 'POST /import-barang']))
                                     @if (hasAnyPermission(['POST /barang/store']))
                                         <div class="custom-btn-tambah-wrap">
-                                            <a href="{{ route('master.barang.create') }}"
-                                                class="btn btn-primary custom-btn-tambah" data-toggle="tooltip"
-                                                title="Tambah Data Barang">
-                                                <i class="fa fa-circle-plus"></i> Tambah
-                                            </a>
+                                            <button class="btn btn-primary text-white add-data w-100" data-container="body"
+                                                data-toggle="tooltip" data-placement="top" title="Tambah Toko">
+                                                <i class="fa fa-plus-circle"></i> Tambah
+                                            </button>
                                         </div>
                                     @endif
                                     @if (hasAnyPermission(['POST /import-barang']))
@@ -239,6 +238,88 @@
                 </div>
             </div>
         </div>
+        <div class="modal fade" id="modal-form" tabindex="-1" role="dialog" aria-labelledby="modal-form-label"
+            aria-hidden="true">
+            <div class="modal-dialog modal-xl" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modal-title">Tambah Data Barang</h5>
+                        <button type="button" class="btn-close reset-all close" data-bs-dismiss="modal"
+                            aria-label="Close"><i class="fa fa-xmark"></i></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="formTambahData">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <div class="form-group">
+                                            <label for="nama" class=" form-control-label">Nama Barang<span
+                                                    style="color: red">*</span></label>
+                                            <input type="text" id="nama" name="nama_barang" value=""
+                                                class="form-control" placeholder="Contoh : Barang Baru">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="jenis_barang_id" class=" form-control-label">Jenis Barang<span
+                                                style="color: red">*</span></label>
+                                        <select name="jenis_barang_id" id="jenis_barang_id" class="form-control select2">
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="brand_id" class=" form-control-label">Brand Barang<span
+                                                style="color: red">*</span></label>
+                                        <select name="brand_id" id="brand_id" class="form-control select2">
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <div class="form-group">
+                                            <label for="gambar" class="form-control-label">Gambar Barang<span
+                                                    style="font-size: 11px; color: rgb(193, 79, 79)"> (Ukuran tidak lebih
+                                                    dari 1MB)</span></label>
+                                            <input type="file" id="gambar" name="gambar" class="form-control">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <div class="form-group">
+                                            <label for="barcode" class=" form-control-label">Barcode</label>
+                                            <input type="text" id="barcode" name="barcode" value=""
+                                                class="form-control" placeholder="Kosongkan jika tidak ada barcode">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <div class="form-group">
+                                            <label for="flexSwitchCheckDefault"
+                                                class=" form-control-label">Garansi</label>
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="garansi"
+                                                    name="garansi" checked="false">
+                                                <span id="switchStatus">Tidak</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" aria-label="Close"><i
+                                class="fa fa-circle-xmark mr-1"></i>Tutup</button>
+                        <button type="submit" class="btn btn-primary" id="submit-button" form="formTambahData"><i
+                                class="fa fa-save mr-1"></i>Simpan</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 @endsection
 
@@ -256,10 +337,23 @@
         let defaultSearch = '';
         let customFilter = {};
         let selectOptions = [{
-            id: '#jenis_barang',
-            isUrl: '{{ route('master.jenisBarang') }}',
-            placeholder: 'Pilih Jenis Barang',
-        }];
+                id: '#jenis_barang',
+                isUrl: '{{ route('master.jenisBarang') }}',
+                placeholder: 'Pilih Jenis Barang',
+            },
+            {
+                id: '#jenis_barang_id',
+                isUrl: '{{ route('master.jenisBarang') }}',
+                placeholder: 'Pilih Jenis Barang',
+                isModal: '#modal-form',
+            },
+            {
+                id: '#brand_id',
+                isUrl: '{{ route('master.brand') }}',
+                placeholder: 'Pilih Brand',
+                isModal: '#modal-form',
+            }
+        ];
 
         async function getListData(limit = 30, page = 1, ascending = 0, search = '', customFilter = {}) {
             $('#listData').html(loadingData());
@@ -478,13 +572,88 @@
             });
         }
 
+        async function addData() {
+            $(document).on("click", ".add-data", function() {
+                $("#formTambahData")[0].reset();
+                $("#formTambahData select").val("");
+                $("#formTambahData .select2").val(null).trigger("change");
+                $('#garansi').prop('checked', false);
+                $('#switchStatus').text('Tidak');
+
+                $("#modal-title").html(`<i class="fa fa-circle-plus mr-1"></i>Form Tambah Barang`);
+                $("#modal-form").modal("show");
+                $("#formTambahData").data("action-url", '{{ route('master.barang.store') }}');
+            });
+
+            $('#garansi').on('change', function() {
+                $('#switchStatus').text(this.checked ? 'Ya' : 'Tidak');
+            });
+        }
+
+        async function submitForm() {
+            $(document).off("submit").on("submit", "#formTambahData", async function(e) {
+                e.preventDefault();
+
+                const $submitButton = $("#submit-button");
+                const originalButtonHTML = $submitButton.html();
+
+                $submitButton.prop("disabled", true).html(
+                    `<i class="fas fa-spinner fa-spin"></i> Menyimpan...`);
+
+                loadingPage(true);
+
+                let actionUrl = $("#formTambahData").data("action-url");
+
+                const userId = {{ auth()->user()->id }};
+
+                let formData = {
+                    created_by: userId,
+                    nama: $('#nama').val(),
+                    barcode: $('#barcode').val(),
+                    gambar: $('#gambar').val(),
+                    jenis_barang_id: $('#jenis_barang_id').val(),
+                    brand_id: $('#brand_id').val(),
+                    garansi: $('#garansi').is(':checked'),
+                };
+
+                try {
+                    let postData = await renderAPI("POST", actionUrl, formData);
+
+                    loadingPage(false);
+                    if (postData.status >= 200 && postData.status < 300) {
+                        notificationAlert("success", "Pemberitahuan", postData.data.message || "Berhasil");
+                        setTimeout(async function() {
+                            await getListData(defaultLimitPage, currentPage, defaultAscending,
+                                defaultSearch, customFilter);
+                        }, 500);
+                        setTimeout(() => {
+                            $("#modal-form").modal("hide");
+                        }, 500);
+                    } else {
+                        notificationAlert("info", "Pemberitahuan", postData.data.message ||
+                            "Terjadi kesalahan");
+                    }
+                } catch (error) {
+                    loadingPage(false);
+                    let resp = error.response?.data || {};
+                    notificationAlert("error", "Kesalahan", resp.message || "Terjadi kesalahan");
+                } finally {
+                    $submitButton.prop("disabled", false).html(originalButtonHTML);
+                }
+            });
+        }
+
         async function initPageLoad() {
-            await selectData(selectOptions);
-            await setDynamicButton();
-            await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter);
-            await searchList();
-            await filterList();
-            await deleteData();
+            await Promise.all([
+                selectData(selectOptions),
+                setDynamicButton(),
+                getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter),
+                searchList(),
+                filterList(),
+                deleteData(),
+                addData(),
+                submitForm(),
+            ]);
         }
     </script>
 @endsection

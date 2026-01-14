@@ -1,7 +1,7 @@
 @extends('layouts.main')
 
 @section('title')
-    Mutasi
+    {{ $menu[0] }}
 @endsection
 
 @section('css')
@@ -63,38 +63,23 @@
                         </div>
                         <div class="content">
                             <div class="collapse mt-2" id="filter-collapse">
-                                <form id="custom-filter" class="row g-2 align-items-center mx-2">
+                                <form id="custom-filter" class="card-body px-0 row g-2 align-items-center mx-2">
                                     <div class="col-12 col-md-6 col-lg-2 mb-2">
+                                        <label for="daterange"><i class="fa fa-calendar-day mr-1"></i>Rentang
+                                            Tanggal</label>
                                         <input class="form-control" type="text" id="daterange" name="daterange"
                                             placeholder="Pilih rentang tanggal">
                                     </div>
-                                    @if (auth()->user()->id_toko == 1 && !$isSingleToko)
-                                        <div class="col-12 col-md-6 col-lg-2 mb-2">
+
+                                    @if (auth()->user()->toko_id == 1)
+                                        <div class="col-12 col-md-6 col-lg-4 mb-2">
+                                            <label for="toko"><i class="fa fa-shop mr-1"></i>Toko</label>
                                             <select class="form-control select2" id="toko" name="toko"></select>
                                         </div>
-                                        <div class="col-12 col-md-6 col-lg-6 mb-2">
-                                        </div>
-                                    @else
-                                        <div class="col-12 col-md-6 col-lg-2 mb-2">
-                                            <select name="kas_pengirim_f" id="kas_pengirim_f" class="form-control">
-                                                <option value="">Pilih Kas Pengirim</option>
-                                                @foreach ($labelKas as $label)
-                                                    <option value="{{ $label->value }}">{{ $label->label() }}</option>
-                                                @endforeach
-                                            </select>
-                                        </div>
-                                        <div class="col-12 col-md-6 col-lg-2 mb-2">
-                                            <select name="kas_penerima_f" id="kas_penerima_f" class="form-control">
-                                                <option value="">Pilih Kas Penerima</option>
-                                                @foreach ($labelKas as $label)
-                                                    <option value="{{ $label->value }}">{{ $label->label() }}</option>
-                                                @endforeach
-                                            </select>
-                                        </div>
                                     @endif
-                                    <div class="col-12 col-md-6 col-lg-2 mb-2 d-flex justify-content-end align-items-start">
-                                        <button form="custom-filter" class="btn btn-info mr-2" id="tb-filter"
-                                            type="submit">
+
+                                    <div class="col-12 col-lg d-flex justify-content-end gap-2 mb-2" style="gap: 0.5rem;">
+                                        <button form="custom-filter" class="btn btn-info" id="tb-filter" type="submit">
                                             <i class="fa fa-magnifying-glass mr-2"></i>Cari
                                         </button>
                                         <button type="button" class="btn btn-secondary" id="tb-reset">
@@ -109,16 +94,14 @@
                                     <table class="table table-striped m-0">
                                         <thead>
                                             <tr class="tb-head">
-                                                <th class="text-center text-wrap align-top">No</th>
-                                                <th class="text-wrap align-top">Tanggal</th>
-                                                <th class="text-wrap align-top">{{ $isSingleToko ? 'Kas' : 'Toko' }}
-                                                    Pengirim</th>
-                                                <th class="text-wrap align-top">{{ $isSingleToko ? 'Kas' : 'Toko' }}
-                                                    Penerima</th>
-                                                <th class="text-wrap align-top">Keterangan</th>
-                                                <th class="text-right text-wrap align-top">Nilai</th>
-                                                <th class="text-right text-wrap align-top"><span
-                                                        class="mr-2">Action</span></th>
+                                                <th class="text-center text-wrap align-top" style="width: 5%">No</th>
+                                                <th class="text-wrap align-top" style="width: 10%">Tanggal</th>
+                                                <th class="text-wrap align-top" style="width: 20%">Kas Asal</th>
+                                                <th class="text-wrap align-top" style="width: 20%">Kas Tujuan</th>
+                                                <th class="text-wrap align-top" style="width: 20%">Keterangan</th>
+                                                <th class="text-right text-wrap align-top" style="width: 10%">Nominal</th>
+                                                <th class="text-center text-wrap align-top" style="width: 15%;">Action
+                                                </th>
                                             </tr>
                                         </thead>
                                         <tbody id="listData">
@@ -160,54 +143,41 @@
                 <div class="modal-body">
                     <form id="formTambahData">
                         <div class="row d-flex align-items-center">
-                            @if ($isSingleToko)
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label for="toko_pengirim">Kas Pengirim <sup class="text-danger">*</sup></label>
-                                        <select name="toko_pengirim" id="kas_pengirim" class="form-control" required>
-
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label for="toko_penerima">Kas Penerima <sup class="text-danger">*</sup></label>
-                                        <select name="toko_penerima" id="kas_penerima" class="form-control" required>
-                                        </select>
-                                    </div>
-                                </div>
-                            @else
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label for="toko_penerima">Toko Penerima <sup class="text-danger">*</sup></label>
-                                        <select class="form-control select2" name="toko_penerima" id="toko_penerima"
-                                            style="display: block;">
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label for="toko_pengirim">Toko Pengirim <sup class="text-danger">*</sup></label>
-                                        <input type="text" class="form-control" id="toko_pengirim"
-                                            placeholder="{{ auth()->user()->toko->nama_toko }}"
-                                            value="{!! auth()->user()->toko->nama_toko !!}" readonly>
-                                    </div>
-                                </div>
-                            @endif
-                        </div>
-                        <div class="row d-flex align-items-center">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="nilai">Nilai (Rp) <sup class="text-danger">*</sup></label>
-                                    <input type="number" class="form-control" id="nilai" name="nilai"
-                                        placeholder="Masukkan nilai" required>
+                                    <label for="toko_pengirim">Kas Pengirim <sup class="text-danger">*</sup></label>
+                                    <select name="toko_pengirim" id="kas_pengirim" class="form-control" required>
+                                    </select>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="keterangan">Keterangan</label>
+                                    <label for="toko_penerima">Kas Penerima <sup class="text-danger">*</sup></label>
+                                    <select name="toko_penerima" id="kas_penerima" class="form-control" required>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row d-flex align-items-center">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="keterangan">Keterangan <sup class="text-danger">*</sup></label>
                                     <input type="text" class="form-control" id="keterangan" name="keterangan"
                                         placeholder="Masukkan keterangan" required>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="nominal">Nominal (Rp) <sup class="text-danger">*</sup></label>
+                                    <input type="text" class="form-control rupiah" id="nominal" name="nominal"
+                                        placeholder="Masukkan nominal" required>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="tanggal">Tanggal <sup class="text-danger">*</sup></label>
+                                    <input type="datetime-local" class="form-control" id="tanggal" name="tanggal"
+                                        placeholder="Masukkan tanggal" required>
                                 </div>
                             </div>
                         </div>
@@ -216,7 +186,7 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" aria-label="Close"><i
                             class="fa fa-circle-xmark mr-1"></i>Tutup</button>
-                    <button type="submit" class="btn btn-primary" id="btnSimpan" form="formTambahData"><i
+                    <button type="submit" class="btn btn-primary" id="submit-button" form="formTambahData"><i
                             class="fa fa-save mr-1"></i>Simpan</button>
                 </div>
             </div>
@@ -233,7 +203,7 @@
 
 @section('js')
     <script>
-        let title = 'Mutasi';
+        let title = '{{ $menu[0] }}';
         let defaultLimitPage = 10;
         let currentPage = 1;
         let totalPage = 1;
@@ -243,42 +213,42 @@
         let selectOptions = [{
             id: '#toko',
             isUrl: '{{ route('master.toko') }}',
-            placeholder: 'Pilih Nama Toko',
+            multiple: true
         }, {
             id: '#toko_penerima',
             isUrl: '{{ route('master.toko') }}',
             isModal: '#modal-form',
             isFilter: {
-                is_delete: '{{ auth()->user()->id_toko }}',
+                is_delete: '{{ auth()->user()->toko_id }}',
             },
             placeholder: 'Pilih Nama Toko',
         }];
 
-        function initSelectKas(selector, excludeSelector) {
+        function initSelectKas(selector, excludeSelector, mode) {
             $(selector).select2({
                 ajax: {
-                    url: "{{ route('total.kas') }}",
+                    url: "{{ route('total.kas-hirarki') }}",
                     dataType: 'json',
                     delay: 250,
                     data: function(params) {
                         return {
                             search: params.term || '',
-                            id_toko: "{{ auth()->user()->id_toko }}",
-                            exclude_id: $(excludeSelector).val() || null
+                            id_toko: "{{ auth()->user()->toko_id }}",
+                            mode: mode,
+                            kas_asal_id: $(excludeSelector).val() || null,
                         };
                     },
                     processResults: function(res) {
                         let data = res.data || [];
-                        let excludeId = $(excludeSelector).val(); // ambil pilihan di select lain
 
                         return {
-                            results: data
-                                .map(item => ({
-                                    id: item.jenis_id + '-' + item.id, // bikin unik
-                                    text: item.text,
-                                    jenis_id: item.jenis_id
-                                }))
-                                .filter(item => item.id !== excludeId) // hapus yang sama dengan select lain
+                            results: data.map(item => ({
+                                id: item.id,
+                                text: item.text,
+                                jenis_id: item.jenis_id,
+                                tipe_kas: item.tipe_kas,
+                                saldo_kas: item.saldo_kas
+                            }))
                         };
                     }
                 },
@@ -290,8 +260,8 @@
         }
 
         $(document).ready(function() {
-            initSelectKas('#kas_pengirim', '#kas_penerima');
-            initSelectKas('#kas_penerima', '#kas_pengirim');
+            initSelectKas('#kas_pengirim', '#kas_penerima', 'pengirim');
+            initSelectKas('#kas_penerima', '#kas_pengirim', 'penerima');
 
             $('#kas_pengirim').on('change', function() {
                 let val = $(this).val();
@@ -306,7 +276,6 @@
                     $('#kas_pengirim').val(null).trigger('change.select2');
                 }
             });
-
         });
 
         async function getListData(limit = 10, page = 1, ascending = 0, search = '', customFilter = {}) {
@@ -331,12 +300,12 @@
 
             let getDataRest = await renderAPI(
                 'GET',
-                '{{ route('master.getmutasi') }}', {
+                '{{ route('jk.mutasi.get') }}', {
                     page: page,
                     limit: limit,
                     ascending: ascending,
                     search: search,
-                    id_toko: {{ auth()->user()->id_toko }},
+                    toko_id: {{ auth()->user()->toko_id }},
                     ...filterParams
                 }
             ).then(function(response) {
@@ -381,24 +350,33 @@
 
             if (delete_button) {
                 action_buttons = `
-                <div class="d-flex justify-content-end">
+                <div class="d-flex justify-content-center">
                     ${delete_button ? `<div class="hovering p-1">${delete_button}</div>` : ''}
                 </div>`;
             } else {
                 action_buttons = `
-                <div class="d-flex justify-content-end">
+                <div class="d-flex justify-content-center">
                     <span class="badge badge-secondary">Tidak Ada Aksi</span>
                 </div>`;
             }
+
+            const badge = (type, color, name) => `
+                <span class="custom-badge badge badge-${color}">
+                    <i class="fa fa-info-circle"></i> ${name ?? '-'}
+                </span>
+            `;
+
+            let kasOUT = badge('out', data.attr_out, data.nama_toko_pengirim);
+            let kasIN = badge('in', data.attr_in, data.nama_toko_penerima);
 
             return {
                 id: data?.id ?? '-',
                 tanggal: data?.tanggal ?? '-',
                 id_toko_pengirim: data?.id_toko_pengirim ?? '-',
-                nama_toko_pengirim: data?.nama_toko_pengirim ?? '-',
+                nama_toko_pengirim: kasOUT,
                 id_toko_penerima: data?.id_toko_penerima ?? '-',
-                nama_toko_penerima: data?.nama_toko_penerima ?? '-',
-                nilai: data?.nilai ?? '-',
+                nama_toko_penerima: kasIN,
+                nominal: data?.nominal ?? '-',
                 keterangan: data?.keterangan ?? '-',
                 action_buttons,
             };
@@ -411,7 +389,7 @@
             let display_to = Math.min(display_from + dataList.length - 1, pagination.total);
 
             let getDataTable = '';
-            let classCol = 'align-center text-dark text-wrap';
+            let classCol = 'align-center text-dark text-nowrap';
 
             dataList.forEach((element, index) => {
                 getDataTable += `
@@ -421,7 +399,7 @@
                     <td class="${classCol}">${element.nama_toko_pengirim}</td>
                     <td class="${classCol}">${element.nama_toko_penerima}</td>
                     <td class="${classCol}">${element.keterangan}</td>
-                    <td class="${classCol} text-right">${element.nilai}</td>
+                    <td class="${classCol} text-right">${element.nominal}</td>
                     <td class="${classCol}">${element.action_buttons}</td>
                 </tr>`;
             });
@@ -445,35 +423,35 @@
 
         async function addData() {
             $(document).on("click", ".add-data", async function() {
-                $("#modal-title").html(`Form Tambah ${title}`);
+                $("#modal-title").html(`<i class="fa fa-circle-plus mr-1"></i>Form Tambah ${title}`);
                 $("#modal-form").modal("show");
                 $("form").find("input, select, textarea").val("").prop("checked", false).trigger("change");
-                $("#formTambahData").data("action-url", '{{ route('master.mutasi.store') }}');
+                $("#formTambahData").data("action-url", '{{ route('jk.mutasi.post') }}');
+
+                setDatePicker();
             });
         }
 
         async function submitForm() {
             $(document).off("submit").on("submit", "#formTambahData", async function(e) {
                 e.preventDefault();
+                const $submitButton = $("#submit-button");
+                const originalButtonHTML = $submitButton.html();
+
+                $submitButton.prop("disabled", true).html(
+                    `<i class="fas fa-spinner fa-spin"></i> Menyimpan...`);
+
                 loadingPage(true);
 
                 let actionUrl = $("#formTambahData").data("action-url");
-                let isSingleToko = @json($isSingleToko);
-
-                let kasPengirimData = $('#kas_pengirim').select2('data')[0] || {};
-                let kasPenerimaData = $('#kas_penerima').select2('data')[0] || {};
 
                 let formData = {
-                    toko_pengirim: isSingleToko ?
-                        $('#kas_pengirim').val() : '{{ auth()->user()->id_toko }}',
-                    jenis_id_pengirim: kasPengirimData.jenis_id ?? null,
-
-                    toko_penerima: isSingleToko ?
-                        $('#kas_penerima').prop('disabled', false).val() : $('#toko_penerima').val(),
-                    jenis_id_penerima: kasPenerimaData.jenis_id ?? null,
-
-                    nilai: $('#nilai').val(),
+                    kas_asal_id: $('#kas_pengirim').val(),
+                    kas_tujuan_id: $('#kas_penerima').prop('disabled', false).val(),
+                    tanggal: $('#tanggal').val(),
+                    nominal: $('#nominal').val().replace(/\./g, ''),
                     keterangan: $('#keterangan').val(),
+                    created_by: {{ auth()->user()->id }}
                 };
 
                 try {
@@ -497,6 +475,8 @@
                     loadingPage(false);
                     let resp = error.response?.data || {};
                     notificationAlert("error", "Kesalahan", resp.message || "Terjadi kesalahan");
+                } finally {
+                    $submitButton.prop("disabled", false).html(originalButtonHTML);
                 }
             });
         }
@@ -521,7 +501,10 @@
                 }).then(async (result) => {
                     let postDataRest = await renderAPI(
                         'DELETE',
-                        `/admin/mutasi/delete/${data.id}`, {}
+                        '{{ route('jk.mutasi.delete') }}', {
+                            id: data.id,
+                            deleted_by: {{ auth()->user()->id }}
+                        }
                     ).then(function(response) {
                         return response;
                     }).catch(function(error) {
@@ -533,6 +516,7 @@
                         setTimeout(function() {
                             getListData(defaultLimitPage, currentPage, defaultAscending,
                                 defaultSearch, customFilter);
+                            $('#listData').closest('table').find('tfoot').html('');
                         }, 500);
                         notificationAlert('success', 'Pemberitahuan', postDataRest.data
                             .message);
@@ -596,14 +580,16 @@
         }
 
         async function initPageLoad() {
-            await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter);
-            await setDynamicButton();
-            await selectData(selectOptions);
-            await searchList();
-            await filterList();
-            await addData();
-            await submitForm();
-            await deleteData();
+            await Promise.all([
+                setDynamicButton(),
+                getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter),
+                selectData(selectOptions),
+                searchList(),
+                filterList(),
+                addData(),
+                submitForm(),
+                deleteData(),
+            ]);
         }
     </script>
 @endsection

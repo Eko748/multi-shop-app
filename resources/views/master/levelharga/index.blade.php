@@ -137,7 +137,7 @@
             let edit_button = `
             <a href='levelharga/edit/${data.id}' class="p-1 btn edit-data action_button"
                 data-container="body" data-toggle="tooltip" data-placement="top"
-                title="Edit ${title}: ${data.nama_level_harga}"
+                title="Edit ${title}: ${data.text}"
                 data-id='${data.id}'>
                 <span class="text-dark">Edit</span>
                 <div class="icon text-warning">
@@ -148,9 +148,9 @@
             let delete_button = `
             <a class="p-1 btn hapus-data action_button"
                 data-container="body" data-toggle="tooltip" data-placement="top"
-                title="Hapus ${title}: ${data.nama_level_harga}"
+                title="Hapus ${title}: ${data.text}"
                 data-id='${data.id}'
-                data-name='${data.nama_level_harga}'>
+                data-name='${data.text}'>
                 <span class="text-dark">Hapus</span>
                 <div class="icon text-danger">
                     <i class="fa fa-trash"></i>
@@ -159,7 +159,7 @@
 
             return {
                 id: data?.id ?? '-',
-                nama_level_harga: data?.nama_level_harga ?? '-',
+                text: data?.text ?? '-',
                 edit_button,
                 delete_button,
             };
@@ -177,7 +177,7 @@
                 getDataTable += `
                     <tr class="text-dark">
                         <td class="${classCol} text-left"><span class="ml-4">${display_from + index}.</span></td>
-                        <td class="${classCol}">${element.nama_level_harga}</td>
+                        <td class="${classCol}">${element.text}</td>
                         <td class="${classCol}">
                             <div class="d-flex justify-content-end w-100">
                                 <div class="hovering p-1">

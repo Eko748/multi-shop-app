@@ -33,9 +33,9 @@
                                         </div>
                                     </div>
                                     <div class="form-group">
-                                        <label for="id_jenis_barang" class=" form-control-label">Jenis Barang<span
+                                        <label for="jenis_barang_id" class=" form-control-label">Jenis Barang<span
                                                 style="color: red">*</span></label>
-                                        <select name="id_jenis_barang" id="selector" class="form-control">
+                                        <select name="jenis_barang_id" id="selector" class="form-control">
                                             <option value="" required>~Pilih Jenis Barang~</option>
                                             @foreach ($jenis as $jn)
                                                 <option value="{{ $jn->id }}">{{ $jn->nama_jenis_barang }}</option>
@@ -43,9 +43,9 @@
                                         </select>
                                     </div>
                                     <div class="form-group">
-                                        <label for="id_brand_barang" class=" form-control-label">Brand Barang<span
+                                        <label for="brand_id" class=" form-control-label">Brand Barang<span
                                                 style="color: red">*</span></label>
-                                        <select name="id_brand_barang" id="selectors" class="form-control">
+                                        <select name="brand_id" id="selectors" class="form-control">
                                             <option value="">~Pilih Brand~</option>
                                             @foreach ($brand as $br)
                                                 <option value="{{ $br->id }}">{{ $br->nama_brand }}</option>

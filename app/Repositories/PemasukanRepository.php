@@ -6,12 +6,13 @@ use App\Models\Pemasukan;
 
 class PemasukanRepository
 {
-    /**
-     * Dapatkan total modal (id_jenis_pemasukan 1 & 2) untuk bulan dan tahun yang diberikan.
-     */
-    public function getModal(int $month, int $year): float
+    public function getModal(int $month, int $year, $tokoId = null): float
     {
-        return (float) Pemasukan::whereIn('id_jenis_pemasukan', [1, 2])
+        return (float) Pemasukan::query()->whereIn('pemasukan_tipe_id', [1, 2])
+            ->when(
+                $tokoId !== null && $tokoId !== 'all',
+                fn($q) => $q->where('toko_id', $tokoId)
+            )
             ->where(function ($query) use ($month, $year) {
                 $query->whereYear('tanggal', '<', $year)
                     ->orWhere(function ($sub) use ($month, $year) {
@@ -19,6 +20,6 @@ class PemasukanRepository
                             ->whereMonth('tanggal', '<=', $month);
                     });
             })
-            ->sum('nilai');
+            ->sum('nominal');
     }
 }

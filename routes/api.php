@@ -1,48 +1,24 @@
 <?php
 
-use App\Http\Controllers\AssetBarangController;
-use App\Http\Controllers\AssetBarangRetureController;
-use App\Http\Controllers\MasterController;
-use App\Http\Controllers\BarangController;
-use App\Http\Controllers\BrandController;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\HutangController;
-use App\Http\Controllers\JenisBarangController;
-use App\Http\Controllers\KasController;
-use App\Http\Controllers\KasirController;
-use App\Http\Controllers\LaporanKeuangan\ArusKasController;
-use App\Http\Controllers\LaporanKeuangan\LabaRugiController;
-use App\Http\Controllers\LaporanKeuangan\NeracaController;
-use App\Http\Controllers\LaporanKeuangan\NeracaPenyesuaianController;
-use App\Http\Controllers\LaporanPenjualanController;
-use App\Http\Controllers\LevelHargaController;
-use App\Http\Controllers\LevelUserController;
-use App\Http\Controllers\Log\LogAktivitasController;
-use App\Http\Controllers\MemberController;
-use App\Http\Controllers\MutasiController;
-use App\Http\Controllers\PemasukanController;
-use App\Http\Controllers\PembelianBarangController;
-use App\Http\Controllers\PengeluaranController;
-use App\Http\Controllers\PengirimanBarangController;
-use App\Http\Controllers\PiutangController;
-use App\Http\Controllers\PlanOrderController;
-use App\Http\Controllers\PromoController;
-use App\Http\Controllers\RatingController;
-use App\Http\Controllers\RatingMemberController;
-use App\Http\Controllers\Reture\RetureSuplierController;
-use App\Http\Controllers\RetureController;
-use App\Http\Controllers\Retur\ReturMemberController;
-use App\Http\Controllers\Retur\ReturSupplierController;
-use App\Http\Controllers\StockBarangController;
-use App\Http\Controllers\SupplierController;
-use App\Http\Controllers\TokoController;
+use App\Http\Controllers\Auth\DashboardController;
+use App\Http\Controllers\LaporanKeuangan\{ArusKasController, LabaRugiController, NeracaController, NeracaPenyesuaianController};
+use App\Http\Controllers\Retur\{ReturMemberController, ReturSupplierController};
+use App\Http\Controllers\TransaksiDigital\{DompetController, TransaksiNonFisikController};
+use App\Http\Controllers\DataMaster\Entitas\{MemberController, SupplierController, TokoController, UserController};
+use App\Http\Controllers\DataMaster\Log\LogAktivitasController;
+use App\Http\Controllers\DataMaster\ManajemenBarang\{BarangController, BrandController, JenisBarangController, StockBarangBatchController, StockBarangController};
+use App\Http\Controllers\DataMaster\Pengaturan\{LevelHargaController, LevelUserController, PermissionController, PromoController};
+use App\Http\Controllers\Distribusi\{PengirimanBarangController, PlanOrderController};
+use App\Http\Controllers\JurnalKeuangan\{HutangController, MutasiController, PemasukanController, PengeluaranController, PiutangController};
+use App\Http\Controllers\Rekapitulasi\{AsetBarangJualanController, AsetBarangReturController, LaporanKasirController, LaporanPembelianBarangController, LaporanPengirimanBarangController, LaporanPenjualanController, RatingBarangController, RatingMemberController};
+use App\Http\Controllers\TransaksiBarang\{KasbonController, KasirController, PembelianBarangController, PengembalianController};
 use App\Http\Controllers\TransaksiDigital\DompetKategoriController;
 use App\Http\Controllers\TransaksiDigital\DompetSaldoController;
 use App\Http\Controllers\TransaksiDigital\ItemNonFisikController;
 use App\Http\Controllers\TransaksiDigital\ItemNonFisikHargaController;
 use App\Http\Controllers\TransaksiDigital\ItemNonFisikTipeController;
 use App\Http\Controllers\TransaksiDigital\PenjualanNonFisikController;
-use App\Http\Controllers\UserController;
+use App\Http\Controllers\Utils\{KasController, MasterController};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -64,14 +40,13 @@ Route::get('/get-top-member', [DashboardController::class, 'getMember'])->name('
 Route::get('/get-omset', [DashboardController::class, 'getOmset'])->name('dashboard.omset');
 Route::get('/get-laba-kotor', [DashboardController::class, 'getLabaKotor'])->name('dashboard.laba_kotor');
 Route::get('/get-jumlah-transaksi', [DashboardController::class, 'getJumlahTransaksi'])->name('dashboard.jumlah_transaksi');
-Route::get('/get-asset', [AssetBarangController::class, 'getAssetBarang'])->name('dashboard.asset');
-Route::get('/get-aset-retur', [AssetBarangRetureController::class, 'getAsetBarangRetur'])->name('aset.retur');
+Route::get('/get-asset', [AsetBarangJualanController::class, 'getAssetBarang'])->name('dashboard.asset');
+Route::get('/get-aset-retur', [AsetBarangReturController::class, 'getAsetBarangRetur'])->name('aset.retur');
 Route::get('/get-ratingmember', [RatingMemberController::class, 'getMember'])->name('dashboard.ratingmember');
 
 Route::get('/getpembelianbarang', [PembelianBarangController::class, 'getpembelianbarang'])->name('master.pembelian.get');
 Route::get('/gettemppembelian', [PembelianBarangController::class, 'gettemppembelian'])->name('master.temppembelian.get');
 Route::delete('/hapustemp', [PembelianBarangController::class, 'hapusTemp'])->name('master.temppembelian.hapus');
-Route::get('/getpengirimanbarang', [PengirimanBarangController::class, 'getpengirimanbarang'])->name('master.pengiriman.get');
 
 Route::get('/getdatauser', [UserController::class, 'getdatauser'])->name('master.getdatauser');
 Route::get('/getpengeluaran', [PengeluaranController::class, 'getpengeluaran'])->name('master.getpengeluaran');
@@ -90,14 +65,9 @@ Route::get('/getpromo', [PromoController::class, 'getpromo'])->name('master.getp
 Route::get('/getbarangs', [BarangController::class, 'getbarangs'])->name('master.getbarangs');
 Route::get('/getstockbarang', [StockBarangController::class, 'getstockbarang'])->name('master.getstockbarang');
 Route::get('/getplanorder', [PlanOrderController::class, 'getplanorder'])->name('master.getplanorder');
-Route::get('/getDataReture', [RetureController::class, 'getDataReture'])->name('master.getreture');
-Route::get('/getRetureQrcode', [RetureController::class, 'getRetureQrcode'])->name('master.getretureqrcode');
-
-Route::get('/getRetureSupplier', [RetureSuplierController::class, 'get'])->name('master.getreturesupplier');
-Route::get('/detailRetureSupplier', [RetureSuplierController::class, 'detailReture'])->name('master.detailReture');
 
 Route::get('/getBarang', [PengirimanBarangController::class, 'getHargaBarang'])->name('master.getBarangKirim');
-Route::get('/get-rating-barang', [RatingController::class, 'getRatingBarang'])->name('rekapitulasi.getRatingBarang');
+Route::get('/get-rating-barang', [RatingBarangController::class, 'getRatingBarang'])->name('rekapitulasi.getRatingBarang');
 
 Route::get('/neraca', [NeracaController::class, 'getNeraca'])->name('master.getNeraca');
 
@@ -116,11 +86,13 @@ Route::prefix('master')->as('master.')->group(function () {
     Route::get('qr-barcode', [MasterController::class, 'getQrBarcode'])->name('qrbarcode');
     Route::get('kasbon', [MasterController::class, 'getKasbon'])->name('kasbon');
     Route::get('jenis-barang', [MasterController::class, 'getJenisBarang'])->name('jenisBarang');
+    Route::get('brand', [MasterController::class, 'getBrand'])->name('brand');
 });
 
 Route::get('/rekapitulasi/laporan-penjualan', [LaporanPenjualanController::class, 'getSalesReport'])->name('rekapitulasi.laporan-penjualan');
 Route::get('/get/total-kas/jenis-barang', [KasController::class, 'getTotalKasJenisBarang'])->name('total.kas.jenis-barang');
 Route::get('/get/total-kas', [KasController::class, 'getTotalKas'])->name('total.kas');
+Route::get('/get/total-kas-hirarki', [KasController::class, 'getTotalKasHirarki'])->name('total.kas-hirarki');
 Route::get('/get/total-kas-besar', [KasController::class, 'getTotalKasBesar'])->name('total.kas-besar');
 Route::get('/get/total-kas-kecil', [KasController::class, 'getTotalKasKecil'])->name('total.kas-kecil');
 
@@ -205,5 +177,58 @@ Route::prefix('retur')->as('retur.')->group(function () {
         Route::post('post', [ReturSupplierController::class, 'post'])->name('post');
         Route::put('put', [ReturSupplierController::class, 'put'])->name('put');
         Route::put('verify', [ReturSupplierController::class, 'verify'])->name('verify');
+    });
+});
+
+Route::prefix('stock-barang')->as('sb.')->group(function () {
+    Route::prefix('batch')->as('batch.')->group(function () {
+        Route::get('get', [StockBarangBatchController::class, 'get'])->name('get');
+        Route::get('get-by-qrcode', [StockBarangBatchController::class, 'getByQR'])->name('getByQR');
+    });
+});
+
+Route::prefix('distribusi')->as('distribusi.')->group(function () {
+    Route::prefix('pengiriman')->as('pengiriman.')->group(function () {
+        Route::get('get', [PengirimanBarangController::class, 'get'])->name('get');
+        Route::get('progress', [PengirimanBarangController::class, 'progress'])->name('progress');
+        Route::post('post', [PengirimanBarangController::class, 'post'])->name('post');
+        Route::post('draft', [PengirimanBarangController::class, 'draft'])->name('draft');
+        Route::post('verify', [PengirimanBarangController::class, 'verify'])->name('verify');
+    });
+});
+
+Route::prefix('jurnal-keuangan')->as('jk.')->group(function () {
+    Route::prefix('pemasukan')->as('pemasukan.')->group(function () {
+        Route::get('get', [PemasukanController::class, 'get'])->name('get');
+        Route::post('post', [PemasukanController::class, 'post'])->name('post');
+        Route::delete('delete', [PemasukanController::class, 'delete'])->name('delete');
+    });
+
+    Route::prefix('pengeluaran')->as('pengeluaran.')->group(function () {
+        Route::get('get', [PengeluaranController::class, 'get'])->name('get');
+        Route::post('post', [PengeluaranController::class, 'post'])->name('post');
+        Route::delete('delete', [PengeluaranController::class, 'delete'])->name('delete');
+    });
+
+    Route::prefix('hutang')->as('hutang.')->group(function () {
+        Route::get('get', [HutangController::class, 'get'])->name('get');
+        Route::get('detail', [HutangController::class, 'detail'])->name('detail');
+        Route::post('post', [HutangController::class, 'post'])->name('post');
+        Route::put('pay', [HutangController::class, 'pay'])->name('pay');
+        Route::delete('delete', [HutangController::class, 'delete'])->name('delete');
+    });
+
+    Route::prefix('piutang')->as('piutang.')->group(function () {
+        Route::get('get', [PiutangController::class, 'get'])->name('get');
+        Route::get('detail', [PiutangController::class, 'detail'])->name('detail');
+        Route::post('post', [PiutangController::class, 'post'])->name('post');
+        Route::put('pay', [PiutangController::class, 'pay'])->name('pay');
+        Route::delete('delete', [PiutangController::class, 'delete'])->name('delete');
+    });
+
+    Route::prefix('mutasi')->as('mutasi.')->group(function () {
+        Route::get('get', [MutasiController::class, 'get'])->name('get');
+        Route::post('post', [MutasiController::class, 'post'])->name('post');
+        Route::delete('delete', [MutasiController::class, 'delete'])->name('delete');
     });
 });

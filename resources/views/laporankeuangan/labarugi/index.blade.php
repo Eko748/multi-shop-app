@@ -170,6 +170,7 @@
                         limit: limit,
                         ascending: ascending,
                         search: search,
+                        toko_id: {{ auth()->user()->toko_id }},
                         ...filterParams
                     }
                 ).then(response => response)

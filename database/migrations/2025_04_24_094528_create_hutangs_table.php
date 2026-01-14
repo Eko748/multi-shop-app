@@ -13,16 +13,17 @@ return new class extends Migration
     {
         Schema::create('hutang', function (Blueprint $table) {
             $table->id();
-            $table->string('id_toko');
-            $table->string('id_jenis');
-            $table->integer('pb_id');
-            $table->string('keterangan');
-            $table->unsignedBigInteger('kas_jenis_barang')->nullable()->index();
-            $table->char('label')->nullable();
-            $table->double('nilai');
-            $table->enum('status', (['0', '1', '2']));
-            $table->enum('jangka', (['1', '2']))->nullable();
+            $table->unsignedBigInteger('kas_id');
+            $table->unsignedBigInteger('toko_id');
+            $table->unsignedBigInteger('hutang_tipe_id');
+            $table->decimal('nominal', 15, 2)->nullable();
+            $table->decimal('sisa', 15, 2)->nullable();
             $table->datetime('tanggal');
+            $table->string('keterangan');
+            $table->boolean('status')->default(false);
+            $table->enum('jangka', (['pendek', 'panjang']))->nullable();
+            $table->nullableMorphs('sumber');
+            $table->unsignedBigInteger('created_by')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

@@ -41,3 +41,16 @@
                 width: auto !important;
             }
         }
+
+        .custom-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: normal;
+            word-break: break-word;
+            max-width: 100%;
+            font-size: 0.75rem;
+            padding: 0.4em 0.6em;
+            line-height: 1.2;
+            text-align: start;
+        }

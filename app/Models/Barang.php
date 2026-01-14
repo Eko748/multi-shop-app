@@ -14,21 +14,15 @@ class Barang extends Model
 
     protected $table = 'barang';
 
-    protected $guarded = [''];
-
-    public $incrementing = false;
-
-    protected $keyType = 'string';
-
-    public $primaryKey = 'id';
+    protected $guarded = [];
 
     public function brand(): BelongsTo
     {
-        return $this->belongsTo(Brand::class,'id_brand_barang', 'id');
+        return $this->belongsTo(Brand::class,'brand_id', 'id');
     }
     public function jenis(): BelongsTo
     {
-        return $this->belongsTo(JenisBarang::class, 'id_jenis_barang', 'id');
+        return $this->belongsTo(JenisBarang::class, 'jenis_barang_id', 'id');
     }
     public function stockBarang(): HasMany
     {
@@ -64,4 +58,15 @@ class Barang extends Model
         return $this->hasMany(DetailRetur::class, 'id_barang');
     }
 
+    public function updateHargaLevel(array $data)
+    {
+        // data: [ ['nama' => 'Level 1', 'harga' => 3000], ... ]
+        $this->update(['level_harga' => $data]);
+    }
+
+    public function getHargaByLevel($levelName)
+    {
+        return collect($this->level_harga)
+            ->firstWhere('nama', $levelName)['harga'] ?? null;
+    }
 }

@@ -12,34 +12,29 @@ class Pemasukan extends Model
     use HasFactory, SoftDeletes;
 
     protected $table = 'pemasukan';
+    protected $guarded = [];
 
-    protected $guarded = [''];
-
-    protected $keyType ='string';
-
-    public $primaryKey = 'id';
-
-    protected $hidden = [
-        'password',
-        'remember_token',
+    protected $casts = [
+        'tanggal' => 'datetime',
     ];
 
-    public function jenis_pemasukan(): BelongsTo
+    public function pemasukanTipe(): BelongsTo
     {
-        return $this->belongsTo(JenisPemasukan::class,'id_jenis_pemasukan', 'id');
+        return $this->belongsTo(PemasukanTipe::class, 'pemasukan_tipe_id', 'id');
     }
 
-    public function toko(): BelongsTo{
-        return $this->belongsTo(Toko::class, 'id_toko', 'id');
+    public function toko(): BelongsTo
+    {
+        return $this->belongsTo(Toko::class, 'toko_id', 'id');
     }
 
-    public function detail_pemasukan()
+    public function kas(): BelongsTo
     {
-        return $this->hasMany(DetailPemasukan::class, 'id_pemasukan', 'id')->withTrashed();
+        return $this->belongsTo(Kas::class, 'kas_id', 'id');
     }
 
-    public function detailPemasukan()
+    public function createdBy(): BelongsTo
     {
-        return $this->hasMany(DetailPemasukan::class, 'id_pemasukan');
+        return $this->belongsTo(User::class, 'created_by', 'id');
     }
 }

@@ -11,6 +11,6 @@ class NeracaPenyesuaianRepository
      */
     public function getTotalPenyesuaian(): float
     {
-        return (float) (NeracaPenyesuaian::sum('nilai') ?? 0);
+        return (float) (NeracaPenyesuaian::sum('nominal') ?? 0);
     }
 }

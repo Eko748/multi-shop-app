@@ -16,21 +16,11 @@ class StockBarang extends Model
 
     public function barang()
     {
-        return $this->belongsTo(Barang::class, 'id_barang', 'id');
+        return $this->belongsTo(Barang::class, 'barang_id', 'id');
     }
 
     public function toko()
     {
-        return $this->belongsTo(Toko::class, 'id_toko', 'id');
-    }
-
-    public function levelharga()
-    {
-        return $this->hasMany(LevelHarga::class, 'id_barang', 'id');
-    }
-
-    public function detailToko()
-    {
-        return $this->hasMany(DetailToko::class, 'id_barang', 'id_barang');
+        return $this->belongsTo(Toko::class, 'toko_id', 'id');
     }
 }

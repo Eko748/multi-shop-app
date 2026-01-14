@@ -29,9 +29,10 @@ class TokoSeeder extends Seeder
             DB::table('toko')->updateOrInsert(
                 ['id' => $item['id']],
                 [
-                    'nama_toko' => $item['nama_toko'],
+                    'parent_id' => $item['parent_id'],
+                    'nama' => $item['nama'],
                     'singkatan' => $item['singkatan'],
-                    'id_level_harga' => $item['id_level_harga'], // ini tetap disimpan dalam format JSON string
+                    'level_harga' => $item['level_harga'],
                     'wilayah' => $item['wilayah'],
                     'alamat' => $item['alamat'],
                     'deleted_at' => $item['deleted_at'],

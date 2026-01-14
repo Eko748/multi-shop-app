@@ -29,27 +29,36 @@ class ArusKasController extends Controller
         return view('laporankeuangan.aruskas.index', compact('menu'));
     }
 
-    public function getaruskas(Request $request)
+    public function getArusKas(Request $request)
     {
         try {
             $result = $this->arusKasService->getArusKasData($request);
 
-            return response()->json([
-                'data' => $result['data'],
-                'data_total' => $result['data_total'],
-                'status_code' => 200,
-                'errors' => false,
-                'message' => 'Berhasil'
-            ], 200);
+            // 🔥 Jika data kosong
+            if (empty($result['data']) || count($result['data']) === 0) {
+                return response()->json([
+                    'data'        => $result['data'],
+                    'data_total'  => $result['data_total'],
+                    'status_code' => 200,
+                    'errors'      => false,
+                    'message'     => 'Data Bulan ini Belum ada'
+                ], 200);
+            }
 
+            return response()->json([
+                'data'        => $result['data'],
+                'data_total'  => $result['data_total'],
+                'status_code' => 200,
+                'errors'      => false,
+                'message'     => 'Berhasil'
+            ], 200);
         } catch (\Throwable $th) {
             return response()->json([
-                'status' => 'error',
-                'message' => 'Data Tidak Ada',
+                'status'       => 'error',
+                'message'      => 'Data Tidak Ada',
                 'message_back' => $th->getMessage(),
-                'status_code' => 500,
+                'status_code'  => 500,
             ]);
         }
     }
-
 }

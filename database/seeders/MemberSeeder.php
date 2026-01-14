@@ -29,9 +29,9 @@ class MemberSeeder extends Seeder
             Member::updateOrCreate(
                 ['id' => $item['id']],
                 [
-                    'id_toko'      => $item['id_toko'],
+                    'toko_id'      => $item['id_toko'],
                     'level_info'   => $item['level_info'],
-                    'nama_member'  => $item['nama_member'],
+                    'nama'  => $item['nama_member'],
                     'no_hp'        => $item['no_hp'],
                     'alamat'       => $item['alamat'],
                     'created_at'   => $item['created_at'],

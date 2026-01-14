@@ -9,15 +9,19 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('toko', function (Blueprint $table) {
-            $table->id('id');
-            $table->string('nama_toko');
+            $table->id();
+            $table->unsignedBigInteger('parent_id')->nullable();
+            $table->string('nama');
             $table->string('singkatan')->nullable();
-            $table->string('id_level_harga')->nullable();
-            $table->string('wilayah');
-            $table->text('alamat');
+            $table->json('level_harga')->nullable();
+            $table->string('wilayah')->default('Cirebon');
+            $table->text('alamat')->default('Cirebon');
             $table->integer('pin')->nullable();
-            $table->enum('tipe_kas', ['umum', 'barang'])->nullable();
-            $table->boolean('kasbon')->default(0);
+            $table->boolean('kas_detail')->default(true);
+            $table->boolean('kasbon')->default(false);
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
+            $table->timestamps();
             $table->softDeletes();
         });
     }

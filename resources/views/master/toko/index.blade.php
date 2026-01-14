@@ -135,11 +135,10 @@
                                 @if (hasAnyPermission(['POST /toko/store', 'POST /import-toko']))
                                     @if (hasAnyPermission(['POST /toko/store']))
                                         <div class="custom-btn-tambah-wrap">
-                                            <a href="{{ route('master.toko.create') }}"
-                                                class="btn btn-primary custom-btn-tambah" data-toggle="tooltip"
-                                                title="Tambah Data Toko">
-                                                <i class="fa fa-circle-plus"></i> Tambah
-                                            </a>
+                                            <button class="btn btn-primary text-white add-data w-100" data-container="body"
+                                                data-toggle="tooltip" data-placement="top" title="Tambah Toko">
+                                                <i class="fa fa-plus-circle"></i> Tambah
+                                            </button>
                                         </div>
                                     @endif
                                     @if (hasAnyPermission(['POST /import-toko']))
@@ -210,6 +209,90 @@
             </div>
         </div>
     </div>
+
+    <div class="modal fade" id="modal-form" tabindex="-1" role="dialog" aria-labelledby="modal-form-label"
+        aria-hidden="true">
+        <div class="modal-dialog modal-xl" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modal-title">Tambah Data Pemasukan</h5>
+                    <button type="button" class="btn-close reset-all close" data-bs-dismiss="modal" aria-label="Close"><i
+                            class="fa fa-xmark"></i></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formTambahData">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="nama" class=" form-control-label">Nama Toko<span
+                                            style="color: red">*</span></label>
+                                    <input type="text" id="nama" name="nama"
+                                        placeholder="Contoh : Toko Sejahtera" class="form-control">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="singkatan" class="form-control-label">Singkatan<span
+                                            style="color: red">*</span></label>
+                                    <input type="text" id="singkatan" name="singkatan"
+                                        placeholder="Maksimal 4 Karakter" class="form-control"
+                                        value="{{ old('singkatan') }}">
+                                    @error('singkatan')
+                                        <small class="text-danger">{{ $message }}</small>
+                                    @enderror
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="pin" class=" form-control-label">PIN Toko<span
+                                            style="color: red">*</span></label>
+                                    <input type="password" id="pin" name="pin" placeholder="Masukkan PIN"
+                                        class="form-control">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="level_harga" class="form-control-label">Level Harga</label>
+                                    <select class="form-control" id="level_harga" name="level_harga">
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="kas_detail" class="form-control-label">Tipe Kas Jenis Barang</label>
+                                    <select class="form-control" id="kas_detail" name="kas_detail">
+                                        <option value="1">Ya</option>
+                                        <option value="0">Tidak</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="wilayah" class=" form-control-label">Wilayah<span
+                                    style="color: red">*</span></label>
+                            <input type="text" id="wilayah" name="wilayah" placeholder="Contoh : Cirebon Timur"
+                                class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="wilayah" class=" form-control-label">Alamat<span
+                                    style="color: red">*</span></label>
+                            <textarea name="alamat" id="alamat" rows="4"
+                                placeholder="Contoh : Jl. Nyimas Gandasari No.18 Plered - Cirebon" class="form-control"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" aria-label="Close"><i
+                            class="fa fa-circle-xmark mr-1"></i>Tutup</button>
+                    <button type="submit" class="btn btn-primary" id="submit-button" form="formTambahData"><i
+                            class="fa fa-save mr-1"></i>Simpan</button>
+                </div>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @section('asset_js')
@@ -225,13 +308,20 @@
         let defaultAscending = 0;
         let defaultSearch = '';
         let customFilter = {};
+        let selectOptions = [{
+            id: '#level_harga',
+            isUrl: '{{ route('master.getlevelharga') }}',
+            placeholder: 'Pilih Level Harga',
+            isModal: '#modal-form',
+            multiple: true
+        }];
 
         async function getListData(limit = 10, page = 1, ascending = 0, search = '', customFilter = {}) {
             $('#listData').html(loadingData());
 
             let filterParams = {
-                id_level: @json(auth()->user()->id_level),
-                id_toko: @json(auth()->user()->id_toko),
+                id_level: @json(auth()->user()->role_id),
+                id_toko: @json(auth()->user()->toko_id),
             };
 
             let getDataRest = await renderAPI(
@@ -273,7 +363,7 @@
                 detail_button = `
                 <a href='toko/detail/${data.id}' class="p-1 btn detail-data btn btn-primary"
                     data-container="body" data-toggle="tooltip" data-placement="top"
-                    title="Lihat Detail ${title}: ${data.nama_toko}"
+                    title="Lihat Detail ${title}: ${data.nama}"
                     data-id='${data.id}'>
                     <span class="text-white"><i class="fa fa-eye mr-1"></i>Cek Detail</span>
                 </a>`;
@@ -289,7 +379,7 @@
                 edit_button = `
                 <a href='toko/edit/${data.id}' class="p-1 btn edit-data action_button"
                     data-container="body" data-toggle="tooltip" data-placement="top"
-                    title="Edit ${title}: ${data.nama_toko}"
+                    title="Edit ${title}: ${data.nama}"
                     data-id='${data.id}'>
                     <span class="text-dark">Edit</span>
                     <div class="icon text-warning">
@@ -303,9 +393,9 @@
                 delete_button = `
                 <a class="p-1 btn hapus-data action_button"
                     data-container="body" data-toggle="tooltip" data-placement="top"
-                    title="Hapus ${title}: ${data.nama_toko}"
+                    title="Hapus ${title}: ${data.nama}"
                     data-id='${data.id}'
-                    data-name='${data.nama_toko}'>
+                    data-name='${data.nama}'>
                     <span class="text-dark">Hapus</span>
                     <div class="icon text-danger">
                         <i class="fa fa-trash"></i>
@@ -316,7 +406,7 @@
             let action_buttons = '';
             if (edit_button || delete_button) {
                 action_buttons = `
-                <div class="d-flex justify-content-start">
+                <div class="d-flex justify-content-center">
                     ${edit_button ? `<div class="hovering p-1">${edit_button}</div>` : ''}
                     ${delete_button ? `<div class="hovering p-1">${delete_button}</div>` : ''}
                 </div>`;
@@ -329,7 +419,7 @@
 
             return {
                 id: data?.id ?? '-',
-                nama_toko: data?.nama_toko ?? '-',
+                nama: data?.nama ?? '-',
                 singkatan: data?.singkatan ?? '-',
                 nama_level_harga: data?.nama_level_harga ?? '-',
                 wilayah: data?.wilayah ?? '-',
@@ -352,7 +442,7 @@
                 getDataTable += `
                 <tr class="text-dark">
                     <td class="${classCol} text-center">${display_from + index}.</td>
-                    <td class="${classCol}">${element.nama_toko}</td>
+                    <td class="${classCol}">${element.nama}</td>
                     <td class="${classCol}">${element.singkatan}</td>
                     <td class="${classCol}">${element.nama_level_harga}</td>
                     <td class="${classCol}">${element.wilayah}</td>
@@ -369,6 +459,67 @@
             renderPagination();
         }
 
+        async function addData() {
+            $(document).on("click", ".add-data", function() {
+                $("#modal-title").html(`<i class="fa fa-circle-plus mr-1"></i>Form Tambah Toko`);
+                $("#modal-form").modal("show");
+                $("#formTambahData").data("action-url", '{{ route('master.toko.store') }}');
+            });
+        }
+
+        async function submitForm() {
+            $(document).off("submit").on("submit", "#formTambahData", async function(e) {
+                e.preventDefault();
+
+                const $submitButton = $("#submit-button");
+                const originalButtonHTML = $submitButton.html();
+
+                $submitButton.prop("disabled", true).html(
+                    `<i class="fas fa-spinner fa-spin"></i> Menyimpan...`);
+
+                loadingPage(true);
+
+                let actionUrl = $("#formTambahData").data("action-url");
+
+                const idToko = '{{ auth()->user()->toko_id }}';
+
+                let formData = {
+                    toko_id: idToko,
+                    nama: $('#nama').val(),
+                    singkatan: $('#singkatan').val(),
+                    wilayah: $('#wilayah').val(),
+                    alamat: $('#alamat').val(),
+                    level_harga: $('#level_harga').val(),
+                    pin: $('#pin').val(),
+                    kas_detail: $('#kas_detail').val(),
+                };
+
+                try {
+                    let postData = await renderAPI("POST", actionUrl, formData);
+
+                    loadingPage(false);
+                    if (postData.status >= 200 && postData.status < 300) {
+                        notificationAlert("success", "Pemberitahuan", postData.data.message || "Berhasil");
+                        setTimeout(async function() {
+                            await getListData(defaultLimitPage, currentPage, defaultAscending,
+                                defaultSearch, customFilter);
+                        }, 500);
+                        setTimeout(() => {
+                            $("#modal-form").modal("hide");
+                        }, 500);
+                    } else {
+                        notificationAlert("info", "Pemberitahuan", postData.data.message ||
+                            "Terjadi kesalahan");
+                    }
+                } catch (error) {
+                    loadingPage(false);
+                    let resp = error.response?.data || {};
+                    notificationAlert("error", "Kesalahan", resp.message || "Terjadi kesalahan");
+                } finally {
+                    $submitButton.prop("disabled", false).html(originalButtonHTML);
+                }
+            });
+        }
 
         async function deleteData() {
             $(document).on("click", ".hapus-data", async function() {
@@ -412,9 +563,14 @@
         }
 
         async function initPageLoad() {
-            await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter);
-            await searchList();
-            await deleteData();
+            await Promise.all([
+                getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter),
+                searchList(),
+                addData(),
+                selectData(selectOptions),
+                deleteData(),
+                submitForm(),
+            ]);
         }
     </script>
 @endsection

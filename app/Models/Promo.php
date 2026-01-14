@@ -11,22 +11,15 @@ class Promo extends Model
     use HasFactory, SoftDeletes;
 
     protected $table = 'promo';
-
-    protected $guarded = [''];
-
-    public $timestamps = false;
-
-    protected $keyType = 'string';
-
-    public $primaryKey = 'id';
+    protected $guarded = [];
 
     public function barang()
     {
-        return $this->belongsTo(Barang::class, 'id_barang');
+        return $this->belongsTo(Barang::class, 'barang_id');
     }
 
     public function toko()
     {
-        return $this->belongsTo(Toko::class, 'id_toko');
+        return $this->belongsTo(Toko::class, 'toko_id');
     }
 }

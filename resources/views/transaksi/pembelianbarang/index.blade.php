@@ -9,131 +9,8 @@
     <link rel="stylesheet" href="{{ asset('css/button-action.css') }}">
     <link rel="stylesheet" href="{{ asset('css/table.css') }}">
     <link rel="stylesheet" href="{{ asset('css/daterange-picker.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/flatpickr.min.css') }}">
     <link rel="stylesheet" href="{{ asset('css/sweetalert2.css') }}">
-    <style>
-        #daterange[readonly] {
-            background-color: white !important;
-            cursor: pointer !important;
-            color: inherit !important;
-        }
-
-        #tgl_nota[readonly] {
-            background-color: white !important;
-            cursor: pointer !important;
-            color: inherit !important;
-        }
-
-        .custom-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .custom-left {
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .custom-btn-tambah-wrap {
-            flex: 1 1 auto;
-        }
-
-        .custom-form-import {
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .custom-input-file {
-            padding: 8px;
-            border: 1px solid #ccc;
-            background-color: #fff;
-            border-radius: 4px;
-            flex: 1 1 auto;
-        }
-
-        .custom-btn-import {
-            flex: 0 0 auto;
-            white-space: nowrap;
-        }
-
-        .custom-right {
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            flex-wrap: wrap;
-            gap: 10px;
-            flex: 0 0 auto;
-        }
-
-        .custom-limit-page {
-            flex: 0 0 auto;
-        }
-
-        .custom-search {
-            flex: 0 0 auto;
-            width: 200px;
-        }
-
-        .clickable-row {
-            cursor: pointer;
-        }
-
-        @media (max-width: 767.98px) {
-            .custom-header {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .custom-left {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .custom-btn-tambah-wrap {
-                width: 100%;
-            }
-
-            .custom-form-import {
-                flex-direction: row;
-                justify-content: space-between;
-                width: 100%;
-            }
-
-            .custom-input-file {
-                flex: 1 1 65%;
-            }
-
-            .custom-btn-import {
-                flex: 1 1 30%;
-            }
-
-            .custom-right {
-                flex-direction: row;
-                justify-content: space-between;
-                width: 100%;
-                margin-top: 10px;
-            }
-
-            .custom-limit-page {
-                flex: 1 1 25%;
-            }
-
-            .custom-search {
-                flex: 1 1 70%;
-            }
-
-            .custom-btn-tambah {
-                width: 100%;
-            }
-        }
-    </style>
+    @include('transaksi.pembelianbarang.css')
 @endsection
 
 @section('content')
@@ -206,15 +83,15 @@
                                         <thead>
                                             <tr class="tb-head">
                                                 <th class="text-center text-wrap align-top">No</th>
-                                                <th class="text-wrap align-top">ID Pembelian Brg</th>
+                                                <th class="text-wrap align-top">ID Pembelian</th>
                                                 <th class="text-wrap align-top">Status</th>
-                                                <th class="text-wrap align-top">No. Nota</th>
-                                                <th class="text-wrap align-top">Tanggal Nota</th>
+                                                <th class="text-wrap align-top">Nota</th>
+                                                <th class="text-wrap align-top">Tanggal</th>
                                                 <th class="text-wrap align-top">Sumber Dana</th>
-                                                <th class="text-wrap align-top">Supplier</th>
-                                                <th class="text-wrap align-top">Total Item</th>
-                                                <th class="text-wrap align-top">Total Harga</th>
-                                                <th class="text-wrap align-top">Action</th>
+                                                <th class="text-wrap align-top">Suplier</th>
+                                                <th class="text-wrap align-top text-right">Total Qty</th>
+                                                <th class="text-wrap align-top text-right">Total Harga</th>
+                                                <th class="text-wrap align-top text-center">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody id="listData">
@@ -264,46 +141,49 @@
                                     <div class="tab-content pl-3 pt-2" id="nav-tabContent">
                                         <div class="tab-pane fade show active" id="tambah" role="tabpanel"
                                             aria-labelledby="tambah-tab">
-                                            <form id="form-tambah-pembelian"
-                                                action="{{ route('transaksi.pembelianbarang.store') }}" method="POST">
-                                                @csrf
+                                            <form id="form-tambah-pembelian">
                                                 <div class="row">
-                                                    <div class="col-6">
+                                                    <div class="col-4">
+                                                        <div class="form-group">
+                                                            <label for="no_nota" class=" form-control-label">Nomor
+                                                                Nota<sup style="color: red">*</sup></label>
+                                                            <input type="text" id="no_nota" name="no_nota"
+                                                                placeholder="Contoh : 001" class="form-control">
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-4">
                                                         <div class="form-group">
                                                             <label for="id_supplier" class="form-control-label">Nama
-                                                                Supplier</label>
-                                                            <select name="id_supplier" id="id_supplier">
-                                                                <option value="" selected>Pilih Supplier</option>
-                                                                @foreach ($suppliers as $supplier)
-                                                                    <option value="{{ $supplier->id }}">
-                                                                        {{ $supplier->nama_supplier }}</option>
-                                                                @endforeach
+                                                                Suplier<sup style="color: red">*</sup></label>
+                                                            <select name="id_supplier" id="id_supplier"
+                                                                class="form-control select2">
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-4">
+                                                        <div class="form-group">
+                                                            <label for="id_supplier" class="form-control-label">Sumber
+                                                                Dana<sup style="color: red">*</sup></label>
+                                                            <select name="kas" id="kas" data-jenis_id
+                                                                data-saldo_kas class="form-control select2">
                                                             </select>
                                                         </div>
                                                     </div>
                                                     <div class="col-6">
                                                         <div class="form-group">
-                                                            <label for="id_supplier" class="form-control-label">Tanggal
-                                                                Nota</label>
-                                                            <input class="form-control tgl_nota" type="text"
+                                                            <label for="tgl_nota" class="form-control-label">
+                                                                Tanggal Nota<sup style="color: red">*</sup>
+                                                            </label>
+
+                                                            <input class="form-control tgl_nota" type="datetime-local"
                                                                 name="tgl_nota" id="tgl_nota"
-                                                                placeholder="Pilih tanggal" readonly>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="row">
-                                                    <div class="col-6">
-                                                        <div class="form-group">
-                                                            <label for="no_nota" class=" form-control-label">Nomor
-                                                                Nota<span style="color: red">*</span></label>
-                                                            <input type="text" id="no_nota" name="no_nota"
-                                                                placeholder="Contoh : 001" class="form-control">
+                                                                placeholder="Pilih tanggal & waktu">
                                                         </div>
                                                     </div>
                                                     <div class="col-6">
                                                         <div class="form-group">
                                                             <label for="tipe" class="form-control-label">Tipe
-                                                                Transaksi</label>
+                                                                Transaksi<sup style="color: red">*</sup></label>
                                                             <select name="tipe" id="tipe" class="form-control">
                                                                 <option value="cash" selected>Cash</option>
                                                                 <option value="hutang">Hutang</option>
@@ -311,194 +191,180 @@
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <button type="submit" style="float: right" id="save-btn"
+                                                <button type="button" style="float: right" id="btn-next-step"
                                                     class="btn btn-primary">
-                                                    <span id="save-btn-text"><i class="fa fa-save"></i>
-                                                        Lanjut</span>
-                                                    <span id="save-btn-spinner" class="spinner-border spinner-border-sm"
-                                                        role="status" style="display: none;"></span>
+                                                    <i class="fa fa-arrow-right"></i> Lanjut
                                                 </button>
                                             </form>
                                         </div>
                                         <div class="tab-pane fade" id="detail" role="tabpanel"
                                             aria-labelledby="detail-tab">
-                                            <ul class="list-group list-group-flush my-1">
-                                                <li
-                                                    class="list-group-item d-flex justify-content-between align-items-center">
-                                                    <h5 class="mb-0"><i class="fa fa-barcode"></i> Nomor Nota</h5> <span
-                                                        id="no-nota" class="badge badge-primary"></span>
-                                                </li>
-                                                <li
-                                                    class="list-group-item d-flex justify-content-between align-items-center">
-                                                    <h5 class="mb-0"><i class="fa fa-user-tie"></i> Nama Supplier</h5>
-                                                    <span id="nama-supplier" class="badge badge-secondary"></span>
-                                                </li>
-                                                <li
-                                                    class="list-group-item d-flex justify-content-between align-items-center">
-                                                    <h5 class="mb-0"><i class="fa fa-calendar-day"></i> &nbsp;Tanggal
-                                                        Nota</h5>
-                                                    <span id="tgl-nota" class="badge badge-secondary"></span>
-                                                </li>
-                                                <li
-                                                    class="list-group-item d-flex justify-content-between align-items-center">
-                                                    <h5 class="mb-0"><i class="fa fa-layer-group"></i> &nbsp;Tipe
-                                                        Transaksi</h5>
-                                                    <span id="tipe-transaksi" class="badge badge-secondary"></span>
-                                                </li>
-                                            </ul>
-                                            <form id="form-update-pembelian" class="mt-2"
-                                                action="{{ route('transaksi.pembelianbarang.update', ':id') }}"
-                                                method="POST">
-                                                @csrf
-                                                @method('PUT')
-                                                <div id="item-container">
-                                                    <div class="item-group">
-                                                        <div class="row">
-                                                            <div class="col-12">
-                                                                <div class="form-group">
-                                                                    <label for="id_barang" class="form-control-label">
-                                                                        Nama Barang<span
-                                                                            style="color: red">*</span></label>
-                                                                    <select name="id_barangs[]" id="id_barang"
-                                                                        class="id-barang"
-                                                                        data-placeholder="Pilih Barang...">
-                                                                        <option value="" disabled selected required>
-                                                                            Pilih Barang</option>
-                                                                        @foreach ($barang as $brg)
-                                                                            <option value="{{ $brg->id }}"
-                                                                                data-barcode="{{ $brg->barcode }}"
-                                                                                data-idjenisbarang="{{ $brg->id_jenis_barang }}"
-                                                                                data-namajenisbarang="{{ $brg->jenis->nama_jenis_barang }}">
-                                                                                {{ $brg->nama_barang }}</option>
-                                                                        @endforeach
-                                                                    </select>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <div class="row">
-                                                            <div class="col-3">
-                                                                <div class="form-group">
-                                                                    <label for="jml_item"
-                                                                        class="form-control-label">Jumlah Item<span
-                                                                            style="color: red">*</span></label>
-                                                                    <input type="number" id="jml_item" min="1"
-                                                                        name="qty[]" placeholder="Contoh: 16"
-                                                                        class="form-control jumlah-item">
-                                                                </div>
-                                                            </div>
-                                                            <div class="col-3">
-                                                                <div class="form-group">
-                                                                    <label for="harga_barang"
-                                                                        class="form-control-label">Harga Barang<span
-                                                                            style="color: red">*</span></label>
-                                                                    <input type="number" id="harga_barang"
-                                                                        min="1" name="harga_barang[]"
-                                                                        placeholder="Contoh: 16000"
-                                                                        class="form-control harga-barang">
-                                                                </div>
-                                                            </div>
-                                                            <div class="col-6">
-                                                                <div class="form-group">
-                                                                    <label for="label_kas"
-                                                                        class="form-control-label">Sumber Dana<span
-                                                                            style="color: red">*</span></label>
-                                                                    <select id="label_kas" name="label"
-                                                                        class="form-control select2 w-100">
-                                                                    </select>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <br>
+                                            <div class="container-fluid px-0">
                                                 <div class="row">
-                                                    <div class="col-6">
-                                                        <div class="card border border-primary mb-1">
-                                                            <div class="card-body">
-                                                                <p class="font-weight-bold">
-                                                                    Detail Stok
-                                                                </p>
-                                                                <p class="card-text">Stok :<strong
-                                                                        class="stock">0</strong></p>
-                                                                <p class="card-text">Hpp Awal : <strong
-                                                                        class="hpp-awal">Rp 0</strong></p>
-                                                                <p class="card-text">Hpp Baru : <strong
-                                                                        class="hpp-baru">Rp 0</strong></p>
-                                                            </div>
-                                                            <button type="button" id="reset" style="float: right"
-                                                                class="btn btn-secondary">Reset</button>
+                                                    <div class="col-12 col-md-6 mb-2">
+                                                        <div
+                                                            class="list-group-item d-flex justify-content-between align-items-center border rounded p-3">
+                                                            <h5 class="mb-0"><i class="fa fa-barcode"></i> Nomor &
+                                                                Tanggal Nota
+                                                            </h5>
+                                                            <span class="badge badge-primary"><strong
+                                                                    id="no-nota"></strong> / <strong
+                                                                    id="tgl-nota"></strong></span>
                                                         </div>
                                                     </div>
-                                                    <div class="col-6">
-                                                        @foreach ($LevelHarga as $index => $level)
-                                                            <div class="input-group mb-2">
-                                                                <div class="input-group-prepend">
-                                                                    <span
-                                                                        class="input-group-text">{{ $level->nama_level_harga }}</span>
-                                                                </div>
-                                                                <input type="hidden" name="level_nama[]"
-                                                                    value="{{ $level->nama_level_harga }}">
-                                                                <div class="custom-file">
-                                                                    <input type="text" class="form-control level-harga"
-                                                                        name="level_harga[]"
-                                                                        id="level_harga_{{ $index }}"
-                                                                        data-index="{{ $index }}"
-                                                                        data-hpp-baru="0">
-                                                                    <label class="input-group-text"
-                                                                        id="persen_{{ $index }}">0%</label>
-                                                                </div>
-                                                            </div>
-                                                        @endforeach
+                                                    <div class="col-12 col-md-6 mb-2">
+                                                        <div
+                                                            class="list-group-item d-flex justify-content-between align-items-center border rounded p-3">
+                                                            <h5 class="mb-0"><i class="fa fa-user-tie"></i> Nama
+                                                                Supplier</h5>
+                                                            <span id="nama-supplier" class="badge badge-secondary"></span>
+                                                        </div>
                                                     </div>
-                                                    <div class="col-12">
-                                                        <button type="button" id="add-item-detail" style="float: right"
-                                                            class="btn btn-outline-success"><i
-                                                                class="fa fa-circle-plus mr-1"></i>Add</button>
+                                                    <div class="col-12 col-md-6 mb-2">
+                                                        <div
+                                                            class="list-group-item d-flex justify-content-between align-items-center border rounded p-3">
+                                                            <h5 class="mb-0"><i class="fa fa-coins"></i> Sumber
+                                                                Dana</h5>
+                                                            <span id="sumber-dana" class="badge badge-secondary"></span>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                                <hr>
-                                                <div class="row">
-                                                    <div class="col-12">
-                                                        <table class="table table-bordered">
-                                                            <thead>
-                                                                <tr>
-                                                                    <th class="text-center">Action</th>
-                                                                    <th class="text-center" scope="col">No</th>
-                                                                    <th scope="col">Jenis</th>
-                                                                    <th scope="col">Nama Barang</th>
-                                                                    <th class="text-right" scope="col">Qty</th>
-                                                                    <th class="text-right" scope="col">Harga</th>
-                                                                    <th class="text-right" scope="col">Total Harga</th>
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody id="tempData">
-                                                            </tbody>
-                                                            <tfoot>
-                                                                <tr>
-                                                                    <th scope="col" colspan="6"
-                                                                        style="text-align:right">SubTotal</th>
-                                                                    <th class="text-right" scope="col" id="subtotal">
-                                                                        Rp </th>
-                                                                </tr>
-                                                            </tfoot>
-                                                        </table>
-                                                        <div class="form-group text-right">
-                                                            <button type="button" id="cancel-button"
-                                                                class="btn btn-secondary mr-1 btn-close"
-                                                                data-bs-dismiss="modal" aria-label="Close">
-                                                                <i class="fa fa-times"></i> Cancel
-                                                            </button>
-                                                            <button type="submit" id="btn-submit"
-                                                                class="btn btn-primary ml-1">
-                                                                <i class="fa fa-save"></i> Simpan
-                                                            </button>
+                                                    <div class="col-12 col-md-6 mb-2">
+                                                        <div
+                                                            class="list-group-item d-flex justify-content-between align-items-center border rounded p-3">
+                                                            <h5 class="mb-0"><i class="fa fa-layer-group"></i> Tipe
+                                                                Transaksi</h5>
+                                                            <span id="tipe-transaksi"
+                                                                class="badge badge-secondary"></span>
                                                         </div>
                                                     </div>
                                                 </div>
-                                            </form>
+                                            </div>
+                                            <hr>
+                                            <div id="item-container">
+                                                <div class="item-group">
+                                                    <div class="row">
+                                                        <div class="col-6">
+                                                            <div class="form-group">
+                                                                <label for="id_barang" class="form-control-label">
+                                                                    Nama Barang<sup style="color: red">*</sup></label>
+                                                                <select name="id_barangs[]" id="id_barang"
+                                                                    class="id-barang" data-placeholder="Pilih Barang...">
+                                                                </select>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-3">
+                                                            <div class="form-group">
+                                                                <label for="jml_item" class="form-control-label">Jumlah
+                                                                    Item<sup style="color: red">*</sup></label>
+                                                                <input type="number" id="jml_item" min="1"
+                                                                    name="qty[]" placeholder="Contoh: 16"
+                                                                    class="form-control jumlah-item">
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-3">
+                                                            <div class="form-group">
+                                                                <label for="harga_barang" class="form-control-label">Harga
+                                                                    Barang<sup style="color: red">*</sup></label>
+                                                                <input type="text" id="harga_barang" min="1"
+                                                                    name="harga_barang[]" placeholder="Contoh: 16000"
+                                                                    class="form-control harga-barang rupiah">
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <br>
+                                            <div class="row mb-0">
+                                                <div class="col-6">
+                                                    <div class="row">
+                                                        <div class="col-12">
+                                                            <div class="card border border-primary mb-1">
+                                                                <div class="card-body">
+                                                                    <p class="font-weight-bold">
+                                                                        Detail Stok
+                                                                    </p>
+                                                                    <p class="card-text">Stok :<strong
+                                                                            class="stock">0</strong></p>
+                                                                    <p class="card-text">Hpp Awal : <strong
+                                                                            class="hpp-awal">Rp 0</strong></p>
+                                                                    <p class="card-text">Hpp Baru : <strong
+                                                                            class="hpp-baru">Rp 0</strong></p>
+                                                                </div>
+                                                                <button type="button" id="reset"
+                                                                    style="float: right"
+                                                                    class="btn btn-secondary">Reset</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-6">
+                                                    @foreach ($LevelHarga as $index => $level)
+                                                        <div class="input-group mb-2">
+                                                            <div class="input-group-prepend">
+                                                                <span
+                                                                    class="input-group-text">{{ $level->nama_level_harga }}</span>
+                                                            </div>
+                                                            <input type="hidden" name="level_nama[]"
+                                                                value="{{ $level->nama_level_harga }}">
+                                                            <div class="custom-file">
+                                                                <input type="text"
+                                                                    class="form-control level-harga rupiah"
+                                                                    name="level_harga[]" placeholder="0"
+                                                                    id="level_harga_{{ $index }}"
+                                                                    data-index="{{ $index }}" data-hpp-baru="0">
+                                                                <label class="input-group-text"
+                                                                    id="persen_{{ $index }}">0%</label>
+                                                            </div>
+                                                        </div>
+                                                    @endforeach
+                                                    <button type="button" id="add-item-detail" style="float: right"
+                                                        class="btn btn-outline-success"><i
+                                                            class="fa fa-circle-plus mr-1"></i>Add</button>
+                                                </div>
+                                            </div>
+                                            <hr>
+                                            <div class="row">
+                                                <div class="col-12">
+                                                    <table class="table table-bordered">
+                                                        <thead>
+                                                            <tr>
+                                                                <th class="text-center">Action</th>
+                                                                <th class="text-center" scope="col">No</th>
+                                                                <th scope="col">Nama Barang</th>
+                                                                <th class="text-right" scope="col">Qty</th>
+                                                                <th class="text-right" scope="col">Harga</th>
+                                                                <th class="text-right" scope="col">Total Harga</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody id="tempData">
+                                                        </tbody>
+                                                        <tfoot>
+                                                            <tr>
+                                                                <th scope="col" colspan="5"
+                                                                    style="text-align:right">SubTotal</th>
+                                                                <th class="text-right" scope="col" id="subtotal">
+                                                                    Rp </th>
+                                                            </tr>
+                                                        </tfoot>
+                                                    </table>
+                                                    <div class="form-group text-right">
+                                                        <button type="button" id="cancel-button"
+                                                            class="btn btn-secondary mr-1 btn-close"
+                                                            data-bs-dismiss="modal" aria-label="Close">
+                                                            <i class="fa fa-times"></i> Cancel
+                                                        </button>
+                                                        <button type="button" id="btn-submit"
+                                                            class="btn btn-primary ml-1">
+                                                            <i class="fa fa-save"></i> Simpan
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                            <div class="modal-footer">
                             </div>
                         </div>
                     </div>
@@ -509,12 +375,10 @@
 @endsection
 
 @section('asset_js')
-    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.0.0/dist/js/tom-select.complete.min.js"></script>
     <script src="{{ asset('js/moment.js') }}"></script>
     <script src="{{ asset('js/daterange-picker.js') }}"></script>
     <script src="{{ asset('js/daterange-custom.js') }}"></script>
     <script src="{{ asset('js/pagination.js') }}"></script>
-    <script src="{{ asset('js/flatpickr.js') }}"></script>
 @endsection
 
 @section('js')
@@ -529,17 +393,42 @@
         let id_pembelian_post = null;
         let idPembelianEdit = null;
         let rowGlobal = [];
+        let selectedSupplier = null;
+        let pembelianBarangId = null;
+        let selectedKas = {
+            id: null,
+            jenis_id: null,
+            saldo_kas: null
+        };
+        let addedItems = new Set();
         let selectOptions = [{
-            id: '#label_kas',
-            isUrl: '{{ route('total.kas') }}',
-            placeholder: 'Pilih Kas',
-            isModal: '#modal-form',
-            isFilter: {
-                id_toko: '{{ auth()->user()->id_toko }}'
+                id: '#kas',
+                isUrl: '{{ route('total.kas') }}',
+                placeholder: 'Pilih Kas',
+                isModal: '#modal-form',
+                isFilter: {
+                    toko_id: '{{ auth()->user()->toko_id }}',
+                    tipe: 'kecil',
+                    dompet: false
+                },
+                extraFields: {
+                    jenis_id: 'jenis_id',
+                    tipe_kas: 'tipe_kas',
+                    saldo_kas: 'saldo_kas',
+                },
+                isForm: true
             },
-            extraFields: 'jenis_id',
-            isForm: true
-        }];
+            {
+                id: '#id_supplier',
+                isFilter: {
+                    id_toko: '{{ auth()->user()->toko_id }}',
+                },
+                isUrl: '{{ route('master.suplier') }}',
+                placeholder: 'Pilih Suplier',
+                isModal: '#modal-form',
+                isForm: true
+            },
+        ];
 
         async function getListData(limit = 10, page = 1, ascending = 0, search = '', customFilter = {}) {
             $('#listData').html(loadingData());
@@ -656,7 +545,7 @@
             let action_buttons = '';
             if (edit_button || detail_button || delete_button) {
                 action_buttons = `
-                <div class="d-flex justify-content-start">
+                <div class="d-flex justify-content-center">
                     ${detail_button ? `<div class="hovering p-1">${detail_button}</div>` : ''}
                     ${edit_button ? `<div class="hovering p-1">${edit_button}</div>` : ''}
                     ${delete_button ? `<div class="hovering p-1">${delete_button}</div>` : ''}
@@ -700,18 +589,18 @@
                             <td class="${classCol}">${element.tgl_nota}</td>
                             <td class="${classCol}">${element.kas}</td>
                             <td class="${classCol}">${element.nama_supplier}</td>
-                            <td class="${classCol}">${element.total_item}</td>
-                            <td class="${classCol}">${element.total_nilai}</td>
+                            <td class="${classCol} text-right">${element.total_item}</td>
+                            <td class="${classCol} text-right">${element.total_nilai}</td>
                             <td class="${classCol}">${element.action_buttons}</td>
                         </tr>`;
             });
 
             let totalRow = `
             <tr class="bg-primary">
-                <td class="${classCol}" colspan="5"></td>
-                <td class="${classCol}" style="font-size: 1rem;"><strong class="text-white fw-bold">Total</strong></td>
-                <td class="${classCol} text-left"><strong class="text-white" id="totalData">${totals}</strong></td>
-                <td class="${classCol} text-left"><strong class="text-white" id="totalData">${total}</strong></td>
+                <td class="${classCol}" colspan="6"></td>
+                <td class="${classCol}" style="font-size: 1rem;"><strong class="text-white fw-bold">Total Sukses</strong></td>
+                <td class="${classCol} text-right"><strong class="text-white" id="totalData">${totals}</strong></td>
+                <td class="${classCol} text-right"><strong class="text-white" id="totalData">${total}</strong></td>
                 <td class="${classCol}" colspan="3"></td>
             </tr>`;
 
@@ -735,27 +624,123 @@
             });
         }
 
+        function selectBarang() {
+            let data = [{
+                id: '#id_barang',
+                isFilter: {
+                    id_toko: '{{ auth()->user()->toko_id }}',
+                    jenis_barang_id: selectedKas.jenis_id,
+                    with: 'barcode',
+                },
+                isUrl: '{{ route('master.barang') }}',
+                placeholder: 'Pilih Barang',
+                isModal: '#modal-form',
+                isForm: true
+            }]
+
+            selectData(data);
+        }
+
         async function showData() {
+            $("#btn-next-step").on("click", async function() {
+                let supplier = $("#id_supplier").val();
+                let supplierName = $("#id_supplier option:selected").text();
+                let noNota = $("#no_nota").val();
+                let tglNota = $("#tgl_nota").val();
+                let tipeTransaksi = $("#tipe option:selected").text();
+                let kas = $("#kas").val();
+                let kasName = $("#kas option:selected").text();
+                let kasJenisId = $("#kas").select2('data')[0].jenis_id;
+                let kasSaldo = $("#kas").select2('data')[0].saldo_kas;
+
+                selectedSupplier = supplier;
+                selectedKas.id = kas;
+                selectedKas.jenis_id = kasJenisId;
+                selectedKas.saldo_kas = kasSaldo;
+
+                if (!supplier || !noNota || !tglNota) {
+                    notificationAlert('warning', 'Error', 'Mohon lengkapi semua data pada Step Pertama');
+                    return;
+                }
+
+                $("#no-nota").text(noNota);
+                $("#nama-supplier").text(supplierName);
+                $("#sumber-dana").text(kasName);
+                $("#tgl-nota").text(tglNota);
+                $("#tipe-transaksi").text(tipeTransaksi);
+                $("#tambah-tab")
+                    .removeClass("active show")
+                    .attr("aria-selected", "false")
+                    .addClass("disabled")
+                    .css({
+                        "opacity": "0.6",
+                        "pointer-events": "none"
+                    });
+
+                $("#tambah").removeClass("active show");
+
+                $("#detail-tab")
+                    .removeClass("disabled")
+                    .css({
+                        "opacity": "1",
+                        "pointer-events": "auto"
+                    })
+                    .addClass("active show")
+                    .attr("aria-selected", "true")
+                    .tab("show");
+
+                $("#detail").addClass("active show");
+
+                await selectBarang();
+            });
+
             $(document).on("click", ".add-data", function() {
                 $("#modal-title").html(`<i class="fa fa-circle-plus mr-1"></i>Form Pembelian Barang`);
                 $("#modal-form").modal("show");
+                $("#form-tambah-pembelian")[0].reset();
 
-                $("form").find("input:not(#tgl_nota):not([type='hidden']), select, textarea")
-                    .val("")
-                    .prop("checked", false)
-                    .trigger("change");
-                $('#tipe').val('cash').trigger('change');
+                let tglNotaValue = $("#tgl_nota").val();
+                let tipeValue = $("#tipe").val();
 
+                $("#form-tambah-pembelian input").val("");
+                $("#form-tambah-pembelian select").val("").trigger("change");
+
+                $("#tgl_nota").val(tglNotaValue);
+                $("#tipe").val(tipeValue);
+                $("#jml_item").val('');
+                $("#harga_barang").val('');
+                $('#subtotal').empty();
+
+                $("#id_supplier").val(null).trigger("change");
+                $("#kas").val(null).trigger("change");
                 $("#tempData").empty();
 
-                $("#tambah-tab").removeClass("d-none").addClass("active").attr("aria-selected", "true");
-                $("#tambah").addClass("show active");
+                $("#item-container .item-group").not(':first').remove();
+                let $firstItem = $("#item-container .item-group").first();
+                $firstItem.find("select").val(null).trigger("change");
+                $firstItem.find("input").val("");
 
-                $("#detail-tab").addClass("disabled").removeClass("active").attr("aria-selected", "false").css({
-                    "pointer-events": "none",
-                    "opacity": "0.6"
-                });
-                $("#detail").removeClass("show active");
+                $(".stock").text("0");
+                $(".hpp-awal").text("Rp 0");
+                $(".hpp-baru").text("Rp 0");
+
+                $(".level-harga").val("");
+                $("[id^='persen_']").text("0%");
+
+                $("#tambah-tab").removeClass("d-none disabled")
+                    .addClass("active show")
+                    .attr("aria-selected", "true");
+                $("#tambah").addClass("active show");
+
+                $("#detail-tab").addClass("disabled")
+                    .removeClass("active")
+                    .attr("aria-selected", "false")
+                    .css({
+                        "pointer-events": "none",
+                        "opacity": "0.5"
+                    });
+                $("#detail").removeClass("active show");
+                setDatePicker('tgl_nota');
             });
         }
 
@@ -776,10 +761,9 @@
                     .val("")
                     .prop("checked", false)
                     .trigger("change");
-                var updateFormAction =
-                    "{{ route('transaksi.pembelianbarang.update', ':id') }}";
-                updateFormAction = updateFormAction.replace(':id', id);
-                $('#form-update-pembelian').attr('action', updateFormAction);
+
+                $("#jml_item").val('');
+                $("#harga_barang").val('');
                 $("#tempData").empty();
                 $('#subtotal').empty();
                 $("#no-nota").html(nota);
@@ -801,24 +785,25 @@
                     });
                     if (response && response.status === 200) {
                         const dataItems = response.data.data;
+                        $('#nama-supplier').data('supplier-id', dataItems[0].pembelian_barang.supplier_id);
+
                         rowGlobal = dataItems;
                         let totalHargaAll = 0;
 
                         dataItems.forEach(item => {
-                            const totalHarga = item.qty * item.harga_barang;
+                            const totalHarga = item.subtotal;
                             totalHargaAll += totalHarga;
 
                             $("#tempData").append(`
-                        <tr data-barang="${item.id_barang}">
-                            <td class="text-center"><button onclick="removeRow({id_pembelian: '${idPembelianEdit}', id_barang: '${item.id_barang}' })" type="button" class="btn btn-danger btn-sm remove-item"><i class="fa fa-trash-alt mr-1"></i>Hapus</button></td>
-                            <td class="text-center numbered">${$("#tempData tr").length + 1}</td>
-                            <td><input type="hidden" name="id_jenis_barang[]" value="${item.id_jenis_barang}">${item.nama_jenis_barang}</td>
-                            <td><input type="hidden" name="id_barang[]" value="${item.id_barang}">${item.nama_barang}</td>
-                            <td class="text-right"><input type="hidden" name="qty[]" value="${item.qty}">${item.qty}</td>
-                            <td class="text-right"><input type="hidden" name="harga_barang[]" value="${item.harga_barang}">Rp ${item.harga_barang.toLocaleString('id-ID')}</td>
-                            <td class="text-right">${formatRupiah(totalHarga)}</td>
-                        </tr>
-                    `);
+                                <tr data-barang="${item.barang_id}">
+                                    <td class="text-center"><button onclick="removeRow({id_pembelian: '${idPembelianEdit}', id_barang: '${item.barang_id}' })" type="button" class="btn btn-danger btn-sm remove-item"><i class="fa fa-trash-alt mr-1"></i>Hapus</button></td>
+                                    <td class="text-center numbered">${$("#tempData tr").length + 1}</td>
+                                    <td><input type="hidden" name="id_barang[]" value="${item.barang_id}">${item.barang.nama}</td>
+                                    <td class="text-right"><input type="hidden" name="qty[]" value="${item.qty}">${item.qty}</td>
+                                    <td class="text-right"><input type="hidden" name="harga_barang[]" value="${item.harga_beli}">${formatRupiah(item.harga_beli)}</td>
+                                    <td class="text-right">${formatRupiah(item.subtotal)}</td>
+                                </tr>
+                            `);
                         });
 
                         $("#subtotal").html(formatRupiah(totalHargaAll));
@@ -828,49 +813,103 @@
                 } catch (error) {
                     const errorMessage = error?.response?.data?.message ||
                         'Terjadi kesalahan saat memuat data sementara.';
-                    notificationAlert('danger', 'Error', errorMessage);
+                    notificationAlert('error', 'Error', errorMessage);
                 }
             });
         }
 
-        $(document).on('submit', '#form-update-pembelian', function(e) {
-            e.preventDefault(); // Mencegah reload halaman
+        async function saveData() {
+            $(document).off('click', '#btn-submit').on('click', '#btn-submit', async function(e) {
+                e.preventDefault();
 
-            const $submitBtn = $('#btn-submit');
-            $submitBtn.prop('disabled', true);
-            $submitBtn.html(
-                `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Menyimpan..`
-            );
+                const $btn = $(this);
+                $btn.prop('disabled', true).html(
+                    `<span class="spinner-border spinner-border-sm" role="status"></span> Menyimpan..`
+                );
 
-            const form = $(this);
-            const formData = form.serialize();
+                try {
+                    const dataHeader = {
+                        nota: $('#no-nota').text(),
+                        tanggal: $('#tgl-nota').text(),
+                        supplier_id: selectedSupplier,
+                        tipe: $('#tipe-transaksi').text().toLowerCase(),
+                        toko_id: {{ auth()->user()->toko_id }},
+                        created_by: {{ auth()->user()->id }}
+                    };
 
-            $.ajax({
-                url: form.attr('action'),
-                method: form.attr('method'),
-                data: formData,
-                success: function(response) {
-                    notificationAlert('success', 'Berhasil', response.message ||
-                        'Data berhasil diperbarui');
-                    $('#modal-form').modal('hide');
+                    let detailItems = [];
 
-                    setTimeout(function() {
-                        getListData(defaultLimitPage, currentPage, defaultAscending,
-                            defaultSearch, customFilter);
-                    }, 500);
+                    $('#tempData tr').each(function() {
+                        const row = $(this);
 
-                    $submitBtn.prop('disabled', false);
-                    $submitBtn.html('Simpan');
-                },
-                error: function(xhr) {
-                    const errorMessage = xhr.responseJSON?.message ||
-                        'Terjadi kesalahan saat menyimpan data';
-                    notificationAlert('warning', 'Terjadi Kesalahan', errorMessage);
+                        let id_barang = row.find('input[name="id_barang[]"]').val();
+                        let qty = row.find('input[name="qty[]"]').val();
+                        let harga_barang = row.find('input[name="harga_barang[]"]').val();
 
-                    $submitBtn.prop('disabled', false);
-                    $submitBtn.html('Simpan');
+                        let level_harga = [];
+                        row.find('input[name^="level_harga"]').each(function() {
+                            level_harga.push($(this).val().replace(/\./g, ''));
+                        });
+
+                        detailItems.push({
+                            id_barang,
+                            qty,
+                            harga_barang,
+                            level_harga
+                        });
+                    });
+
+                    const payload = {
+                        id: pembelianBarangId,
+                        id_pembelian: pembelianBarangId,
+                        ...dataHeader,
+                        items: detailItems
+                    };
+
+                    let updateUrl = "{{ route('transaksi.pembelianbarang.update') }}";
+
+                    const postData = await renderAPI('POST', updateUrl, payload);
+
+                    if (postData && postData.status >= 200 && postData.status < 300) {
+
+                        notificationAlert(
+                            'success',
+                            'Berhasil',
+                            postData.data.message || 'Data berhasil diperbarui'
+                        );
+
+                        $('#modal-form').modal('hide');
+
+                        setTimeout(() => {
+                            getListData(defaultLimitPage, currentPage, defaultAscending,
+                                defaultSearch, customFilter);
+                        }, 500);
+                        pembelianBarangId = null;
+                        addedItems.clear();
+                    } else {
+                        notificationAlert(
+                            'warning',
+                            'Terjadi Kesalahan',
+                            postData?.data.message || 'Terjadi kesalahan saat menyimpan data'
+                        );
+                    }
+
+                } catch (err) {
+                    notificationAlert(
+                        'error',
+                        'Gagal',
+                        'Terjadi kesalahan saat menghubungi server'
+                    );
+
+                } finally {
+                    $btn.prop('disabled', false).html('Simpan');
                 }
+
             });
+        }
+
+        $('#modal-form').on('hidden.bs.modal', function() {
+            addedItems.clear();
         });
 
         $('#label_kas').on('select2:clear', function() {
@@ -923,12 +962,10 @@
                 let selectedOption = document.getElementById('id_barang').selectedOptions[0];
 
                 let namaBarang = selectedOption?.text || '';
-                let idJenisBarang = selectedOption?.dataset.idjenisbarang || '';
-                let namaJenisBarang = selectedOption?.dataset.namajenisbarang || '';
                 let qty = parseFloat(document.getElementById('jml_item').value);
-                let hargaBarang = parseFloat(document.getElementById('harga_barang').value);
+                let hargaBarang = parseFloat($('#harga_barang').val().replace(/\./g, ''));
                 let levelHarga = Array.from(document.querySelectorAll('.level-harga')).map((input, index) => {
-                    return `Level ${index + 1} : ${input.value}`;
+                    return `Level ${index + 1} : ${input.value.replace(/\./g, '')}`;
                 });
 
                 let hppAwalText = document.querySelector('.hpp-awal')?.textContent || 'Rp 0';
@@ -954,15 +991,21 @@
                 }
 
                 let formData = {
-                    id_pembelian: id_pembelian_post || idPembelianEdit,
+                    id_pembelian: pembelianBarangId || idPembelianEdit,
                     id_barang: idBarang,
-                    id_jenis_barang: idJenisBarang,
                     nama_barang: namaBarang,
                     qty: qty,
                     harga_barang: hargaBarang,
                     level_harga: levelHarga,
                     hpp_awal: hppAwal,
-                    hpp_baru: hppBaru
+                    hpp_baru: hppBaru,
+                    toko_id: {{ auth()->user()->toko_id }},
+                    created_by: {{ auth()->user()->id }},
+                    supplier_id: selectedSupplier,
+                    nota: $('#no-nota').text(),
+                    tanggal: $('#tgl-nota').text(),
+                    tipe: $('#tipe-transaksi').text(),
+                    jenis_barang_id: selectedKas.jenis_id
                 };
 
                 const postData = await renderAPI('POST', '{{ route('transaksi.temp.pembelianbarang') }}', formData);
@@ -973,6 +1016,7 @@
                         await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
                             customFilter);
                     }, 500);
+                    pembelianBarangId = response.pembelian_barang_id;
                 } else {
                     notificationAlert('info', 'Pemberitahuan', postData.message || 'Terjadi kesalahan');
                 }
@@ -982,7 +1026,6 @@
                 notificationAlert('error', 'Kesalahan', resp.data?.message || 'Terjadi kesalahan saat menyimpan data.');
             }
         }
-
 
         function removeRow(rowData) {
             const {
@@ -995,6 +1038,7 @@
                 id_barang
             }).then(() => {
                 rowGlobal = rowGlobal.filter(row => row.id_barang !== id_barang);
+                addedItems.delete(id_barang);
                 updateSubtotalAfterRemoval();
             });
         }
@@ -1007,7 +1051,6 @@
                     data
                 );
                 if (postDataRest && postDataRest.status === 200) {
-                    // Hapus baris di DOM setelah berhasil dihapus dari API
                     const row = document.querySelector(`tr[data-barang="${data.id_barang}"]`);
                     if (row) {
                         row.remove();
@@ -1020,21 +1063,16 @@
             }
         }
 
-        // Fungsi untuk menghitung ulang subtotal setelah baris dihapus
         function updateSubtotalAfterRemoval() {
             let subtotal = 0;
             document.querySelectorAll('.table-bordered tbody tr').forEach((row) => {
-                // Menambah subtotal dengan harga total dari setiap baris
-                let hargaPerItem = parseInt(row.children[6].textContent.replace(/\D/g, '')) ||
-                    0; // Harga total per item
-                subtotal += hargaPerItem; // Menambahkan harga ke subtotal
+                let hargaPerItem = parseInt(row.children[6].textContent.replace(/\D/g, '')) || 0;
+                subtotal += hargaPerItem;
             });
 
-            // Update total harga di footer tabel
             document.querySelector('.table-bordered tfoot tr th:last-child').textContent =
                 `Rp ${subtotal.toLocaleString('id-ID')}`;
         }
-
 
         function updateSubTotal() {
             let subtotal = 0;
@@ -1046,8 +1084,6 @@
 
         async function addData() {
             let subtotal = 0;
-            let addedItems = new Set();
-
             let initialHppBaru = 0;
             let initialStock = 0;
             let initialHppAwal = 0;
@@ -1056,196 +1092,155 @@
             const debounceDelay = 500;
 
             function toggleInputFields(disabled) {
-                document.getElementById('jml_item').disabled = disabled;
-                document.getElementById('harga_barang').disabled = disabled;
-                if (disabled) {
+                if (disabled = false) {
                     document.getElementById('jml_item').value = '';
                     document.getElementById('harga_barang').value = '';
+                } else {
+                    document.getElementById('jml_item').disabled = disabled;
+                    document.getElementById('harga_barang').disabled = disabled;
                 }
             }
 
             function checkInputFields() {
                 let idBarang = document.getElementById('id_barang').value;
                 let isItemAdded = addedItems.has(idBarang);
-                toggleInputFields(isItemAdded);
+                // toggleInputFields(isItemAdded);
             }
 
             document.getElementById('add-item-detail').addEventListener('click', async function() {
                 let btn = this;
-                btn.disabled = true;
                 let originalText = btn.innerHTML;
+                btn.disabled = true;
                 btn.innerHTML = `<i class="fa fa-spinner fa-spin"></i> Proses...`;
 
-                let idBarang = document.getElementById('id_barang').value;
-                let selectedOption = document.getElementById('id_barang').selectedOptions[0];
+                try {
+                    let idBarang = document.getElementById('id_barang').value;
+                    let selectedOption = document.getElementById('id_barang').selectedOptions[0];
 
-                let namaBarang = selectedOption?.text || '';
-                let idJenisBarang = selectedOption?.dataset.idjenisbarang || '';
-                let namaJenisBarang = selectedOption?.dataset.namajenisbarang || '';
+                    let namaBarang = selectedOption?.text || '';
+                    let idJenisBarang = selectedOption?.dataset.idjenisbarang || '';
+                    let namaJenisBarang = selectedOption?.dataset.namajenisbarang || '';
 
-                let qty = parseInt(document.getElementById('jml_item').value);
-                let harga = parseInt(document.getElementById('harga_barang').value);
-                let isBarangExist = rowGlobal.some(row => row.id_barang === idBarang);
+                    let qty = parseInt(document.getElementById('jml_item').value);
+                    let harga = parseInt($('#harga_barang').val().replace(/\./g, ''));
+                    let isBarangExist = rowGlobal.some(row => row.id_barang === idBarang);
 
-                if (isBarangExist) {
-                    notificationAlert('error', 'Pemberitahuan', 'Barang dengan ID yang sama sudah ada!');
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                    return;
-                }
-                if (!idBarang) {
-                    notificationAlert('error', 'Pemberitahuan', 'Silakan pilih barang terlebih dahulu.');
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                    return;
-                }
-
-                if (addedItems.has(idBarang)) {
-                    notificationAlert('error', 'Pemberitahuan', 'Barang ini sudah ditambahkan sebelumnya.');
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                    return;
-                }
-
-                if (!qty || !harga) {
-                    notificationAlert('error', 'Pemberitahuan', 'Jumlah dan harga barang harus diisi.');
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                    return;
-                }
-
-                let allLevelsFilled = true;
-                document.querySelectorAll('.level-harga').forEach((input) => {
-                    if (!input.value) {
-                        allLevelsFilled = false;
+                    if (isBarangExist) {
+                        notificationAlert('error', 'Pemberitahuan',
+                            'Barang dengan ID yang sama sudah ada!');
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                        return;
                     }
-                });
+                    if (!idBarang) {
+                        notificationAlert('error', 'Pemberitahuan',
+                            'Silakan pilih barang terlebih dahulu.');
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                        return;
+                    }
 
-                if (!allLevelsFilled) {
-                    notificationAlert('error', 'Pemberitahuan',
-                        'Harap atur level harga ! jika tidak, silahkan isi dengan "0"');
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                    return;
-                }
+                    const isBarangExistInRow = Array.from(
+                        document.querySelectorAll('.table-bordered tbody input[name="id_barang[]"]')
+                    ).some(input => input.value === idBarang);
 
-                await addTemporaryField(id_pembelian_post);
-                addedItems.add(idBarang);
-                document.querySelector(`#id_barang option[value="${idBarang}"]`).setAttribute('hidden',
-                    true);
+                    if (isBarangExistInRow) {
+                        notificationAlert(
+                            'error',
+                            'Pemberitahuan',
+                            'Barang ini sudah ada di daftar.'
+                        );
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                        return;
+                    }
 
-                // Hitung ulang subtotal sebelum menambahkan item baru
-                let subtotal = 0;
-                document.querySelectorAll('.table-bordered tbody tr').forEach((row) => {
-                    let hargaPerItem = parseInt(row.children[6].textContent.replace(/\D/g, '')) ||
-                        0; // Harga total per item
-                    subtotal += hargaPerItem; // Menambahkan harga ke subtotal
-                });
 
-                let totalHarga = qty * harga; // Total harga untuk item baru
-                subtotal += totalHarga; // Update subtotal dengan item baru
+                    if (!qty || !harga) {
+                        notificationAlert('error', 'Pemberitahuan', 'Jumlah dan harga barang harus diisi.');
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                        return;
+                    }
 
-                // Generate input untuk level harga
-                let levelHargaInputs = '';
-                document.querySelectorAll('.level-harga').forEach((input) => {
-                    levelHargaInputs +=
-                        `<input type="hidden" name="level_harga[${idBarang}][]" value="${input.value}">`;
-                });
+                    let allLevelsFilled = true;
+                    document.querySelectorAll('.level-harga').forEach((input) => {
+                        if (!input.value) {
+                            allLevelsFilled = false;
+                        }
+                    });
 
-                // Menambahkan baris baru ke tabel
-                let row = `
+                    if (!allLevelsFilled) {
+                        notificationAlert('error', 'Pemberitahuan',
+                            'Harap atur level harga ! jika tidak, silahkan isi dengan "0"');
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                        return;
+                    }
+
+                    await addTemporaryField(id_pembelian_post);
+                    addedItems.add(idBarang);
+                    document.querySelector(`#id_barang option[value="${idBarang}"]`).setAttribute('hidden',
+                        true);
+
+                    let subtotal = 0;
+                    document.querySelectorAll('.table-bordered tbody tr').forEach((row) => {
+                        let hargaPerItem = parseInt(row.children[6].textContent.replace(/\D/g,
+                                '')) ||
+                            0;
+                        subtotal += hargaPerItem;
+                    });
+
+                    let totalHarga = qty * harga;
+                    subtotal += totalHarga;
+
+                    let levelHargaInputs = '';
+                    document.querySelectorAll('.level-harga').forEach((input) => {
+                        levelHargaInputs +=
+                            `<input type="hidden" name="level_harga[${idBarang}][]" value="${input.value}">`;
+                    });
+
+                    let row = `
                     <tr>
                         <td class="text-center"><button onclick="removeRow({id_pembelian: '${id_pembelian_post}', id_barang: '${idBarang}' })" type="button" class="btn btn-danger btn-sm remove-item"><i class="fa fa-trash-alt mr-1"></i>Hapus</button></td>
                         <td class="numbered text-center">${document.querySelectorAll('.table-bordered tbody tr').length + 1}</td>
-                        <td><input type="hidden" name="id_jenis_barang[]" value="${idJenisBarang}">${namaJenisBarang}</td>
                         <td><input type="hidden" name="id_barang[]" value="${idBarang}">${namaBarang}</td>
                         <td class="text-right"><input type="hidden" name="qty[]" value="${qty}">${qty}</td>
                         <td class="text-right"><input type="hidden" name="harga_barang[]" value="${harga}">Rp ${harga.toLocaleString('id-ID')}</td>
                         <td class="text-right">Rp ${totalHarga.toLocaleString('id-ID')}</td>
                         ${levelHargaInputs}
                     </tr>
-                `;
+                    `;
 
-                // Menyisipkan baris baru ke dalam tabel
-                document.querySelector('.table-bordered tbody').insertAdjacentHTML('beforeend', row);
+                    document.querySelector('.table-bordered tbody').insertAdjacentHTML('beforeend', row);
 
-                // Update total harga di footer tabel
-                document.querySelector('.table-bordered tfoot tr th:last-child').textContent =
-                    `Rp ${subtotal.toLocaleString('id-ID')}`;
+                    document.querySelector('.table-bordered tfoot tr th:last-child').textContent =
+                        `Rp ${subtotal.toLocaleString('id-ID')}`;
 
-                // Menonaktifkan input dan reset formulir
-                toggleInputFields(true);
-                document.getElementById('id_barang').value = '';
-                const tomSelect = document.getElementById('id_barang').tomselect;
-                if (tomSelect) {
-                    tomSelect.clear();
-                }
-
-                resetFields();
-                updateNumbers();
-                $('#id_barang').val(null).trigger('change');
-
-                btn.innerHTML = originalText; // Kembalikan teks asli
-                btn.disabled = false; // Aktifkan kembali tombol
-            });
-
-            $('#form-tambah-pembelian').on('submit', function(e) {
-                e.preventDefault();
-
-                $('#save-btn-text').hide();
-                $('#save-btn-spinner').show(); // Tampilkan spinner
-                $('#save-btn').prop('disabled', true); // Nonaktifkan tombol
-
-                var formData = $(this).serialize(); // Mengambil data form
-
-                $.ajax({
-                    url: $(this).attr('action'),
-                    method: $(this).attr('method'),
-                    data: formData,
-                    success: function(response) {
-                        var id_pembelian = response.id_pembelian;
-                        id_pembelian_post = response.id_pembelian;
-                        var updateFormAction =
-                            "{{ route('transaksi.pembelianbarang.update', ':id') }}";
-                        updateFormAction = updateFormAction.replace(':id', id_pembelian);
-                        $('#form-update-pembelian').attr('action', updateFormAction);
-
-                        $('#no-nota').text(response.no_nota); // No Nota
-                        $('#nama-supplier').text(response.nama_supplier); // Nama Supplier
-                        $('#tgl-nota').text(response.tgl_nota); // Tanggal Nota
-                        $('#tipe-transaksi').text(response.tipe);
-                        $('#save-btn-text').show(); // Tampilkan teks "Lanjut" lagi
-                        $('#save-btn-spinner').hide(); // Sembunyikan spinner
-                        $('#save-btn').prop('disabled', false); // Aktifkan kembali tombol submit
-
-                        $('#tambah-tab').addClass('disabled');
-                        $('#tambah-tab').removeClass('active');
-                        $('#tambah').removeClass('show active');
-                        $('#detail').addClass('show active');
-                        $('#detail-tab').addClass('active');
-                        $('#detail-tab').removeClass('disabled');
-
-                        setTimeout(async function() {
-                            await getListData(defaultLimitPage, currentPage,
-                                defaultAscending, defaultSearch, customFilter);
-                        }, 500);
-
-                        // Kembalikan tombol ke keadaan awal
-                        $('#save-btn-text').show();
-                        $('#save-btn-spinner').hide();
-                        $('#save-btn').prop('disabled', false); // Aktifkan kembali tombol
-                    },
-                    error: function(xhr) {
-                        var errorMessage = xhr.responseJSON && xhr.responseJSON.message ?
-                            xhr.responseJSON.message :
-                            'Terjadi Kesalahan';
-                        notificationAlert('warning', 'Pemberitahuan', errorMessage);
-
-                        $('#save-btn-text').show();
-                        $('#save-btn-spinner').hide();
-                        $('#save-btn').prop('disabled', false);
+                    toggleInputFields(true);
+                    document.getElementById('id_barang').value = '';
+                    const tomSelect = document.getElementById('id_barang').tomselect;
+                    if (tomSelect) {
+                        tomSelect.clear();
                     }
-                });
+
+                    resetFields();
+                    updateNumbers();
+                    $('#id_barang').val(null).trigger('change');
+
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+
+                    await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
+                        customFilter);
+                } catch (error) {
+                    console.error(error);
+                    notificationAlert('error', 'Kesalahan', 'Terjadi kesalahan saat memproses data.');
+                } finally {
+                    // ✅ PASTI DIJALANKAN
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
             });
 
             document.querySelector('.table-bordered tbody').addEventListener('click', function(e) {
@@ -1283,79 +1278,82 @@
                 }
             });
 
-            document.getElementById('id_barang').addEventListener('change', function() {
-                checkInputFields();
-                document.getElementById('jml_item').value = '';
-                document.getElementById('harga_barang').value = '';
+            $('#id_barang').on('select2:select', async function() {
 
-                let idBarang = this.value;
+                checkInputFields();
+                $('#jml_item').val('');
+                $('#harga_barang').val('');
+
+                let idBarang = $(this).val();
+
+                const baseUrl = "{{ route('get-stock-details', ['id_barang' => ':id']) }}";
+                const finalUrl = baseUrl.replace(':id', idBarang);
 
                 if (idBarang) {
-                    fetch(`/admin/get-stock-details/${idBarang}`)
-                        .then(response => response.json())
-                        .then(data => {
-                            // set nilai awal
-                            initialHppBaru = data.hpp_baru || 0;
-                            initialStock = data.stock || 0;
-                            initialHppAwal = data.hpp_awal || 0;
+                    let resp = await renderAPI('GET', finalUrl, {})
+                        .then(r => r)
+                        .catch(e => e.response);
 
-                            // update card summary
-                            document.querySelector('.card-text strong.stock').textContent = initialStock
-                                .toLocaleString('id-ID');
-                            document.querySelector('.card-text strong.hpp-awal').textContent =
-                                `Rp ${initialHppAwal.toLocaleString('id-ID')}`;
-                            document.querySelector('.card-text strong.hpp-baru').textContent =
-                                `Rp ${initialHppBaru.toLocaleString('id-ID')}`;
+                    let data = resp?.data || resp;
 
-                            // simpan hpp baru di attribute input level-harga
-                            document.querySelectorAll('.level-harga').forEach(function(input) {
-                                input.setAttribute('data-hpp-baru', initialHppBaru);
-                            });
+                    if (!data) {
+                        console.error('Response kosong / tidak valid');
+                        return;
+                    }
 
-                            // simpan data original level_harga
-                            originalLevelHarga = {
-                                ...data.level_harga
-                            };
+                    initialHppBaru = data.hpp_baru || 0;
+                    initialStock = data.stock || 0;
+                    initialHppAwal = data.hpp_awal || 0;
 
-                            // ambil semua nilai level harga dari API dalam bentuk array
-                            const levelHargaValues = Object.values(data
-                                .level_harga); // ["110000", "120000", "130000", "140000"]
+                    document.querySelector('.card-text strong.stock').textContent =
+                        initialStock.toLocaleString('id-ID');
+                    document.querySelector('.card-text strong.hpp-awal').textContent = formatRupiah(
+                        initialHppAwal);
+                    document.querySelector('.card-text strong.hpp-baru').textContent = formatRupiah(
+                        initialHppBaru);
 
-                            // isi input level_harga sesuai urutan
-                            document.querySelectorAll('input[name="level_harga[]"]').forEach(function(
-                                inputField, index) {
-                                const persenElement = document.querySelector(`#persen_${index}`);
-                                const harga = parseFloat(levelHargaValues[index]) || 0;
+                    document.querySelectorAll('.level-harga').forEach(input => {
+                        input.setAttribute('data-hpp-baru', initialHppBaru);
+                    });
 
-                                inputField.value = harga;
+                    originalLevelHarga = {
+                        ...data.level_harga
+                    };
+                    const levelHargaValues = Object.values(data.level_harga);
 
-                                let persen = 0;
-                                if (initialHppAwal > 0 && harga > 0) {
-                                    persen = ((harga - initialHppAwal) / initialHppAwal) * 100;
-                                }
+                    document.querySelectorAll('input[name="level_harga[]"]').forEach(function(inputField,
+                        index) {
+                        const persenElement = document.querySelector(`#persen_${index}`);
+                        const harga = parseFloat(levelHargaValues[index]) || 0;
 
-                                if (persenElement) {
-                                    persenElement.textContent = `${persen.toFixed(2)}%`;
-                                }
-                            });
+                        inputField.value = formatNumberID(harga);
 
-                            // jalankan listener tambahan
-                            setupInputListeners(data.total_harga_success, data.total_qty_success);
-                        })
-                        .catch(error => {
-                            console.error('Error:', error);
-                        });
+                        let persen = 0;
+                        if (initialHppAwal > 0 && harga > 0) {
+                            persen = ((harga - initialHppAwal) / initialHppAwal) * 100;
+                        }
+
+                        if (persenElement) {
+                            persenElement.textContent = `${persen.toFixed(2)}%`;
+                        }
+                    });
+
+                    setupInputListeners(data.total_harga_success, data.total_qty_success);
+
                 } else {
                     resetFields();
                 }
             });
 
+            function formatNumberID(value) {
+                return Number(value || 0).toLocaleString('id-ID');
+            }
 
             document.querySelectorAll('.level-harga').forEach(function(input) {
                 input.addEventListener('input', function() {
                     let hppAwal = initialHppAwal || 0;
                     let hppBaru = parseFloat(input.getAttribute('data-hpp-baru')) || 0;
-                    let levelHarga = parseFloat(this.value) || 0;
+                    let levelHarga = parseFloat(this.value.replace(/\./g, '')) || 0;
 
                     let persen = 0;
 
@@ -1394,7 +1392,7 @@
                 debounceTimer = setTimeout(async () => {
                     let id_barang = parseFloat(document.querySelector('.id-barang').value) || 0;
                     let jumlah = parseFloat(document.querySelector('.jumlah-item').value) || 0;
-                    let harga = parseFloat(document.querySelector('.harga-barang').value) || 0;
+                    let harga = parseFloat($('.harga-barang').val().replace(/\./g, '')) || 0;
 
                     let hppAwal = initialHppAwal || 0;
 
@@ -1448,7 +1446,7 @@
 
             function updatePercentages(hpp) {
                 document.querySelectorAll('.level-harga').forEach(function(input) {
-                    let levelHarga = parseFloat(input.value) || 0;
+                    let levelHarga = parseFloat(input.value.replace(/\./g, '')) || 0;
                     let persen = 0;
                     if (hpp > 0) {
                         persen = ((levelHarga - hpp) / hpp) * 100;
@@ -1475,8 +1473,10 @@
 
                 document.querySelectorAll('.level-harga').forEach(function(input) {
                     input.value = '';
-                    const persenElement = document.getElementById(
-                        `persen_${input.getAttribute('data-index')}`);
+
+                    const index = input.getAttribute('data-index');
+                    const persenElement = document.getElementById(`persen_${index}`);
+
                     if (persenElement) {
                         persenElement.textContent = '0%';
                     }
@@ -1504,14 +1504,14 @@
                     `Rp ${awal.toLocaleString('id-ID')}`;
 
                 document.querySelectorAll('input[name="level_nama[]"]').forEach(function(namaLevelInput, index) {
-                    const namaLevel = namaLevelInput.value;
+                    const namaLevel = namaLevelInput.value.replace(/\./g, '');
                     const inputField = document.querySelectorAll('input[name="level_harga[]"]')[index];
                     const persenElement = document.querySelector(`#persen_${index}`);
 
                     if (originalLevelHarga.hasOwnProperty(namaLevel)) {
                         inputField.value = originalLevelHarga[namaLevel] ||
                             0;
-                        let levelHarga = parseFloat(inputField.value) || 0;
+                        let levelHarga = parseFloat(inputField.value.replace(/\./g, '')) || 0;
                         let persen = 0;
                         if (hppUntukPerhitungan > 0) {
                             persen = ((levelHarga - hppUntukPerhitungan) / hppUntukPerhitungan) * 100;
@@ -1574,73 +1574,35 @@
             });
         }
 
-        async function setDatePicker() {
-            flatpickr("#tgl_nota", {
-                dateFormat: "Y-m-d",
-                defaultDate: new Date(),
-                minDate: "today",
-                allowInput: true,
-                appendTo: document.querySelector('.modal-body'),
-                position: "above",
-                onDayCreate: (dObj, dStr, fp, dayElem) => {
-                    dayElem.addEventListener('click', () => {
-                        fp.calendarContainer.querySelectorAll('.selected').forEach(el => {
-                            el.style.backgroundColor = "#1abc9c";
-                            el.style.color = "#fff";
-                        });
-                    });
-                }
+        async function waitForPembelianBarangId() {
+            return new Promise(resolve => {
+                const checkInterval = setInterval(() => {
+                    if (pembelianBarangId !== null && pembelianBarangId !== undefined) {
+                        clearInterval(checkInterval);
+                        resolve(true);
+                    }
+                }, 100);
             });
+        }
 
-            const inputField = document.querySelector("#tgl_nota");
-            inputField.setAttribute("readonly", true);
-
-            inputField.style.backgroundColor = "";
-            inputField.style.cursor = "pointer";
+        async function initSaveDataWatcher() {
+            await waitForPembelianBarangId();
+            saveData();
         }
 
         async function initPageLoad() {
-            await setDynamicButton();
-            await setDatePicker();
-            await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter);
-            await searchList();
-            await filterList();
-            await addData();
-            await selectData(selectOptions);
-            await showData();
-            await editData();
-            await deleteData();
+            await Promise.all([
+                setDynamicButton(),
+                getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter),
+                searchList(),
+                filterList(),
+                addData(),
+                selectData(selectOptions),
+                showData(),
+                editData(),
+                deleteData(),
+                initSaveDataWatcher(),
+            ]);
         }
-        document.addEventListener('DOMContentLoaded', function() {
-            new TomSelect("#id_supplier", {
-                placeholder: "Pilih Supplier",
-                allowClear: true,
-                create: false
-            });
-        });
-        document.addEventListener('DOMContentLoaded', function() {
-            new TomSelect("#id_barang", {
-                placeholder: "Pilih Barang",
-                allowClear: true,
-                create: false,
-                valueField: "value",
-                labelField: "text",
-                searchField: ["text", "barcode"],
-                plugins: ['clear_button'],
-                onInitialize: function() {
-                    const options = [];
-                    document.querySelectorAll("#id_barang option").forEach(opt => {
-                        options.push({
-                            value: opt.value,
-                            text: opt.textContent.trim(),
-                            barcode: opt.getAttribute("data-barcode"),
-                            id_jenis_barang: opt.getAttribute("data-idjenisbarang"),
-                            nama_jenis_barang: opt.getAttribute("data-namajenisbarang"),
-                        });
-                    });
-                    this.addOptions(options);
-                }
-            });
-        });
     </script>
 @endsection

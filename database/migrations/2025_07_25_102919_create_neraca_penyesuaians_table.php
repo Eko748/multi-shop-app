@@ -9,15 +9,11 @@ return new class extends Migration {
     {
         Schema::create('neraca_penyesuaian', function (Blueprint $table) {
             $table->id();
-            $table->decimal('nilai', 15, 4);
+            $table->decimal('nominal', 15, 2);
             $table->dateTime('tanggal');
             $table->unsignedBigInteger('created_by')->nullable();
             $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
-
-            // Opsional: foreign key ke tabel users
-            $table->foreign('created_by')->references('id')->on('users')->nullOnDelete();
-            $table->foreign('updated_by')->references('id')->on('users')->nullOnDelete();
         });
     }
 

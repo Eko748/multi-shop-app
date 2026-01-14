@@ -4,28 +4,40 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Hutang extends Model
 {
     use HasFactory, SoftDeletes;
-
     protected $table = 'hutang';
     protected $guarded = [''];
-    public $primaryKey = 'id';
+    protected $casts = [
+        'tanggal' => 'datetime',
+    ];
 
     public function toko()
     {
-        return $this->belongsTo(Toko::class, 'id_toko', 'id');
+        return $this->belongsTo(Toko::class, 'toko_id', 'id');
     }
 
-    public function jenis_hutang()
+    public function hutangTipe()
     {
-        return $this->belongsTo(JenisHutang::class,'id_jenis', 'id');
+        return $this->belongsTo(HutangTipe::class, 'hutang_tipe_id', 'id');
     }
 
-    public function detailhutang()
+    public function hutangDetail()
     {
-        return $this->hasMany(DetailHutang::class, 'id_hutang');
+        return $this->hasMany(HutangDetail::class, 'hutang_id');
+    }
+
+    public function sumber(): MorphTo
+    {
+        return $this->morphTo();
+    }
+
+    public function kas()
+    {
+        return $this->belongsTo(Kas::class, 'kas_id', 'id');
     }
 }

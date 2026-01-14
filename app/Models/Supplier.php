@@ -12,13 +12,5 @@ class Supplier extends Model
 
     protected $table = 'supplier';
 
-    protected $guarded = [''];
-
-    // public $incrementing = false;
-
-    protected $keyType = 'string';
-
-    public $primaryKey = 'id';
-
-    public $timestamps = false;
+    protected $guarded = [];
 }

@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="{{ asset('css/table.css') }}">
     <link rel="stylesheet" href="{{ asset('css/sweetalert2.css') }}">
     <link rel="stylesheet" href="{{ asset('css/daterange-picker.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/glossy.css') }}">
     <style>
         #daterange[readonly] {
             background-color: white !important;
@@ -63,31 +64,28 @@
                         </div>
                         <div class="content">
                             <div class="collapse mt-2" id="filter-collapse">
-                                <form id="custom-filter" class="row g-2 align-items-center mx-2">
+                                <form id="custom-filter" class="card-body px-0 py-1 row g-2 align-items-center mx-2">
                                     <div class="col-12 col-md-6 col-lg-2 mb-2">
+                                        <label for="daterange"><i class="fa fa-calendar-day mr-1"></i>Rentang
+                                            Tanggal</label>
                                         <input class="form-control" type="text" id="daterange" name="daterange"
                                             placeholder="Pilih rentang tanggal">
                                     </div>
-                                    @if (auth()->user()->id_toko == 1)
-                                        <div class="col-12 col-md-6 col-lg-2 mb-2">
+
+                                    @if (auth()->user()->toko_id == 1)
+                                        <div class="col-12 col-md-6 col-lg-4 mb-2">
+                                            <label for="toko"><i class="fa fa-shop mr-1"></i>Toko</label>
                                             <select class="form-control select2" id="toko" name="toko"></select>
                                         </div>
                                     @endif
+
                                     <div class="col-12 col-md-6 col-lg-2 mb-2">
+                                        <label for="jenis"><i class="fa fa-layer-group mr-1"></i>Tipe</label>
                                         <select class="form-control select2" id="jenis" name="jenis"></select>
                                     </div>
-                                    <div class="col-12 col-md-6 col-lg-2 mb-2">
-                                        <select class="form-select select2" id="f_status" name="f_status">
-                                            <option value="" selected disabled></option>
-                                            <option value="1">Hutang In</option>
-                                            <option value="2">Hutang Out</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-12 col-md-6 col-lg-2 mb-2">
-                                    </div>
-                                    <div class="col-12 col-md-6 col-lg-2 mb-2 d-flex justify-content-end align-items-start">
-                                        <button form="custom-filter" class="btn btn-info mr-2" id="tb-filter"
-                                            type="submit">
+
+                                    <div class="col-12 col-lg d-flex justify-content-end gap-2 mb-2" style="gap: 0.5rem;">
+                                        <button form="custom-filter" class="btn btn-info" id="tb-filter" type="submit">
                                             <i class="fa fa-magnifying-glass mr-2"></i>Cari
                                         </button>
                                         <button type="button" class="btn btn-secondary" id="tb-reset">
@@ -102,17 +100,15 @@
                                     <table class="table table-striped m-0">
                                         <thead>
                                             <tr class="tb-head">
-                                                <th class="text-center text-wrap align-top">No</th>
-                                                <th class="text-wrap align-top">Tanggal</th>
-                                                <th class="text-wrap align-top">Status</th>
-                                                <th class="text-wrap align-top">Kas</th>
-                                                <th class="text-wrap align-top">Jenis</th>
-                                                <th class="text-wrap align-top">Nama Toko</th>
-                                                <th class="text-wrap align-top">Keterangan</th>
-                                                <th class="text-wrap align-top">Jangka Hutang</th>
-                                                <th class="text-right text-wrap align-top">Nilai</th>
-                                                <th class="text-right text-wrap align-top">Sisa</th>
-                                                <th class="text-right text-wrap align-top"><span
+                                                <th style="width: 3%;" class="text-center text-wrap align-top">No</th>
+                                                <th style="width: 13%;" class="text-wrap align-top">Tanggal</th>
+                                                <th style="width: 15%;" class="text-wrap align-top">Status</th>
+                                                <th style="width: 15%;" class="text-wrap align-top">Kas</th>
+                                                <th style="width: 10%;" class="text-wrap align-top">Tipe</th>
+                                                <th style="width: 19%;" class="text-wrap align-top">Keterangan</th>
+                                                <th style="width: 5%;" class="text-wrap align-top">Jangka</th>
+                                                <th style="width: 9%;" class="text-right text-wrap align-top">Sisa</th>
+                                                <th style="width: 10%;" class="text-right text-wrap align-top"><span
                                                         class="mr-2">Action</span></th>
                                             </tr>
                                         </thead>
@@ -155,66 +151,54 @@
                 <div class="modal-body">
                     <form id="formTambahData">
                         <div class="row d-flex align-items-center">
-                            <div class="col-md-9">
+                            <div class="col-md-7">
                                 <div class="form-group">
                                     <label for="keterangan">Keterangan <sup class="text-danger">*</sup></label>
                                     <input type="text" class="form-control" id="keterangan" name="keterangan"
                                         placeholder="Masukkan keterangan" required>
                                 </div>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-5">
                                 <div class="form-group">
                                     <label for="tanggal">Tanggal <sup class="text-danger">*</sup></label>
                                     <input type="datetime-local" class="form-control" id="tanggal" name="tanggal"
-                                        placeholder="Masukkan tanggal" required value="{{ now()->format('Y-m-d\TH:i') }}">
+                                        placeholder="Masukkan tanggal" required>
                                 </div>
                             </div>
                         </div>
                         <div class="row d-flex align-items-center">
-                            <div class="{{ $isSingleToko ? 'col-md-6' : 'col-md-9' }}">
+                            <div class="col-md-7">
                                 <div class="form-group">
-                                    <label for="nilai">Nilai (Rp) <sup class="text-danger">*</sup></label>
-                                    <input type="number" class="form-control" id="nilai" name="nilai"
-                                        placeholder="Masukkan nilai" required>
+                                    <label for="nominal">Nominal (Rp) <sup class="text-danger">*</sup></label>
+                                    <input type="text" class="form-control rupiah" id="nominal" name="nominal"
+                                        placeholder="Masukkan nominal" required>
                                 </div>
                             </div>
-                            @if ($isSingleToko)
-                                <div class="col-md-3">
-                                    <div class="form-group">
-                                        <label for="label_kas">Hutang dari Kas <sup class="text-danger">*</sup></label>
-                                        <select name="label_kas" id="label_kas" class="form-control" required>
-                                        </select>
-                                    </div>
-                                </div>
-                            @endif
-                            <div class="col-md-3">
-                                <div class="form-group w-100">
-                                    <label for="jangka" class="d-block">Jangka Hutang <sup
-                                            class="text-danger">*</sup></label>
-                                    <select class="form-control select2 w-100" name="jangka" id="jangka">
-                                        <option value="" disabled selected>Pilih jangka Hutang</option>
-                                        <option value="1">Jangka Pendek</option>
-                                        <option value="2">Jangka Panjang</option>
+                            <div class="col-md-5">
+                                <div class="form-group">
+                                    <label for="kas_id">Masuk ke Kas <sup class="text-danger">*</sup></label>
+                                    <select name="kas_id" id="kas_id" class="form-control" required>
                                     </select>
                                 </div>
                             </div>
                         </div>
-                        <div class="row d-flex align-items-center" id="jenisContainer">
-                            <div class="col-md-6">
+                        <div class="row d-flex align-items-center">
+                            <div class="col-md-7">
                                 <div class="form-group">
-                                    <label for="id_jenis">Jenis Hutang <sup class="text-danger">**</sup></label>
-                                    <select class="form-control select2" id="id_jenis" name="id_jenis">
+                                    <label for="hutang_tipe_id">Tipe Hutang <sup class="text-danger">**</sup></label>
+                                    <select class="form-control select2" id="hutang_tipe_id" name="hutang_tipe_id">
                                     </select>
                                 </div>
                             </div>
-                            <div class="col-md-1">
-                                <div class="text-center font-weight-bold">Atau</div>
-                            </div>
                             <div class="col-md-5">
-                                <div class="form-group">
-                                    <label for="nama_jenis">Jenis Hutang Baru <sup class="text-danger">**</sup></label>
-                                    <input type="text" class="form-control" id="nama_jenis" name="nama_jenis"
-                                        placeholder="Masukkan jenis Hutang baru">
+                                <div class="form-group w-100">
+                                    <label for="jangka" class="d-block">Jangka Hutang <sup
+                                            class="text-danger">*</sup></label>
+                                    <select class="form-control select2 w-100" name="jangka" id="jangka">
+                                        <option value="" disabled selected>Pilih Jangka Hutang</option>
+                                        <option value="pendek">Jangka Pendek</option>
+                                        <option value="panjang">Jangka Panjang</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -223,7 +207,7 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" aria-label="Close"><i
                             class="fa fa-circle-xmark mr-1"></i>Tutup</button>
-                    <button type="submit" class="btn btn-primary" id="btnSimpan" form="formTambahData"><i
+                    <button type="submit" class="btn btn-primary" id="submit-button" form="formTambahData"><i
                             class="fa fa-save mr-1"></i>Simpan</button>
                 </div>
             </div>
@@ -232,23 +216,25 @@
 
     <div class="modal fade" id="editModal" tabindex="-1" role="dialog" aria-labelledby="editModalLabel"
         aria-hidden="true">
-        <div class="modal-dialog" role="document">
+        <div class="modal-dialog modal-xl" role="document">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="editModalLabel">Edit Nilai</h5>
+                    <h5 class="modal-title" id="editModalLabel"></h5>
                     <button type="button" class="btn-close reset-all close" data-bs-dismiss="modal"
                         aria-label="Close"><i class="fa fa-xmark"></i></button>
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
-                        <label for="edit-nilai">Jumlah Bayar <sup>(Rp)</sup> <sup class="text-danger">*</sup></label>
-                        <input type="number" class="form-control" id="edit-nilai"
+                        <label for="edit-nominal">Jumlah Bayar <sup>(Rp)</sup> <sup class="text-danger">*</sup></label>
+                        <input type="number" class="form-control" id="edit-nominal"
                             placeholder="Masukkan jumlah yang dibayarkan">
                     </div>
+                    <hr>
                     <div class="card shadow-sm mb-3 border-0">
                         <div class="card-body p-3">
-                            <h5 class="card-title text-primary border-bottom pb-2 mb-3">
-                                <span class="d-block">Riwayat Pembayaran</span>
+                            <h5 class="card-title border-bottom pb-2 mb-3">
+                                <span class="d-block fornt-weight-bold"><i
+                                        class="fa fa-file-alt text-primary mr-1"></i>Riwayat Pembayaran</span>
                                 <small id="keterangan-bayar" class="d-block text-muted"></small>
                             </h5>
                             <div class="mt-3">
@@ -269,22 +255,22 @@
 
     <div class="modal fade" id="detailModal" tabindex="-1" role="dialog" aria-labelledby="detailModalLabel"
         aria-hidden="true">
-        <div class="modal-dialog" role="document">
+        <div class="modal-dialog modal-xl" role="document">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="detailModalLabel">Detail Nilai</h5>
+                    <h5 class="modal-title" id="detailModalLabel"></h5>
                     <button type="button" class="btn-close reset-all close" data-bs-dismiss="modal"
                         aria-label="Close"><i class="fa fa-xmark"></i></button>
                 </div>
                 <div class="modal-body">
                     <div id="detailDataContainer"></div>
-                    <div class="card shadow-sm mb-3 border-0">
-                        <div class="card-body p-3">
-                            <h5 class="card-title text-primary border-bottom pb-2 mb-3">Riwayat Pembayaran</h5>
-                            <div class="mt-3">
-                                <div id="tableDetailData"></div>
-                            </div>
+                    <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
+                        <div class="d-flex flex-row justify-content-between align-items-center p-3 flex-wrap">
+                            <h5 class="m-0 font-weight-bold"><i class="fa fa-file-alt text-primary mr-1"></i>Riwayat
+                                Pembayaran</h5>
                         </div>
+                        <hr class="m-0">
+                        <div id="tableDetailData"></div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -315,30 +301,34 @@
         let selectOptions = [{
                 id: '#toko',
                 isUrl: '{{ route('master.toko') }}',
-                placeholder: 'Pilih Nama Toko',
+                multiple: true
             }, {
                 id: '#jenis',
                 isUrl: '{{ route('master.jenishutang') }}',
-                placeholder: 'Pilih Jenis Hutang',
+                placeholder: 'Pilih Tipe Hutang',
                 isFilter: {
                     is_not: 1,
                 },
             },
             {
-                id: '#id_jenis',
+                id: '#hutang_tipe_id',
                 isUrl: '{{ route('master.jenishutang') }}',
-                placeholder: 'Pilih Jenis Hutang',
+                placeholder: 'Pilih Tipe Hutang',
                 isModal: '#modal-form'
             },
             {
-                id: '#label_kas',
+                id: '#kas_id',
                 isUrl: '{{ route('total.kas') }}',
                 placeholder: 'Pilih Kas',
                 isModal: '#modal-form',
                 isFilter: {
-                    id_toko: '{{ auth()->user()->id_toko }}'
+                    toko_id: {{ auth()->user()->toko_id }}
                 },
-                extraFields: 'jenis_id',
+                extraFields: {
+                    jenis_id: 'jenis_id',
+                    tipe_kas: 'tipe_kas',
+                    saldo_kas: 'saldo_kas',
+                }
             }
         ];
 
@@ -366,12 +356,12 @@
 
             let getDataRest = await renderAPI(
                 'GET',
-                '{{ route('master.gethutang') }}', {
+                '{{ route('jk.hutang.get') }}', {
                     page: page,
                     limit: limit,
                     ascending: ascending,
                     search: search,
-                    id_toko: {{ auth()->user()->id_toko }},
+                    toko_id: {{ auth()->user()->toko_id }},
                     ...filterParams
                 }
             ).then(function(response) {
@@ -387,7 +377,8 @@
                 let handleDataArray = await Promise.all(
                     data.map(async item => await handleData(item))
                 );
-                await setListData(handleDataArray, getDataRest.data.pagination, getDataRest.data.data.total_nilai || 0,
+                await setListData(handleDataArray, getDataRest.data.pagination, getDataRest.data.data.total_nominal ||
+                    0,
                     getDataRest.data.data.total_sisa || 0);
             } else {
                 let errorMessage = 'Tidak ada Data';
@@ -406,28 +397,27 @@
 
             let action_buttons = '';
 
-            let delete_button = `
+            let delete_button = (data.action) ? `
                 <a class="p-1 btn delete-data action_button"
                     data-container="body" data-toggle="tooltip" data-placement="top"
                     title="Hapus ${title}" data="${elementData}">
                     <span class="text-dark">Hapus</span>
                     <div class="icon text-danger">
-                        <i class="fa fa-trash"></i>
+                        <i class="fa fa-trash-alt"></i>
                     </div>
-                </a>`;
+                </a>` : '';
 
-            let detail_button = (data.id_toko == {{ auth()->user()->id_toko }} && data.status == 1 || data
-                .status == 2) ? `
+            let detail_button = `
                 <a class="p-1 btn detail-data action_button"
                     data-container="body" data-toggle="tooltip" data-placement="top"
                     title="Detail ${title}" data="${elementData}">
                     <span class="text-dark">Detail</span>
                     <div class="icon text-info">
-                        <i class="fa fa-book"></i>
+                        <i class="fa fa-folder"></i>
                     </div>
-                </a>` : '';
+                </a>`;
 
-            let edit_button = (data.id_toko == {{ auth()->user()->id_toko }} && data.status == 1) ? `
+            let edit_button = (data.action) ? `
                 <a class="p-1 btn edit-data action_button"
                     data-container="body" data-toggle="tooltip" data-placement="top"
                     title="Bayar ${title}" data="${elementData}">
@@ -437,7 +427,7 @@
                     </div>
                 </a>` : '';
 
-            if (data.id_toko == {{ auth()->user()->id_toko }} && delete_button || edit_button || detail_button) {
+            if (delete_button || edit_button || detail_button) {
                 action_buttons = `
                 <div class="d-flex justify-content-end">
                     ${edit_button ? `<div class="hovering p-1">${edit_button}</div>` : ''}
@@ -446,28 +436,28 @@
                 </div>`;
             } else {
                 action_buttons = `
-                <div class="d-flex justify-content-end">
+                <div class="d-flex justify-content-center">
                     <span class="badge badge-secondary mr-1">Tidak Ada Aksi</span>
                 </div>`;
             }
 
-            let status = (data.status == 1) ?
-                `<span class="custom-badge badge badge-danger"><i class="fa fa-exclamation-triangle"></i> Hutang In</span>` :
-                (data.status == 2) ?
-                `<span class="custom-badge badge badge-info"><i class="fa fa-info-circle"></i> Hutang Out</span>` :
-                `-`;
+            let status =
+                `<span class="custom-badge badge badge-${data.attr}"><i class="fa ${data.icon}"></i> ${data.text}</span>`;
+            let kas =
+                `<span class="custom-badge badge badge-${data.attr}"><i class="fa fa-info-circle"></i> ${data.kas}</span>`;
 
             return {
                 id: data?.id ?? '-',
                 tanggal: data?.tanggal ?? '-',
-                nama_jenis: data?.nama_jenis ?? '-',
+                created_by: data?.created_by ?? '-',
                 nama_toko: data?.nama_toko ?? '-',
-                jangka: data?.jangka ?? '-',
                 keterangan: data?.keterangan ?? '-',
-                nilai: data?.nilai ?? 0,
-                sisa_hutang: data?.sisa_hutang ?? 0,
+                tipe: data?.tipe ?? '-',
+                nominal: data?.nominal ?? 0,
+                jangka: data?.jangka ?? '-',
+                sisa: data?.sisa ?? 0,
                 status,
-                label: data?.label ?? '-',
+                kas,
                 action_buttons,
             };
         }
@@ -486,23 +476,20 @@
                 <tr class="text-dark">
                     <td class="${classCol} text-center">${display_from + index}.</td>
                     <td class="${classCol}">${element.tanggal}</td>
-                    <td class="${classCol}">${element.status}</td>
-                    <td class="${classCol}">${element.label}</td>
-                    <td class="${classCol}">${element.nama_jenis}</td>
-                    <td class="${classCol}">${element.nama_toko}</td>
+                    <td class="align-center text-dark">${element.status}</td>
+                    <td class="align-center text-dark">${element.kas}</td>
+                    <td class="${classCol}">${element.tipe}</td>
                     <td class="${classCol}">${element.keterangan}</td>
                     <td class="${classCol}">${element.jangka}</td>
-                    <td class="${classCol} text-right">${element.nilai}</td>
-                    <td class="${classCol} text-right">${element.sisa_hutang}</td>
-                    <td class="${classCol}">${element.action_buttons}</td>
+                    <td class="${classCol} text-right">${element.sisa}</td>
+                    <td class="${classCol} text-center">${element.action_buttons}</td>
                 </tr>`;
             });
 
             let totalRow = `
             <tr class="bg-primary">
-                <td class="${classCol}" colspan="7"></td>
+                <td class="${classCol}" colspan="6"></td>
                 <td class="${classCol}" style="font-size: 1rem;"><strong class="text-white fw-bold">Total</strong></td>
-                <td class="${classCol} text-right"><strong class="text-white" id="totalData">${total}</strong></td>
                 <td class="${classCol} text-right"><strong class="text-white" id="totalSisaData">${sisa}</strong></td>
                 <td class="${classCol}"></td>
             </tr>`;
@@ -516,66 +503,14 @@
             renderPagination();
         }
 
-        function handleInput() {
-            const jenisSelect = $("#id_jenis");
-            const jenisBaruInput = document.getElementById("nama_jenis");
-            const jenisContainer = document.getElementById("jenisContainer");
-
-            function toggleInputs() {
-                if (jenisSelect.val()) {
-                    jenisBaruInput.disabled = true;
-                    jenisBaruInput.value = "";
-                } else {
-                    jenisBaruInput.disabled = false;
-                }
-            }
-
-            function toggleSelect() {
-                if (jenisBaruInput.value.trim() !== "") {
-                    jenisSelect.prop("disabled", true).val(null).trigger("change");
-                } else {
-                    jenisSelect.prop("disabled", false);
-                }
-            }
-
-            jenisSelect.on("change", toggleInputs);
-            jenisBaruInput.addEventListener("input", toggleSelect);
-
-            $('#jangka').select2({
-                placeholder: 'Pilih jangka hutang',
-                allowClear: true,
-                dropdownParent: $('#modal-form'),
-                width: '100%'
-            });
-
-            $('#f_status').select2({
-                placeholder: 'Pilih status hutang',
-                allowClear: true,
-                width: '100%'
-            });
-        }
-
-        $('#modal-form').on('hidden.bs.modal', function() {
-            $('#id_jenis').prop("disabled", false).val(null).trigger("change");
-
-            document.getElementById("jenisContainer").classList.remove("d-none");
-        });
-
         async function addData() {
             $(document).on("click", ".add-data", function() {
-                $("#modal-title").html(`Form Tambah ${title}`);
+                $("#modal-title").html(`<i class="fa fa-circle-plus mr-1"></i>Form Tambah ${title}`);
                 $("#modal-form").modal("show");
                 $("form").find("input, select, textarea").val("").prop("checked", false).trigger("change");
-                $("#formTambahData").data("action-url", '{{ route('master.hutang.store') }}');
+                $("#formTambahData").data("action-url", '{{ route('jk.hutang.post') }}');
 
-                const now = new Date();
-                const year = now.getFullYear();
-                const month = String(now.getMonth() + 1).padStart(2, '0');
-                const day = String(now.getDate()).padStart(2, '0');
-                const hours = String(now.getHours()).padStart(2, '0');
-                const minutes = String(now.getMinutes()).padStart(2, '0');
-                const formattedDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
-                document.getElementById('tanggal').value = formattedDateTime;
+                setDatePicker();
             });
         }
 
@@ -591,37 +526,19 @@
                 loadingPage(true);
 
                 let actionUrl = $("#formTambahData").data("action-url");
-                const idToko = '{{ auth()->user()->id_toko }}';
 
                 let formData = {
-                    tanggal: $('#tanggal').val(),
-                    id_toko: '{{ auth()->user()->id_toko }}',
+                    created_by: {{ auth()->user()->id }},
+                    toko_id: {{ auth()->user()->toko_id }},
                     keterangan: $('#keterangan').val(),
+                    nominal: $('#nominal').val().replace(/\./g, ''),
+                    tanggal: $('#tanggal').val(),
+                    hutang_tipe_id: $('#hutang_tipe_id').val(),
                     jangka: $('#jangka').val(),
-                    nilai: $('#nilai').val()
+                    kas_id: $('#kas_id').val(),
+                    jenis_barang_id: $("#kas_id").select2('data')[0].jenis_id,
+                    tipe_kas: $("#kas_id").select2('data')[0].tipe_kas,
                 };
-
-                let idJenis = $('#id_jenis').val();
-                let namaJenis = $('#nama_jenis').val();
-
-                if (idJenis) {
-                    formData.id_jenis = idJenis;
-                } else if (namaJenis) {
-                    formData.nama_jenis = namaJenis;
-                }
-
-                if (idToko == 1) {
-                    const labelVal = $('#label_kas').val();
-                    if (labelVal) {
-                        formData.label = labelVal;
-
-                        let selectedData = $('#label_kas').select2('data')[0];
-
-                        if (selectedData && selectedData.jenis_id != null) {
-                            formData.jenis_id = selectedData.jenis_id;
-                        }
-                    }
-                }
 
                 try {
                     let postData = await renderAPI("POST", actionUrl, formData);
@@ -642,8 +559,10 @@
                     }
                 } catch (error) {
                     loadingPage(false);
-                    let resp = error.response || {};
+                    let resp = error.response?.data || {};
                     notificationAlert("error", "Kesalahan", resp.message || "Terjadi kesalahan");
+                } finally {
+                    $submitButton.prop("disabled", false).html(originalButtonHTML);
                 }
             });
         }
@@ -653,7 +572,9 @@
 
             let getDataRest = await renderAPI(
                 'GET',
-                `/admin/hutang/detail/${id}`, {}
+                '{{ route('jk.hutang.detail') }}', {
+                    id: id
+                }
             ).then(function(response) {
                 return response;
             }).catch(function(error) {
@@ -663,13 +584,13 @@
             if (getDataRest.status === 200) {
                 let data = getDataRest.data.data;
                 let tableList = `
-                    <div class="table-responsive table-scroll-wrapper">
-                        <table class="table table-striped m-0">
-                            <thead>
-                                <tr class="tb-head">
+                    <div class="table-responsive">
+                        <table class="table table-hover m-0">
+                            <thead class="glossy-thead">
+                                <tr>
                                     <th class="text-center text-wrap align-top">No</th>
                                     <th class="text-wrap align-top">Tanggal Bayar</th>
-                                    <th class="text-right text-wrap align-top">Nilai</th>
+                                    <th class="text-right text-wrap align-top">Nominal</th>
                                 </tr>
                             </thead>
                             <tbody id="detailData-${selector}"></tbody>
@@ -689,13 +610,17 @@
                             <tr class="text-dark">
                                 <td class="${classCol} text-center">${index + 1}.</td>
                                 <td class="${classCol}">${element.tanggal}</td>
-                                <td class="${classCol} text-right">${element.nilai}</td>
+                                <td class="${classCol} text-right">${element.nominal}</td>
                             </tr>`;
                     });
                 } else {
                     getDataTable += `
                         <tr class="text-dark">
-                            <td class="${classCol} text-center" colspan="3"><i class="fa fa-circle-info mr-1"></i>Belum ada pembayaran</td>
+                            <td class="${classCol} text-center" colspan="3">
+                                <div class="text-center my-3" role="alert">
+                                    <i class="fa fa-circle-info mr-1"></i>Belum ada pembayaran
+                                </div>
+                            </td>
                         </tr>`;
                 }
 
@@ -708,7 +633,7 @@
                 <tr class="bg-danger">
                     <td class="${classCol}" colspan="1"></td>
                     <td class="${classCol}" style="font-size: 1rem;"><strong class="text-white fw-bold">Sisa Hutang</strong></td>
-                    <td class="${classCol} text-right"><strong class="text-white" id="sisaDetailData">${data.sisa_hutang}</strong></td>
+                    <td class="${classCol} text-right"><strong class="text-white" id="sisaDetailData">${data.sisa}</strong></td>
                 </tr>`;
 
                 $(`#${selector}`).find(`#detailData-${selector}`).html('');
@@ -743,7 +668,10 @@
                 }).then(async (result) => {
                     let postDataRest = await renderAPI(
                         'DELETE',
-                        `/admin/hutang/delete/${data.id}`, {}
+                        '{{ route('jk.hutang.delete') }}', {
+                            id: data.id,
+                            deleted_by: {{ auth()->user()->id }}
+                        }
                     ).then(function(response) {
                         return response;
                     }).catch(function(error) {
@@ -755,6 +683,7 @@
                         setTimeout(function() {
                             getListData(defaultLimitPage, currentPage, defaultAscending,
                                 defaultSearch, customFilter);
+                            $('#listData').closest('table').find('tfoot').html('');
                         }, 500);
                         notificationAlert('success', 'Pemberitahuan', postDataRest.data
                             .message);
@@ -811,11 +740,11 @@
                 let rawData = $(this).attr("data");
                 let data = JSON.parse(decodeURIComponent(rawData));
 
-                $("#detailModalLabel").html(`<i class="fa fa-book mr-2"></i>Detail Data`);
+                $("#detailModalLabel").html(`<i class="fa fa-folder-open mr-1"></i>Detail Data`);
                 $("#detailModal").modal("show");
 
                 let dataList = await getDetailData(data.id, 'tableDetailData');
-                renderDetailData(dataList.hutang);
+                renderDetailData(dataList.item);
             });
         }
 
@@ -825,24 +754,24 @@
                 let data = JSON.parse(decodeURIComponent(rawData));
 
                 $("#editModalLabel").html(
-                    `<i class="fa fa-edit mr-2"></i>Form Bayar Hutang`);
+                    `<i class="fa fa-edit mr-1"></i>Form Bayar ${title}`);
                 $("#save-edit").attr("data-id", data.id);
                 $("#editModal").modal("show");
                 $("#keterangan-bayar").html(data.keterangan);
 
                 let dataList = await getDetailData(data.id, 'tableEditData');
 
-                let sisaHutang = dataList.sisa_hutang.replace(/[^\d]/g, "");
-                let sisaHutangNum = parseInt(sisaHutang, 10) || 0;
+                let sisa = dataList.sisa.replace(/[^\d]/g, "");
+                let sisaNum = parseInt(sisa, 10) || 0;
 
-                $("#edit-nilai").attr({
+                $("#edit-nominal").attr({
                     "min": 0,
-                    "max": sisaHutangNum,
+                    "max": sisaNum,
                     "type": "number"
-                }).val(sisaHutangNum);
+                }).val(sisaNum);
             });
 
-            $(document).on("input", "#edit-nilai", function() {
+            $(document).on("input", "#edit-nominal", function() {
                 let maxValue = parseInt($(this).attr("max"), 10);
                 let minValue = parseInt($(this).attr("min"), 10);
                 let currentValue = parseInt($(this).val(), 10) || 0;
@@ -857,25 +786,34 @@
             });
 
             $(document).on("click", "#save-edit", async function() {
+                const $submitButton = $(this);
+                const originalButtonHTML = $submitButton.html();
+
+                $submitButton.prop("disabled", true).html(
+                    `<i class="fas fa-spinner fa-spin"></i> Menyimpan...`);
+
+                loadingPage(true);
+
                 let id = $(this).attr("data-id");
-                let newValue = parseInt($("#edit-nilai").val(), 10) || 0;
-                let maxValue = parseInt($("#edit-nilai").attr("max"), 10);
+                let newValue = parseInt($("#edit-nominal").val(), 10) || 0;
+                let maxValue = parseInt($("#edit-nominal").attr("max"), 10);
 
                 if (newValue < 1 || newValue > maxValue) {
-                    notificationAlert("info", "Pemberitahuan", `Nilai harus antara 1 dan ${maxValue}`);
+                    notificationAlert("info", "Pemberitahuan", `Nominal harus antara 1 dan ${maxValue}`);
                     return;
                 }
 
                 let formData = {
-                    nilai: newValue
+                    id: id,
+                    nominal: newValue
                 };
 
                 try {
-                    let postData = await renderAPI("PUT", `/admin/hutang/update/${id}`, formData);
+                    let postData = await renderAPI("PUT", '{{ route('jk.hutang.pay') }}', formData);
 
                     loadingPage(false);
                     if (postData.status >= 200 && postData.status < 300) {
-                        notificationAlert("success", "Pemberitahuan", postData.data.message || "Berhasil");
+                        notificationAlert("success", "Sukses", postData.data.message || "Berhasil");
                         setTimeout(async function() {
                             await getListData(defaultLimitPage, currentPage, defaultAscending,
                                 defaultSearch, customFilter);
@@ -889,56 +827,78 @@
                     }
                 } catch (error) {
                     loadingPage(false);
-                    let resp = error.response || {};
-                    notificationAlert("error", "Kesalahan", resp.data.message || "Terjadi kesalahan");
+                    let resp = error.response?.data || {};
+                    notificationAlert("error", "Kesalahan", resp.message || "Terjadi kesalahan");
+                } finally {
+                    $submitButton.prop("disabled", false).html(originalButtonHTML);
                 }
             });
         }
 
         function renderDetailData(data) {
             const html = `
-                <div class="card shadow-sm mb-3 border-0">
-                    <div class="card-body p-3">
-                        <h5 class="card-title text-primary border-bottom pb-2 mb-3">Detail ${title}</h5>
-                        <div class="d-flex justify-content-between">
-                            <strong>Jenis ${title}:</strong>
-                            <span>${data.nama_jenis}</span>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <strong>Keterangan:</strong>
-                            <span>${data.keterangan}</span>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <strong>Nama Toko:</strong>
-                            <span>${data.nama_toko}</span>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <strong>Nilai:</strong>
-                            <span>${data.nilai}</span>
-                        </div>
-                        <div class="d-flex justify-content-between border-top pt-2 mt-3">
-                            <strong>Tanggal ${title}:</strong>
-                            <span>${data.tanggal}</span>
+                <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
+                    <div class="d-flex justify-content-between align-items-center p-3 flex-wrap border-bottom">
+                        <h5 class="m-0 font-weight-bold"><i class="fa fa-circle-info text-primary mr-1"></i>Informasi Hutang</h5>
+                        <span class="badge badge-primary p-2">
+                            <i class="fa fa-shop mr-1"></i>
+                            Toko ${data.nama_toko}
+                        </span>
+                    </div>
+                    <div class="px-3">
+                        <div class="row small">
+                            <div class="glossy-card rounded p-3 col-md-6">
+                                <div class="text-muted">
+                                    <i class="fa fa-tags mr-1"></i> Tipe
+                                </div>
+                                <div class="font-weight-bold text-dark">
+                                    ${data.tipe}
+                                </div>
+                            </div>
+                            <div class="glossy-card rounded p-3 col-md-6">
+                                <div class="text-muted">
+                                    <i class="fa fa-file-alt mr-1"></i> Keterangan
+                                </div>
+                                <div class="font-weight-bold text-dark">
+                                    ${data.keterangan ?? '-'}
+                                </div>
+                            </div>
+                            <div class="glossy-card rounded p-3 col-md-6">
+                                <div class="text-muted">
+                                    <i class="fa fa-money-bill-wave mr-1"></i> Nominal
+                                </div>
+                                <div class="font-weight-bold text-danger h5 m-0">
+                                    ${data.nominal}
+                                </div>
+                            </div>
+                            <div class="glossy-card rounded p-3 col-md-6">
+                                <div class="text-muted">
+                                    <i class="fa fa-calendar-alt mr-1"></i> Tanggal ${title}
+                                </div>
+                                <div class="font-weight-bold text-dark">
+                                    ${data.tanggal}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-            `;
-
+                `;
             $("#detailDataContainer").html(html);
         }
 
         async function initPageLoad() {
-            await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter);
-            await setDynamicButton();
-            await selectData(selectOptions);
-            await searchList();
-            await handleInput();
-            await filterList();
-            await addData();
-            await submitForm();
-            await deleteData();
-            await editData();
-            await detailData();
+            await Promise.all([
+                getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter),
+                setDynamicButton(),
+                selectData(selectOptions),
+                searchList(),
+                filterList(),
+                addData(),
+                submitForm(),
+                deleteData(),
+                editData(),
+                detailData(),
+            ]);
         }
     </script>
 @endsection

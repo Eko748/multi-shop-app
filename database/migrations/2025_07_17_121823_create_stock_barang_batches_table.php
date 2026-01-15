@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('stock_barang_batch', function (Blueprint $table) {
             $table->id();
+            $table->unsignedBigInteger('toko_id');
             $table->unsignedBigInteger('stock_barang_id');
             $table->string('qrcode')->unique();
             $table->integer('qty_masuk');

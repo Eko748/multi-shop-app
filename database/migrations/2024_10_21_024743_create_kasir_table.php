@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('transaksi_kasir', function (Blueprint $table) {
             $table->id();
+            $table->uuid('public_id')->unique();
             $table->unsignedBigInteger('toko_id');
             $table->string('nota')->unique();
             $table->dateTime('tanggal');
@@ -21,7 +22,6 @@ return new class extends Migration
             $table->decimal('total_bayar', 15, 2);
             $table->decimal('total_diskon', 15, 2)->nullable();
             $table->enum('metode', ['cash', 'cashless'])->default('cash');
-            $table->string('guest')->nullable();
             $table->unsignedBigInteger('member_id')->nullable();
             $table->unsignedBigInteger('created_by');
             $table->timestamps();

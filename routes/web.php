@@ -11,7 +11,7 @@ use App\Http\Controllers\DataMaster\Pengaturan\{LevelHargaController, LevelUserC
 use App\Http\Controllers\Distribusi\{PengirimanBarangController, PlanOrderController};
 use App\Http\Controllers\JurnalKeuangan\{HutangController, MutasiController, PemasukanController, PengeluaranController, PiutangController};
 use App\Http\Controllers\Rekapitulasi\{AsetBarangJualanController, AsetBarangReturController, LaporanKasirController, LaporanPembelianBarangController, LaporanPengirimanBarangController, LaporanPenjualanController, RatingBarangController, RatingMemberController};
-use App\Http\Controllers\TransaksiBarang\{KasbonController, KasirController, PembelianBarangController, PengembalianController};
+use App\Http\Controllers\TransaksiBarang\{KasbonController, TransaksiKasirController, PembelianBarangController, PengembalianController};
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['tamu'])->group(function () {
@@ -159,13 +159,7 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/pembelianbarang/edit/detail-pembelian-barang', [PembelianBarangController::class, 'editDetailPembelianBarang'])->name('transaksi.pembelianbarang.update-detail')->middleware('permission:PUT /pembelianbarang/edit/detail-pembelian-barang');
 
     // Kasir Controller
-    Route::get('/kasir', [KasirController::class, 'index'])->name('transaksi.kasir.index')->middleware('permission:GET /kasir');
-    Route::post('/kasir/store', [KasirController::class, 'store'])->name('transaksi.kasir.store')->middleware('permission:POST /kasir/store');
-    Route::get('/kasirs/{id}/detail', [KasirController::class, 'detail'])->name('kasirs.detail')->middleware('permission:GET /kasirs/{id}/detail');
-    Route::put('/kasir/update/{id}', [KasirController::class, 'update'])->name('transaksi.kasir.update')->middleware('permission:PUT /kasir/update/{id}');
-    Route::delete('/kasir/delete/{id}', [KasirController::class, 'delete'])->name('transaksi.kasir.delete')->middleware('permission:DELETE /kasir/delete/{id}');
-    Route::get('/kasir/get-filtered-harga', [KasirController::class, 'getFilteredHarga'])->middleware('permission:GET /kasir/get-filtered-harga');
-    Route::get('/cetak-struk/{id_kasir}', [KasirController::class, 'cetakStruk'])->name('cetak.struk')->middleware('permission:GET /cetak-struk/{id_kasir}');
+    Route::get('/kasir', [TransaksiKasirController::class, 'index'])->name('transaksi.kasir.index')->middleware('permission:GET /kasir');
 
     // Kasbon Controller
     Route::get('/kasbon', [KasbonController::class, 'index'])->name('transaksi.index')->middleware('permission:GET /kasbon');

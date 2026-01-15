@@ -24,7 +24,7 @@ class StockBarangBatchService
             $img = asset("storage/qrcodes/pembelian/{$item->qrcode}.png");
             $nama = $item->stockBarang->barang->nama;
             $stok = $item->qty_sisa ?? 0;
-            $tanggal = $item->created_at ? $item->created_at->format('d-m-Y') : '-';
+            $tanggal = $item->created_at ? $item->created_at->format('d-m-Y H:i:s') : '-';
 
             return [
                 'id' => $item->qrcode,

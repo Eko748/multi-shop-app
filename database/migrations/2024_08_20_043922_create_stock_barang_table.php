@@ -13,15 +13,15 @@ return new class extends Migration
     {
         Schema::create('stock_barang', function (Blueprint $table) {
             $table->id('id');
-            $table->unsignedBigInteger('toko_id');
-            $table->unsignedBigInteger('barang_id');
+            // $table->unsignedBigInteger('toko_id');
+            $table->unsignedBigInteger('barang_id')->unique();
             $table->integer('stok')->default(0);
             $table->decimal('hpp_awal', 15, 2)->nullable();
             $table->decimal('hpp_baru', 15, 2)->nullable();
             $table->string('level_harga')->nullable();
             $table->timestamps();
             $table->softDeletes();
-            $table->unique(['toko_id', 'barang_id']);
+            // $table->unique(['toko_id', 'barang_id']);
         });
     }
 

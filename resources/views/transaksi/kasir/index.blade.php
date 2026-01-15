@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="{{ asset('css/daterange-picker.css') }}">
     <link rel="stylesheet" href="{{ asset('css/sweetalert2.css') }}">
     <link rel="stylesheet" href="{{ asset('css/notyf.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/glossy.css') }}">
     <style>
         .clickable-row {
             cursor: pointer;
@@ -53,42 +54,65 @@
         <div class="pcoded-content pt-1 mt-1">
             @include('components.breadcrumbs')
             <div class="row">
-                <div class="col-xl-12">
-                    <div class="card">
-                        <div class="card-header custom-header">
-                            <div class="custom-left">
-                                <div class="custom-btn-tambah-wrap">
-                                    @if (hasAnyPermission(['POST /kasir/store']))
-                                        <a id="btn-tambah" class="btn btn-primary custom-btn-tambah text-white"
-                                            data-toggle="modal" data-target=".bd-example-modal-lg">
-                                            <i class="fa fa-plus-circle"></i> Tambah
-                                        </a>
-                                    @endif
-                                </div>
-                                <form id="custom-filter" class="row">
-                                    <div class="col-xl-6 col-12">
-                                        <input class="form-control w-100" type="text" id="daterange" name="daterange"
-                                            placeholder="Pilih rentang tanggal">
+                <div class="col-12 col-sm-12 col-md-12 col-lg-12 col-xl-12 mb-2">
+                    <div class="row" id="tambahData">
+                        <div class="col-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
+                            <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
+                                <div class="d-flex flex-row justify-content-between align-items-center p-3 flex-wrap">
+                                    <h5 class="m-0">Data Transaksi</h5>
+                                    <div class="d-flex align-items-center" style="gap: 0.5rem;">
+                                        <button
+                                            class="btn-dynamic btn btn-md btn-outline-secondary d-flex align-items-center justify-content-center"
+                                            type="button" data-toggle="collapse" data-target="#filter-collapse"
+                                            aria-expanded="false" aria-controls="filter-collapse" data-container="body"
+                                            data-toggle="tooltip" data-placement="top"
+                                            style="flex: 0 0 45px; max-width: 45px;" title="Filter Data">
+                                            <i class="fa fa-filter my-1"></i>
+                                        </button>
+                                        @if (hasAnyPermission(['POST /kasir/store']))
+                                            <button type="button"
+                                                class="btn btn-md btn-outline-primary d-flex align-items-center justify-content-center"
+                                                id="btn-add-data" onclick="openAddModal()" data-container="body"
+                                                data-toggle="tooltip" data-placement="top"
+                                                style="flex: 1 1 45px; max-width: 150px;"
+                                                title="Tambah Data {{ $menu[0] }}">
+                                                <i class="fa fa-circle-plus my-1"></i>
+                                                <span class="d-none d-sm-inline ml-1">Tambah Data</span>
+                                            </button>
+                                        @endif
                                     </div>
-                                    <div class="col-xl-6 col-12">
-                                        <div class="row">
-                                            <div class="col-6 px-3 px-lg-1">
-                                                <button class="btn btn-info w-100" id="tb-filter" type="submit">
-                                                    <i class="fa fa-magnifying-glass mr-2"></i>Cari
-                                                </button>
+                                </div>
+                                <hr class="m-0">
+                                <div class="collapse" id="filter-collapse">
+                                    <form id="custom-filter" class="p-3">
+                                        <div class="d-flex flex-column flex-md-row justify-content-md-end align-items-md-center"
+                                            style="gap: 1rem;">
+                                            <div class="input-group w-25 w-md-auto filter-input">
+                                                <div class="input-group-prepend">
+                                                    <span class="input-group-text">
+                                                        <i class="fa fa-calendar"></i>
+                                                    </span>
+                                                </div>
+                                                <input class="form-control" type="text" id="daterange" name="daterange"
+                                                    placeholder="Pilih rentang tanggal">
                                             </div>
-                                            <div class="col-6 px-3 px-lg-1">
-                                                <button type="button" class="btn btn-secondary w-100" id="tb-reset">
-                                                    <i class="fa fa-rotate mr-2"></i>Reset
+                                            <div class="d-flex justify-content-end" style="gap: 1rem;">
+                                                <button class="btn btn-info" id="tb-filter" type="submit">
+                                                    <i class="fa fa-magnifying-glass mr-1"></i>Cari
+                                                </button>
+                                                <button type="button" class="btn btn-secondary" id="tb-reset">
+                                                    <i class="fa fa-rotate mr-1"></i>Reset
                                                 </button>
                                             </div>
                                         </div>
-                                    </div>
-                                </form>
-                            </div>
-                            <div class="custom-right">
-                                <div class="custom-limit-page">
-                                    <select name="limitPage" id="limitPage" class="form-control">
+                                    </form>
+                                    <hr class="m-0">
+                                </div>
+
+                                <div class="d-flex flex-row justify-content-between align-items-center p-3 flex-wrap"
+                                    style="gap: 0.5rem;">
+                                    <select name="limitPage" id="limitPage" class="form-control"
+                                        style="flex: 1 1 80px; max-width: 80px;">
                                         <option value="30">30</option>
                                         <option value="40">40</option>
                                         <option value="50">50</option>
@@ -100,37 +124,23 @@
                                         <option value="150">150</option>
                                         <option value="200">200</option>
                                     </select>
-                                </div>
-                                <div class="custom-search">
-                                    <input id="tb-search" class="tb-search form-control" type="search" name="search"
-                                        placeholder="Cari Data" aria-label="search">
+                                    <input class="tb-search form-control ms-auto" type="search" name="search"
+                                        placeholder="Cari Data" aria-label="search"
+                                        style="flex: 1 1 100px; max-width: 200px;">
                                 </div>
                             </div>
                         </div>
-                        <div class="content">
-                            <x-adminlte-alerts />
-                            <div class="card-body p-0">
-                                <div class="table-responsive table-scroll-wrapper">
-                                    <table class="table table-striped m-0">
-                                        <thead>
-                                            <tr class="tb-head">
-                                                <th class="text-center text-wrap align-top">No</th>
-                                                <th class="text-wrap align-top">No. Nota</th>
-                                                <th class="text-wrap align-top">Tanggal Transaksi</th>
-                                                <th class="text-wrap align-top">Member</th>
-                                                <th class="text-wrap align-top">Item</th>
-                                                <th class="text-wrap align-top text-right">Nilai</th>
-                                                <th class="text-wrap align-top text-right">Payment</th>
-                                                <th class="text-wrap align-top text-right">Kasir</th>
-                                                <th class="text-right text-wrap align-top"><span
-                                                        class="mr-2">Action</span></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="listData">
-                                        </tbody>
-                                        <tfoot></tfoot>
-                                    </table>
-                                </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
+                            <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
+                                <div class="row overflow-auto" id="listData" style="max-height: 50vh;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row" id="paginateData">
+                        <div class="col-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
+                            <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
                                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-center p-3">
                                     <div class="text-center text-md-start mb-2 mb-md-0">
                                         <div class="pagination">
@@ -152,170 +162,22 @@
         </div>
     </div>
 
-    <div id="modal-form" class="modal fade bd-example-modal-lg" tabindex="-1" role="dialog"
-        aria-labelledby="myLargeModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+    <div class="modal fade" id="modal-form" tabindex="-1" role="dialog" aria-labelledby="modalLabel"
+        aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-xl" role="document">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h6 class="modal-title" id="myLargeModalLabel">Form Transaksi Kasir</h6>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
+                    <h5 class="modal-title" id="modalLabel">Form Data</h5>
+                    <button type="button" class="btn-close reset-all close" data-bs-dismiss="modal"
+                        aria-label="Close"><i class="fa fa-xmark"></i></button>
                 </div>
-                <form>
-                    <div class="modal-body">
-                        <div class="container-fluid">
-                            <div class="row">
-                                <div class="col-md-6 mb-2 d-flex align-items-center">
-                                    <i class="icon feather icon-file-text mr-1"></i>
-                                    <div class="d-flex justify-content-between w-100">
-                                        <span>No Nota:</span>
-                                        <span id="noNota" name="no_nota"></span>
-                                    </div>
-                                </div>
-                                <div class="col-md-6 mb-2 d-flex align-items-center">
-                                    <i class="icon feather icon-airplay mr-1"></i>
-                                    <div class="d-flex justify-content-between w-100">
-                                        <span>Nama Toko:</span>
-                                        @if (Auth::check())
-                                            <span class="badge badge-info">{{ Auth::user()->toko->nama_toko }}</span>
-                                        @endif
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-6 mb-2 d-flex align-items-center">
-                                    <i class="icon feather icon-calendar mr-1"></i>
-                                    <div class="d-flex justify-content-between w-100">
-                                        <span>Tanggal Transaksi:</span>
-                                        <span id="tglTransaksi" name="tgl_transaksi"></span>
-                                    </div>
-                                </div>
-                                <div class="col-md-6 mb-2 d-flex align-items-center">
-                                    <i class="icon feather icon-user mr-1"></i>
-                                    <div class="d-flex justify-content-between w-100">
-                                        <span>Kasir:</span>
-                                        @if (Auth::check())
-                                            <span class="badge badge-info">{{ Auth::user()->nama }}</span>
-                                        @endif
-                                    </div>
-                                </div>
-                            </div>
-                            <hr>
-                            <div class="row mb-3" id="memberRow">
-                                <div class="col-md-12" id="memberSelectContainer">
-                                    <label for="id_member" class="form-control-label">
-                                        <i class="icon feather icon-users mr-1"></i>Member
-                                    </label>
-                                    <div class="d-flex align-items-center justify-content">
-                                        <select id="id_member" class="form-control select2 w-100">
-                                            <option value="Guest" selected>Guest</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div class="" id="guestInputContainer"></div>
-                            </div>
-                            <hr>
-                            <input type="hidden" id="hiddenNoNota" name="no_nota">
-                            <input type="hidden" id="hiddenKembalian" name="kembalian">
-                            <input type="hidden" id="hiddenMember" name="id_member">
-                            <input type="hidden" id="hiddenMinus" name="minus">
-
-                            <div class="form-row mb-4 align-items-end">
-                                <div class="form-group mb-0 col-md-12">
-                                    <div class="row">
-                                        <div class="col-md-12 mt-3">
-                                            <label for="scan_qr" class="form-control-label">
-                                                <i class="fa fa-qrcode"></i> Scan Barcode/QR Code Pembelian
-                                            </label>
-                                            <input type="text" id="scan_qr" class="form-control"
-                                                placeholder="Scan atau masukkan Barcode/QR Code Pembelian">
-                                            <small id="scanned-barang-name"></small>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="form-group mb-2 mt-2 col-md-12">
-                                    Atau
-                                </div>
-                                <div class="form-group mb-0 col-md-12">
-                                    <div class="row">
-                                        <div class="col-md-12">
-                                            <label for="id_barang" class="form-control-label">
-                                                <i class="feather icon-package"></i> Ketik Nama Barang/Barcode/QR Code
-                                                Pembelian
-                                                secara manual <sup style="color: red">*</sup>
-                                            </label>
-                                            <select id="barang" class="form-control select2 w-100"></select>
-                                        </div>
-                                    </div>
-                                </div>
-                                {{-- <div class="form-group mb-0 col-md-5">
-                                    <label for="harga" class="form-control-label">Harga<sup
-                                            style="color: red">*</sup></label>
-                                    <select class="form-control select2 w-100" id="harga">
-                                        <option value="">~Pilih Member Dahulu~</option>
-                                    </select>
-                                </div> --}}
-                                {{-- <div class="form-group mb-0 col-md-2">
-                                    <label class="d-block invisible">Add</label>
-                                    <button type="button" id="add-button"
-                                        class="btn btn-outline-success btn-md w-100 h-100 mb-2">
-                                        <i class="mr-2 fa fa-circle-plus"></i>Add
-                                    </button>
-                                </div> --}}
-                            </div>
-                            <div class="table-responsive">
-                                <table class="table table-bordered">
-                                    <thead>
-                                        <tr>
-                                            <th class="text-center">Action</th>
-                                            <th class="text-center">No</th>
-                                            <th>Nama Barang</th>
-                                            <th>Qty</th>
-                                            <th>Harga</th>
-                                            <th class="text-right">Total Harga</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="dataStore"></tbody>
-                                    <tfoot>
-                                        <tr>
-                                            <th colspan="5" class="text-right">SubTotal</th>
-                                            <th class="text-right" name="total_nilai">Rp 0</th>
-                                        </tr>
-                                        <tr>
-                                            <th colspan="5" class="text-right">Payment</th>
-                                            <th>
-                                                <select name="metode" id="metode" class="form-control w-100">
-                                                    <option value="">Pilih Payment</option>
-                                                    <option value="Tunai">Tunai</option>
-                                                    <option value="Non-Tunai">Non-Tunai</option>
-                                                </select>
-                                            </th>
-                                        </tr>
-                                        <tr id="uang-bayar-row">
-                                            <th colspan="5" class="text-right">Jml Bayar</th>
-                                            <th>
-                                                <input type="text" name="jml_bayar" id="uang-bayar-input"
-                                                    class="form-control">
-                                                <input type="hidden" id="hiddenUangBayar" name="jml_bayar">
-                                            </th>
-                                        </tr>
-                                        <tr id="kembalian-row">
-                                            <th colspan="5" id="kembalian-text" class="text-right">Kembalian</th>
-                                            <th class="text-right" id="kembalian-amount" name="kembalian">Rp 0</th>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="submit" id="save-print-btn" class="btn btn-success w-100">
-                            <i class="mr-2 fa fa-save"></i>Simpan
-                        </button>
-                    </div>
-                </form>
+                <div class="modal-body card-body" id="modal-data">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" aria-label="Close"><i
+                            class="fa fa-times mr-1"></i>Tutup</button>
+                    <button type="submit" class="btn btn-success" id="save-btn" form="form-data">Simpan</button>
+                </div>
             </div>
         </div>
     </div>
@@ -363,25 +225,37 @@
         let defaultSearch = '';
         let customFilter = {};
         let selectOptions = [{
-            id: '#id_member',
-            isFilter: {
-                id_toko: '{{ auth()->user()->toko_id }}',
+                id: '#member_id',
+                isFilter: {
+                    id_toko: {{ auth()->user()->toko_id }},
+                },
+                isUrl: '{{ route('master.member') }}',
+                placeholder: 'Pilih Member',
+                isModal: '#modal-form',
+            }, {
+                id: '#barang',
+                isFilter: {
+                    is_name: 1,
+                    id_toko: '{{ auth()->user()->toko_id }}',
+                },
+                isUrl: '{{ route('master.qrbarcode') }}',
+                placeholder: 'Pilih Barang',
+                isMinimum: 3,
+                isModal: '#modal-form',
+                isDisabled: false,
             },
-            isUrl: '{{ route('master.member') }}',
-            placeholder: 'Pilih Member',
-            isModal: '#modal-form',
-        }, {
-            id: '#barang',
-            isFilter: {
-                is_name: 1,
-                id_toko: '{{ auth()->user()->toko_id }}',
+            {
+                id: '#select_batch_manual',
+                isFilter: {
+                    toko_id: {{ auth()->user()->toko_id }},
+                },
+                isUrl: '{{ route('sb.batch.get') }}',
+                placeholder: 'Pilih Barang',
+                isModal: '#modal-form',
+                isForm: true,
+                isImage: true
             },
-            isUrl: '{{ route('master.qrbarcode') }}',
-            placeholder: 'Pilih Barang',
-            isMinimum: 3,
-            isModal: '#modal-form',
-            isDisabled: false,
-        }];
+        ];
         const notyf = new Notyf({
             duration: 3000,
             position: {
@@ -413,23 +287,29 @@
         }
 
         async function getListData(limit = 30, page = 1, ascending = 0, search = '', customFilter = {}) {
-            $('#listData').html(loadingData());
+            $('#listData').html(`
+                <div class="col-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
+                    <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
+                        <div class="d-flex justify-content-center align-items-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="sr-only">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `);
 
-            let filterParams = {};
-
-            if (customFilter['startDate'] && customFilter['endDate']) {
-                filterParams.startDate = customFilter['startDate'];
-                filterParams.endDate = customFilter['endDate'];
-            }
-
+            let filterParams = {
+                ...customFilter
+            };
             let getDataRest = await renderAPI(
                 'GET',
-                '{{ route('master.transaksi.get') }}', {
+                '{{ route('tb.kasir.get') }}', {
                     page: page,
                     limit: limit,
                     ascending: ascending,
                     search: search,
-                    id_toko: '{{ auth()->user()->toko_id }}',
+                    toko_id: {{ auth()->user()->toko_id }},
                     ...filterParams
                 }
             ).then(function(response) {
@@ -439,18 +319,32 @@
                 return resp;
             });
 
-            if (getDataRest && getDataRest.status == 200 && Array.isArray(getDataRest.data.data)) {
+            if (getDataRest && getDataRest.status == 200 && Array.isArray(getDataRest.data.data.item)) {
                 let handleDataArray = await Promise.all(
-                    getDataRest.data.data.map(async item => await handleData(item))
+                    getDataRest.data.data.item.map(async item => await handleData(item))
                 );
-                await setListData(handleDataArray, getDataRest.data.pagination, getDataRest.data.total);
+                await setListData(handleDataArray, getDataRest.data.pagination, getDataRest.data.data.total);
+                if (getDataRest.data.data.item.length == 0) {
+                    $('#listData').html(`
+                    <div class="col-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
+                        <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
+                            <div class="text-center my-3" role="alert">
+                                Tidak ada Transaksi hari ini.
+                            </div>
+                        </div>
+                    </div>
+                    `);
+                }
             } else {
-                errorMessage = getDataRest?.data?.message;
-                let errorRow = `
-                            <tr class="text-dark">
-                                <th class="text-center" colspan="${$('.tb-head th').length}"> ${errorMessage} </th>
-                            </tr>`;
-                $('#listData').html(errorRow);
+                $('#listData').html(`
+                    <div class="col-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
+                        <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
+                            <div class="text-center my-3" role="alert">
+                                Data tidak tersedia untuk ditampilkan.
+                            </div>
+                        </div>
+                    </div>
+                    `);
                 $('#countPage').text("0 - 0");
                 $('#totalPage').text("0");
                 $('#totalData').text(getDataRest?.data?.total ?? 0);
@@ -470,9 +364,9 @@
             let delete_button = `
                 <a class="p-1 btn hapus-data action_button"
                     data-container="body" data-toggle="tooltip" data-placement="top"
-                    title="Hapus ${title}: ${data.no_nota}"
+                    title="Hapus ${title}: ${data.nota}"
                     data-id='${data.id}'
-                    data-name='${data.no_nota}'>
+                    data-name='${data.nota}'>
                     <span class="text-dark">Hapus</span>
                     <div class="icon text-danger">
                         <i class="fa fa-trash"></i>
@@ -492,13 +386,11 @@
 
             return {
                 id: data?.id ?? '-',
-                no_nota: data?.no_nota ?? '-',
-                tgl_transaksi: data?.tgl_transaksi ?? '-',
-                nama_member: data?.nama_member ?? '-',
-                total_item: data?.total_item ?? '-',
-                total_nilai: data?.total_nilai ?? '-',
-                metode: data?.metode ?? '-',
-                nama: data?.nama ?? '-',
+                nota: data?.nota ?? '-',
+                tanggal: data?.tanggal ?? '-',
+                qty: data?.qty ?? '-',
+                nominal: data?.nominal ?? '-',
+                created_by: data?.created_by ?? '-',
                 action_buttons,
             };
         }
@@ -515,23 +407,22 @@
                 getDataTable += `
                             <tr class="text-dark clickable-row" data-id="${element.id}" data-toggle="modal" data-target=".kasirDetailModal">
                                 <td class="${classCol} text-center">${display_from + index}.</td>
-                                <td class="${classCol}">${element.no_nota}</td>
-                                <td class="${classCol}">${element.tgl_transaksi}</td>
-                                <td class="${classCol}">${element.nama_member}</td>
-                                <td class="${classCol}">${element.total_item}</td>
-                                <td class="${classCol} text-right">${element.total_nilai}</td>
+                                <td class="${classCol}">${element.nota}</td>
+                                <td class="${classCol}">${element.tanggal}</td>
+                                <td class="${classCol}">${element.qty}</td>
+                                <td class="${classCol} text-right">${element.nominal}</td>
                                 <td class="${classCol} text-right">${element.metode}</td>
-                                <td class="${classCol} text-right">${element.nama}</td>
+                                <td class="${classCol} text-right">${element.created_by}</td>
                                 <td class="${classCol} text-right">${element.action_buttons}</td>
                             </tr>`;
             });
 
             let totalRow = `
             <tr class="bg-primary">
-                <td class="${classCol}" colspan="4"></td>
+                <td class="${classCol}" colspan="3"></td>
                 <td class="${classCol}" style="font-size: 1rem;"><strong class="text-white fw-bold">Total</strong></td>
                 <td class="${classCol} text-right"><strong class="text-white" id="totalData">${total}</strong></td>
-                <td class="${classCol}" colspan="3"></td>
+                <td class="${classCol}" colspan="4"></td>
             </tr>`;
 
             $('#listData').html(getDataTable);
@@ -566,7 +457,7 @@
             try {
                 let res = await renderAPI(
                     'GET',
-                    '{{ route('kasir.detail') }}', {
+                    '{{ route('tb.kasir.detail') }}', {
                         id: id
                     }
                 );
@@ -691,8 +582,8 @@
                         ${download_button}
                         ${hasButtons
                             ? `
-                                        ${delete_button || ''}
-                                    `
+                                                                                        ${delete_button || ''}
+                                                                                    `
                             : ``
                         }
                     </div>
@@ -905,17 +796,9 @@
             });
         }
 
-        // function cetakStruk(id_kasir) {
-        //     const url = `{{ route('cetak.struk', ':id_kasir') }}`.replace(':id_kasir', id_kasir);
-        //     const newWindow = window.open(url, '_blank');
-        //     newWindow.onload = function() {
-        //         newWindow.print();
-        //     };
-        // }
-
         async function cetakStruk(id_kasir) {
             try {
-                const url = `{{ route('cetak.struk', ':id_kasir') }}`.replace(':id_kasir', id_kasir);
+                const url = `{{ route('tb.kasir.print', ':id_kasir') }}`.replace(':id_kasir', id_kasir);
 
                 const res = await fetch(url);
                 if (!res.ok) throw new Error("Gagal ambil data struk");
@@ -1008,9 +891,9 @@
                                     <td>Kembali</td><td>:</td><td class="text-right">${formatRupiah(data.total.kembalian)}</td>
                                 </tr>
                                 ${data.total.sisa_pembayaran && data.total.sisa_pembayaran > 0 ? `
-                                                                                        <tr>
-                                                                                            <td>Sisa</td><td>:</td><td class="text-right">${formatRupiah(data.total.sisa_pembayaran)}</td>
-                                                                                        </tr>` : ""}
+                                                                                                                                        <tr>
+                                                                                                                                            <td>Sisa</td><td>:</td><td class="text-right">${formatRupiah(data.total.sisa_pembayaran)}</td>
+                                                                                                                                        </tr>` : ""}
                             </tbody>
                         </table>
                         ${hr}
@@ -1044,643 +927,304 @@
             }
         }
 
-        function getTodayDateWithDay() {
-            const today = new Date();
-
-            const day = String(today.getDate()).padStart(2, '0');
-            const month = String(today.getMonth() + 1).padStart(2, '0');
-            const year = today.getFullYear();
-
-            const hours = String(today.getHours()).padStart(2, '0');
-            const minutes = String(today.getMinutes()).padStart(2, '0');
-            const seconds = String(today.getSeconds()).padStart(2, '0');
-
-            const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
-            const dayName = days[today.getDay()];
-
-            return `${dayName}, ${day}-${month}-${year} ${hours}:${minutes}:${seconds}`;
+        function openAddModal() {
+            renderModalForm('add');
+            $('#save-btn')
+                .removeClass('btn-primary d-none')
+                .addClass('btn-success')
+                .prop('disabled', false)
+                .html('<i class="fa fa-save mr-1"></i>Simpan');
+            setDatePicker();
+            $('#modal-form').modal('show');
         }
 
-        function generateFormattedNumber() {
-            const now = new Date();
-            const day = String(now.getDate()).padStart(2, '0');
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const year = String(now.getFullYear()).slice(-2);
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const seconds = String(now.getSeconds()).padStart(2, '0');
-            const randomDigits = Math.floor(100 + Math.random() * 900);
-            const noNota = `${day}${month}${year}${hours}${minutes}${seconds}${randomDigits}`;
+        async function renderModalForm(mode = 'add', encodedData = '') {
+            let data = {};
 
-            return `${noNota.slice(0, 6)}-${noNota.slice(6, 12)}-${noNota.slice(12)}`;
-        }
-
-        const select = document.getElementById("barang");
-
-        select.addEventListener("change", function() {
-            select.size = 1;
-        });
-
-        document.addEventListener("click", function(event) {
-            if (!select.contains(event.target)) {
-                select.size = 1;
+            if (encodedData && typeof encodedData === 'string' && encodedData.trim() !== '') {
+                try {
+                    data = JSON.parse(decodeURIComponent(encodedData));
+                } catch (err) {
+                    notificationAlert('error', 'Error', 'Terjadi kesalahan saat membaca data enkripsi.');
+                }
             }
-        });
 
-        function add() {
-            document.getElementById('btn-tambah').addEventListener('click', function() {
-                const formattedNoNota = generateFormattedNumber();
-                const hiddenNoNotaInput = document.getElementById('hiddenNoNota');
-                const noNotaWithoutSeparator = formattedNoNota.replace(/-/g, '');
-                hiddenNoNotaInput.value = noNotaWithoutSeparator;
+            const modalTitle = mode === 'edit' ?
+                `<i class="fa fa-edit mr-1"></i>Edit ${title}` :
+                `<i class="fa fa-circle-plus mr-1"></i>Form ${title}`;
 
-                $('#noNota').html(`<span class="badge badge-primary">${formattedNoNota}</span>`);
-                $('#tglTransaksi').html(`<span class="badge badge-primary">${getTodayDateWithDay()}</span>`);
+            $('#modalLabel').html(modalTitle);
 
-                setTimeout(function() {
-                    $('#scan_qr').trigger('focus');
-                }, 750);
-            });
-        }
-
-        let tableBody;
-        let subtotalFooter;
-        let subtotal = 0;
-        let hargaBarangTerpilih = {};
-        const memberSelect = $('#id_member');
-        const barangSelect = $('#barang');
-        // const hargaSelect = $('#harga');
-        // const addButton = document.getElementById('add-button');
-
-        function setCreate() {
-            tableBody = document.querySelector('.modal-body table tbody');
-            subtotalFooter = document.querySelector('.modal-body tfoot th[colspan="5"] + th');
-            const metodeSelect = document.getElementById('metode');
-            const uangBayarInput = document.getElementById('uang-bayar-input');
-            const kembalianText = document.getElementById('kembalian-text');
-            const kembalianAmount = document.getElementById('kembalian-amount');
-            let hiddenUangBayar = document.getElementById('hiddenUangBayar');
-            let getStock = 0;
-
-            const scanQRInput = document.getElementById('scan_qr');
-            const scannedNameLabel = document.getElementById('scanned-barang-name');
-            scanQRInput.disabled = !memberSelect.val();
-
-            // === EVENT: Tekan ENTER di input scan ===
-            scanQRInput.addEventListener('keydown', async function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-
-                    const search = this.value.trim();
-                    if (!search) return;
-
-                    let getDataRest = await renderAPI(
-                        'GET',
-                        '{{ route('master.qrbarcode') }}', {
-                            search: search,
-                            id_toko: user_id_toko,
-                            page: 1,
-                            limit: 10,
-                            ascending: true
-                        }
-                    ).then(res => res).catch(err => err.response);
-
-                    const data = getDataRest?.data?.data;
-                    if (Array.isArray(data) && data.length > 0) {
-                        const firstItem = data[0];
-                        const barangId = firstItem.id;
-                        const finalBarangId = barangId.includes('/') ? barangId : `${barangId}/${barangId}`;
-                        let memberId = memberSelect.val();
-
-                        if (!memberId) {
-                            notificationAlert('error', 'Error', 'Silakan pilih member terlebih dahulu.');
-                            this.disabled = false;
-                            return;
-                        }
-
-                        try {
-                            const hargaResponse = await fetch(
-                                `/admin/kasir/get-filtered-harga?id_member=${memberId}&id_barang=${finalBarangId}&id_toko=${user_id_toko}`
-                            ).then(res => res.json());
-
-                            if (!hargaResponse || (!hargaResponse.filteredHarga && !Array.isArray(hargaResponse
-                                    .filteredHarga))) {
-                                notificationAlert('error', 'Error', 'Harga untuk barang ini tidak ditemukan.');
-                                return;
-                            }
-
-                            getStock = hargaResponse.stock || 0;
-                            const newStock = hargaResponse.stock || 0;
-                            const idBarangOnly = firstItem.id.includes('/') ? firstItem.id.split('/')[1] :
-                                firstItem.id;
-
-                            // Jika hasil pencarian QR dan stock habis
-                            if (newStock <= 0 && search.toLowerCase().startsWith('qr')) {
-                                notificationAlert('error', 'Error', 'Stock habis.');
-                                this.disabled = false;
-                                return;
-                            }
-
-                            scannedBarang = {
-                                id: firstItem.id,
-                                nama: firstItem.text,
-                                stock: newStock
-                            };
-
-                            this.value = '';
-                            scannedNameLabel.textContent = firstItem.text;
-                            updateInputState();
-
-                            const hargaList = Array.isArray(hargaResponse.filteredHarga) ?
-                                hargaResponse.filteredHarga : [hargaResponse.filteredHarga];
-
-                            if (hargaList.length > 0) {
-                                if (scannedBarang.stock <= 0) {
-                                    notificationAlert('error', 'Error', 'Stock tidak cukup.');
-                                    return;
-                                }
-
-                                setTimeout(() => {
-                                    addBarangToTable(
-                                        scannedBarang.id,
-                                        scannedBarang.nama,
-                                        hargaList, // array harga dikirim ke tabel
-                                        parseInt(scannedBarang.stock)
-                                    );
-                                    scannedBarang = null;
-                                    scannedNameLabel.textContent = '';
-                                    updateInputState();
-                                }, 100);
-                            }
-                        } catch (err) {
-                            notificationAlert('error', 'Error', 'Gagal mengambil data harga.');
-                            this.disabled = false;
-                        }
-                    } else {
-                        notificationAlert('error', 'Error', 'Barang tidak ditemukan.');
-                        this.disabled = false;
-                    }
+            const tdClass = 'text-wrap align-top';
+            const formContent = `
+        <form id="form-data">
+            <style>
+                #form-data .select2-container{width:100% !important; max-width:100%;}
+                #form-data .select2-selection{min-height:35px;}
+                #form-data .select2-selection__rendered{line-height:33px;}
+                #form-data .select2-selection__arrow{height:33px;}
+                #btnAddItem{white-space:nowrap; height:35px; line-height:1;}
+                .table-responsive{overflow-x:auto;}
+                #tableItems{min-width: 900px;}
+                @media (max-width: 576px){
+                    #tableItems{min-width: 800px;}
                 }
-            });
+            </style>
 
-            // === EVENT: Pilih barang manual ===
-            barangSelect.select2().on('change', function() {
-                const selectedBarang = $(this).find(':selected');
-                const memberId = memberSelect.val();
-                const barangId = selectedBarang.val();
+            <div class="form-group">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="tanggal"><i class="fa fa-user mr-1"></i>Member <sup class="text-danger">*</sup></label>
+                            <select class="form-control" id="member_id" name="member_id">
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="tanggal"><i class="fa fa-calendar-day mr-1"></i>Tanggal <sup class="text-danger">*</sup></label>
+                            <input type="datetime-local" class="form-control" id="tanggal" name="tanggal"
+                                placeholder="Masukkan tanggal" required value="">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="item_nonfisik"><i class="fa fa-layer-group mr-1"></i>Item</label>
+                            <select class="form-control select2 flex-grow-1" id="item_nonfisik" name="item_nonfisik" required></select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="select_batch_manual"><i class="fa fa-box mr-1"></i>Nama Barang</label>
+                            <select class="form-control select2 flex-grow-1" id="select_batch_manual" name="select_batch_manual" required></select>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                if (memberId && barangId) {
-                    fetch(
-                            `/admin/kasir/get-filtered-harga?id_member=${memberId}&id_barang=${barangId}&id_toko=${user_id_toko}`
-                        )
-                        .then(response => response.json())
-                        .then(data => {
-                            if (!data || (!data.filteredHarga && !Array.isArray(data.filteredHarga))) {
-                                notificationAlert('error', 'Error', 'Harga untuk barang ini tidak ditemukan.');
-                                return;
-                            }
+            <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover m-0" id="tableItems">
+                            <thead class="glossy-thead">
+                                <tr>
+                                    <th class="${tdClass} text-center" style="width:5%">Aksi</th>
+                                    <th class="${tdClass} text-center" style="width:5%">No</th>
+                                    <th class="${tdClass}" style="width:40%">Item</th>
+                                    <th class="${tdClass}" style="width:10%">Qty</th>
+                                    <th class="${tdClass}" style="width:15%">Harga</th>
+                                    <th class="${tdClass} text-right" style="width:15%">Total Harga</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="${tdClass} text-center" colspan="6">
+                                        <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
+                                            <div class="text-center my-3" role="alert">
+                                                <i class="fa fa-circle-info mr-1"></i>Silahkan Tambahkan Item Terlebih Dahulu.
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="5" class="text-right font-weight-bold">SubTotal:</td>
+                                    <td id="total_harga" class="text-right font-weight-bold">Rp 0</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="5" class="text-right font-weight-bold">Total Bayar:</td>
+                                    <td colspan="1">
+                                        <input type="number" id="total_bayar" class="form-control" inputmode="numeric" value="0" placeholder="Masukkan nominal">
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td colspan="4" class="text-loeft text-muted"><sup class="text-danger mr-1">**</sup>Pastikan kembali data yang akan disimpan dengan benar.</td>
+                                    <td colspan="1" class="text-right font-weight-bold">Kembalian:</td>
+                                    <td colspan="1" id="kembalian" class="text-right font-weight-bold">Rp 0</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </form>`;
 
-                            const hargaList = Array.isArray(data.filteredHarga) ? data.filteredHarga : [data
-                                .filteredHarga
-                            ];
-                            const namaBarang = selectedBarang.text();
-                            const stock = data.stock || 0;
+            $('#modal-data').html(formContent);
 
-                            if (stock <= 0) {
-                                notificationAlert('error', 'Error', 'Stock tidak cukup.');
-                                return;
-                            }
+            await selectData(selectOptions);
 
-                            // tambahkan ke tabel
-                            addBarangToTable(
-                                barangId,
-                                namaBarang,
-                                hargaList,
-                                stock
-                            );
+            let itemList = [];
+            let lastGrandTotal = 0;
+            let totalBayarDebounceTimer = null;
 
-                            // reset select supaya bisa pilih lagi
-                            barangSelect.val(null).trigger('change');
-
-                            scannedNameLabel.textContent = '';
-                            updateInputState();
-                        })
-                        .catch(error => {
-                            console.error('Error fetching filtered harga:', error);
-                            notificationAlert('error', 'Error', 'Gagal mengambil data harga.');
-                        });
+            $('#item_nonfisik').off('select2:select').on('select2:select', function(e) {
+                const selectedData = e.params.data;
+                if (!selectedData || !selectedData.id) {
+                    notificationAlert('warning', 'Peringatan', 'Pilih item terlebih dahulu.');
+                    return;
                 }
-            });
 
-            // === EVENT: Klik tombol tambah barang ===
-            // addButton.addEventListener('click', function() {
-            //     const idBarang = scannedBarang?.id || barangSelect.val();
-            //     const namaBarang = scannedBarang?.nama || barangSelect.find(':selected').text();
+                const selectedId = selectedData.id;
+                const selectedText = selectedData.text;
 
-            //     let stock = 0;
-            //     if (scannedBarang) {
-            //         stock = parseInt(scannedBarang.stock);
-            //     } else {
-            //         const selectedOption = barangSelect.find(':selected');
-            //         stock = parseInt(selectedOption.data('stock')) || 0;
-            //     }
-
-            //     if (!idBarang || !namaBarang) {
-            //         notificationAlert('error', 'Error', 'Data barang belum lengkap.');
-            //         return;
-            //     }
-
-            //     // hargaList tetap ditentukan di addBarangToTable
-            //     addBarangToTable(idBarang, namaBarang, [], stock);
-            //     scannedBarang = null;
-            //     scannedNameLabel.textContent = '';
-            //     updateInputState();
-            // });
-
-            // === Fokus otomatis di select2 saat dibuka ===
-            barangSelect.on('select2:open', function() {
-                const searchField = document.querySelector(`.select2-container--open input.select2-search__field`);
-                if (searchField) {
-                    setTimeout(() => searchField.focus(), 0);
-                }
-            });
-
-            // === Event ganti Member ===
-            $('#id_member').on('change', function() {
-                const selectedValue = $(this).val();
-                const guestInputContainer = $('#guestInputContainer');
-                const memberSelectContainer = $('#memberSelectContainer');
-
-                if (selectedValue === 'Guest') {
-                    if ($('#nama_guest').length === 0) {
-                        guestInputContainer.html(`
-                    <label for="nama_guest" class="form-control-label">
-                        <i class="icon feather icon-user mr-1"></i>Nama Guest <sup class="text-danger"><i>*Boleh dikosongkan</i></sup>
-                    </label>
-                    <div class="d-flex align-items-center justify-content">
-                        <input type="text" id="nama_guest" name="nama_guest" class="form-control" placeholder="Masukkan nama guest">
-                    </div>`);
-                    }
-                    memberSelectContainer.removeClass('col-md-12').addClass('col-md-6');
-                    guestInputContainer.addClass('col-md-6');
+                const existingItem = itemList.find(item => item.id === selectedId);
+                if (existingItem) {
+                    existingItem.qty += 1;
                 } else {
-                    guestInputContainer.empty().removeClass('col-md-6');
-                    memberSelectContainer.removeClass('col-md-6').addClass('col-md-12');
+                    itemList.push({
+                        id: selectedId,
+                        name: selectedText,
+                        qty: 1,
+                        hpp: null,
+                        price: null
+                    });
                 }
 
-                document.getElementById('scan_qr').disabled = !selectedValue;
-                barangSelect.prop('disabled', !selectedValue).trigger('change');
-                barangSelect.data('select2').$container.find('.select2-selection__placeholder').text(
-                    'Pilih Barang');
-                document.getElementById('hiddenMember').value = selectedValue;
-                updateInputState();
+                renderTable();
+
+                $(this).val(null).trigger('change');
             });
 
-            // === Submit Form ===
-            document.querySelector('form').addEventListener('submit', function() {
-                document.getElementById('hiddenNoNota').value = document.getElementById('noNota').textContent;
-                document.getElementById('hiddenKembalian').value = kembalianAmount.textContent;
-                document.getElementById('hiddenMember').value = memberSelect.val();
+            function renderTable() {
+                const tbody = $('#tableItems tbody');
+                tbody.empty();
+
+                if (itemList.length === 0) {
+                    tbody.append(`
+                    <tr>
+                        <td class="${tdClass} text-center" colspan="8">
+                            <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
+                                <div class="text-center my-3" role="alert">
+                                    <i class="fa fa-circle-info mr-1"></i>Silahkan Tambahkan Item Terlebih Dahulu.
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                `);
+                } else {
+                    itemList.forEach((item, index) => {
+                        const totalHppItem = item.hpp * item.qty;
+                        const totalHargaItem = item.price * item.qty;
+                        const row = `
+                        <tr class="glossy-tr" data-id="${item.id}">
+                            <td class="${tdClass} text-center">
+                                <button type="button" class="btn btn-outline-danger btn-sm btn-delete-item" title="Hapus">
+                                    <i class="fa fa-trash-alt"></i>
+                                </button>
+                            </td>
+                            <td class="${tdClass} text-center">${index + 1}</td>
+                            <td class="${tdClass}">${item.name}</td>
+                            <td class="${tdClass}">
+                                <input type="number" class="form-control qty-input" value="${item.qty}" min="1" placeholder="Qty">
+                            </td>
+                            <td class="${tdClass}">
+                                <input type="number" class="form-control price-input" value="${item.price}" min="0" placeholder="Harga">
+                            </td>
+                            <td class="${tdClass} td-total-hpp text-right font-weight-bold">Rp ${numberFormat(totalHppItem)}</td>
+                            <td class="${tdClass} td-total-harga text-right font-weight-bold">Rp ${numberFormat(totalHargaItem)}</td>
+                        </tr>
+                    `;
+                        tbody.append(row);
+                    });
+                }
+
+                updateTotals();
+            }
+
+            $('#tableItems').off('input change', '.qty-input, .hpp-input, .price-input')
+                .on('input change', '.qty-input, .hpp-input, .price-input', function() {
+                    const tr = $(this).closest('tr');
+                    const id = String(tr.data('id'));
+                    let item = itemList.find(i => String(i.id) === id);
+
+                    if (item) {
+                        const qtyVal = parseInt(tr.find('.qty-input').val(), 10);
+                        const hppVal = parseFloat(tr.find('.hpp-input').val());
+                        const priceVal = parseFloat(tr.find('.price-input').val());
+
+                        item.qty = isNaN(qtyVal) || qtyVal < 1 ? 1 : qtyVal;
+                        item.hpp = isNaN(hppVal) || hppVal < 0 ? 0 : hppVal;
+                        item.price = isNaN(priceVal) || priceVal < 0 ? 0 : priceVal;
+
+                        tr.find('.td-total-hpp').text(`Rp ${numberFormat(item.qty * item.hpp)}`);
+                        tr.find('.td-total-harga').text(`Rp ${numberFormat(item.qty * item.price)}`);
+
+                        updateTotals();
+                    }
+                });
+
+            $('#tableItems').off('click', '.btn-delete-item').on('click', '.btn-delete-item', function() {
+                const tr = $(this).closest('tr');
+                const id = String(tr.data('id'));
+                itemList = itemList.filter(i => String(i.id) !== id);
+                renderTable();
             });
 
-            // === Input Uang Bayar ===
-            uangBayarInput.addEventListener('input', function() {
-                let value = this.value.replace(/[^0-9]/g, '');
-                hiddenUangBayar.value = value;
-                this.value = value ? parseInt(value).toLocaleString() : '';
+            function getTotalHargaSemua() {
+                return itemList.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            }
+
+            function getTotalHppSemua() {
+                return itemList.reduce((sum, item) => sum + (item.hpp * item.qty), 0);
+            }
+
+            function updateTotals() {
+                const newGrandTotal = getTotalHargaSemua();
+                const newGrandHpp = getTotalHppSemua();
+
+                $('#total_harga').text(`Rp ${numberFormat(newGrandTotal)}`);
+                $('#total_hpp').text(`Rp ${numberFormat(newGrandHpp)}`);
+
+                let bayarSekarang = parseFloat($('#total_bayar').val()) || 0;
+
+                if (bayarSekarang !== newGrandTotal) {
+                    bayarSekarang = newGrandTotal;
+                    $('#total_bayar').val(bayarSekarang);
+                }
+
+                lastGrandTotal = newGrandTotal;
                 updateKembalian();
+            }
+
+            $('#total_bayar').on('input', function() {
+                clearTimeout(totalBayarDebounceTimer);
+
+                let bayar = parseFloat($('#total_bayar').val()) || 0;
+                const total = getTotalHargaSemua();
+
+                updateKembalian();
+
+                // totalBayarDebounceTimer = setTimeout(() => {
+                //     if (bayar < total) {
+                //         $('#total_bayar').val(total);
+                //         updateKembalian();
+                //     }
+                // }, 3000);
             });
 
-            // === Pilih metode pembayaran ===
-            metodeSelect.addEventListener('change', function() {
-                const isTunai = metodeSelect.value === "Tunai";
-                document.getElementById('uang-bayar-row').style.display = isTunai ? '' : 'none';
-                document.getElementById('kembalian-row').style.display = isTunai ? '' : 'none';
-                uangBayarInput.value = '';
-                kembalianAmount.textContent = 'Rp 0';
-            });
-            metodeSelect.dispatchEvent(new Event('change'));
-
-            // === Hitung Kembalian ===
             function updateKembalian() {
-                const uangBayar = hiddenUangBayar.value || 0;
-                const kembalian = uangBayar - subtotal;
+                const bayar = parseFloat($('#total_bayar').val()) || 0;
+                const total = getTotalHargaSemua();
+                const kembalian = bayar - total;
 
-                if (kembalian >= 0) {
-                    kembalianText.textContent = 'Kembalian';
-                    kembalianAmount.textContent = `Rp ${kembalian.toLocaleString()}`;
-                    document.getElementById('hiddenKembalian').value = kembalian;
-                    document.getElementById('hiddenMinus').value = '';
-                } else {
-                    let math = Math.abs(kembalian);
-                    kembalianText.textContent = 'Sisa Pembayaran';
-                    kembalianAmount.textContent = `Rp ${math.toLocaleString()}`;
-                    document.getElementById('hiddenMinus').value = math;
-                    document.getElementById('hiddenKembalian').value = '';
-                }
+                $('#kembalian').text(`Rp ${numberFormat(kembalian > 0 ? kembalian : 0)}`);
             }
 
-            // === Update state input ===
-            function updateInputState() {
-                const scannedText = scanQRInput.value.trim();
-                const selectedBarang = barangSelect.val();
-                const isMemberSelected = !!memberSelect.val();
-
-                if (scannedText) {
-                    barangSelect.prop('disabled', true).val(null).trigger('change');
-                    barangSelect.data('select2').$container.find('.select2-selection__placeholder')
-                        .text('Nonaktif karena input QR');
-                } else {
-                    barangSelect.prop('disabled', !isMemberSelected);
-                    barangSelect.data('select2').$container.find('.select2-selection__placeholder')
-                        .text(isMemberSelected ? 'Pilih Barang' : 'Pilih Member terlebih dahulu');
-                }
-
-                if (selectedBarang) {
-                    scanQRInput.disabled = true;
-                    scanQRInput.placeholder = 'Nonaktif karena memilih barang manual';
-                } else {
-                    scanQRInput.disabled = !isMemberSelected;
-                    scanQRInput.placeholder = 'Scan atau masukkan Barcode/QR Code Pembelian';
-                }
+            function numberFormat(num) {
+                return (Number(num) || 0).toLocaleString('id-ID');
             }
 
-            scanQRInput.addEventListener('input', updateInputState);
-
-            // === Default: Guest ===
-            memberSelect.val('Guest').trigger('change');
-            barangSelect.prop('disabled', false).trigger('change');
-            window.updateKembalian = updateKembalian;
-        }
-
-
-        function checkMemberLock() {
-            const hasRows = tableBody.querySelectorAll('tr').length > 0;
-            memberSelect.prop('disabled', hasRows);
-        }
-
-        function extractIdBarangOnly(id) {
-            return id.includes('/') ? id.split('/')[1] : id;
-        }
-
-        function extractQrOnly(id) {
-            return id.includes('/') ? id.split('/')[0].split(',') : [];
-        }
-
-        function addBarangToTable(idBarang, namaBarang, hargaList, newStock) {
-            const qty = 1;
-
-            // Pastikan hargaList selalu array
-            if (!Array.isArray(hargaList)) {
-                hargaList = hargaList ? [hargaList] : [];
-            }
-
-            if (!idBarang || hargaList.length === 0) {
-                notificationAlert('error', 'Error', 'Silakan lengkapi semua data sebelum menambahkan.');
-                return;
-            }
-
-            const idBarangOnly = extractIdBarangOnly(idBarang);
-            let existingRow = null;
-
-            // Cari baris berdasarkan id_barang utama
-            tableBody.querySelectorAll('tr').forEach(row => {
-                const rowId = row.querySelector('input[name="id_barang[]"]').value;
-                const rowIdOnly = extractIdBarangOnly(rowId);
-                if (rowIdOnly === idBarangOnly) {
-                    existingRow = row;
-                }
-            });
-
-            if (existingRow) {
-                // kalau barang sama sudah ada → tambah qty saja
-                const qtyInput = existingRow.querySelector('.qty-input');
-                let currentQty = parseInt(qtyInput.value);
-                let currentMax = parseInt(qtyInput.max);
-                const highestStock = Math.max(currentMax, newStock);
-
-                let newQty = currentQty + 1;
-                if (newQty > highestStock) {
-                    notificationAlert('error', 'Error', 'Stock barang tidak cukup');
-                    return;
-                }
-
-                qtyInput.value = newQty;
-                qtyInput.max = highestStock;
-                existingRow.querySelector('small.text-danger').textContent = `Max: ${highestStock}`;
-            } else {
-                const hargaSelectInRow = document.createElement('select');
-                hargaSelectInRow.classList.add('form-control', 'harga-select');
-                hargaSelectInRow.name = 'harga[]';
-
-                hargaList.forEach((h, i) => {
-                    if (h) {
-                        const opt = new Option(`Rp ${parseInt(h).toLocaleString()}`, h, i === 0, i === 0);
-                        hargaSelectInRow.appendChild(opt);
-                    }
-                });
-
-                const newRow = document.createElement('tr');
-                newRow.innerHTML = `
-            <td class="text-center align-top">
-                <button type="button" class="btn btn-danger btn-sm remove-btn">
-                    <i class="fa fa-trash-alt"></i>
-                </button>
-            </td>
-            <td class="text-center align-top"></td>
-            <td class="align-top"><input type="hidden" name="id_barang[]" value="${idBarang}">${namaBarang}</td>
-            <td class="align-top">
-                <input type="number" class="form-control qty-input" name="qty[]" value="${qty}" min="1" max="${newStock}">
-                <small class="text-danger">Max: ${newStock}</small>
-            </td>
-            <td class="harga-cell align-top"></td>
-            <td class="total-harga align-top text-right" data-total="0">Rp 0</td>
-                `;
-
-                newRow.querySelector('.harga-cell').appendChild(hargaSelectInRow);
-                tableBody.appendChild(newRow);
-                checkMemberLock();
-
-                // event qty
-                const qtyInput = newRow.querySelector('.qty-input');
-                qtyInput.addEventListener('input', function() {
-                    let inputQty = parseInt(this.value) || 1;
-                    inputQty = Math.min(Math.max(1, inputQty), newStock);
-                    this.value = inputQty;
-                    recalculateSubtotal();
-                });
-                qtyInput.addEventListener('blur', function() {
-                    if (parseInt(this.value) < 1 || isNaN(this.value)) {
-                        this.value = 1;
-                        recalculateSubtotal();
-                    }
-                });
-
-                // event harga
-                hargaSelectInRow.addEventListener('change', function() {
-                    recalculateSubtotal();
-                });
-
-                // tombol remove
-                newRow.querySelector('.remove-btn').addEventListener('click', function() {
-                    newRow.remove();
-                    updateRowNumbers();
-                    recalculateSubtotal();
-                    checkMemberLock();
-                });
-
-                updateRowNumbers();
-            }
-
-            recalculateSubtotal();
-        }
-
-        function recalculateSubtotal() {
-            subtotal = 0;
-
-            tableBody.querySelectorAll('tr').forEach(row => {
-                const hargaInput = row.querySelector('.harga-select');
-                const harga = parseInt(hargaInput ? hargaInput.value : 0) || 0;
-                const qty = parseInt(row.querySelector('input[name="qty[]"]').value) || 0;
-                const total = harga * qty;
-
-                subtotal += total;
-
-                const totalCell = row.querySelector('.total-harga');
-                totalCell.textContent = `Rp ${total.toLocaleString()}`;
-                totalCell.dataset.total = total;
-            });
-
-            subtotalFooter.textContent = `Rp ${subtotal.toLocaleString()}`;
-            updateKembalian();
-        }
-
-        function extractIdBarangOnly(id) {
-            return id.includes('/') ? id.split('/')[1] : id;
-        }
-
-        function updateRowNumbers() {
-            const rows = tableBody.querySelectorAll('tr');
-            rows.forEach((row, index) => {
-                // Asumsikan kolom nomor ada di kolom ke-2 (index 1)
-                const numberCell = row.children[1];
-                if (numberCell) {
-                    numberCell.textContent = index + 1;
-                }
-            });
-        }
-
-        let isDataSaved = false;
-
-        async function saveData() {
-            $(document).on("click", "#save-print-btn", async function(e) {
-                e.preventDefault();
-
-                const btn = $(this);
-                const isPrintMode = btn.data('mode') === 'print';
-                const id = btn.data('id');
-
-                if (isPrintMode) {
-                    cetakStruk(id);
-                    return;
-                }
-
-                const saveButton = this;
-                const form = btn.closest("form")[0];
-                const formData = new FormData(form);
-
-                if (saveButton.disabled) return;
-
-                swal({
-                    title: "Konfirmasi",
-                    text: "Apakah Anda yakin ingin menyimpan data ini?",
-                    type: "question",
-                    showCancelButton: true,
-                    confirmButtonColor: '#2ecc71',
-                    cancelButtonColor: '#6c757d',
-                    confirmButtonText: 'Ya, Simpan',
-                    cancelButtonText: 'Batal',
-                    reverseButtons: true,
-                }).then(async (willSave) => {
-                    if (!willSave) return;
-
-                    saveButton.disabled = true;
-                    const originalContent = btn.html();
-                    btn.data('original-content', originalContent);
-                    btn.html(
-                        `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Menyimpan`
-                    );
-
-                    loadingPage(true);
-
-                    try {
-                        const response = await renderAPI('POST',
-                            '{{ route('transaksi.kasir.store') }}', formData);
-                        loadingPage(false);
-
-                        if (response.status === 200) {
-                            const newId = response.data.data.id;
-                            await getListData(defaultLimitPage, currentPage, defaultAscending,
-                                defaultSearch, customFilter);
-
-                            swal("Berhasil!", "Data berhasil disimpan.", "success");
-
-                            // Set flag bahwa data telah berhasil disimpan
-                            isDataSaved = true;
-
-                            btn
-                                .removeClass('btn-success')
-                                .addClass('btn-primary')
-                                .html('<i class="fa fa-print mr-2"></i>Cetak Struk')
-                                .attr('type', 'button')
-                                .data('id', newId)
-                                .data('mode', 'print')
-                                .prop('disabled', false);
-                        } else {
-                            swal("Pemberitahuan", response.data.message || "Terjadi kesalahan",
-                                "info");
-                            saveButton.disabled = false;
-                            btn.html(originalContent);
-                        }
-                    } catch (error) {
-                        loadingPage(false);
-                        swal("Kesalahan", error?.response?.data?.message ||
-                            "Terjadi kesalahan saat menyimpan data.", "error");
-                        saveButton.disabled = false;
-                        btn.html(originalContent);
-                    }
-                });
-            });
-
-            // Saat modal ditutup, reload hanya jika data tersimpan
-            $('#modal-form').on('hidden.bs.modal', function() {
-                if (isDataSaved) {
-                    window.location.reload();
-                }
-            });
-
-            // Redundant, jaga-jaga kalau ada tombol ✖️ manual
-            $('#modal-form .close[data-dismiss="modal"]').on('click', function() {
-                if (isDataSaved) {
-                    window.location.reload();
-                }
-            });
-        }
-
-        function initFormPlugins() {
-            $('.select2').select2();
+            await saveData(mode, encodedData);
         }
 
         async function initPageLoad() {
-            await add();
-            await setCreate();
-            await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter);
-            await searchList();
-            await filterList();
-            // await selectFormat('#id_member', 'Pilih Member', false);
-            await selectData(selectOptions);
-            // await selectFormat('#harga', 'Pilih Harga', true);
-            await saveData();
+            await Promise.all([
+                getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter),
+                searchList(),
+                filterList(),
+                selectData(selectOptions),
+            ]);
         }
     </script>
 @endsection

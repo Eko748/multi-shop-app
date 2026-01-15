@@ -11,7 +11,7 @@ use App\Http\Controllers\DataMaster\Pengaturan\{LevelHargaController, LevelUserC
 use App\Http\Controllers\Distribusi\{PengirimanBarangController, PlanOrderController};
 use App\Http\Controllers\JurnalKeuangan\{HutangController, MutasiController, PemasukanController, PengeluaranController, PiutangController};
 use App\Http\Controllers\Rekapitulasi\{AsetBarangJualanController, AsetBarangReturController, LaporanKasirController, LaporanPembelianBarangController, LaporanPengirimanBarangController, LaporanPenjualanController, RatingBarangController, RatingMemberController};
-use App\Http\Controllers\TransaksiBarang\{KasbonController, KasirController, PembelianBarangController, PengembalianController};
+use App\Http\Controllers\TransaksiBarang\{KasbonController, TransaksiKasirController, PembelianBarangController, PengembalianController};
 use App\Http\Controllers\TransaksiDigital\DompetKategoriController;
 use App\Http\Controllers\TransaksiDigital\DompetSaldoController;
 use App\Http\Controllers\TransaksiDigital\ItemNonFisikController;
@@ -25,10 +25,6 @@ use Illuminate\Support\Facades\Route;
 Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
-
-Route::post('/print/{id}', [KasirController::class, 'cetakEppos']);
-Route::get('/getkasirs', [KasirController::class, 'getkasirs'])->name('master.transaksi.get');
-Route::get('/kasir/detail', [KasirController::class, 'getDetailKasir'])->name('kasir.detail');
 
 Route::get('/arusKasir', [ArusKasController::class, 'getaruskas'])->name('master.aruskas.get');
 Route::get('/labarugi', [LabaRugiController::class, 'getlabarugi'])->name('master.labarugi.get');
@@ -230,5 +226,15 @@ Route::prefix('jurnal-keuangan')->as('jk.')->group(function () {
         Route::get('get', [MutasiController::class, 'get'])->name('get');
         Route::post('post', [MutasiController::class, 'post'])->name('post');
         Route::delete('delete', [MutasiController::class, 'delete'])->name('delete');
+    });
+});
+
+Route::prefix('transaksi-barang')->as('tb.')->group(function () {
+    Route::prefix('kasir')->as('kasir.')->group(function () {
+        Route::get('get', [TransaksiKasirController::class, 'get'])->name('get');
+        Route::get('detail', [TransaksiKasirController::class, 'detail'])->name('detail');
+        Route::post('post', [TransaksiKasirController::class, 'post'])->name('post');
+        Route::get('get-harga', [TransaksiKasirController::class, 'getHarga'])->name('getHarga');
+        Route::get('print/{id_kasir}', [TransaksiKasirController::class, 'print'])->name('print');
     });
 });

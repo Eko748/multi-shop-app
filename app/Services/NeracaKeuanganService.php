@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Helpers\RupiahGenerate;
 use App\Repositories\Distribusi\PengirimanBarangRepo;
 use App\Models\JenisBarang;
 use App\Models\Kas;
@@ -84,7 +85,7 @@ class NeracaKeuanganService
             "kode"   => "IV.1",
             "nama"   => "Modal",
             "nilai"  => $modal,
-            "format" => 'Rp ' . number_format($modal, 0, ',', '.'),
+            "format" => RupiahGenerate::build($modal),
         ];
 
         // ==========================
@@ -97,7 +98,7 @@ class NeracaKeuanganService
             "kode"   => "IV.2",
             "nama"   => "Laba (Rugi) Tahun Sebelumnya",
             "nilai"  => $labaTahunSebelumnya,
-            "format" => 'Rp ' . number_format($labaTahunSebelumnya, 0, ',', '.'),
+            "format" => RupiahGenerate::build($labaTahunSebelumnya),
         ];
 
         // ==========================
@@ -120,7 +121,7 @@ class NeracaKeuanganService
                     ? "Laba (Rugi) Berjalan Periode $namaPeriode"
                     : "Laba (Rugi) Ditahan Periode $namaPeriode",
                 "nilai"  => $nilai,
-                "format" => 'Rp ' . number_format($nilai, 0, ',', '.'),
+                "format" => RupiahGenerate::build($nilai),
             ];
 
             $counter++;
@@ -169,7 +170,7 @@ class NeracaKeuanganService
                 'kode'   => 'I.1.' . $counter,
                 'nama'   => 'Kas Besar - ' . $jenisNama,
                 'nilai'  => (float) $saldoBesar,
-                'format' => 'Rp ' . number_format($saldoBesar, 0, ',', '.'),
+                'format' => RupiahGenerate::build($saldoBesar),
                 'sub'    => 'I.1',
             ];
             $totalKasBesar += $saldoBesar;
@@ -185,7 +186,7 @@ class NeracaKeuanganService
                 'kode'   => 'I.2.' . $counter,
                 'nama'   => 'Kas Kecil - ' . $jenisNama,
                 'nilai'  => (float) $saldoKecil,
-                'format' => 'Rp ' . number_format($saldoKecil, 0, ',', '.'),
+                'format' => RupiahGenerate::build($saldoKecil),
                 'sub'    => 'I.2',
             ];
             $totalKasKecil += $saldoKecil;
@@ -199,7 +200,7 @@ class NeracaKeuanganService
                     'kode'   => 'I.1',
                     'nama'   => 'Kas Besar',
                     'nilai'  => (float) $totalKasBesar,
-                    'format' => 'Rp ' . number_format($totalKasBesar, 0, ',', '.'),
+                    'format' => RupiahGenerate::build($totalKasBesar),
                 ],
                 'items' => $kasBesarItems,
             ],
@@ -208,7 +209,7 @@ class NeracaKeuanganService
                     'kode'   => 'I.2',
                     'nama'   => 'Kas Kecil',
                     'nilai'  => (float) $totalKasKecil,
-                    'format' => 'Rp ' . number_format($totalKasKecil, 0, ',', '.'),
+                    'format' => RupiahGenerate::build($totalKasKecil),
                 ],
                 'items' => $kasKecilItems,
             ],
@@ -267,18 +268,16 @@ class NeracaKeuanganService
             "kode"   => "II.1",
             "nama"   => "Peralatan Besar",
             "nilai"  => $pengeluaranAset['besar'],
-            "format" => "Rp " . number_format($pengeluaranAset['besar'], 0, ',', '.'),
+            "format" => RupiahGenerate::build($pengeluaranAset['besar']),
         ];
 
         $asetPeralatanKecil = [
             "kode"   => "II.2",
             "nama"   => "Peralatan Kecil",
             "nilai"  => $pengeluaranAset['kecil'],
-            "format" => "Rp " . number_format($pengeluaranAset['kecil'], 0, ',', '.'),
+            "format" => RupiahGenerate::build($pengeluaranAset['kecil']),
         ];
-        /* ===============================
-     * STOK PER JENIS
-     * =============================== */
+
         $stokPerJenisItems = [];
         $totalStokJenis = 0;
         $totalQtyJenis  = 0;
@@ -293,7 +292,7 @@ class NeracaKeuanganService
                 "kode"   => "I.4." . ($index + 1),
                 "nama"   => $item['nama_jenis_barang'] . " (" . number_format($qty, 0, ',', '.') . ")",
                 "nilai"  => $nilai,
-                "format" => 'Rp ' . number_format($nilai, 0, ',', '.'),
+                "format" => RupiahGenerate::build($nilai),
                 "sub"    => "I.4",
             ];
 
@@ -305,7 +304,7 @@ class NeracaKeuanganService
             "kode"   => "I.4",
             "nama"   => "Stok Barang Jualan (" . number_format($totalQtyJenis, 0, ',', '.') . ")",
             "nilai"  => $totalStokJenis,
-            "format" => 'Rp ' . number_format($totalStokJenis, 0, ',', '.'),
+            "format" => RupiahGenerate::build($totalStokJenis)
         ];
 
         /* ===============================
@@ -328,14 +327,14 @@ class NeracaKeuanganService
             "kode"   => "I.3",
             "nama"   => "Piutang",
             "nilai"  => $piutangTotal,
-            "format" => "Rp " . number_format($piutangTotal, 0, ',', '.'),
+            "format" => RupiahGenerate::build($piutangTotal),
         ];
 
         $piutangKasbonItem = [
             "kode"   => "I.3.3",
             "nama"   => "Kasbon Member",
             "nilai"  => $piutangKasbon,
-            "format" => "Rp " . number_format($piutangKasbon, 0, ',', '.'),
+            "format" => RupiahGenerate::build($piutangKasbon),
             "sub"    => "I.3",
         ];
 
@@ -421,19 +420,19 @@ class NeracaKeuanganService
                     "kode"   => "I.6",
                     "nama"   => "Stok Barang Retur ({$returData['stock_retur']})",
                     "nilai"  => $returTotal,
-                    "format" => 'Rp ' . number_format($returTotal, 0, ',', '.'),
+                    "format" => RupiahGenerate::build($returTotal),
                 ],
                 [
                     "kode"   => "I.7",
                     "nama"   => "Stok Pengiriman Barang ({$pengirimanData['total_qty']})",
                     "nilai"  => $pengirimanTotal,
-                    "format" => 'Rp ' . number_format($pengirimanTotal, 0, ',', '.'),
+                    "format" => RupiahGenerate::build($pengirimanTotal)
                 ],
                 [
                     "kode"   => "I.8",
                     "nama"   => "Penyesuaian",
                     "nilai"  => $penyesuaian,
-                    "format" => 'Rp ' . number_format($penyesuaian, 0, ',', '.'),
+                    "format" => RupiahGenerate::build($penyesuaian)
                 ],
             ]
         );
@@ -446,38 +445,38 @@ class NeracaKeuanganService
             [
                 'kategori' => 'AKTIVA',
                 'total'    => $totalAktiva,
-                'format'   => 'Rp ' . number_format($totalAktiva, 0, ',', '.'),
+                'format'   => RupiahGenerate::build($totalAktiva),
                 'subkategori' => [
                     [
                         'judul'  => 'I. ASET LANCAR',
                         'total'  => $asetLancarTotal,
                         'item'   => $asetLancarItems,
-                        'format' => 'Rp ' . number_format($asetLancarTotal, 0, ',', '.'),
+                        'format' => RupiahGenerate::build($asetLancarTotal),
                     ],
                     [
                         'judul'  => 'II. ASET TETAP',
                         'total'  => $asetTetapTotal,
                         'item'   => $asetTetapItems,
-                        'format' => 'Rp ' . number_format($asetTetapTotal, 0, ',', '.'),
+                        'format' => RupiahGenerate::build($asetTetapTotal),
                     ],
                 ],
             ],
             [
                 'kategori' => 'PASIVA',
                 'total'    => $totalPasiva,
-                'format'   => 'Rp ' . number_format($totalPasiva, 0, ',', '.'),
+                'format'   => RupiahGenerate::build($totalPasiva),
                 'subkategori' => [
                     [
                         'judul'  => 'III. HUTANG',
                         'total'  => $totalHutang,
                         'item'   => $hutangItems,
-                        'format' => 'Rp ' . number_format($totalHutang, 0, ',', '.'),
+                        'format' => RupiahGenerate::build($totalHutang)
                     ],
                     [
                         'judul'  => 'IV. EKUITAS',
                         'total'  => $totalEkuitas,
                         'item'   => $ekuitasItems,
-                        'format' => 'Rp ' . number_format($totalEkuitas, 0, ',', '.'),
+                        'format' => RupiahGenerate::build($totalEkuitas)
                     ],
                 ],
             ],

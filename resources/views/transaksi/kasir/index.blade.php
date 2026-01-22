@@ -176,7 +176,7 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" aria-label="Close"><i
                             class="fa fa-times mr-1"></i>Tutup</button>
-                    <button type="submit" class="btn btn-success" id="save-btn" form="form-data">Simpan</button>
+                    <button type="submit" class="btn btn-success" id="submit-button" form="form-data">Simpan</button>
                 </div>
             </div>
         </div>
@@ -227,22 +227,11 @@
         let selectOptions = [{
                 id: '#member_id',
                 isFilter: {
-                    id_toko: {{ auth()->user()->toko_id }},
+                    toko_id: {{ auth()->user()->toko_id }},
                 },
                 isUrl: '{{ route('master.member') }}',
                 placeholder: 'Pilih Member',
                 isModal: '#modal-form',
-            }, {
-                id: '#barang',
-                isFilter: {
-                    is_name: 1,
-                    id_toko: '{{ auth()->user()->toko_id }}',
-                },
-                isUrl: '{{ route('master.qrbarcode') }}',
-                placeholder: 'Pilih Barang',
-                isMinimum: 3,
-                isModal: '#modal-form',
-                isDisabled: false,
             },
             {
                 id: '#select_batch_manual',
@@ -329,7 +318,7 @@
                     <div class="col-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
                         <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
                             <div class="text-center my-3" role="alert">
-                                Tidak ada Transaksi hari ini.
+                                Tidak ada Transaksi.
                             </div>
                         </div>
                     </div>
@@ -373,16 +362,15 @@
                     </div>
                 </a>`;
 
-            let action_buttons = '';
-            if (detail_button || delete_button) {
-                action_buttons = `
-                <div class="d-flex justify-content-end">
-                    ${detail_button ? `<div class="hovering p-1">${detail_button}</div>` : ''}
-                </div>`;
-            } else {
-                action_buttons = `
-                <span class="badge badge-danger">Tidak Ada Aksi</span>`;
-            }
+            let infoText = 'Dibuat oleh:';
+            let infoUser = `${data.created_by || '-'}`;
+            let infoTime = `${data.created_at || '-'}`;
+
+            const info = `
+            <div>
+                <small class="text-muted">${infoText}</small>
+                <small class="text-bold">${infoUser}</small>
+            </div>`;
 
             return {
                 id: data?.id ?? '-',
@@ -391,7 +379,9 @@
                 qty: data?.qty ?? '-',
                 nominal: data?.nominal ?? '-',
                 created_by: data?.created_by ?? '-',
-                action_buttons,
+                detail_button,
+                delete_button,
+                info
             };
         }
 
@@ -400,50 +390,75 @@
             currentPage = pagination.current_page;
             let display_from = ((defaultLimitPage * (currentPage - 1)) + 1);
             let display_to = Math.min(display_from + dataList.length - 1, pagination.total);
+            let tdClass = 'text-wrap align-top';
+            let getDataTable = `
+            <div class="col-12">
+                <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover m-0">
+                                <thead class="glossy-thead">
+                                    <tr>
+                                        <th scope="col" class="${tdClass} text-center" style="width:5%">No</th>
+                                        <th scope="col" class="${tdClass}" style="width:15%">Tanggal</th>
+                                        <th scope="col" class="${tdClass}" style="width:15%">Informasi</th>
+                                        <th scope="col" class="${tdClass}" style="width:30%">Nota</th>
+                                        <th scope="col" class="${tdClass} text-center" style="width:5%">Qty</th>
+                                        <th scope="col" class="${tdClass} text-right" style="width:10%">Nominal</th>
+                                        <th scope="col" class="${tdClass} text-center" style="width:20%">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <thead>
+                                    <tr>
+                                        <th colspan="4" class="${tdClass} text-right"></th>
+                                        <th class="${tdClass} text-center"><span class="badge badge-primary">${total.qty || 0}</span></th>
+                                        <th class="${tdClass} text-right"><span class="badge badge-primary">${total.nominal || 0}</span></th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>`;
 
-            let getDataTable = '';
-            let classCol = 'align-center text-dark text-wrap';
             dataList.forEach((element, index) => {
+                const number = display_from + index;
+                const hasButtons = element.detail_button || element.print_button || element.delete_button;
+                const actionHTML = `
+                    <div class="d-flex justify-content-center flex-column flex-sm-row align-items-center align-items-sm-start mx-3" style="gap: 0.5rem;">
+                        ${hasButtons
+                            ? `
+                                            ${element.detail_button || ''}
+                                            ${element.delete_button || ''}
+                                        `
+                            : `<i class="text-muted">Tidak ada aksi</span>`
+                        }
+                    </div>
+                `;
+
                 getDataTable += `
-                            <tr class="text-dark clickable-row" data-id="${element.id}" data-toggle="modal" data-target=".kasirDetailModal">
-                                <td class="${classCol} text-center">${display_from + index}.</td>
-                                <td class="${classCol}">${element.nota}</td>
-                                <td class="${classCol}">${element.tanggal}</td>
-                                <td class="${classCol}">${element.qty}</td>
-                                <td class="${classCol} text-right">${element.nominal}</td>
-                                <td class="${classCol} text-right">${element.metode}</td>
-                                <td class="${classCol} text-right">${element.created_by}</td>
-                                <td class="${classCol} text-right">${element.action_buttons}</td>
-                            </tr>`;
+                    <tr class="glossy-tr">
+                        <td class="${tdClass} text-center">${number}</td>
+                        <td class="${tdClass}">${element.tanggal}</td>
+                        <td class="${tdClass}">${element.info}</td>
+                        <td class="${tdClass}">${element.nota}</td>
+                        <td class="${tdClass} text-center">${element.qty}</td>
+                        <td class="${tdClass} text-right">${element.nominal}</td>
+                        <td class="${tdClass}">${actionHTML}</td>
+                    </tr>
+                `;
             });
 
-            let totalRow = `
-            <tr class="bg-primary">
-                <td class="${classCol}" colspan="3"></td>
-                <td class="${classCol}" style="font-size: 1rem;"><strong class="text-white fw-bold">Total</strong></td>
-                <td class="${classCol} text-right"><strong class="text-white" id="totalData">${total}</strong></td>
-                <td class="${classCol}" colspan="4"></td>
-            </tr>`;
+            getDataTable += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
 
             $('#listData').html(getDataTable);
-            $('#listData').closest('table').find('tfoot').html(totalRow);
-
             $('#totalPage').text(pagination.total);
             $('#countPage').text(`${display_from} - ${display_to}`);
             $('[data-toggle="tooltip"]').tooltip();
             renderPagination();
-
-            $(document).off('mouseup.clickable-row').on('mouseup.clickable-row', '.clickable-row', function(e) {
-                if ($(e.target).closest('.action_button').length > 0) return;
-
-                const selection = window.getSelection();
-                if (selection && selection.toString().trim().length > 0) return;
-
-                const id = $(this).data('id');
-                if (id) {
-                    openDetailKasir(id);
-                }
-            });
         }
 
         async function openDetailKasir(id) {
@@ -582,8 +597,8 @@
                         ${download_button}
                         ${hasButtons
                             ? `
-                                                                                        ${delete_button || ''}
-                                                                                    `
+                                                                                                                                                                                                                                                        ${delete_button || ''}
+                                                                                                                                                                                                                                                    `
                             : ``
                         }
                     </div>
@@ -773,8 +788,8 @@
                 }
 
                 customFilter = {
-                    'startDate': $("#daterange").val() != '' ? startDate : '',
-                    'endDate': $("#daterange").val() != '' ? endDate : ''
+                    'start_date': $("#daterange").val() != '' ? startDate : '',
+                    'end_date': $("#daterange").val() != '' ? endDate : ''
                 };
 
                 defaultSearch = $('.tb-search').val();
@@ -891,9 +906,9 @@
                                     <td>Kembali</td><td>:</td><td class="text-right">${formatRupiah(data.total.kembalian)}</td>
                                 </tr>
                                 ${data.total.sisa_pembayaran && data.total.sisa_pembayaran > 0 ? `
-                                                                                                                                        <tr>
-                                                                                                                                            <td>Sisa</td><td>:</td><td class="text-right">${formatRupiah(data.total.sisa_pembayaran)}</td>
-                                                                                                                                        </tr>` : ""}
+                                                                                                                                                                                                                                                                                                        <tr>
+                                                                                                                                                                                                                                                                                                            <td>Sisa</td><td>:</td><td class="text-right">${formatRupiah(data.total.sisa_pembayaran)}</td>
+                                                                                                                                                                                                                                                                                                        </tr>` : ""}
                             </tbody>
                         </table>
                         ${hr}
@@ -901,7 +916,6 @@
                     </div>
                 `;
 
-                // Buka jendela print
                 let w = window.open("", "_blank", "width=400,height=600");
                 w.document.write(`
                     <html>
@@ -929,13 +943,288 @@
 
         function openAddModal() {
             renderModalForm('add');
-            $('#save-btn')
+
+            $('#submit-button')
                 .removeClass('btn-primary d-none')
                 .addClass('btn-success')
                 .prop('disabled', false)
                 .html('<i class="fa fa-save mr-1"></i>Simpan');
+
             setDatePicker();
+            addRowItem();
+
             $('#modal-form').modal('show');
+            setTimeout(() => {
+                $('#member_id').val('guest').trigger('change');
+            }, 100);
+            toggleMemberSelect();
+        }
+
+        function addRowItem() {
+            $(document).off("keydown", "#scan_batch_input");
+            $(document).off("change", "#select_batch_manual");
+            $(document).off("click", ".remove-item");
+            const debouncedQtyValidation = debounce(function() {
+                validateQtyInput(this);
+            }, 600);
+
+            let allowSubmit = false;
+
+            $('#submit-button').on('click', function() {
+                allowSubmit = true;
+            });
+
+            $('#form-data').on('submit', function(e) {
+                if (!allowSubmit) {
+                    e.preventDefault();
+                    return false;
+                }
+                allowSubmit = false;
+            });
+
+            $(document).on("keydown", "#scan_batch_input", async function(e) {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+
+                    let qrcode = $(this).val().trim();
+                    if (!qrcode) return;
+
+                    showScanInfo("Mencari batch...", "text-info");
+
+                    await handleRow(qrcode);
+                    $(this).val("");
+                }
+                toggleMemberSelect();
+            });
+
+            $(document).on("change", "#select_batch_manual", async function() {
+                let batchId = $(this).val();
+                if (!batchId) return;
+
+                await handleRow(batchId);
+
+                $(this).val("").trigger("change.select2");
+                toggleMemberSelect();
+            });
+
+            $(document).on("keydown", "#form-data", function(e) {
+                if (e.key === "Enter" && e.target.id !== "scan_batch_input") {
+                    e.preventDefault();
+                }
+            });
+
+            $(document).on('input', '.qty_send', function() {
+                debouncedQtyValidation.call(this);
+                hitungSubtotal();
+            });
+
+            $(document).on('blur', '.qty_send', function() {
+                validateQtyInput(this);
+                hitungSubtotal();
+            });
+
+            $(document).on('change', '.qty_send', function() {
+                validateQtyInput(this);
+                hitungSubtotal();
+            });
+
+            $(document).on('change', '.harga_select', function() {
+                hitungTotalRow($(this).closest('tr'));
+            });
+
+            $(document).on('click', '.remove-item', function() {
+                $(this).closest('tr').remove();
+                updateNomorUrut();
+
+                if ($("#tableItems tbody tr").length === 0) {
+                    showEmptyMessage();
+                }
+                toggleMemberSelect();
+                hitungSubtotal();
+            });
+
+            $(document).on('input', '#total_bayar', function() {
+                hitungKembalian();
+            });
+        }
+
+        function debounce(fn, delay = 500) {
+            let timer;
+            return function(...args) {
+                clearTimeout(timer);
+                timer = setTimeout(() => fn.apply(this, args), delay);
+            };
+        }
+
+        function validateQtyInput(input) {
+            const $input = $(input);
+
+            let max = parseInt(
+                $input.data("max") ?? $input.attr("max"),
+                10
+            );
+
+            let val = parseInt($input.val(), 10);
+
+            if (isNaN(max)) {
+                console.warn("MAX QTY TIDAK VALID", input);
+                return;
+            }
+
+            if (isNaN(val) || val < 1) {
+                $input.val(1);
+            } else if (val > max) {
+                $input.val(max);
+                showScanInfo(`⚠️ Maksimal qty ${max}`, "text-warning");
+            }
+
+            hitungTotalRow($input.closest('tr'));
+        }
+
+        async function handleRow(search) {
+            if ($('#member_id').val() == null) {
+                showScanInfo("❌ Silahkan Pilih Member", "text-danger");
+                return;
+            }
+            try {
+                let res = await renderAPI("GET", '{{ route('sb.batch.getHargaJual') }}', {
+                    search: search,
+                    toko_id: {{ auth()->user()->toko_id }},
+                    member_id: $('#member_id').val()
+                });
+
+                if (!res.data || !res.data.data) {
+                    showScanInfo("❌ Batch tidak ditemukan", "text-danger");
+                    return;
+                }
+
+                let data = res.data.data;
+                let maxQty = parseInt(data.qty);
+
+                let existingRow = $(`#table-detail tbody tr`)
+                    .filter(function() {
+                        return $(this).find(".stock_batch_id").val() == data.id;
+                    });
+
+                if (existingRow.length) {
+                    let qtyInput = existingRow.find(".qty_send");
+                    let currentQty = parseInt(qtyInput.val());
+
+                    if (currentQty >= maxQty) {
+                        showScanInfo(`⚠️ Qty sudah maksimal (${maxQty})`, "text-warning");
+                        return;
+                    }
+
+                    qtyInput.val(currentQty + 1);
+
+                    showScanInfo(`✅ Qty ditambah (${currentQty + 1}/${maxQty})`, "text-success");
+                    return;
+                }
+
+                if (maxQty <= 0) {
+                    showScanInfo("⚠️ Stok sudah habis", "text-warning");
+                    return;
+                }
+
+                addRow(data, maxQty);
+            } catch {
+                showScanInfo("⚠️ Error mencari batch", "text-warning");
+            }
+        }
+
+        function addRow(data, maxQty) {
+            const tbody = $("#tableItems tbody");
+
+            let existingRow = tbody.find("tr").filter(function() {
+                return $(this).find(".stock_batch_id").val() == data.id;
+            });
+
+            if (existingRow.length) {
+                const qtyInput = existingRow.find(".qty_send");
+                let currentQty = parseInt(qtyInput.val(), 10) || 0;
+
+                if (currentQty >= maxQty) {
+                    showScanInfo(`⚠️ Qty sudah maksimal (${maxQty})`, "text-warning");
+                    qtyInput.val(maxQty);
+                    return;
+                }
+
+                qtyInput.val(currentQty + 1);
+                hitungTotalRow(existingRow);
+                showScanInfo(
+                    `✅ Qty ditambah (${currentQty + 1}/${maxQty})`,
+                    "text-success"
+                );
+                return;
+            }
+
+            if (maxQty <= 0) {
+                showScanInfo("⚠️ Stok sudah habis", "text-warning");
+                return;
+            }
+
+            tbody.find(".empty-row").remove();
+
+            let hargaOptions = data.is_member_price.map(h =>
+                `<option value="${h.id}">${h.text}</option>`
+            ).join('');
+
+            let row = `
+                <tr class="glossy-tr" data-id="${data.id}">
+                    <td class="text-center no-urut"></td>
+                    <td>${data.text}</td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-danger btn-sm remove-item">
+                            <i class="fa fa-trash-alt"></i>
+                        </button>
+                    </td>
+                    <td width="90">
+                        <input
+                            type="number"
+                            class="form-control qty_send"
+                            min="1"
+                            max="${maxQty}"
+                            data-max="${maxQty}"
+                            value="1"
+                        >
+                    </td>
+                    <td width="160">
+                        <select class="form-control harga_select">
+                            ${hargaOptions}
+                        </select>
+                    </td>
+                    <td class="text-right total_harga">
+                        ${data.format_harga}
+                    </td>
+                </tr>
+            `;
+
+            tbody.append(row);
+
+            const newRow = tbody.find("tr").last();
+            hitungTotalRow(newRow);
+            updateNomorUrut();
+
+            showScanInfo("✅ Item ditambahkan", "text-success");
+        }
+
+        function hitungTotalRow(row) {
+            const qty = parseInt(row.find('.qty_send').val(), 10) || 0;
+            const harga = parseInt(
+                row.find('.harga_select option:selected').val(),
+                10
+            ) || 0;
+
+            const total = qty * harga;
+
+            row.find('.total_harga').text(formatRupiah(total));
+            hitungSubtotal();
+        }
+
+        function updateNomorUrut() {
+            $("#tableItems tbody tr").each(function(i) {
+                $(this).find('.no-urut').text(i + 1);
+            });
         }
 
         async function renderModalForm(mode = 'add', encodedData = '') {
@@ -957,265 +1246,267 @@
 
             const tdClass = 'text-wrap align-top';
             const formContent = `
-        <form id="form-data">
-            <style>
-                #form-data .select2-container{width:100% !important; max-width:100%;}
-                #form-data .select2-selection{min-height:35px;}
-                #form-data .select2-selection__rendered{line-height:33px;}
-                #form-data .select2-selection__arrow{height:33px;}
-                #btnAddItem{white-space:nowrap; height:35px; line-height:1;}
-                .table-responsive{overflow-x:auto;}
-                #tableItems{min-width: 900px;}
-                @media (max-width: 576px){
-                    #tableItems{min-width: 800px;}
-                }
-            </style>
+            <form id="form-data">
+                <style>
+                    #form-data .select2-container{width:100% !important; max-width:100%;}
+                    #form-data .select2-selection{min-height:35px;}
+                    #form-data .select2-selection__rendered{line-height:33px;}
+                    #form-data .select2-selection__arrow{height:33px;}
+                    #btnAddItem{white-space:nowrap; height:35px; line-height:1;}
+                    .table-responsive{overflow-x:auto;}
+                    #tableItems{min-width: 900px;}
+                    @media (max-width: 576px){
+                        #tableItems{min-width: 800px;}
+                    }
+                </style>
 
-            <div class="form-group">
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="tanggal"><i class="fa fa-user mr-1"></i>Member <sup class="text-danger">*</sup></label>
-                            <select class="form-control" id="member_id" name="member_id">
-                            </select>
+                <div class="form-group">
+                    <div class="row">
+                        <div class="col-md-5">
+                            <div class="form-group">
+                                <label for="member_id"><i class="fa fa-user mr-1"></i>Member <sup class="text-danger">*</sup></label>
+                                <select class="form-control" id="member_id" name="member_id">
+                                    <option value="guest">Guest</option>
+                                </select>
+                            </div>
                         </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="tanggal"><i class="fa fa-calendar-day mr-1"></i>Tanggal <sup class="text-danger">*</sup></label>
-                            <input type="datetime-local" class="form-control" id="tanggal" name="tanggal"
-                                placeholder="Masukkan tanggal" required value="">
+                        <div class="col-md-2">
+                            <div class="form-group">
+                                <label for="metode"><i class="fa fa-layer-group mr-1"></i>Metode <sup class="text-danger">*</sup></label>
+                                <select class="form-control" id="metode" name="metode">
+                                    <option value="cash">Tunai</option>
+                                    <option value="cashless">Non Tunai</option>
+                                </select>
+                            </div>
                         </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="item_nonfisik"><i class="fa fa-layer-group mr-1"></i>Item</label>
-                            <select class="form-control select2 flex-grow-1" id="item_nonfisik" name="item_nonfisik" required></select>
+                        <div class="col-md-5">
+                            <div class="form-group">
+                                <label for="tanggal"><i class="fa fa-calendar-day mr-1"></i>Tanggal <sup class="text-danger">*</sup></label>
+                                <input type="search" class="form-control" id="tanggal" name="tanggal"
+                                    placeholder="Masukkan Tanggal" value="">
+                            </div>
                         </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="select_batch_manual"><i class="fa fa-box mr-1"></i>Nama Barang</label>
-                            <select class="form-control select2 flex-grow-1" id="select_batch_manual" name="select_batch_manual" required></select>
+                        <div class="col-md-5">
+                            <div class="form-group">
+                                <label for="scan_batch_input"><i class="fa fa-qrcode mr-1"></i>QR Code Barang <sup class="text-danger">*</sup></label>
+                                <input type="search" class="form-control" id="scan_batch_input" name="scan_batch_input"
+                                    placeholder="Scan QR / input QR lalu Enter" value="">
+                            </div>
+                        </div>
+                        <div class="col-md-2 d-flex flex-column align-items-center justify-content-center text-center">
+                            <span class="font-weight-bold">Atau</span>
+                            <small id="scan-info" class="text-muted mt-1 invisible">
+                                placeholder
+                            </small>
+                        </div>
+                        <div class="col-md-5">
+                            <div class="form-group">
+                                <label for="select_batch_manual"><i class="fa fa-box mr-1"></i>Nama Barang</label>
+                                <select class="form-control select2 flex-grow-1" id="select_batch_manual" name="select_batch_manual"></select>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light">
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover m-0" id="tableItems">
-                            <thead class="glossy-thead">
-                                <tr>
-                                    <th class="${tdClass} text-center" style="width:5%">Aksi</th>
-                                    <th class="${tdClass} text-center" style="width:5%">No</th>
-                                    <th class="${tdClass}" style="width:40%">Item</th>
-                                    <th class="${tdClass}" style="width:10%">Qty</th>
-                                    <th class="${tdClass}" style="width:15%">Harga</th>
-                                    <th class="${tdClass} text-right" style="width:15%">Total Harga</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td class="${tdClass} text-center" colspan="6">
-                                        <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
-                                            <div class="text-center my-3" role="alert">
-                                                <i class="fa fa-circle-info mr-1"></i>Silahkan Tambahkan Item Terlebih Dahulu.
+                <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover m-0" id="tableItems">
+                                <thead class="glossy-thead">
+                                    <tr>
+                                        <th class="${tdClass} text-center" style="width:5%">No</th>
+                                        <th class="${tdClass}" style="width:40%">Item</th>
+                                        <th class="${tdClass} text-center" style="width:5%">Aksi</th>
+                                        <th class="${tdClass}" style="width:10%">Qty</th>
+                                        <th class="${tdClass}" style="width:15%">Harga</th>
+                                        <th class="${tdClass} text-right" style="width:15%">Total Harga</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="empty-row">
+                                        <td class="${tdClass} text-center" colspan="6">
+                                            <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
+                                                <div class="text-center my-3" role="alert">
+                                                    <i class="fa fa-circle-info mr-1"></i>Silahkan Tambahkan Item Terlebih Dahulu.
+                                                </div>
                                             </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                            <tfoot>
-                                <tr>
-                                    <td colspan="5" class="text-right font-weight-bold">SubTotal:</td>
-                                    <td id="total_harga" class="text-right font-weight-bold">Rp 0</td>
-                                </tr>
-                                <tr>
-                                    <td colspan="5" class="text-right font-weight-bold">Total Bayar:</td>
-                                    <td colspan="1">
-                                        <input type="number" id="total_bayar" class="form-control" inputmode="numeric" value="0" placeholder="Masukkan nominal">
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td colspan="4" class="text-loeft text-muted"><sup class="text-danger mr-1">**</sup>Pastikan kembali data yang akan disimpan dengan benar.</td>
-                                    <td colspan="1" class="text-right font-weight-bold">Kembalian:</td>
-                                    <td colspan="1" id="kembalian" class="text-right font-weight-bold">Rp 0</td>
-                                </tr>
-                            </tfoot>
-                        </table>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="5" class="text-right font-weight-bold">SubTotal:</td>
+                                        <td id="total_harga" class="text-right font-weight-bold">Rp 0</td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="5" class="text-right font-weight-bold">Total Bayar:</td>
+                                        <td colspan="1">
+                                            <input type="number" id="total_bayar" class="form-control" inputmode="numeric" value="0" placeholder="Masukkan nominal">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="4" class="text-loeft text-muted"><sup class="text-danger mr-1">**</sup>Pastikan kembali data yang akan disimpan dengan benar.</td>
+                                        <td colspan="1" class="text-right font-weight-bold">Kembalian:</td>
+                                        <td colspan="1" id="kembalian" class="text-right font-weight-bold">Rp 0</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </form>`;
+            </form>`;
 
             $('#modal-data').html(formContent);
 
             await selectData(selectOptions);
+        }
 
-            let itemList = [];
-            let lastGrandTotal = 0;
-            let totalBayarDebounceTimer = null;
+        function showEmptyMessage() {
+            $("#tableItems tbody").html(`
+            <tr class="empty-row">
+                <td colspan="6" class="text-wrap align-top text-center">
+                    <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
+                        <div class="text-center my-3" role="alert">
+                            <i class="fa fa-circle-info mr-1"></i>
+                            Silahkan Tambahkan Item Terlebih Dahulu.
+                        </div>
+                    </div>
+                </td>
+            </tr>
+            `);
+        }
 
-            $('#item_nonfisik').off('select2:select').on('select2:select', function(e) {
-                const selectedData = e.params.data;
-                if (!selectedData || !selectedData.id) {
-                    notificationAlert('warning', 'Peringatan', 'Pilih item terlebih dahulu.');
-                    return;
-                }
+        function hitungSubtotal() {
+            let subtotal = 0;
 
-                const selectedId = selectedData.id;
-                const selectedText = selectedData.text;
+            $('#tableItems tbody tr').each(function() {
+                if ($(this).hasClass('empty-row')) return;
 
-                const existingItem = itemList.find(item => item.id === selectedId);
-                if (existingItem) {
-                    existingItem.qty += 1;
-                } else {
-                    itemList.push({
-                        id: selectedId,
-                        name: selectedText,
-                        qty: 1,
-                        hpp: null,
-                        price: null
-                    });
-                }
-
-                renderTable();
-
-                $(this).val(null).trigger('change');
+                const totalText = $(this).find('.total_harga').text();
+                const total = parseInt(totalText.replace(/\D/g, ''), 10) || 0;
+                subtotal += total;
             });
 
-            function renderTable() {
-                const tbody = $('#tableItems tbody');
-                tbody.empty();
+            $('#total_harga').text(formatRupiah(subtotal));
 
-                if (itemList.length === 0) {
-                    tbody.append(`
-                    <tr>
-                        <td class="${tdClass} text-center" colspan="8">
-                            <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
-                                <div class="text-center my-3" role="alert">
-                                    <i class="fa fa-circle-info mr-1"></i>Silahkan Tambahkan Item Terlebih Dahulu.
-                                </div>
-                            </div>
-                        </td>
-                    </tr>
-                `);
-                } else {
-                    itemList.forEach((item, index) => {
-                        const totalHppItem = item.hpp * item.qty;
-                        const totalHargaItem = item.price * item.qty;
-                        const row = `
-                        <tr class="glossy-tr" data-id="${item.id}">
-                            <td class="${tdClass} text-center">
-                                <button type="button" class="btn btn-outline-danger btn-sm btn-delete-item" title="Hapus">
-                                    <i class="fa fa-trash-alt"></i>
-                                </button>
-                            </td>
-                            <td class="${tdClass} text-center">${index + 1}</td>
-                            <td class="${tdClass}">${item.name}</td>
-                            <td class="${tdClass}">
-                                <input type="number" class="form-control qty-input" value="${item.qty}" min="1" placeholder="Qty">
-                            </td>
-                            <td class="${tdClass}">
-                                <input type="number" class="form-control price-input" value="${item.price}" min="0" placeholder="Harga">
-                            </td>
-                            <td class="${tdClass} td-total-hpp text-right font-weight-bold">Rp ${numberFormat(totalHppItem)}</td>
-                            <td class="${tdClass} td-total-harga text-right font-weight-bold">Rp ${numberFormat(totalHargaItem)}</td>
-                        </tr>
-                    `;
-                        tbody.append(row);
+            setDefaultTotalBayar(subtotal);
+            hitungKembalian();
+        }
+
+        function setDefaultTotalBayar(subtotal) {
+            const inputBayar = $('#total_bayar');
+
+            inputBayar.val(subtotal);
+        }
+
+        function hitungKembalian() {
+            const subtotal = parseInt($('#total_harga').text().replace(/\D/g, ''), 10) || 0;
+            const bayar = parseInt($('#total_bayar').val(), 10) || 0;
+
+            const kembalian = bayar - subtotal;
+
+            $('#kembalian').text(
+                formatRupiah(kembalian > 0 ? kembalian : 0)
+            );
+        }
+
+        function toggleMemberSelect() {
+            const hasItem =
+                $("#tableItems tbody tr")
+                .not(".empty-row")
+                .length > 0;
+
+            $("#member_id").prop("disabled", hasItem);
+        }
+
+        function submitForm() {
+            $(document).off("click", "#submit-button").on("click", "#submit-button", async function(e) {
+                e.preventDefault();
+
+                const $submitButton = $("#submit-button");
+                const originalHTML = $submitButton.html();
+
+                $submitButton.prop("disabled", true)
+                    .html(`<i class="fas fa-spinner fa-spin"></i> Menyimpan...`);
+
+                loadingPage(true);
+
+                try {
+                    let totalQty = 0;
+                    let totalNominal = 0;
+
+                    let details = [];
+
+                    $("#tableItems tbody tr").each(function() {
+                        const row = $(this);
+
+                        if (row.hasClass("empty-row")) return;
+
+                        const qty = parseInt(row.find(".qty_send").val()) || 0;
+                        const harga = parseFloat(
+                            row.find(".harga_select option:selected").val()
+                        ) || 0;
+
+                        const nominal = qty * harga;
+
+                        totalQty += qty;
+                        totalNominal += nominal;
+
+                        details.push({
+                            stock_barang_batch_id: row.data("id"),
+                            qty: qty,
+                            nominal: harga,
+                        });
                     });
-                }
 
-                updateTotals();
-            }
-
-            $('#tableItems').off('input change', '.qty-input, .hpp-input, .price-input')
-                .on('input change', '.qty-input, .hpp-input, .price-input', function() {
-                    const tr = $(this).closest('tr');
-                    const id = String(tr.data('id'));
-                    let item = itemList.find(i => String(i.id) === id);
-
-                    if (item) {
-                        const qtyVal = parseInt(tr.find('.qty-input').val(), 10);
-                        const hppVal = parseFloat(tr.find('.hpp-input').val());
-                        const priceVal = parseFloat(tr.find('.price-input').val());
-
-                        item.qty = isNaN(qtyVal) || qtyVal < 1 ? 1 : qtyVal;
-                        item.hpp = isNaN(hppVal) || hppVal < 0 ? 0 : hppVal;
-                        item.price = isNaN(priceVal) || priceVal < 0 ? 0 : priceVal;
-
-                        tr.find('.td-total-hpp').text(`Rp ${numberFormat(item.qty * item.hpp)}`);
-                        tr.find('.td-total-harga').text(`Rp ${numberFormat(item.qty * item.price)}`);
-
-                        updateTotals();
+                    if (details.length === 0) {
+                        notificationAlert("warning", "Peringatan", "Item belum ditambahkan");
+                        return;
                     }
-                });
 
-            $('#tableItems').off('click', '.btn-delete-item').on('click', '.btn-delete-item', function() {
-                const tr = $(this).closest('tr');
-                const id = String(tr.data('id'));
-                itemList = itemList.filter(i => String(i.id) !== id);
-                renderTable();
-            });
+                    const totalBayar = parseFloat($("#total_bayar").val()) || 0;
 
-            function getTotalHargaSemua() {
-                return itemList.reduce((sum, item) => sum + (item.price * item.qty), 0);
-            }
+                    const formData = {
+                        toko_id: {{ auth()->user()->toko_id }},
+                        created_by: {{ auth()->user()->id }},
+                        member_id: $("#member_id").val(),
+                        metode: $("#metode").val(),
+                        tanggal: $("#tanggal").val(),
+                        total_qty: totalQty,
+                        total_nominal: totalNominal,
+                        total_bayar: totalBayar,
+                        details: details
+                    };
 
-            function getTotalHppSemua() {
-                return itemList.reduce((sum, item) => sum + (item.hpp * item.qty), 0);
-            }
+                    const postData = await renderAPI("POST", '{{ route('tb.kasir.post') }}', formData);
 
-            function updateTotals() {
-                const newGrandTotal = getTotalHargaSemua();
-                const newGrandHpp = getTotalHppSemua();
+                    loadingPage(false);
 
-                $('#total_harga').text(`Rp ${numberFormat(newGrandTotal)}`);
-                $('#total_hpp').text(`Rp ${numberFormat(newGrandHpp)}`);
+                    if (postData.status >= 200 && postData.status < 300) {
+                        notificationAlert("success", "Berhasil", postData.data.message || "Transaksi berhasil");
 
-                let bayarSekarang = parseFloat($('#total_bayar').val()) || 0;
+                        setTimeout(async () => {
+                            await getListData(defaultLimitPage, currentPage, defaultAscending,
+                                defaultSearch, customFilter);
+                        }, 500);
 
-                if (bayarSekarang !== newGrandTotal) {
-                    bayarSekarang = newGrandTotal;
-                    $('#total_bayar').val(bayarSekarang);
+                        setTimeout(() => {
+                            $("#modal-form").modal("hide");
+                        }, 500);
+
+                    } else {
+                        notificationAlert("info", "Pemberitahuan", postData.data.message ||
+                            "Terjadi kesalahan");
+                    }
+
+                } catch (error) {
+                    loadingPage(false);
+                    const resp = error.response?.data || {};
+                    notificationAlert("error", "Kesalahan", resp.message || "Terjadi kesalahan");
+                } finally {
+                    $submitButton.prop("disabled", false).html(originalHTML);
                 }
-
-                lastGrandTotal = newGrandTotal;
-                updateKembalian();
-            }
-
-            $('#total_bayar').on('input', function() {
-                clearTimeout(totalBayarDebounceTimer);
-
-                let bayar = parseFloat($('#total_bayar').val()) || 0;
-                const total = getTotalHargaSemua();
-
-                updateKembalian();
-
-                // totalBayarDebounceTimer = setTimeout(() => {
-                //     if (bayar < total) {
-                //         $('#total_bayar').val(total);
-                //         updateKembalian();
-                //     }
-                // }, 3000);
             });
-
-            function updateKembalian() {
-                const bayar = parseFloat($('#total_bayar').val()) || 0;
-                const total = getTotalHargaSemua();
-                const kembalian = bayar - total;
-
-                $('#kembalian').text(`Rp ${numberFormat(kembalian > 0 ? kembalian : 0)}`);
-            }
-
-            function numberFormat(num) {
-                return (Number(num) || 0).toLocaleString('id-ID');
-            }
-
-            await saveData(mode, encodedData);
         }
 
         async function initPageLoad() {
@@ -1224,6 +1515,7 @@
                 searchList(),
                 filterList(),
                 selectData(selectOptions),
+                submitForm()
             ]);
         }
     </script>

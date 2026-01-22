@@ -18,9 +18,14 @@ class Toko extends Model
         'kasbon' => 'boolean',
     ];
 
-    public function detail_toko()
+    public function groups()
     {
-        return $this->hasMany(DetailToko::class, 'id_toko', 'id');
+        return $this->belongsToMany(
+            TokoGroup::class,
+            'toko_group_items',
+            'toko_id',
+            'toko_group_id'
+        )->withTimestamps();
     }
 
     public function user()
@@ -45,12 +50,12 @@ class Toko extends Model
 
     public function mutasipengirim()
     {
-        return $this->hasMany(Mutasi::class, 'id_toko_pengirim', 'id');
+        return $this->hasMany(KasMutasi::class, 'id_toko_pengirim', 'id');
     }
 
     public function mutasipenerima()
     {
-        return $this->hasMany(Mutasi::class, 'id_toko_penerima', 'id');
+        return $this->hasMany(KasMutasi::class, 'id_toko_penerima', 'id');
     }
 
     public function levelHarga()
@@ -60,7 +65,7 @@ class Toko extends Model
 
     public function kasir()
     {
-        return $this->hasMany(Kasir::class, 'id_toko', 'id');
+        return $this->hasMany(TransaksiKasir::class, 'id_toko', 'id');
     }
 
     public function parent()

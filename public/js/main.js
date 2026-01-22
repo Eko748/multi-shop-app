@@ -7,6 +7,28 @@ function loadingPage(value) {
     return;
 }
 
+function showScanInfo(message, statusClass) {
+    let $info = $("#scan-info");
+
+    // tampilkan tanpa mengubah layout
+    $info
+        .text(message)
+        .removeClass("invisible text-danger text-success text-warning text-info")
+        .addClass(statusClass);
+
+    clearTimeout($info.data("timer"));
+
+    let timer = setTimeout(() => {
+        $info
+            .addClass("invisible")
+            .removeClass(statusClass)
+            .text("");
+    }, 3000);
+
+    $info.data("timer", timer);
+}
+
+
 function loadingData() {
     let html = `
             <tr class="text-dark loading-row">
@@ -23,12 +45,15 @@ function loadingData() {
 
 function formatRupiah(value) {
     let number = parseFloat(value) || 0;
-    let roundedNumber = Math.round(number);
+
+    const hasDecimal = number % 1 !== 0;
+
     return new Intl.NumberFormat('id-ID', {
         style: 'currency',
         currency: 'IDR',
-        minimumFractionDigits: 0,
-    }).format(roundedNumber);
+        minimumFractionDigits: hasDecimal ? 2 : 0,
+        maximumFractionDigits: 2,
+    }).format(number);
 }
 
 function notificationAlert(tipe, title, message) {

@@ -9,6 +9,7 @@ use App\Models\KasSaldoHistory;
 use App\Models\LabaRugi;
 use App\Models\LabaRugiTahunan;
 use App\Models\Piutang;
+use App\Models\TransaksiKasirHarian;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
@@ -47,9 +48,10 @@ class KasService
         $toKas,    // kas tujuan (object Kas)
         $nominal,
         $sumber = null,
-        $tanggal = null
+        $tanggal = null,
+        $laba = false
     ) {
-        return DB::transaction(function () use ($fromKas, $toKas, $nominal, $sumber, $tanggal) {
+        return DB::transaction(function () use ($fromKas, $toKas, $nominal, $sumber, $tanggal, $laba) {
 
             // 1) KAS KELUAR
             self::coreUpdateKas(
@@ -60,7 +62,8 @@ class KasService
                 kategori: 'Mutasi Kas',
                 keterangan: 'Mutasi Kas Keluar',
                 sumber: $sumber,
-                tanggal: $tanggal
+                tanggal: $tanggal,
+                laba: $laba
             );
 
             // 2) KAS MASUK
@@ -72,7 +75,8 @@ class KasService
                 kategori: 'Mutasi Kas',
                 keterangan: 'Mutasi Kas Masuk',
                 sumber: $sumber,
-                tanggal: $tanggal
+                tanggal: $tanggal,
+                laba: $laba
             );
 
             return true;
@@ -576,6 +580,130 @@ class KasService
 
         $kas->save();
     }
+
+    public static function kasir(
+        $toko_id,
+        $jenis_barang_id,
+        $tipe_kas,
+        $total_nominal,
+        $item,
+        $kategori = null,
+        $keterangan = null,
+        $sumber = null,
+        $laba = true
+    ) {
+        return DB::transaction(function () use ($toko_id, $jenis_barang_id, $tipe_kas, $total_nominal, $item, $kategori, $keterangan, $sumber, $laba) {
+
+            $today = Carbon::today();
+            $tahunNow = $today->year;
+            $bulanNow = $today->month;
+
+            // Ambil atau buat Kas
+            $kas = Kas::firstOrCreate(
+                ['toko_id' => $toko_id, 'jenis_barang_id' => $jenis_barang_id, 'tipe_kas' => $tipe_kas],
+                ['saldo_awal' => 0, 'saldo' => 0, 'tanggal' => $today]
+            );
+
+            // -------------------------
+            // 1. CEK HISTORY SALDO
+            // -------------------------
+            $lastHistory = KasSaldoHistory::where('kas_id', $kas->id)
+                ->orderBy('tahun', 'desc')
+                ->orderBy('bulan', 'desc')
+                ->first();
+
+            if ($lastHistory && ($lastHistory->bulan != $bulanNow || $lastHistory->tahun != $tahunNow)) {
+                // Tutup bulan sebelumnya
+                $lastHistory->update(['saldo_akhir' => $kas->saldo]);
+
+                // Set saldo awal bulan ini
+                $kas->saldo_awal = $kas->saldo;
+                $kas->save();
+            }
+
+            $historyNow = KasSaldoHistory::firstOrCreate(
+                ['kas_id' => $kas->id, 'tahun' => $tahunNow, 'bulan' => $bulanNow],
+                ['saldo_awal' => $kas->saldo_awal, 'saldo_akhir' => $kas->saldo]
+            );
+
+            // -------------------------
+            // 2. CEK TRANSAKSI HARI INI
+            // -------------------------
+            $transaksi = KasTransaksi::where('kas_id', $kas->id)
+                ->whereDate('tanggal', $today)
+                ->where('sumber_type', get_class($sumber))
+                ->where('sumber_id', $sumber->id)
+                ->first();
+
+            if (!$transaksi) {
+                // Buat baru
+                $transaksi = KasTransaksi::create([
+                    'kas_id' => $kas->id,
+                    'tipe' => 'in',
+                    'kode_transaksi' => 'KS-' . time() . rand(100, 999),
+                    'total_nominal' => $total_nominal,
+                    'kategori' => $kategori,
+                    'keterangan' => $keterangan,
+                    'item' => $item,
+                    'sumber_type' => get_class($sumber),
+                    'sumber_id' => $sumber->id,
+                    'tanggal' => now(),
+                ]);
+
+                $kas->saldo += $total_nominal;
+                $kas->save();
+
+                $selisih = $total_nominal;
+            } else {
+                // Update transaksi: ambil selisih
+                $selisih = $total_nominal - $transaksi->total_nominal;
+
+                $transaksi->total_nominal = $total_nominal;
+                $transaksi->tanggal = now();
+                $transaksi->save();
+
+                $kas->saldo += $selisih;
+                $kas->save();
+            }
+
+            // Update saldo akhir history bulan ini
+            $historyNow->saldo_akhir = $kas->saldo;
+            $historyNow->save();
+
+            // -------------------------
+            // 3. LABA RUGI BULANAN & TAHUNAN (HPP sebagai beban)
+            // -------------------------
+            if ($laba) {
+                // Beban diambil dari sumber->total_hpp jika ada
+                $beban = $sumber->total_hpp ?? 0;
+
+                // Bulanan
+                $labaRugi = LabaRugi::firstOrCreate(
+                    ['toko_id' => $toko_id, 'tahun' => $tahunNow, 'bulan' => $bulanNow],
+                    ['pendapatan' => 0, 'beban' => 0, 'laba_bersih' => 0]
+                );
+
+                $labaRugi->pendapatan += $selisih;
+                $labaRugi->beban += $beban;
+                $labaRugi->laba_bersih = $labaRugi->pendapatan - $labaRugi->beban;
+                $labaRugi->save();
+
+                // Tahunan
+                $labaRugiTahunan = LabaRugiTahunan::firstOrCreate(
+                    ['toko_id' => $toko_id, 'tahun' => $tahunNow],
+                    ['pendapatan' => 0, 'beban' => 0, 'laba_bersih' => 0]
+                );
+
+                $labaRugiTahunan->pendapatan += $selisih;
+                $labaRugiTahunan->beban += $beban;
+                $labaRugiTahunan->laba_bersih = $labaRugiTahunan->pendapatan - $labaRugiTahunan->beban;
+                $labaRugiTahunan->save();
+            }
+
+            return $transaksi;
+        });
+    }
+
 
     public static function tipeKasName($kas)
     {

@@ -2,7 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\{Pemasukan, Pengeluaran, PengeluaranTipe, KasTransaksi};
+use App\Helpers\RupiahGenerate;
+use App\Models\{Pemasukan, Pengeluaran, PengeluaranTipe, KasTransaksi, TransaksiKasirHarian};
 use App\Models\PenjualanNonFisikDetail;
 use App\Models\ReturMember;
 use App\Models\{LabaRugi, LabaRugiTahunan};
@@ -65,7 +66,7 @@ class LabaRugiService
         // ============================
 
         $penjualanUmum = KasTransaksi::where('tipe', 'in')
-            ->where('sumber_type', TransaksiKasir::class)
+            ->where('sumber_type', TransaksiKasirHarian::class)
             ->whereMonth('tanggal', $month)
             ->whereYear('tanggal', $year)
             ->where($filterToko)
@@ -103,7 +104,15 @@ class LabaRugiService
         // ============================
         // HPP (sementara 0)
         // ============================
-        $hppPenjualan = 0;
+        $hppPenjualan = KasTransaksi::where('tipe', 'in')
+            ->where('sumber_type', TransaksiKasirHarian::class)
+            ->whereMonth('tanggal', $month)
+            ->whereYear('tanggal', $year)
+            ->where($filterToko)
+            ->with('sumber')
+            ->get()
+            ->sum(fn($kt) => (float) $kt->sumber->total_hpp ?? 0);
+
         $hppretur = 0;
         $hppBarangGanti = 0;
 
@@ -179,6 +188,11 @@ class LabaRugiService
             return (float) $total_labarugi;
         }
 
+        $totalPendapatan = (float) $totalPendapatan;
+        $total_hpp = (float) $total_hpp;
+        $totalBeban = (float) $totalBeban;
+        $total_labarugi = (float) $total_labarugi;
+
         return $this->getDetailLaporan(
             $penjualanUmum,
             $pendapatanLainnya,
@@ -194,39 +208,49 @@ class LabaRugiService
         );
     }
 
-
-    protected function getDetailLaporan($penjualanUmum, $pendapatanLainnya, $assetRetur, $totalPendapatan, $hppPenjualan, $hppretur, $hppBarangGanti, $total_hpp, $bebanOperasional, $total_labarugi, $pendapatanNonTransaksi)
-    {
+    protected function getDetailLaporan(
+        $penjualanUmum,
+        $pendapatanLainnya,
+        $assetRetur,
+        $totalPendapatan,
+        $hppPenjualan,
+        $hppretur,
+        $hppBarangGanti,
+        $total_hpp,
+        $bebanOperasional,
+        $total_labarugi,
+        $pendapatanNonTransaksi
+    ) {
         return [
             [
                 'I. Pendapatan',
                 [
-                    ['1.1 Penjualan Umum', number_format($penjualanUmum, 0, ',', '.')],
-                    ['1.2 Pendapatan Lainnya', number_format($pendapatanLainnya, 0, ',', '.')],
-                    ['1.3 Pengembalian Retur', number_format($assetRetur, 0, ',', '.')],
-                    ['1.4 Pendapatan Non Transaksi', number_format($pendapatanNonTransaksi, 0, ',', '.')],
-                    ['Total Pendapatan', number_format($totalPendapatan, 0, ',', '.')]
+                    ['1.1 Penjualan Umum', RupiahGenerate::build($penjualanUmum)],
+                    ['1.2 Pendapatan Lainnya', RupiahGenerate::build($pendapatanLainnya)],
+                    ['1.3 Pengembalian Retur', RupiahGenerate::build($assetRetur)],
+                    ['1.4 Pendapatan Non Transaksi', RupiahGenerate::build($pendapatanNonTransaksi)],
+                    ['Total Pendapatan', RupiahGenerate::build($totalPendapatan)]
                 ]
             ],
             [
                 'II. HPP',
                 [
-                    ['2.1 HPP Penjualan', number_format((float) $hppPenjualan, 0, ',', '.')],
-                    ['2.2 HPP Retur', number_format((float) $hppretur, 0, ',', '.')],
-                    ['2.3 HPP Barang Ganti', number_format((float) $hppBarangGanti, 0, ',', '.')],
-                    ['Total HPP', number_format((float) $total_hpp, 0, ',', '.')]
+                    ['2.1 HPP Penjualan', RupiahGenerate::build($hppPenjualan)],
+                    ['2.2 HPP Retur', RupiahGenerate::build($hppretur)],
+                    ['2.3 HPP Barang Ganti', RupiahGenerate::build($hppBarangGanti)],
+                    ['Total HPP', RupiahGenerate::build($total_hpp)]
                 ]
             ],
             [
                 'III. Biaya Pengeluaran',
                 array_map(function ($item) {
-                    return [$item['label'], number_format($item['value'], 0, ',', '.')];
+                    return [$item['label'], RupiahGenerate::build($item['value'])];
                 }, $bebanOperasional)
             ],
             [
                 'IV. Laba Rugi',
                 [
-                    ['Laba Rugi Ditahan', number_format((float) $total_labarugi, 0, ',', '.')]
+                    ['Laba Rugi Ditahan', RupiahGenerate::build($total_labarugi)]
                 ]
             ],
         ];

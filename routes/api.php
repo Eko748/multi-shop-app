@@ -4,7 +4,7 @@ use App\Http\Controllers\Auth\DashboardController;
 use App\Http\Controllers\LaporanKeuangan\{ArusKasController, LabaRugiController, NeracaController, NeracaPenyesuaianController};
 use App\Http\Controllers\Retur\{ReturMemberController, ReturSupplierController};
 use App\Http\Controllers\TransaksiDigital\{DompetController, TransaksiNonFisikController};
-use App\Http\Controllers\DataMaster\Entitas\{MemberController, SupplierController, TokoController, UserController};
+use App\Http\Controllers\DataMaster\Entitas\{MemberController, SupplierController, TokoController, TokoGroupController, UserController};
 use App\Http\Controllers\DataMaster\Log\LogAktivitasController;
 use App\Http\Controllers\DataMaster\ManajemenBarang\{BarangController, BrandController, JenisBarangController, StockBarangBatchController, StockBarangController};
 use App\Http\Controllers\DataMaster\Pengaturan\{LevelHargaController, LevelUserController, PermissionController, PromoController};
@@ -42,7 +42,6 @@ Route::get('/get-ratingmember', [RatingMemberController::class, 'getMember'])->n
 
 Route::get('/getpembelianbarang', [PembelianBarangController::class, 'getpembelianbarang'])->name('master.pembelian.get');
 Route::get('/gettemppembelian', [PembelianBarangController::class, 'gettemppembelian'])->name('master.temppembelian.get');
-Route::delete('/hapustemp', [PembelianBarangController::class, 'hapusTemp'])->name('master.temppembelian.hapus');
 
 Route::get('/getdatauser', [UserController::class, 'getdatauser'])->name('master.getdatauser');
 Route::get('/getpengeluaran', [PengeluaranController::class, 'getpengeluaran'])->name('master.getpengeluaran');
@@ -59,7 +58,6 @@ Route::get('/getleveluser', [LevelUserController::class, 'getleveluser'])->name(
 Route::get('/getlevelharga', [LevelHargaController::class, 'getlevelharga'])->name('master.getlevelharga');
 Route::get('/getpromo', [PromoController::class, 'getpromo'])->name('master.getpromo');
 Route::get('/getbarangs', [BarangController::class, 'getbarangs'])->name('master.getbarangs');
-Route::get('/getstockbarang', [StockBarangController::class, 'getstockbarang'])->name('master.getstockbarang');
 Route::get('/getplanorder', [PlanOrderController::class, 'getplanorder'])->name('master.getplanorder');
 
 Route::get('/getBarang', [PengirimanBarangController::class, 'getHargaBarang'])->name('master.getBarangKirim');
@@ -177,9 +175,19 @@ Route::prefix('retur')->as('retur.')->group(function () {
 });
 
 Route::prefix('stock-barang')->as('sb.')->group(function () {
+    Route::get('get', [StockBarangController::class, 'get'])->name('get');
+    Route::get('get-detail', [StockBarangController::class, 'getDetail'])->name('getDetail');
+    Route::get('get-item/{id}', [StockBarangController::class, 'getItem'])->name('get.item');
+    Route::get('get-hpp', [StockBarangController::class, 'getHpp'])->name('getHpp');
+    Route::get('get-barang', [StockBarangController::class, 'getBarang'])->name('getBarang');
+    Route::put('put-harga', [StockBarangController::class, 'updateHarga'])->name('updateHarga');
+    Route::put('put-refresh', [StockBarangController::class, 'refreshStock'])->name('refreshStock');
+    Route::put('put-stok', [StockBarangController::class, 'updateStock'])->name('updateStock');
+
     Route::prefix('batch')->as('batch.')->group(function () {
         Route::get('get', [StockBarangBatchController::class, 'get'])->name('get');
         Route::get('get-by-qrcode', [StockBarangBatchController::class, 'getByQR'])->name('getByQR');
+        Route::get('get-harga-jual', [StockBarangBatchController::class, 'getHargaJual'])->name('getHargaJual');
     });
 });
 
@@ -236,5 +244,22 @@ Route::prefix('transaksi-barang')->as('tb.')->group(function () {
         Route::post('post', [TransaksiKasirController::class, 'post'])->name('post');
         Route::get('get-harga', [TransaksiKasirController::class, 'getHarga'])->name('getHarga');
         Route::get('print/{id_kasir}', [TransaksiKasirController::class, 'print'])->name('print');
+    });
+
+    Route::prefix('pembelian')->as('pb.')->group(function () {
+        Route::put('put', [PembelianBarangController::class, 'update'])->name('put');
+
+        Route::prefix('temporary')->as('temp.')->group(function () {
+            Route::post('post', [PembelianBarangController::class, 'postTemp'])->name('post');
+            Route::delete('delete', [PembelianBarangController::class, 'deleteTemp'])->name('delete');
+        });
+    });
+});
+
+Route::prefix('data-master')->as('dm.')->group(function () {
+    Route::prefix('toko')->as('toko.')->group(function () {
+        Route::prefix('group')->as('group.')->group(function () {
+            Route::get('select', [TokoGroupController::class, 'select'])->name('select');
+        });
     });
 });

@@ -2,6 +2,7 @@
 
 namespace App\Repositories\TransaksiBarang;
 
+use App\Helpers\RupiahGenerate;
 use App\Models\TransaksiKasir;
 use Illuminate\Support\Carbon;
 
@@ -16,20 +17,26 @@ class TransaksiKasirRepo
 
     public function sumNominal($filter)
     {
-        $query = $this->model;
+        $query = $this->model->newQuery();
 
         if (!empty($filter->start_date) && !empty($filter->end_date)) {
-            $query->whereBetween('tanggal', [$filter->start_date, $filter->end_date]);
+            $query->whereBetween('tanggal', [
+                Carbon::parse($filter->start_date)->startOfDay(),
+                Carbon::parse($filter->end_date)->endOfDay(),
+            ]);
         } else {
             $query->whereDate('tanggal', Carbon::today());
         }
 
-        return $query->sum('total_nominal');
+        return [
+            'qty'       => $query->sum('total_qty'),
+            'nominal'   => RupiahGenerate::build($query->sum('total_nominal'))
+        ];
     }
 
     public function getAll($filter)
     {
-        $query = $this->model::query();
+        $query = $this->model->newQuery();
 
         if (!empty($filter->search)) {
             $query->where(function ($q) use ($filter) {

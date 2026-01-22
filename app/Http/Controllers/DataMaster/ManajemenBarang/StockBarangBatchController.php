@@ -64,4 +64,26 @@ class StockBarangBatchController extends Controller
             ]);
         }
     }
+
+    public function getHargaJual(Request $request)
+    {
+        try {
+            $filter = $this->makeFilter(
+                $request,
+                30,
+                [
+                    'toko_id' => $request->input('toko_id'),
+                    'member_id' => $request->input('member_id'),
+                ]
+            );
+
+            $data = $this->service->getHargaJual($filter);
+
+            return $this->success($data['data'], 200, 'Berhasil');
+        } catch (\Exception $e) {
+            return $this->error(500, "Gagal mengambil data {$this->title[0]}", [
+                'exception' => $e->getMessage()
+            ]);
+        }
+    }
 }

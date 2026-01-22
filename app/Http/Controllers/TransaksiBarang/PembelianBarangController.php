@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\TransaksiBarang;
 
+use App\Helpers\FormatHarga;
 use App\Helpers\KasJenisBarangGenerate;
 use App\Helpers\LogAktivitasGenerate;
 use App\Helpers\QrGenerator;
@@ -335,6 +336,8 @@ class PembelianBarangController extends Controller
         $id = $request->id;
 
         $rules = [
+            'toko_group_id'  => 'required|integer|exists:toko_group,id',
+            'toko_id'  => 'required|integer|exists:toko,id',
             'created_by' => 'required|integer',
             'id' => 'required|integer',
             'nota' => 'required|string',
@@ -370,7 +373,10 @@ class PembelianBarangController extends Controller
                 $harga_barang = $item['harga_barang'];
                 $levelHargaFromFront = $item['level_harga'] ?? [];
 
-                $stockBarang = StockBarang::firstOrNew(['barang_id' => $id_barang]);
+                $stockBarang = StockBarang::firstOrNew([
+                    'barang_id'     => $id_barang,
+                    'toko_group_id' => $request->toko_group_id,
+                ]);
 
                 $stock_sebelum = $stockBarang->stok ?? 0;
 
@@ -412,11 +418,12 @@ class PembelianBarangController extends Controller
                 $stockBarang->stok = $total_stok_baru;
                 $stockBarang->hpp_awal = $hpp_awal;      // nilai sebelum dihitung ulang
                 $stockBarang->hpp_baru = $hpp_baru;      // hasil akhir update
-                $stockBarang->toko_id = $request->toko_id;
+                $stockBarang->toko_group_id = $request->toko_group_id;
                 $stockBarang->level_harga = json_encode($levelHargaFromFront);
                 $stockBarang->save();
 
                 $batch = StockBarangBatch::create([
+                    'toko_id' => $request->toko_id,
                     'qrcode' => QrGenerator::generate()['value'],
                     'stock_barang_id' => $stockBarang->id,
                     'qty_masuk' => $qty,
@@ -724,100 +731,158 @@ class PembelianBarangController extends Controller
         }
     }
 
-    public function storeTemp(Request $request)
+    public function postTemp(Request $request)
     {
         try {
             $request->validate([
                 'id_pembelian' => 'nullable|exists:pembelian_barang,id',
-                'id_barang' => 'required|exists:barang,id',
-                'qty' => 'required|numeric|min:1',
+                'id_barang'    => 'required|exists:barang,id',
+                'qty'          => 'required|numeric|min:1',
                 'harga_barang' => 'required|numeric|min:1',
-                'level_harga' => 'array',
-                'level_harga.*' => 'string',
+
+                'level_harga'   => 'nullable|array',
+                'level_harga.*' => 'numeric|min:0',
+
                 'hpp_awal' => 'required|numeric|min:0',
                 'hpp_baru' => 'required|numeric|min:0',
 
-                'toko_id' => 'required_if:id_pembelian,null|exists:toko,id',
-                'supplier_id' => 'required_if:id_pembelian,null|exists:supplier,id',
-                'jenis_barang_id' => 'required_if:id_pembelian,null|exists:jenis_barang,id',
-                'nota' => 'required_if:id_pembelian,null|string|max:255',
-                'tanggal' => 'required_if:id_pembelian,null|date',
-                'tipe' => 'required_if:id_pembelian,null|string|max:50',
+                // 🔥 FIX UTAMA
+                'toko_id'         => 'required_without:id_pembelian|exists:toko,id',
+                'toko_group_id'   => 'required_without:id_pembelian|exists:toko_group,id',
+                'supplier_id'     => 'required_without:id_pembelian|exists:supplier,id',
+                'jenis_barang_id' => 'required_without:id_pembelian|exists:jenis_barang,id',
+                'nota'            => 'required_without:id_pembelian|string|max:255',
+                'tanggal'         => 'required_without:id_pembelian|date',
+                'tipe'            => 'required_without:id_pembelian|string|max:50',
             ]);
 
             $idPembelian = $request->id_pembelian;
+            $levelHarga = FormatHarga::array($request->level_harga);
 
             if ($idPembelian === null) {
                 $pembelian = PembelianBarang::create([
-                    'toko_id'           => $request->toko_id,
-                    'supplier_id'       => $request->supplier_id,
-                    'jenis_barang_id'   => $request->jenis_barang_id,
-                    'nota'              => $request->nota,
-                    'tanggal'           => $request->tanggal,
-                    'tipe'              => $request->tipe,
-                    'created_by'        => $request->created_by,
-                    'tipe_kas'          => 'kecil'
+                    'toko_id'         => $request->toko_id,
+                    'supplier_id'     => $request->supplier_id,
+                    'jenis_barang_id' => $request->jenis_barang_id,
+                    'nota'            => $request->nota,
+                    'tanggal'         => $request->tanggal,
+                    'tipe'            => $request->tipe,
+                    'created_by'      => $request->created_by,
+                    'tipe_kas'        => 'kecil',
                 ]);
 
                 $idPembelian = $pembelian->id;
             }
 
-            $stock = StockBarang::where('barang_id', $request->id_barang)
-                ->update([
-                    'level_harga'   => json_encode($request->level_harga),
-                    'hpp_awal'      => $request->hpp_awal,
-                    'hpp_baru'      => $request->hpp_baru,
-                ]);
+            StockBarang::updateOrCreate(
+                [
+                    'barang_id'     => $request->id_barang,
+                    'toko_group_id' => $request->toko_group_id,
+                ],
+                [
+                    'level_harga' => json_encode($levelHarga), // ✅ FIX
+                    'hpp_awal'    => (float) $request->hpp_awal,
+                    'hpp_baru'    => (float) $request->hpp_baru,
+                ]
+            );
 
             $tempDetail = PembelianBarangDetailTemp::create([
                 'pembelian_barang_id' => $idPembelian,
-                'barang_id' => $request->id_barang,
-                'qty' => $request->qty,
-                'harga_beli' => $request->harga_barang,
-                'subtotal' => $request->qty * $request->harga_barang,
-                'level_harga'   => json_encode($request->level_harga)
+                'barang_id'           => $request->id_barang,
+                'qty'                 => $request->qty,
+                'harga_beli'          => $request->harga_barang,
+                'subtotal'            => $request->qty * $request->harga_barang,
+                'level_harga'         => json_encode($levelHarga), // ✅ FIX
             ]);
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Data berhasil disimpan',
-                'data' => $tempDetail
+                'data'   => $tempDetail
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => $e->getMessage()
+                'line'   => $e->getLine(),
+                'msg'    => $e->getMessage(),
             ], 500);
         }
     }
 
-    public function hapusTemp(Request $request)
+    public function deleteTemp(Request $request)
     {
         try {
             $request->validate([
                 'id_pembelian' => 'required|exists:pembelian_barang_detail_temp,pembelian_barang_id',
-                'id_barang' => 'required|exists:pembelian_barang_detail_temp,barang_id'
+                'id_barang'    => 'required|exists:pembelian_barang_detail_temp,barang_id',
+                'toko_group_id' => 'required|exists:toko_group,id',
             ]);
 
-            $deleted = PembelianBarangDetailTemp::where('pembelian_barang_id', $request->id_pembelian)
-                ->where('barang_id', $request->id_barang)
-                ->delete();
+            DB::beginTransaction();
 
-            if ($deleted) {
-                return response()->json([
-                    'status' => 'success',
-                    'message' => 'Data Berhasil diEdit'
-                ]);
-            } else {
+            // Ambil data yang akan dihapus (untuk undo)
+            $temp = PembelianBarangDetailTemp::where('pembelian_barang_id', $request->id_pembelian)
+                ->where('barang_id', $request->id_barang)
+                ->first();
+
+            if (!$temp) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Data tidak ditemukan atau sudah diHapus'
+                    'message' => 'Data tidak ditemukan'
                 ], 404);
             }
-        } catch (\Exception $e) {
+
+            // Hapus temp
+            $temp->delete();
+
+            // ================================
+            // REHITUNG ULANG STOCK & HPP
+            // ================================
+            $stockBarang = StockBarang::where('barang_id', $request->id_barang)
+                ->where('toko_group_id', $request->toko_group_id)
+                ->first();
+
+            if ($stockBarang) {
+
+                // Ambil sisa temp
+                $sisaTemp = PembelianBarangDetailTemp::where('barang_id', $request->id_barang)
+                    ->where('pembelian_barang_id', $request->id_pembelian)
+                    ->get();
+
+                if ($sisaTemp->count() > 0) {
+
+                    // 🔥 Hitung ulang HPP dari sisa temp
+                    $totalQty = $sisaTemp->sum('qty');
+                    $totalHarga = $sisaTemp->sum('subtotal');
+
+                    $hppBaru = $totalQty > 0
+                        ? round($totalHarga / $totalQty, 2)
+                        : 0;
+
+                    $stockBarang->update([
+                        'hpp_baru' => $hppBaru,
+                    ]);
+                } else {
+
+                    // 🔥 Tidak ada temp → rollback ke hpp_awal
+                    $stockBarang->update([
+                        'hpp_baru' => $stockBarang->hpp_awal,
+                    ]);
+                }
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Data berhasil di-undo'
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
             return response()->json([
                 'status' => 'error',
-                'message' => $e->getMessage(),
+                'line'   => $e->getLine(),
+                'msg'    => $e->getMessage(),
             ], 500);
         }
     }

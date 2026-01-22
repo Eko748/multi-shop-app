@@ -4,6 +4,8 @@ namespace App\Http\Controllers\DataMaster\ManajemenBarang;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\ActivityLogger;
+use App\Helpers\AssetGenerate;
+use App\Helpers\TextGenerate;
 use App\Imports\BarangImport;
 use App\Models\Barang;
 use App\Models\Brand;
@@ -89,9 +91,9 @@ class BarangController extends Controller
                 'id' => $item['id'],
                 'garansi' => $item->garansi === 'Yes' ? 'Ada' : 'Tidak Ada',
                 'barcode' => $item->barcode,
-                'barcode_path' => "barcodes/{$item->barcode}.png",
+                'barcode_path' => AssetGenerate::build("barcodes/{$item->barcode}.png"),
                 'gambar' => $item->gambar,
-                'nama_barang' => $item->nama,
+                'nama_barang' => TextGenerate::short($item->nama, 60),
                 'nama_jenis_barang' => optional($item['jenis'])->nama_jenis_barang ?? 'Tidak Ada',
                 'nama_brand' => optional($item['brand'])->nama_brand ?? 'Tidak Ada',
             ];

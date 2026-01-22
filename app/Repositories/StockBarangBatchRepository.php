@@ -26,9 +26,7 @@ class StockBarangBatchRepository
         }
 
         if (!empty($filter->toko_id)) {
-            $query->whereHas('stockBarang', function ($q2) use ($filter) {
-                    $q2->where('toko_id', $filter->toko_id);
-                });
+            $query->where('toko_id', $filter->toko_id);
         }
 
         $query->orderBy('created_at');
@@ -40,9 +38,7 @@ class StockBarangBatchRepository
 
     public function getByQR($filter)
     {
-        $query = $this->model::where('qty_sisa', '>', 0)->whereHas('stockBarang', function ($q) use ($filter) {
-            $q->where('toko_id', $filter->toko_id);
-        });
+        $query = $this->model::where('qty_sisa', '>', 0)->where('toko_id', $filter->toko_id);
 
         if (!empty($filter->search)) {
             $query->where('qrcode', $filter->search);

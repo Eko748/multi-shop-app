@@ -204,12 +204,12 @@
                                         <thead>
                                             <tr class="tb-head">
                                                 <th class="text-center text-wrap align-top">No</th>
-                                                <th class="text-wrap align-top">ID Barang</th>
-                                                <th class="text-wrap align-top">Kode Barcode</th>
+                                                <th class="text-wrap align-top">ID</th>
+                                                <th class="text-wrap align-top">Kode</th>
                                                 <th class="text-wrap align-top">Barcode</th>
-                                                <th class="text-wrap align-top">Nama Barang</th>
-                                                <th class="text-wrap align-top">Jenis Barang</th>
-                                                <th class="text-wrap align-top">Brand Barang</th>
+                                                <th class="text-wrap align-top">Barang</th>
+                                                <th class="text-wrap align-top">Jenis</th>
+                                                <th class="text-wrap align-top">Brand</th>
                                                 <th class="text-wrap align-top">Garansi</th>
                                                 <th class="text-center text-wrap align-top" style="width: 15%;"><span
                                                         class="mr-4">Action</span></th>
@@ -321,6 +321,48 @@
             </div>
         </div>
     </div>
+
+    <div id="barcodePreview"
+        style="
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.6);
+    z-index:9999;
+    align-items:center;
+    justify-content:center;
+">
+        <div
+            style="
+        background:#fff;
+        padding:16px;
+        padding-top:48px;
+        max-width:90vw;
+        max-height:90vh;
+        box-shadow:0 10px 40px rgba(0,0,0,.3);
+        position:relative;
+    ">
+            <button onclick="closeBarcodePreview()"
+                style="
+            position:absolute;
+            top:8px;
+            right:8px;
+            border:none;
+            background:none;
+            font-size:20px;
+            cursor:pointer;
+        ">✕</button>
+
+            <img id="barcodePreviewImg" src=""
+                style="
+            max-width:100%;
+            max-height:80vh;
+            display:block;
+            margin:auto;
+        ">
+        </div>
+    </div>
+
 @endsection
 
 @section('asset_js')
@@ -397,16 +439,18 @@
 
         async function handleData(data) {
             let view_button = data?.barcode_path && data.barcode_path !== "" ?
-                `<a href="{{ asset('storage') }}/${data.barcode_path}" target="_blank" class="view-barcode text-info"
-                    data-container="body" data-toggle="tooltip" data-placement="top" style="text-decoration: underline;"
-                    title="Lihat Barcode ${title}: ${data.nama_barang}"
-                    data-id='${data.id}'>
-                    ${data.barcode}
-                </a>` :
-                ``;
+                `
+                <a href="javascript:void(0)"
+                class="view-barcode text-info"
+                style="text-decoration: underline;"
+                title="Preview Barcode ${title}: ${data.nama_barang}"
+                onclick="previewBarcode('${data.barcode_path}')">
+                ${data.barcode}
+                </a>` : ``;
+
             // Lokal
             let gambar_barcode = data?.barcode_path && data.barcode_path !== "" ?
-                `<img src="{{ asset('storage') }}/${data.barcode_path}" width="100" class="barcode-img" alt="Barcode">` :
+                `<img src="${data.barcode_path}" width="100" class="barcode-img" alt="Barcode">` :
                 `<span class="badge badge-danger">Tidak Ada Gambar</span>`;
 
             let edit_button = `
@@ -421,7 +465,7 @@
                 </a>`;
 
             let download_button = data?.barcode_path && data.barcode_path !== "" ?
-                `<a href="{{ asset('storage') }}/${data.barcode_path}" download class="p-1 btn download-data action_button"
+                `<a href="${data.barcode_path}" download class="p-1 btn download-data action_button"
                     data-container="body" data-toggle="tooltip" data-placement="top"
                     title="Unduh Barcode ${title}: ${data.nama_barang}"
                     data-id='${data.id}'>
@@ -642,6 +686,26 @@
                 }
             });
         }
+
+        function previewBarcode(base64) {
+            const overlay = document.getElementById('barcodePreview');
+            const img = document.getElementById('barcodePreviewImg');
+
+            img.src = base64;
+            overlay.style.display = 'flex';
+        }
+
+        function closeBarcodePreview() {
+            const overlay = document.getElementById('barcodePreview');
+            const img = document.getElementById('barcodePreviewImg');
+
+            img.src = '';
+            overlay.style.display = 'none';
+        }
+
+        document.getElementById('barcodePreview').addEventListener('click', function(e) {
+            if (e.target === this) closeBarcodePreview();
+        });
 
         async function initPageLoad() {
             await Promise.all([

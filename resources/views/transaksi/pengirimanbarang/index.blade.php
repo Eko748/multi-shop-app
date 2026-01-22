@@ -756,34 +756,6 @@
             });
         }
 
-        async function setDatePicker() {
-            window.tglPengiriman = flatpickr("#send_at", {
-                enableTime: true,
-                time_24hr: true,
-                dateFormat: "Y-m-d H:i",
-                defaultDate: new Date(),
-                allowInput: true,
-                appendTo: document.querySelector('.modal-body'),
-                position: "above",
-
-                onDayCreate: (dObj, dStr, fp, dayElem) => {
-                    dayElem.addEventListener('click', () => {
-                        fp.calendarContainer.querySelectorAll('.selected').forEach(el => {
-                            el.style.backgroundColor = "#1abc9c";
-                            el.style.color = "#fff";
-                        });
-                    });
-                }
-            });
-
-            const inputField = document.querySelector("#send_at");
-
-            inputField.removeAttribute("readonly");
-
-            inputField.style.backgroundColor = "";
-            inputField.style.cursor = "pointer";
-        }
-
         function addRowItem() {
             $(document).off("keydown", "#scan_batch_input");
             $(document).off("change", "#select_batch_manual");
@@ -889,7 +861,6 @@
             }
         }
 
-
         function showEmptyMessage() {
             $("#table-detail tbody").html(`
                 <tr class="empty-row">
@@ -927,26 +898,6 @@
             `;
 
             tbody.append(row);
-        }
-
-        function showScanInfo(message, statusClass) {
-            let $info = $("#scan-info");
-
-            $info
-                .text(message)
-                .removeClass("text-danger text-success text-warning text-info")
-                .addClass(statusClass)
-                .show();
-
-            clearTimeout($info.data("timer"));
-
-            let timer = setTimeout(() => {
-                $info.fadeOut(600, function() {
-                    $(this).text("").removeClass(statusClass).show();
-                });
-            }, 3000);
-
-            $info.data("timer", timer);
         }
 
         function verifyData() {

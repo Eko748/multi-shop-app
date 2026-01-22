@@ -18,6 +18,7 @@ return new class extends Migration
             $table->string('qrcode')->unique()->nullable();
             $table->integer('qty');
             $table->decimal('nominal', 15, 2);
+            $table->decimal('subtotal', 15, 2);
             $table->decimal('diskon', 15, 2)->nullable();
             $table->integer('retur_qty')->nullable();
             $table->unsignedBigInteger('retur_by')->nullable();

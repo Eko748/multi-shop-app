@@ -253,20 +253,30 @@
                         </div>
 
                         <div class="row">
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <div class="form-group">
-                                    <label for="level_harga" class="form-control-label">Level Harga</label>
+                                    <label for="level_harga" class="form-control-label">Level Harga<span
+                                            style="color: red">*</span></label>
                                     <select class="form-control" id="level_harga" name="level_harga">
                                     </select>
                                 </div>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <div class="form-group">
-                                    <label for="kas_detail" class="form-control-label">Tipe Kas Jenis Barang</label>
+                                    <label for="kas_detail" class="form-control-label">Tipe Kas Jenis Barang<span
+                                            style="color: red">*</span></label>
                                     <select class="form-control" id="kas_detail" name="kas_detail">
                                         <option value="1">Ya</option>
                                         <option value="0">Tidak</option>
                                     </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="toko_group" class="form-control-label">Grup Toko</label>
+                                    <select class="form-control" id="toko_group" name="toko_group">
+                                    </select>
+                                    <small class="text-muted"><i>**kosongkan jika ingin membuat grup toko baru</i></small>
                                 </div>
                             </div>
                         </div>
@@ -314,7 +324,16 @@
             placeholder: 'Pilih Level Harga',
             isModal: '#modal-form',
             multiple: true
-        }];
+        }, {
+            id: '#toko_group',
+            isFilter: {
+                toko_id: {{ auth()->user()->toko_id }},
+            },
+            isUrl: '{{ route('dm.toko.group.select') }}',
+            placeholder: 'Pilih Grup Toko',
+            isModal: '#modal-form',
+            isForm: true
+        }, ];
 
         async function getListData(limit = 10, page = 1, ascending = 0, search = '', customFilter = {}) {
             $('#listData').html(loadingData());
@@ -486,6 +505,7 @@
                 let formData = {
                     toko_id: idToko,
                     nama: $('#nama').val(),
+                    toko_group_id: $('#toko_group').val(),
                     singkatan: $('#singkatan').val(),
                     wilayah: $('#wilayah').val(),
                     alamat: $('#alamat').val(),

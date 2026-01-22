@@ -10,6 +10,10 @@ class PengirimanBarangDetailTemp extends Model
 
     protected $guarded = [];
 
+    protected $casts = [
+        'level_harga' => 'array',
+    ];
+
     public function barang()
     {
         return $this->belongsTo(Barang::class);

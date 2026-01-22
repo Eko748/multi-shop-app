@@ -31,6 +31,7 @@ class DatabaseSeeder extends Seeder
             PermissionSeeder::class,
             RoleHasPermissionSeeder::class,
             TokoSeeder::class,
+            TokoGroupSeeder::class,
             SupplierSeeder::class,
             MemberSeeder::class,
             UserFixSeeder::class,

@@ -366,14 +366,14 @@ class MasterController extends Controller
         $meta['orderBy'] = $request->ascending ? 'asc' : 'desc';
         $meta['limit'] = $request->has('limit') && $request->limit <= 30 ? $request->limit : 30;
 
-        $id_toko = $request->id_toko;
+        $toko_id = $request->toko_id;
 
-        $query = ($id_toko == 1) ? Member::query() : Member::where('id_toko', $id_toko);
+        $query = ($toko_id == 1) ? Member::query() : Member::where('toko_id', $toko_id);
 
         if (!empty($request['search'])) {
             $searchTerm = trim(strtolower($request['search']));
             $query->where(function ($query) use ($searchTerm) {
-                $query->orWhereRaw("LOWER(nama_member) LIKE ?", ["%$searchTerm%"]);
+                $query->orWhereRaw("LOWER(nama) LIKE ?", ["%$searchTerm%"]);
                 $query->orWhereRaw("LOWER(no_hp) LIKE ?", ["%$searchTerm%"]);
             });
         }
@@ -413,12 +413,12 @@ class MasterController extends Controller
 
             return [
                 'id' => $item['id'],
-                'text' => $info ? "{$item['nama_member']} ({$info})" : $item['nama_member'],
+                'text' => $info ? "{$item['nama']} ({$info})" : $item['nama'],
             ];
         }, $items);
 
         array_unshift($mappedData, [
-            'id' => 'Guest',
+            'id' => 'guest',
             'text' => 'Guest'
         ]);
 
@@ -772,9 +772,9 @@ class MasterController extends Controller
 
     public function getQrBarcode(Request $request)
     {
-        $id_toko = $request->id_toko;
+        $toko_id = $request->toko_id;
 
-        if (!$id_toko) {
+        if (!$toko_id) {
             return response()->json([
                 'status_code' => 400,
                 'errors' => true,

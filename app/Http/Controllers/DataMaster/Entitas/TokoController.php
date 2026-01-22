@@ -9,6 +9,8 @@ use App\Models\DetailToko;
 use App\Models\LevelHarga;
 use App\Models\StockBarang;
 use App\Models\Toko;
+use App\Models\TokoGroup;
+use App\Models\TokoGroupItem;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -130,14 +132,15 @@ class TokoController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'toko_id' => 'required|integer',
-            'nama' => 'required|max:255',
-            'singkatan' => 'required|max:4|unique:toko,singkatan',
-            'level_harga' => 'required|array',
-            'wilayah' => 'required|max:255',
-            'alamat' => 'required|max:255',
-            'pin' => 'nullable|numeric',
-            'kas_detail' => 'nullable',
+            'toko_id'        => 'required|integer',
+            'toko_group_id'  => 'nullable|integer|exists:toko_group,id',
+            'nama'           => 'required|max:255',
+            'singkatan'      => 'required|max:4|unique:toko,singkatan',
+            'level_harga'    => 'required|array',
+            'wilayah'        => 'required|max:255',
+            'alamat'         => 'required|max:255',
+            'pin'            => 'nullable|numeric',
+            'kas_detail'     => 'nullable',
         ], [
             'nama.required' => 'Nama Toko tidak boleh kosong.',
             'singkatan.required' => 'Singkatan Wajib di Isi.',
@@ -148,23 +151,71 @@ class TokoController extends Controller
 
         try {
             DB::beginTransaction();
-            Toko::create([
-                'parent_id' => $request->toko_id,
-                'nama' => $request->nama,
-                'singkatan' => $request->singkatan,
-                'wilayah' => $request->wilayah,
-                'alamat' => $request->alamat,
+
+            /** 1️⃣ Buat toko baru */
+            $toko = Toko::create([
+                'parent_id'   => $request->toko_id,
+                'nama'        => $request->nama,
+                'singkatan'   => $request->singkatan,
+                'wilayah'     => $request->wilayah,
+                'alamat'      => $request->alamat,
                 'level_harga' => json_encode($request->level_harga),
-                'pin' => $request->filled('pin') ? $request->pin : null,
-                'kas_detail' => 1,
+                'pin'         => $request->filled('pin') ? $request->pin : null,
+                'kas_detail'  => 1,
+            ]);
+
+            if ($request->filled('toko_group_id')) {
+                $group = TokoGroup::findOrFail($request->toko_group_id);
+            } else {
+                $group = TokoGroup::create([
+                    'parent_toko_id' => $request->toko_id,
+                    'nama' => $this->generateTokoGroupName($request->toko_id),
+                ]);
+
+                TokoGroupItem::firstOrCreate([
+                    'toko_group_id' => $group->id,
+                    'toko_id'       => $request->toko_id,
+                ]);
+            }
+
+            TokoGroupItem::firstOrCreate([
+                'toko_group_id' => $group->id,
+                'toko_id'       => $toko->id,
             ]);
 
             DB::commit();
+
             return $this->success(null, 200, 'Data berhasil disimpan!');
         } catch (\Exception $e) {
             DB::rollBack();
-            return $this->error(500, 'Terjadi kesalahan saat menyimpan data: ' . $e->getMessage());
+            return $this->error(500, $e->getMessage());
         }
+    }
+
+    private function generateTokoGroupName(int $parentTokoId): string
+    {
+        $parent = Toko::findOrFail($parentTokoId);
+
+        $kode = $parent->singkatan
+            ? strtoupper($parent->singkatan)
+            : strtoupper(preg_replace('/\s+/', '', $parent->nama));
+
+        // Cari group terakhir untuk parent ini
+        $lastGroup = TokoGroup::where('parent_toko_id', $parentTokoId)
+            ->orderByDesc('id')
+            ->first();
+
+        $nextNumber = 1;
+
+        if ($lastGroup && preg_match('/(\d{3})$/', $lastGroup->nama, $match)) {
+            $nextNumber = (int) $match[1] + 1;
+        }
+
+        return sprintf(
+            '%s %03d',
+            $kode,
+            $nextNumber
+        );
     }
 
     public function detail(string $id)

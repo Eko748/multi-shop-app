@@ -28,6 +28,7 @@ use Endroid\QrCode\Encoding\Encoding;
 use Endroid\QrCode\Label\Label;
 use Endroid\QrCode\Label\Font\NotoSans;
 use App\Traits\{ApiResponse, HasFilter};
+use Illuminate\Validation\ValidationException;
 use Exception;
 
 class TransaksiKasirController extends Controller
@@ -56,7 +57,11 @@ class TransaksiKasirController extends Controller
     public function get(Request $request)
     {
         try {
-            $filter = $this->makeFilter($request, 30);
+            $filter = $this->makeFilter($request, 30,
+            [
+                'toko_id' => $request->input('toko_id'),
+                'nota' => $request->input('nota'),
+            ]);
             $data = $this->service->getAll($filter);
 
             return $this->success($data['data'], 200, 'Berhasil', $data['pagination']);
@@ -66,6 +71,35 @@ class TransaksiKasirController extends Controller
             ]);
         }
     }
+
+    public function post(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'toko_id' => 'required|exists:toko,id',
+                'created_by' => 'required|exists:users,id',
+                'member_id' => 'nullable',
+                'metode' => 'required|in:cash,cashless',
+                'tanggal' => 'required|date',
+                'total_qty' => 'required|integer|min:1',
+                'total_nominal' => 'required|numeric|min:0',
+                'total_bayar' => 'required|numeric|min:0',
+                'details' => 'required|array|min:1',
+                'details.*.stock_barang_batch_id' => 'required|exists:stock_barang_batch,id',
+                'details.*.qty' => 'required|integer|min:1',
+                'details.*.nominal' => 'required|numeric|min:0',
+            ]);
+
+            $data = $this->service->create($validated);
+
+            return $this->success($data, 201, "{$this->title[0]} berhasil disimpan.");
+        } catch (ValidationException $e) {
+            return $this->error(422, 'Validation Error', $e->errors());
+        } catch (\Exception $e) {
+            return $this->error(500, 'Internal Server Error', $e->getMessage());
+        }
+    }
+
 
     public function print($id_kasir)
     {

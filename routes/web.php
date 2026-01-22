@@ -97,14 +97,6 @@ Route::middleware(['auth'])->group(function () {
 
     // Stock Barang Controller
     Route::get('/stockbarang', [StockBarangController::class, 'index'])->name('master.stockbarang.index')->middleware('permission:GET /stockbarang');
-    Route::get('/stockbarang/create', [StockBarangController::class, 'create'])->name('master.stockbarang.create')->middleware('permission:GET /stockbarang/create');
-    Route::get('/get-stock-details/{id_barang}', [StockBarangController::class, 'getStockDetails'])->name('get-stock-details')->middleware('permission:GET /get-stock-details/{id_barang}');
-    Route::get('/get-item/{id}', [StockBarangController::class, 'getItem'])->name('get.item')->middleware('permission:GET /get-item/{id}');
-    Route::post('/update-level-harga', [StockBarangController::class, 'updateLevelHarga'])->name('updateLevelHarga')->middleware('permission:POST /update-level-harga');
-    Route::get('/hpp_barang', [StockBarangController::class, 'getHppBarang'])->name('master.stock.hpp_barang')->middleware('permission:GET /hpp_barang');
-    Route::get('/get-detail-barang/{id_barang}', [StockBarangController::class, 'getdetailbarang'])->name('get.detail.barang')->middleware('permission:GET /get-detail-barang/{id_barang}');
-    Route::put('/stock-barang/refresh-stok', [StockBarangController::class, 'refreshStok'])->name('master.stockbarang.refresh-stok');
-    Route::put('/stock-barang/edit-stok', [StockBarangController::class, 'editStock'])->name('master.stockbarang.edit-stok');
 
     // Permission Controller
     Route::get('/permission', [PermissionController::class, 'index'])->name('master.permission.index')->middleware('permission:GET /permission');
@@ -149,12 +141,10 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/pembelianbarang/remove-item/{id}', [PembelianBarangController::class, 'removeItem'])->middleware('permission:DELETE /pembelianbarang/remove-item/{id}');
     Route::get('/pembelianbarang/{id}/detail', [PembelianBarangController::class, 'detail'])->name('transaksi.pembelianbarang.detail')->middleware('permission:GET /pembelianbarang/{id}/detail');
     Route::get('/pembelianbarang/Getdetail', [PembelianBarangController::class, 'getDetailPembelian'])->name('transaksi.pembelianbarang.Getdetail')->middleware('permission:GET /pembelianbarang/Getdetail');
-    Route::post('/pembelianbarang/update', [PembelianBarangController::class, 'update'])->name('transaksi.pembelianbarang.update')->middleware('permission:PUT /pembelianbarang/{id}/update');
     Route::delete('/pembelianbarang/{id}/delete', [PembelianBarangController::class, 'delete'])->name('transaksi.pembelianbarang.delete')->middleware('permission:DELETE /pembelianbarang/{id}/delete');
     Route::get('/get-stock/{id_barang}', [PembelianBarangController::class, 'getStock'])->name('transaksi.pembelian.getstock')->middleware('permission:GET /get-stock/{id_barang}');
     Route::post('/pembelianbarang/update_status/{id}', [PembelianBarangController::class, 'updateStatus'])->name('transaksi.pembelianbarang.update_status')->middleware('permission:POST /pembelianbarang/update_status/{id}');
     Route::get('/pembelian-barang/level-harga/{barangId}', [PembelianBarangController::class, 'getLevelHarga'])->middleware('permission:GET /pembelian-barang/level-harga/{barangId}');
-    Route::post('/pembelian-barang/store-temp', [PembelianBarangController::class, 'storeTemp'])->name('transaksi.temp.pembelianbarang')->middleware('permission:POST /pembelian-barang/store-temp');
     Route::post('/import-pembelianbarang', [PembelianBarangController::class, 'import'])->name('master.pembelianbarang.import')->middleware('permission:POST /import-pembelianbarang');
     Route::put('/pembelianbarang/edit/detail-pembelian-barang', [PembelianBarangController::class, 'editDetailPembelianBarang'])->name('transaksi.pembelianbarang.update-detail')->middleware('permission:PUT /pembelianbarang/edit/detail-pembelian-barang');
 

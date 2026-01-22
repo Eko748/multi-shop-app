@@ -29,6 +29,22 @@ class Member extends Model
         return $this->belongsTo(LevelHarga::class, 'id_level_harga');
     }
 
+    public function getLevelMapAttribute(): array
+    {
+        $levelInfo = json_decode($this->level_info, true);
+        $result = [];
+
+        if (is_array($levelInfo)) {
+            foreach ($levelInfo as $info) {
+                if (preg_match('/(\d+)\s*:\s*(\d+)/', $info, $m)) {
+                    $result[(int)$m[1]] = (int)$m[2]; // jenis_barang_id => level
+                }
+            }
+        }
+
+        return $result;
+    }
+
     public function getLevelDataAttribute()
     {
         $levelInfo = json_decode($this->level_info, true); // Decode JSON dari level_info

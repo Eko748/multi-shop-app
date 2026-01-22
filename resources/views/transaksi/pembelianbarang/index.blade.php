@@ -143,7 +143,7 @@
                                             aria-labelledby="tambah-tab">
                                             <form id="form-tambah-pembelian">
                                                 <div class="row">
-                                                    <div class="col-4">
+                                                    <div class="col-6">
                                                         <div class="form-group">
                                                             <label for="no_nota" class=" form-control-label">Nomor
                                                                 Nota<sup style="color: red">*</sup></label>
@@ -151,7 +151,7 @@
                                                                 placeholder="Contoh : 001" class="form-control">
                                                         </div>
                                                     </div>
-                                                    <div class="col-4">
+                                                    <div class="col-6">
                                                         <div class="form-group">
                                                             <label for="id_supplier" class="form-control-label">Nama
                                                                 Suplier<sup style="color: red">*</sup></label>
@@ -160,7 +160,16 @@
                                                             </select>
                                                         </div>
                                                     </div>
-                                                    <div class="col-4">
+                                                    <div class="col-6">
+                                                        <div class="form-group">
+                                                            <label for="toko_group" class="form-control-label">Grup
+                                                                Toko<sup style="color: red">*</sup></label>
+                                                            <select name="toko_group" id="toko_group"
+                                                                class="form-control select2">
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-6">
                                                         <div class="form-group">
                                                             <label for="id_supplier" class="form-control-label">Sumber
                                                                 Dana<sup style="color: red">*</sup></label>
@@ -231,10 +240,13 @@
                                                     <div class="col-12 col-md-6 mb-2">
                                                         <div
                                                             class="list-group-item d-flex justify-content-between align-items-center border rounded p-3">
-                                                            <h5 class="mb-0"><i class="fa fa-layer-group"></i> Tipe
-                                                                Transaksi</h5>
-                                                            <span id="tipe-transaksi"
-                                                                class="badge badge-secondary"></span>
+                                                            <h5 class="mb-0"><i class="fa fa-layer-group"></i> Lainnya
+                                                            </h5>
+                                                            <div class="badge badge-secondary">
+                                                                <span id="tipe-transaksi"></span>
+                                                                <span> / </span>
+                                                                <span id="toko-group"></span>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -394,6 +406,7 @@
         let idPembelianEdit = null;
         let rowGlobal = [];
         let selectedSupplier = null;
+        let selectedTokoGroup = null;
         let pembelianBarangId = null;
         let selectedKas = {
             id: null,
@@ -425,6 +438,16 @@
                 },
                 isUrl: '{{ route('master.suplier') }}',
                 placeholder: 'Pilih Suplier',
+                isModal: '#modal-form',
+                isForm: true
+            },
+            {
+                id: '#toko_group',
+                isFilter: {
+                    toko_id: {{ auth()->user()->toko_id }},
+                },
+                isUrl: '{{ route('dm.toko.group.select') }}',
+                placeholder: 'Pilih Grup Toko',
                 isModal: '#modal-form',
                 isForm: true
             },
@@ -644,7 +667,9 @@
         async function showData() {
             $("#btn-next-step").on("click", async function() {
                 let supplier = $("#id_supplier").val();
+                let tokoGroup = $("#toko_group").val();
                 let supplierName = $("#id_supplier option:selected").text();
+                let tokoGroupName = $("#toko_group option:selected").text();
                 let noNota = $("#no_nota").val();
                 let tglNota = $("#tgl_nota").val();
                 let tipeTransaksi = $("#tipe option:selected").text();
@@ -654,17 +679,19 @@
                 let kasSaldo = $("#kas").select2('data')[0].saldo_kas;
 
                 selectedSupplier = supplier;
+                selectedTokoGroup = tokoGroup;
                 selectedKas.id = kas;
                 selectedKas.jenis_id = kasJenisId;
                 selectedKas.saldo_kas = kasSaldo;
 
-                if (!supplier || !noNota || !tglNota) {
+                if (!supplier || !noNota || !tglNota || !tokoGroup) {
                     notificationAlert('warning', 'Error', 'Mohon lengkapi semua data pada Step Pertama');
                     return;
                 }
 
                 $("#no-nota").text(noNota);
                 $("#nama-supplier").text(supplierName);
+                $("#toko-group").text(tokoGroupName);
                 $("#sumber-dana").text(kasName);
                 $("#tgl-nota").text(tglNota);
                 $("#tipe-transaksi").text(tipeTransaksi);
@@ -712,6 +739,7 @@
                 $('#subtotal').empty();
 
                 $("#id_supplier").val(null).trigger("change");
+                $("#toko_group").val(null).trigger("change");
                 $("#kas").val(null).trigger("change");
                 $("#tempData").empty();
 
@@ -832,6 +860,7 @@
                         nota: $('#no-nota').text(),
                         tanggal: $('#tgl-nota').text(),
                         supplier_id: selectedSupplier,
+                        toko_group_id: selectedTokoGroup,
                         tipe: $('#tipe-transaksi').text().toLowerCase(),
                         toko_id: {{ auth()->user()->toko_id }},
                         created_by: {{ auth()->user()->id }}
@@ -866,9 +895,9 @@
                         items: detailItems
                     };
 
-                    let updateUrl = "{{ route('transaksi.pembelianbarang.update') }}";
+                    let updateUrl = "{{ route('tb.pb.put') }}";
 
-                    const postData = await renderAPI('POST', updateUrl, payload);
+                    const postData = await renderAPI('PUT', updateUrl, payload);
 
                     if (postData && postData.status >= 200 && postData.status < 300) {
 
@@ -963,30 +992,37 @@
 
                 let namaBarang = selectedOption?.text || '';
                 let qty = parseFloat(document.getElementById('jml_item').value);
-                let hargaBarang = parseFloat($('#harga_barang').val().replace(/\./g, ''));
-                let levelHarga = Array.from(document.querySelectorAll('.level-harga')).map((input, index) => {
-                    return `Level ${index + 1} : ${input.value.replace(/\./g, '')}`;
-                });
+
+                let hargaBarang = parseFloat(
+                    $('#harga_barang').val().replace(/\./g, '')
+                );
+
+                let levelHarga = Array.from(document.querySelectorAll('.level-harga'))
+                    .map(input =>
+                        parseFloat(input.value.replace(/\./g, ''))
+                    )
+                    .filter(val => !isNaN(val) && val > 0);
 
                 let hppAwalText = document.querySelector('.hpp-awal')?.textContent || 'Rp 0';
                 let hppBaruText = document.querySelector('.hpp-baru')?.textContent || 'Rp 0';
 
-                let hppAwal = parseFloat(
-                    hppAwalText
-                    .replace(/[Rp\s]/gi, '')
-                    .replace(/\./g, '')
-                    .replace(',', '.')
-                ) || 0;
+                let parseRupiah = (text) =>
+                    parseFloat(
+                        text
+                        .replace(/[Rp\s]/gi, '')
+                        .replace(/\./g, '')
+                        .replace(',', '.')
+                    ) || 0;
 
-                let hppBaru = parseFloat(
-                    hppBaruText
-                    .replace(/[Rp\s]/gi, '')
-                    .replace(/\./g, '')
-                    .replace(',', '.')
-                ) || 0;
+                let hppAwal = parseRupiah(hppAwalText);
+                let hppBaru = parseRupiah(hppBaruText);
 
-                if (!idBarang || !qty || !hargaBarang) {
-                    notificationAlert('error', 'Pemberitahuan', 'Pastikan semua data telah diisi dengan benar.');
+                if (!idBarang || qty <= 0 || hargaBarang <= 0) {
+                    notificationAlert(
+                        'error',
+                        'Pemberitahuan',
+                        'Pastikan semua data telah diisi dengan benar.'
+                    );
                     return;
                 }
 
@@ -996,34 +1032,57 @@
                     nama_barang: namaBarang,
                     qty: qty,
                     harga_barang: hargaBarang,
+
                     level_harga: levelHarga,
+
                     hpp_awal: hppAwal,
                     hpp_baru: hppBaru,
+
                     toko_id: {{ auth()->user()->toko_id }},
                     created_by: {{ auth()->user()->id }},
                     supplier_id: selectedSupplier,
+                    toko_group_id: selectedTokoGroup,
                     nota: $('#no-nota').text(),
                     tanggal: $('#tgl-nota').text(),
                     tipe: $('#tipe-transaksi').text(),
                     jenis_barang_id: selectedKas.jenis_id
                 };
 
-                const postData = await renderAPI('POST', '{{ route('transaksi.temp.pembelianbarang') }}', formData);
+                const postData = await renderAPI(
+                    'POST',
+                    '{{ route('tb.pb.temp.post') }}',
+                    formData
+                );
 
                 if (postData.status >= 200 && postData.status < 300) {
                     const response = postData.data.data;
-                    setTimeout(async function() {
-                        await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
-                            customFilter);
+
+                    setTimeout(async () => {
+                        await getListData(
+                            defaultLimitPage,
+                            currentPage,
+                            defaultAscending,
+                            defaultSearch,
+                            customFilter
+                        );
                     }, 500);
+
                     pembelianBarangId = response.pembelian_barang_id;
                 } else {
-                    notificationAlert('info', 'Pemberitahuan', postData.message || 'Terjadi kesalahan');
+                    notificationAlert(
+                        'info',
+                        'Pemberitahuan',
+                        postData.message || 'Terjadi kesalahan'
+                    );
                 }
             } catch (error) {
                 loadingPage(false);
                 const resp = error.response || {};
-                notificationAlert('error', 'Kesalahan', resp.data?.message || 'Terjadi kesalahan saat menyimpan data.');
+                notificationAlert(
+                    'error',
+                    'Kesalahan',
+                    resp.data?.message || 'Terjadi kesalahan saat menyimpan data.'
+                );
             }
         }
 
@@ -1047,7 +1106,7 @@
             try {
                 const postDataRest = await renderAPI(
                     'DELETE',
-                    '{{ route('master.temppembelian.hapus') }}',
+                    '{{ route('tb.pb.temp.delete') }}',
                     data
                 );
                 if (postDataRest && postDataRest.status === 200) {
@@ -1071,7 +1130,7 @@
             });
 
             document.querySelector('.table-bordered tfoot tr th:last-child').textContent =
-                `Rp ${subtotal.toLocaleString('id-ID')}`;
+                formatRupiah(subtotal);
         }
 
         function updateSubTotal() {
@@ -1286,18 +1345,19 @@
 
                 let idBarang = $(this).val();
 
-                const baseUrl = "{{ route('get-stock-details', ['id_barang' => ':id']) }}";
-                const finalUrl = baseUrl.replace(':id', idBarang);
+                const baseUrl = "{{ route('sb.getDetail') }}";
 
                 if (idBarang) {
-                    let resp = await renderAPI('GET', finalUrl, {})
+                    let resp = await renderAPI('GET', baseUrl, {
+                        barang_id: idBarang,
+                        toko_id: {{ auth()->user()->toko_id }}
+                    })
                         .then(r => r)
                         .catch(e => e.response);
 
                     let data = resp?.data || resp;
 
                     if (!data) {
-                        console.error('Response kosong / tidak valid');
                         return;
                     }
 
@@ -1399,17 +1459,18 @@
                     if (jumlah > 0 && harga > 0) {
                         try {
                             let getDataRest = await renderAPI('GET',
-                                '{{ route('master.stock.hpp_barang') }}', {
-                                    id_barang: id_barang,
+                                '{{ route('sb.getHpp') }}', {
+                                    barang_id: id_barang,
                                     qty: jumlah,
                                     harga: harga,
+                                    toko_group_id: selectedTokoGroup
                                 });
 
                             if (getDataRest && getDataRest.status === 200) {
                                 let finalHpp = getDataRest.data.hpp_baru;
 
                                 document.querySelector('.card-text strong.hpp-baru').textContent =
-                                    `Rp ${Math.round(finalHpp).toLocaleString('id-ID')}`;
+                                    formatRupiah(finalHpp);
 
                                 document.querySelectorAll('.level-harga').forEach(function(input) {
                                     input.setAttribute('data-hpp-baru', finalHpp);
@@ -1422,7 +1483,7 @@
                             let finalHpp = harga;
 
                             document.querySelector('.card-text strong.hpp-baru').textContent =
-                                `Rp ${Math.round(finalHpp).toLocaleString('id-ID')}`;
+                                formatRupiah(finalHpp);
 
                             document.querySelectorAll('.level-harga').forEach(function(input) {
                                 input.setAttribute('data-hpp-baru', finalHpp);

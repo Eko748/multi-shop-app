@@ -14,13 +14,17 @@ class StockBarang extends Model
 
     protected $guarded = [];
 
+    protected $casts = [
+        'level_harga' => 'array',
+    ];
+
     public function barang()
     {
         return $this->belongsTo(Barang::class, 'barang_id', 'id');
     }
 
-    public function toko()
+    public function tokoGroup()
     {
-        return $this->belongsTo(Toko::class, 'toko_id', 'id');
+        return $this->belongsTo(TokoGroup::class, 'toko_group_id', 'id');
     }
 }

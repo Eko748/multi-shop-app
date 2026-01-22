@@ -13,18 +13,21 @@ return new class extends Migration
     {
         Schema::create('transaksi_kasir_harian', function (Blueprint $table) {
             $table->id();
+            $table->unsignedBigInteger('kas_id');
             $table->unsignedBigInteger('toko_id');
             $table->unsignedBigInteger('jenis_barang_id');
             $table->date('tanggal');
             $table->integer('total_transaksi')->default(0);
             $table->integer('total_qty')->default(0);
             $table->decimal('total_nominal', 15, 2)->default(0);
+            $table->decimal('total_hpp', 15, 2)->default(0);
+            $table->decimal('total_hpp_batch', 15, 2)->default(0);
             $table->decimal('total_bayar', 15, 2)->default(0);
             $table->decimal('total_diskon', 15, 2)->default(0);
             $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
             $table->softDeletes();
-            $table->unique(['toko_id', 'tanggal']);
+            $table->unique(['toko_id', 'kas_id', 'tanggal']);
         });
     }
 

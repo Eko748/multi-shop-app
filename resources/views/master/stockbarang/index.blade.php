@@ -70,21 +70,20 @@
                             </div>
                         </div>
                         <div class="content">
-                            <x-adminlte-alerts />
                             <div class="card-body p-0">
                                 <div class="table-responsive table-scroll-wrapper">
                                     <table class="table table-striped m-0">
                                         <thead>
                                             <tr class="tb-head">
                                                 <th class="text-center text-wrap align-top">No</th>
-                                                <th class="text-wrap align-top">Barcode</th>
+                                                <th class="text-wrap align-top">Group</th>
                                                 <th class="text-wrap align-top">Nama Barang</th>
                                                 <th class="text-wrap align-top">
                                                     Stok
                                                     <button class="btn btn-link p-0" id="sortAscStock">▲</button>
                                                     <button class="btn btn-link p-0" id="sortDescStock">▼</button>
                                                 </th>
-                                                @if (Auth::user()->id_level == 1)
+                                                @if (Auth::user()->role_id == 1)
                                                     <th class="text-wrap align-top">Hpp Baru</th>
                                                 @endif
                                                 <th class="text-wrap align-top">Level Harga</th>
@@ -198,7 +197,7 @@
 
             let getDataRest = await renderAPI(
                 'GET',
-                '{{ route('master.getstockbarang') }}', {
+                '{{ route('sb.get') }}', {
                     page: page,
                     limit: limit,
                     ascending: ascending,
@@ -275,10 +274,11 @@
 
             return {
                 id: data?.id ?? '-',
+                nama_toko_group: data?.nama_toko_group ?? '-',
                 barcode: data?.barcode ?? '-',
                 nama_barang: data?.nama_barang ?? '-',
                 stock: data?.stock ?? '-',
-                hpp_baru: formatRupiah(data?.hpp_baru),
+                hpp_baru: data?.hpp_baru,
                 level_harga: level_harga_html,
                 detail_button,
                 edit_button,
@@ -298,10 +298,10 @@
                 getDataTable += `
                     <tr class="text-dark">
                         <td class="${classCol} text-center">${display_from + index}.</td>
-                        <td class="${classCol}">${element.barcode}</td>
+                        <td class="${classCol}">${element.nama_toko_group}</td>
                         <td class="${classCol}">${element.nama_barang}</td>
                         <td class="${classCol}">${element.stock}</td>
-                        @if (Auth::user()->id_level == 1)
+                        @if (Auth::user()->role_id == 1)
                         <td class="${classCol}">${element.hpp_baru}</td>
                         @endif
                         <td class="${classCol}">${element.level_harga}</td>
@@ -412,7 +412,7 @@
 
                     try {
                         const response = await renderAPI('PUT',
-                            '{{ route('master.stockbarang.edit-stok') }}',
+                            '{{ route('sb.updateStock') }}',
                             payload);
                         loadingPage(false);
 
@@ -461,7 +461,9 @@
 
             $('.modal-barang-title').text(modalTitle);
 
-            const resp = await renderAPI('GET', `/admin/get-stock-details/${id_barang}`, {}).then(r => r).catch(e => e
+            const resp = await renderAPI('GET', '{{ route('sb.get') }}', {
+                barang_id: id_barang
+            }).then(r => r).catch(e => e
                 .response);
 
             if (resp.status !== 200) {
@@ -527,7 +529,7 @@
 
                 let postDataRest = await renderAPI(
                         'PUT',
-                        '{{ route('master.stockbarang.refresh-stok') }}', {
+                        '{{ route('sb.refreshStock') }}', {
                             id: data.id,
                             id_barang: data.id_barang,
                             toko_id: '{{ auth()->user()->toko_id }}',
@@ -750,7 +752,7 @@
                     }
                 });
 
-                const resp = await renderAPI('POST', '/admin/update-level-harga', formData);
+                const resp = await renderAPI('PUT', '{{ route('sb.updateHarga') }}', formData);
 
                 if (resp.status === 200) {
                     notyf.success(resp.data.message || 'Harga berhasil diperbarui');
@@ -778,7 +780,9 @@
         }
 
         async function renderTabDetailBarang(id_barang) {
-            const detailResp = await renderAPI('GET', `/admin/get-detail-barang/${id_barang}`, {}).then(r => r).catch(
+            const detailResp = await renderAPI('GET', '{{ route('sb.getBarang') }}', {
+                barang_id: id_barang
+            }).then(r => r).catch(
                 e => e.response);
             const target = '#modal-detail-barang-body';
 

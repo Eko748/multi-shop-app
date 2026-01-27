@@ -24,7 +24,8 @@
                             <div class="custom-left">
                                 @if (hasAnyPermission(['POST /pembelianbarang/store', 'POST /import-pembelianbarang']))
                                     @if (hasAnyPermission(['POST /pembelianbarang/store']))
-                                        <button class="btn btn-primary mb-2 mb-lg-0 text-white add-data custom-btn-tambah"
+                                        <button onclick="openAddModal()"
+                                            class="btn btn-primary mb-2 mb-lg-0 text-white add-data custom-btn-tambah"
                                             data-container="body" data-toggle="tooltip" data-placement="top"
                                             title="Tambah Data Pembelian Barang">
                                             <i class="fa fa-plus-circle"></i> Tambah
@@ -403,6 +404,7 @@
         let defaultSearch = '';
         let customFilter = {};
         let id_pembelian_post = null;
+        let tokoGroupID = null;
         let idPembelianEdit = null;
         let rowGlobal = [];
         let selectedSupplier = null;
@@ -458,14 +460,14 @@
 
             let filterParams = {};
 
-            if (customFilter['startDate'] && customFilter['endDate']) {
-                filterParams.startDate = customFilter['startDate'];
-                filterParams.endDate = customFilter['endDate'];
+            if (customFilter['start_date'] && customFilter['end_date']) {
+                filterParams.start_date = customFilter['start_date'];
+                filterParams.end_date = customFilter['end_date'];
             }
 
             let getDataRest = await renderAPI(
                 'GET',
-                '{{ route('master.pembelian.get') }}', {
+                '{{ route('tb.pb.get') }}', {
                     page: page,
                     limit: limit,
                     ascending: ascending,
@@ -479,13 +481,13 @@
                 return resp;
             });
 
-            if (getDataRest && getDataRest.status == 200 && Array.isArray(getDataRest.data.data) && getDataRest.data
-                .data.length > 0) {
+            if (getDataRest && getDataRest.status == 200 && Array.isArray(getDataRest.data.data.item) && getDataRest
+                .data
+                .data.item.length > 0) {
                 let handleDataArray = await Promise.all(
-                    getDataRest.data.data.map(async item => await handleData(item))
+                    getDataRest.data.data.item.map(async item => await handleData(item))
                 );
-                await setListData(handleDataArray, getDataRest.data.pagination, getDataRest.data.total, getDataRest.data
-                    .totals);
+                await setListData(handleDataArray, getDataRest.data.pagination, getDataRest.data.data.total);
             } else {
                 errorMessage = 'Tidak ada data';
                 let errorRow = `
@@ -507,11 +509,11 @@
 
             if (data?.status === 'Sukses' || data?.status === 'success_debt') {
                 status =
-                    `<span class="badge badge-success custom-badge"><i class="mx-1 fa fa-circle-check"></i>Sukses dengan ${data.tipe}</span>`;
+                    `<span class="badge badge-success custom-badge"><i class="mx-1 fa fa-circle-check"></i>${data.status}</span>`;
                 detail_button = `
                     <a href="pembelianbarang/${data.id}/detail?r=${data.id}" class="p-1 btn detail-data action_button"
                         data-container="body" data-toggle="tooltip" data-placement="top"
-                        title="Detail Data Nomor Nota: ${data.no_nota}"
+                        title="Detail Data Nomor Nota: ${data.nota}"
                         data-id='${data.id}'>
                         <span class="text-dark">Detail</span>
                         <div class="icon text-info">
@@ -520,11 +522,11 @@
                     </a>`;
             } else if (data?.status === 'completed_debt') {
                 status =
-                    `<span class="badge badge-warning custom-badge"><i class="mx-1 fa fa-circle-info"></i>Sukses masih ${data.tipe}</span>`;
+                    `<span class="badge badge-warning custom-badge"><i class="mx-1 fa fa-circle-info"></i>${data.status}</span>`;
                 detail_button = `
                     <a href="pembelianbarang/${data.id}/detail?r=${data.id}" class="p-1 btn detail-data action_button"
                         data-container="body" data-toggle="tooltip" data-placement="top"
-                        title="Detail Data Nomor Nota: ${data.no_nota}"
+                        title="Detail Data Nomor Nota: ${data.nota}"
                         data-id='${data.id}'>
                         <span class="text-dark">Detail</span>
                         <div class="icon text-info">
@@ -534,8 +536,8 @@
                 edit_button = `
                 <a href="{{ route('keuangan.hutang.index') }}" button class="p-1 btn action_button"
                     data-container="body" data-toggle="tooltip" data-placement="top" class="p-1 btn action_button"
-                    title="Bayar Nota ${data.no_nota} ke Halaman Hutang"
-                    data-id='${data.id}' data-name='${data.nama_supplier}' data-nota='${data.no_nota}' data-tanggal='${data.tgl_nota}' data-tipe='${data.tipe}'>
+                    title="Bayar Nota ${data.nota} ke Halaman Hutang"
+                    data-id='${data.id}' data-name='${data.nama_supplier}' data-nota='${data.nota}' data-tanggal='${data.tgl_nota}' data-tipe='${data.tipe}'>
                     <span class="text-dark">Bayar</span>
                     <div class="icon text-success">
                         <i class="fa fa-coins"></i>
@@ -543,12 +545,12 @@
                 </a>`;
             } else {
                 status =
-                    `<span class="badge badge-info custom-badge"><i class="mx-1 fa fa-spinner"></i>Pending ${data.tipe}</span>`;
+                    `<span class="badge badge-info custom-badge"><i class="mx-1 fa fa-spinner"></i>${data.status}</span>`;
                 edit_button = `
-                <a button class="p-1 btn edit-data action_button"
+                <a button class="p-1 btn edit-data action_button" onclick="openEditModal(${data.id})"
                     data-container="body" data-toggle="tooltip" data-placement="top" class="p-1 btn edit-data action_button"
-                    title="Edit Data Nomor Nota: ${data.no_nota}"
-                    data-id='${data.id}' data-name='${data.nama_supplier}' data-nota='${data.no_nota}' data-tanggal='${data.tgl_nota}' data-tipe='${data.tipe}'>
+                    title="Edit Data Nomor Nota: ${data.nota}"
+                    data-id='${data.id}' data-name='${data.nama_supplier}' data-nota='${data.nota}' data-tanggal='${data.tgl_nota}' data-tipe='${data.tipe}'>
                     <span class="text-dark">Edit</span>
                     <div class="icon text-warning">
                         <i class="fa fa-edit"></i>
@@ -557,7 +559,7 @@
                 delete_button = `
                 <a class="p-1 btn delete-data action_button"
                     data-container="body" data-toggle="tooltip" data-placement="top"
-                    title="Hapus ${title} No.Nota: ${data.no_nota}" data="${elementData}">
+                    title="Hapus ${title} No.Nota: ${data.nota}" data="${elementData}">
                     <span class="text-dark">Hapus</span>
                     <div class="icon text-danger">
                         <i class="fa fa-trash"></i>
@@ -582,17 +584,17 @@
                 id: data?.id ?? '-',
                 is_status: data?.status ?? '-',
                 status,
-                nama_supplier: data?.nama_supplier ?? '-',
+                suplier: data?.suplier ?? '-',
                 kas: data?.kas ?? '-',
-                tgl_nota: data?.tgl_nota ?? '-',
-                no_nota: data?.no_nota ?? '-',
-                total_item: data?.total_item ?? '-',
-                total_nilai: data?.total_nilai ?? '-',
+                tanggal: data?.tanggal ?? '-',
+                nota: data?.nota ?? '-',
+                qty: data?.qty ?? '-',
+                total: data?.total ?? '-',
                 action_buttons,
             };
         }
 
-        async function setListData(dataList, pagination, total, totals) {
+        async function setListData(dataList, pagination, total) {
             totalPage = pagination.total_pages;
             currentPage = pagination.current_page;
             let display_from = ((defaultLimitPage * (currentPage - 1)) + 1);
@@ -608,12 +610,12 @@
                             <td class="${classCol} text-center">${display_from + index}.</td>
                             <td class="${classCol} text-primary text-center">${element.id}</td>
                             <td class="${classCol}">${element.status}</td>
-                            <td class="${classCol}">${element.no_nota}</td>
-                            <td class="${classCol}">${element.tgl_nota}</td>
+                            <td class="${classCol}">${element.nota}</td>
+                            <td class="${classCol}">${element.tanggal}</td>
                             <td class="${classCol}">${element.kas}</td>
-                            <td class="${classCol}">${element.nama_supplier}</td>
-                            <td class="${classCol} text-right">${element.total_item}</td>
-                            <td class="${classCol} text-right">${element.total_nilai}</td>
+                            <td class="${classCol}">${element.suplier}</td>
+                            <td class="${classCol} text-right">${element.qty}</td>
+                            <td class="${classCol} text-right">${element.total}</td>
                             <td class="${classCol}">${element.action_buttons}</td>
                         </tr>`;
             });
@@ -622,8 +624,8 @@
             <tr class="bg-primary">
                 <td class="${classCol}" colspan="6"></td>
                 <td class="${classCol}" style="font-size: 1rem;"><strong class="text-white fw-bold">Total Sukses</strong></td>
-                <td class="${classCol} text-right"><strong class="text-white" id="totalData">${totals}</strong></td>
-                <td class="${classCol} text-right"><strong class="text-white" id="totalData">${total}</strong></td>
+                <td class="${classCol} text-right"><strong class="text-white" id="totalQty">${total.qty}</strong></td>
+                <td class="${classCol} text-right"><strong class="text-white" id="totalNominal">${total.nominal}</strong></td>
                 <td class="${classCol}" colspan="3"></td>
             </tr>`;
 
@@ -647,953 +649,549 @@
             });
         }
 
+        const PBState = {
+            mode: 'add', // add | edit
+            pembelianId: null,
+            header: {},
+            items: [], // single source of truth
+            addedItems: new Set(),
+        };
+
         function selectBarang() {
+
+            if (!PBState.header.jenis_barang_id) {
+                console.error('Jenis barang belum ada');
+                return;
+            }
+
             let data = [{
                 id: '#id_barang',
                 isFilter: {
                     id_toko: '{{ auth()->user()->toko_id }}',
-                    jenis_barang_id: selectedKas.jenis_id,
+                    jenis_barang_id: PBState.header.jenis_barang_id,
                     with: 'barcode',
                 },
                 isUrl: '{{ route('master.barang') }}',
                 placeholder: 'Pilih Barang',
                 isModal: '#modal-form',
                 isForm: true
-            }]
+            }];
 
             selectData(data);
         }
 
-        async function showData() {
-            $("#btn-next-step").on("click", async function() {
-                let supplier = $("#id_supplier").val();
-                let tokoGroup = $("#toko_group").val();
-                let supplierName = $("#id_supplier option:selected").text();
-                let tokoGroupName = $("#toko_group option:selected").text();
-                let noNota = $("#no_nota").val();
-                let tglNota = $("#tgl_nota").val();
-                let tipeTransaksi = $("#tipe option:selected").text();
-                let kas = $("#kas").val();
-                let kasName = $("#kas option:selected").text();
-                let kasJenisId = $("#kas").select2('data')[0].jenis_id;
-                let kasSaldo = $("#kas").select2('data')[0].saldo_kas;
+        async function refreshKas() {
 
-                selectedSupplier = supplier;
-                selectedTokoGroup = tokoGroup;
-                selectedKas.id = kas;
-                selectedKas.jenis_id = kasJenisId;
-                selectedKas.saldo_kas = kasSaldo;
+            const $kas = $('#kas');
 
-                if (!supplier || !noNota || !tglNota || !tokoGroup) {
-                    notificationAlert('warning', 'Error', 'Mohon lengkapi semua data pada Step Pertama');
-                    return;
-                }
+            if ($kas.hasClass("select2-hidden-accessible")) {
+                $kas.select2('destroy');
+            }
 
-                $("#no-nota").text(noNota);
-                $("#nama-supplier").text(supplierName);
-                $("#toko-group").text(tokoGroupName);
-                $("#sumber-dana").text(kasName);
-                $("#tgl-nota").text(tglNota);
-                $("#tipe-transaksi").text(tipeTransaksi);
-                $("#tambah-tab")
-                    .removeClass("active show")
-                    .attr("aria-selected", "false")
-                    .addClass("disabled")
-                    .css({
-                        "opacity": "0.6",
-                        "pointer-events": "none"
-                    });
+            $kas.empty();
 
-                $("#tambah").removeClass("active show");
+            await selectData(selectOptions);
 
-                $("#detail-tab")
-                    .removeClass("disabled")
-                    .css({
-                        "opacity": "1",
-                        "pointer-events": "auto"
-                    })
-                    .addClass("active show")
-                    .attr("aria-selected", "true")
-                    .tab("show");
-
-                $("#detail").addClass("active show");
-
-                await selectBarang();
-            });
-
-            $(document).on("click", ".add-data", function() {
-                $("#modal-title").html(`<i class="fa fa-circle-plus mr-1"></i>Form Pembelian Barang`);
-                $("#modal-form").modal("show");
-                $("#form-tambah-pembelian")[0].reset();
-
-                let tglNotaValue = $("#tgl_nota").val();
-                let tipeValue = $("#tipe").val();
-
-                $("#form-tambah-pembelian input").val("");
-                $("#form-tambah-pembelian select").val("").trigger("change");
-
-                $("#tgl_nota").val(tglNotaValue);
-                $("#tipe").val(tipeValue);
-                $("#jml_item").val('');
-                $("#harga_barang").val('');
-                $('#subtotal').empty();
-
-                $("#id_supplier").val(null).trigger("change");
-                $("#toko_group").val(null).trigger("change");
-                $("#kas").val(null).trigger("change");
-                $("#tempData").empty();
-
-                $("#item-container .item-group").not(':first').remove();
-                let $firstItem = $("#item-container .item-group").first();
-                $firstItem.find("select").val(null).trigger("change");
-                $firstItem.find("input").val("");
-
-                $(".stock").text("0");
-                $(".hpp-awal").text("Rp 0");
-                $(".hpp-baru").text("Rp 0");
-
-                $(".level-harga").val("");
-                $("[id^='persen_']").text("0%");
-
-                $("#tambah-tab").removeClass("d-none disabled")
-                    .addClass("active show")
-                    .attr("aria-selected", "true");
-                $("#tambah").addClass("active show");
-
-                $("#detail-tab").addClass("disabled")
-                    .removeClass("active")
-                    .attr("aria-selected", "false")
-                    .css({
-                        "pointer-events": "none",
-                        "opacity": "0.5"
-                    });
-                $("#detail").removeClass("active show");
-                setDatePicker('tgl_nota');
-            });
+            $kas.val(null).trigger('change');
         }
 
-        async function editData() {
-            $(document).on("click", ".edit-data", async function() {
-                let id = $(this).attr("data-id");
-                let nota = $(this).attr("data-nota");
-                let tanggal = $(this).attr("data-tanggal");
-                let tipe = $(this).attr("data-tipe");
-                let nama = $(this).attr("data-name");
-                idPembelianEdit = id;
+        function setTabMode(mode) {
 
-                $("#modal-title").html(
-                    `<i class="fa fa-edit mr-1"></i>Form Edit Pembelian No. Nota: ${nota}`);
-                $("#modal-form").modal("show");
+            if (mode === 'add') {
+                // Tambah aktif
+                $('#tambah-tab').removeClass('d-none disabled').addClass('active show');
+                $('#tambah').addClass('active show');
 
-                $("form").find("input:not(#tgl_nota):not([type='hidden']), select, textarea")
-                    .val("")
-                    .prop("checked", false)
-                    .trigger("change");
+                // Detail disabled
+                $('#detail-tab').addClass('disabled').removeClass('active');
+                $('#detail').removeClass('active show');
 
-                $("#jml_item").val('');
-                $("#harga_barang").val('');
-                $("#tempData").empty();
-                $('#subtotal').empty();
-                $("#no-nota").html(nota);
-                $("#tgl-nota").html(tanggal);
-                $("#tipe-transaksi").html(tipe);
-                $("#nama-supplier").html(nama);
-                $("#tambah-tab").removeClass("active").addClass("d-none");
-                $("#tambah").removeClass("show active");
-                $("#detail-tab").removeClass("disabled").addClass("active").css({
-                    "pointer-events": "auto",
-                    "opacity": "1",
+            } else if (mode === 'edit') {
+                // Tambah hidden
+                $('#tambah-tab').addClass('d-none');
+                $('#tambah').removeClass('active show');
+
+                // Detail langsung aktif
+                $('#detail-tab').removeClass('disabled').addClass('active show');
+                $('#detail').addClass('active show');
+            }
+        }
+
+        async function openAddModal() {
+            PBState.mode = 'add';
+            PBState.pembelianId = null;
+            PBState.items = [];
+            PBState.addedItems.clear();
+            PBState.header = {};
+
+            resetForm();
+            setTabMode('add');
+
+            $('#modal-title').html('<i class="fa fa-circle-plus"></i> Form Pembelian Barang');
+            await refreshKas();
+
+            $('#modal-form').modal('show');
+            setDatePicker('tgl_nota');
+
+            $('#btn-next-step').off().on('click', async function() {
+                let supplier = $('#id_supplier').val();
+                let nota = $('#no_nota').val();
+                let tgl = $('#tgl_nota').val();
+                let tokoGroup = $('#toko_group').val();
+                let kas = $('#kas').val();
+
+                if (!supplier || !nota || !tgl || !tokoGroup || !kas) {
+                    return notificationAlert('warning', 'Error', 'Lengkapi data header dulu');
+                }
+
+                // ambil kas data
+                let kasData = $('#kas').select2('data')[0];
+                let jenisBarang = kasData?.jenis_id;
+
+                if (!jenisBarang) {
+                    return notificationAlert('warning', 'Error', 'Jenis barang tidak ditemukan');
+                }
+
+                // simpan ke state (JANGAN overwrite)
+                Object.assign(PBState.header, {
+                    supplier,
+                    nota,
+                    tgl,
+                    tokoGroup,
+                    kas,
+                    jenis_barang_id: jenisBarang
                 });
-                $("#detail").addClass("show active");
-                $("#submit-reture").removeClass("d-none");
 
-                try {
-                    const response = await renderAPI('GET', '{{ route('master.temppembelian.get') }}', {
-                        id_pembelian: id
-                    });
-                    if (response && response.status === 200) {
-                        const dataItems = response.data.data;
-                        $('#nama-supplier').data('supplier-id', dataItems[0].pembelian_barang.supplier_id);
+                // preview
+                $('#no-nota').text(nota);
+                $('#tgl-nota').text(tgl);
+                $('#nama-supplier').text($('#id_supplier option:selected').text());
+                $('#toko-group').text($('#toko_group option:selected').text());
+                $('#sumber-dana').text(kasData.text);
+                $('#tipe-transaksi').text($('#tipe option:selected').text());
 
-                        rowGlobal = dataItems;
-                        let totalHargaAll = 0;
+                $('#form-tambah-pembelian :input').prop('disabled', true);
+                $('#detail-tab').removeClass('disabled').tab('show');
 
-                        dataItems.forEach(item => {
-                            const totalHarga = item.subtotal;
-                            totalHargaAll += totalHarga;
-
-                            $("#tempData").append(`
-                                <tr data-barang="${item.barang_id}">
-                                    <td class="text-center"><button onclick="removeRow({id_pembelian: '${idPembelianEdit}', id_barang: '${item.barang_id}' })" type="button" class="btn btn-danger btn-sm remove-item"><i class="fa fa-trash-alt mr-1"></i>Hapus</button></td>
-                                    <td class="text-center numbered">${$("#tempData tr").length + 1}</td>
-                                    <td><input type="hidden" name="id_barang[]" value="${item.barang_id}">${item.barang.nama}</td>
-                                    <td class="text-right"><input type="hidden" name="qty[]" value="${item.qty}">${item.qty}</td>
-                                    <td class="text-right"><input type="hidden" name="harga_barang[]" value="${item.harga_beli}">${formatRupiah(item.harga_beli)}</td>
-                                    <td class="text-right">${formatRupiah(item.subtotal)}</td>
-                                </tr>
-                            `);
-                        });
-
-                        $("#subtotal").html(formatRupiah(totalHargaAll));
-                    } else {
-                        notificationAlert('info', 'Pemberitahuan', 'Tidak ada data sementara ditemukan.');
-                    }
-                } catch (error) {
-                    const errorMessage = error?.response?.data?.message ||
-                        'Terjadi kesalahan saat memuat data sementara.';
-                    notificationAlert('error', 'Error', errorMessage);
-                }
+                await Promise.all([
+                    selectBarang(),
+                    setHpp()
+                ]);
             });
         }
 
-        async function saveData() {
-            $(document).off('click', '#btn-submit').on('click', '#btn-submit', async function(e) {
-                e.preventDefault();
+        async function openEditModal(id) {
+            PBState.mode = 'edit';
+            PBState.pembelianId = id;
+            PBState.items = [];
+            PBState.addedItems.clear();
 
-                const $btn = $(this);
-                $btn.prop('disabled', true).html(
-                    `<span class="spinner-border spinner-border-sm" role="status"></span> Menyimpan..`
-                );
+            resetForm();
+            setTabMode('edit');
 
-                try {
-                    const dataHeader = {
-                        nota: $('#no-nota').text(),
-                        tanggal: $('#tgl-nota').text(),
-                        supplier_id: selectedSupplier,
-                        toko_group_id: selectedTokoGroup,
-                        tipe: $('#tipe-transaksi').text().toLowerCase(),
-                        toko_id: {{ auth()->user()->toko_id }},
-                        created_by: {{ auth()->user()->id }}
-                    };
+            $('#modal-title').html('<i class="fa fa-edit"></i> Edit Pembelian Barang');
+            $('#modal-form').modal('show');
 
-                    let detailItems = [];
+            await loadEditData(id);
+        }
 
-                    $('#tempData tr').each(function() {
-                        const row = $(this);
+        async function loadEditData(id) {
 
-                        let id_barang = row.find('input[name="id_barang[]"]').val();
-                        let qty = row.find('input[name="qty[]"]').val();
-                        let harga_barang = row.find('input[name="harga_barang[]"]').val();
-
-                        let level_harga = [];
-                        row.find('input[name^="level_harga"]').each(function() {
-                            level_harga.push($(this).val().replace(/\./g, ''));
-                        });
-
-                        detailItems.push({
-                            id_barang,
-                            qty,
-                            harga_barang,
-                            level_harga
-                        });
-                    });
-
-                    const payload = {
-                        id: pembelianBarangId,
-                        id_pembelian: pembelianBarangId,
-                        ...dataHeader,
-                        items: detailItems
-                    };
-
-                    let updateUrl = "{{ route('tb.pb.put') }}";
-
-                    const postData = await renderAPI('PUT', updateUrl, payload);
-
-                    if (postData && postData.status >= 200 && postData.status < 300) {
-
-                        notificationAlert(
-                            'success',
-                            'Berhasil',
-                            postData.data.message || 'Data berhasil diperbarui'
-                        );
-
-                        $('#modal-form').modal('hide');
-
-                        setTimeout(() => {
-                            getListData(defaultLimitPage, currentPage, defaultAscending,
-                                defaultSearch, customFilter);
-                        }, 500);
-                        pembelianBarangId = null;
-                        addedItems.clear();
-                    } else {
-                        notificationAlert(
-                            'warning',
-                            'Terjadi Kesalahan',
-                            postData?.data.message || 'Terjadi kesalahan saat menyimpan data'
-                        );
-                    }
-
-                } catch (err) {
-                    notificationAlert(
-                        'error',
-                        'Gagal',
-                        'Terjadi kesalahan saat menghubungi server'
-                    );
-
-                } finally {
-                    $btn.prop('disabled', false).html('Simpan');
-                }
-
+            const res = await renderAPI('GET', '{{ route('tb.pb.temp.get') }}', {
+                pembelian_barang_id: id
             });
+
+            const data = res.data.data;
+
+            Object.assign(PBState.header, {
+                supplier: data.suplier_id,
+                nota: data.nota,
+                tgl: data.tanggal,
+                tokoGroup: data.toko_group_id,
+                kas: data.kas_id,
+                jenis_barang_id: data.jenis_barang_id,
+                tipe: data.tipe
+            });
+            PBState.items = data.detail.map(d => ({
+                id_barang: String(d.barang_id),
+                qty: d.qty,
+                harga_barang: d.harga_beli,
+                subtotal: Number(d.subtotal),
+                barang_label: d.barang_label,
+            }));
+
+            PBState.items.forEach(i => PBState.addedItems.add(i.id_barang));
+
+            // preview header
+            $('#no-nota').text(data.nota);
+            $('#tgl-nota').text(data.tanggal);
+            $('#nama-supplier').text(data.suplier);
+            $('#toko-group').text(data.toko_group);
+            $('#tipe-transaksi').text(data.tipe);
+            $('#sumber-dana').text(data.kas);
+
+            renderTable();
+            updateSubtotal();
+            await Promise.all([
+                selectBarang(),
+                setHpp()
+            ]);
+        }
+
+        async function removeItem(idBarang) {
+            idBarang = String(idBarang);
+
+            await renderAPI('DELETE', '{{ route('tb.pb.temp.delete') }}', {
+                id_pembelian: PBState.pembelianId,
+                id_barang: idBarang,
+                toko_group_id: PBState.header.tokoGroup,
+            });
+
+            PBState.items = PBState.items.filter(i => i.id_barang !== idBarang);
+            PBState.addedItems.delete(idBarang);
+
+            renderTable();
+            updateSubtotal();
+        }
+
+        function renderTable() {
+            const tbody = $('#tempData');
+            tbody.html('');
+
+            PBState.items.forEach((item, i) => {
+                tbody.append(`
+                    <tr>
+                        <td class="text-center">
+                            <button class="btn btn-danger btn-sm" onclick="removeItem('${item.id_barang}')">
+                                <i class="fa fa-trash-alt"></i>
+                            </button>
+                        </td>
+                        <td class="text-center">${i+1}</td>
+                        <td>${item.barang_label}</td>
+                        <td class="text-right">${item.qty}</td>
+                        <td class="text-right">${formatRupiah(item.harga_barang)}</td>
+                        <td class="text-right">${formatRupiah(item.subtotal)}</td>
+                    </tr>
+                `);
+            });
+        }
+
+        function updateSubtotal() {
+            const subtotal = PBState.items.reduce((s, i) => s + i.subtotal, 0);
+            $('#subtotal').text(formatRupiah(subtotal));
+        }
+
+        async function savePembelian() {
+            const url =
+                "{{ route('tb.pb.put') }}";
+
+            const payload = {
+                id: PBState.pembelianId,
+                ...PBState.header,
+                items: PBState.items
+            };
+
+            await renderAPI(PBState.mode === 'add' ? 'POST' : 'PUT', url, payload);
+        }
+
+        function resetForm() {
+            $('form')[0].reset();
+            $('#tempData').empty();
+            $('#subtotal').text('Rp 0');
         }
 
         $('#modal-form').on('hidden.bs.modal', function() {
-            addedItems.clear();
+            PBState.mode = 'add';
+            PBState.items = [];
+            PBState.addedItems.clear();
         });
 
-        $('#label_kas').on('select2:clear', function() {
-            $('#jenis_id').remove();
+        $('#detail-tab').on('shown.bs.tab', function() {
+            $('#form-tambah-pembelian input, #form-tambah-pembelian select').prop('disabled', true);
         });
 
-        async function deleteData() {
-            $(document).on("click", ".delete-data", async function() {
-                let rawData = $(this).attr("data");
-                let data = JSON.parse(decodeURIComponent(rawData));
+        $('#add-item-detail').off().on('click', addItemDetail);
 
-                swal({
-                    title: `Hapus ${title} No Nota: ${data.no_nota}`,
-                    text: "Apakah anda yakin?",
-                    type: "warning",
-                    showCancelButton: true,
-                    confirmButtonText: "Ya, Hapus!",
-                    cancelButtonText: "Tidak, Batal!",
-                    confirmButtonColor: '#dc3545',
-                    cancelButtonColor: '#6c757d',
-                    reverseButtons: true,
-                    confirmButtonClass: "btn btn-danger",
-                    cancelButtonClass: "btn btn-secondary",
-                }).then(async (result) => {
-                    let postDataRest = await renderAPI(
-                        'DELETE',
-                        `/admin/pembelianbarang/${data.id}/delete`, {}
-                    ).then(function(response) {
-                        return response;
-                    }).catch(function(error) {
-                        let resp = error.response;
-                        return resp;
-                    });
+        function setHpp() {
+            $('#id_barang').on('change', getHppInfo);
 
-                    if (postDataRest.status == 200) {
-                        setTimeout(function() {
-                            getListData(defaultLimitPage, currentPage, defaultAscending,
-                                defaultSearch, customFilter);
-                        }, 500);
-                        notificationAlert('success', 'Pemberitahuan', postDataRest.data
-                            .message);
-                    }
-                }).catch(swal.noop);
-            })
+            $('#jml_item').on('input', debounce(getHppInfo, 1000));
+
+            $('#harga_barang').on('input', debounce(getHppInfo, 1000));
         }
 
-        async function addTemporaryField() {
+        async function getHppInfo() {
+            const idBarang = $('#id_barang').val();
+            const tokoGroupID = PBState.header.tokoGroup;
+            const qty = parseInt($('#jml_item').val()) || 0;
+            const harga = parseInt($('#harga_barang').val().replace(/\./g, '')) || 0;
+
+            if (!idBarang || qty <= 0 || harga <= 0) return;
+
             try {
-                let idBarang = document.getElementById('id_barang').value;
-                let selectedOption = document.getElementById('id_barang').selectedOptions[0];
-
-                let namaBarang = selectedOption?.text || '';
-                let qty = parseFloat(document.getElementById('jml_item').value);
-
-                let hargaBarang = parseFloat(
-                    $('#harga_barang').val().replace(/\./g, '')
-                );
-
-                let levelHarga = Array.from(document.querySelectorAll('.level-harga'))
-                    .map(input =>
-                        parseFloat(input.value.replace(/\./g, ''))
-                    )
-                    .filter(val => !isNaN(val) && val > 0);
-
-                let hppAwalText = document.querySelector('.hpp-awal')?.textContent || 'Rp 0';
-                let hppBaruText = document.querySelector('.hpp-baru')?.textContent || 'Rp 0';
-
-                let parseRupiah = (text) =>
-                    parseFloat(
-                        text
-                        .replace(/[Rp\s]/gi, '')
-                        .replace(/\./g, '')
-                        .replace(',', '.')
-                    ) || 0;
-
-                let hppAwal = parseRupiah(hppAwalText);
-                let hppBaru = parseRupiah(hppBaruText);
-
-                if (!idBarang || qty <= 0 || hargaBarang <= 0) {
-                    notificationAlert(
-                        'error',
-                        'Pemberitahuan',
-                        'Pastikan semua data telah diisi dengan benar.'
-                    );
-                    return;
-                }
-
-                let formData = {
-                    id_pembelian: pembelianBarangId || idPembelianEdit,
-                    id_barang: idBarang,
-                    nama_barang: namaBarang,
+                const res = await renderAPI('GET', "{{ route('sb.getHpp') }}", {
+                    barang_id: idBarang,
                     qty: qty,
-                    harga_barang: hargaBarang,
+                    harga: harga,
+                    toko_group_id: tokoGroupID
+                });
 
-                    level_harga: levelHarga,
+                if (res && res.status === 200) {
+                    const data = res.data;
 
-                    hpp_awal: hppAwal,
-                    hpp_baru: hppBaru,
+                    $('.hpp-awal').text(formatRupiah(data.hpp_lama ?? 0));
+                    $('.hpp-baru').text(formatRupiah(data.hpp_baru ?? 0));
+                    $('.stock').text(data.stok_baru);
 
-                    toko_id: {{ auth()->user()->toko_id }},
-                    created_by: {{ auth()->user()->id }},
-                    supplier_id: selectedSupplier,
-                    toko_group_id: selectedTokoGroup,
-                    nota: $('#no-nota').text(),
-                    tanggal: $('#tgl-nota').text(),
-                    tipe: $('#tipe-transaksi').text(),
-                    jenis_barang_id: selectedKas.jenis_id
-                };
-
-                const postData = await renderAPI(
-                    'POST',
-                    '{{ route('tb.pb.temp.post') }}',
-                    formData
-                );
-
-                if (postData.status >= 200 && postData.status < 300) {
-                    const response = postData.data.data;
-
-                    setTimeout(async () => {
-                        await getListData(
-                            defaultLimitPage,
-                            currentPage,
-                            defaultAscending,
-                            defaultSearch,
-                            customFilter
-                        );
-                    }, 500);
-
-                    pembelianBarangId = response.pembelian_barang_id;
-                } else {
-                    notificationAlert(
-                        'info',
-                        'Pemberitahuan',
-                        postData.message || 'Terjadi kesalahan'
-                    );
+                    updateLevelHarga(data.hpp_baru);
                 }
-            } catch (error) {
-                loadingPage(false);
-                const resp = error.response || {};
-                notificationAlert(
-                    'error',
-                    'Kesalahan',
-                    resp.data?.message || 'Terjadi kesalahan saat menyimpan data.'
-                );
+
+            } catch (e) {
+                console.error('HPP API ERROR', e);
             }
         }
 
-        function removeRow(rowData) {
-            const {
-                id_pembelian,
-                id_barang
-            } = rowData;
-
-            deleteRowTable({
-                id_pembelian,
-                id_barang
-            }).then(() => {
-                rowGlobal = rowGlobal.filter(row => row.id_barang !== id_barang);
-                addedItems.delete(id_barang);
-                updateSubtotalAfterRemoval();
+        function updateLevelHarga(hppBaru) {
+            document.querySelectorAll('.level-harga').forEach((input, index) => {
+                const val = parseInt(input.value.replace(/\./g, '')) || 0;
+                const persen = hppBaru > 0 ? ((val - hppBaru) / hppBaru * 100).toFixed(2) : 0;
+                document.getElementById('persen_' + index).innerText = persen + '%';
             });
         }
 
-        async function deleteRowTable(data) {
+        function debounce(func, delay) {
+            let timer;
+            return function() {
+                clearTimeout(timer);
+                timer = setTimeout(func, delay);
+            };
+        }
+
+        async function addItemDetail() {
+            const idBarang = String($('#id_barang').val());
+            const qty = Number($('#jml_item').val());
+            const harga = Number($('#harga_barang').val().replace(/\./g, ''));
+
+            if (!idBarang || qty <= 0 || harga <= 0) {
+                return notificationAlert('warning', 'Error', 'Barang, qty dan harga wajib diisi');
+            }
+
+            if (PBState.addedItems.has(idBarang)) {
+                return notificationAlert('warning', 'Error', 'Barang sudah ada di list');
+            }
+
+            // ✅ AMBIL LEVEL HARGA
+            let levelHarga = [];
+            $('.level-harga').each(function() {
+                levelHarga.push(Number($(this).val().replace(/\./g, '')) || 0);
+            });
+
+            // HPP
+            const hppAwal = parseRupiah($('.hpp-awal').text());
+            const hppBaru = parseRupiah($('.hpp-baru').text());
+
+            const payload = {
+                id_pembelian: PBState.pembelianId,
+                id_barang: idBarang,
+                qty,
+                harga_barang: harga,
+                level_harga: levelHarga,
+                hpp_awal: hppAwal,
+                hpp_baru: hppBaru,
+                toko_group_id: PBState.header.tokoGroup,
+                supplier_id: PBState.header.supplier,
+                kas_id: PBState.header.kas,
+                nota: PBState.header.nota,
+                tanggal: PBState.header.tgl,
+                tipe: $('#tipe').val(),
+                created_by: "{{ auth()->id() }}"
+            };
+
+            const res = await renderAPI('POST', "{{ route('tb.pb.temp.post') }}", payload);
+            const temp = res.data.data;
+
+            PBState.pembelianId = temp.pembelian_barang_id ?? PBState.pembelianId;
+
+            const barangLabel = $('#id_barang option:selected').text();
+            const subtotal = qty * harga;
+
+            // ✅ SIMPAN KE STATE
+            PBState.items.push({
+                id_barang: idBarang,
+                qty,
+                harga_barang: harga,
+                subtotal,
+                barang_label: barangLabel,
+                level_harga: levelHarga, // ⭐ PENTING
+                hpp_awal: hppAwal,
+                hpp_baru: hppBaru
+            });
+
+            PBState.addedItems.add(idBarang);
+
+            renderTable();
+            updateSubtotal();
+            resetItemInput();
+
+            setTimeout(async () => {
+                await getListData(defaultLimitPage, currentPage, defaultAscending,
+                    defaultSearch, customFilter);
+            }, 500);
+        }
+
+
+        function resetLevelHargaPersen() {
+            document.querySelectorAll('[id^="persen_"]').forEach(el => {
+                el.innerText = '0%';
+            });
+        }
+
+        function resetItemInput() {
+            $('#id_barang').val(null).trigger('change');
+            $('#jml_item').val('');
+            $('#harga_barang').val('');
+            $('.level-harga').val('');
+            $('.stock').text('0');
+            $('.hpp-awal').text('Rp 0');
+            $('.hpp-baru').text('Rp 0');
+        }
+
+        $('#id_barang').on('change', async function() {
+            let barangId = $(this).val();
+            if (!barangId) return;
+
+            await getDetailBarang(barangId);
+        });
+
+
+        async function getDetailBarang(barangId) {
+
+            let tokoId = $('#toko_group').val(); // atau toko aktif
+
             try {
-                const postDataRest = await renderAPI(
-                    'DELETE',
-                    '{{ route('tb.pb.temp.delete') }}',
-                    data
-                );
-                if (postDataRest && postDataRest.status === 200) {
-                    const row = document.querySelector(`tr[data-barang="${data.id_barang}"]`);
-                    if (row) {
-                        row.remove();
-                    }
-                }
-            } catch (error) {
-                const resp = error.response;
-                const errorMessage = resp?.data?.message || 'Terjadi kesalahan saat menghapus data.';
-                notificationAlert('error', 'Kesalahan', errorMessage);
+                let res = await renderAPI('GET', '{{ route('sb.getDetail') }}', {
+                    barang_id: barangId,
+                    toko_id: {{ auth()->user()->toko_id }}
+                });
+
+                let data = res.data;
+
+                console.log('DETAIL BARANG:', data);
+
+                // ================= STOCK INFO =================
+                $('.hpp-awal').text(formatRupiah(data.hpp_awal ?? 0));
+                $('.stock').text(data.stock);
+
+                // ================= LEVEL HARGA =================
+                // Misal input level harga dynamic
+                setLevelHarga(data.level_harga);
+
+            } catch (e) {
+                console.error('Gagal get detail barang', e);
+                notificationAlert('error', 'Error', 'Gagal mengambil detail barang');
             }
         }
 
-        function updateSubtotalAfterRemoval() {
-            let subtotal = 0;
-            document.querySelectorAll('.table-bordered tbody tr').forEach((row) => {
-                let hargaPerItem = parseInt(row.children[6].textContent.replace(/\D/g, '')) || 0;
-                subtotal += hargaPerItem;
-            });
+        function setLevelHarga(levelHargaArray) {
 
-            document.querySelector('.table-bordered tfoot tr th:last-child').textContent =
-                formatRupiah(subtotal);
-        }
+            levelHargaArray.forEach((harga, index) => {
+                let input = $(`#level_harga_${index}`);
 
-        function updateSubTotal() {
-            let subtotal = 0;
-            $(".total-harga").each(function() {
-                subtotal += parseInt($(this).data("harga"));
-            });
-            $("#subtotal").html(formatRupiah(subtotal));
-        }
-
-        async function addData() {
-            let subtotal = 0;
-            let initialHppBaru = 0;
-            let initialStock = 0;
-            let initialHppAwal = 0;
-
-            let debounceTimer;
-            const debounceDelay = 500;
-
-            function toggleInputFields(disabled) {
-                if (disabled = false) {
-                    document.getElementById('jml_item').value = '';
-                    document.getElementById('harga_barang').value = '';
-                } else {
-                    document.getElementById('jml_item').disabled = disabled;
-                    document.getElementById('harga_barang').disabled = disabled;
-                }
-            }
-
-            function checkInputFields() {
-                let idBarang = document.getElementById('id_barang').value;
-                let isItemAdded = addedItems.has(idBarang);
-                // toggleInputFields(isItemAdded);
-            }
-
-            document.getElementById('add-item-detail').addEventListener('click', async function() {
-                let btn = this;
-                let originalText = btn.innerHTML;
-                btn.disabled = true;
-                btn.innerHTML = `<i class="fa fa-spinner fa-spin"></i> Proses...`;
-
-                try {
-                    let idBarang = document.getElementById('id_barang').value;
-                    let selectedOption = document.getElementById('id_barang').selectedOptions[0];
-
-                    let namaBarang = selectedOption?.text || '';
-                    let idJenisBarang = selectedOption?.dataset.idjenisbarang || '';
-                    let namaJenisBarang = selectedOption?.dataset.namajenisbarang || '';
-
-                    let qty = parseInt(document.getElementById('jml_item').value);
-                    let harga = parseInt($('#harga_barang').val().replace(/\./g, ''));
-                    let isBarangExist = rowGlobal.some(row => row.id_barang === idBarang);
-
-                    if (isBarangExist) {
-                        notificationAlert('error', 'Pemberitahuan',
-                            'Barang dengan ID yang sama sudah ada!');
-                        btn.innerHTML = originalText;
-                        btn.disabled = false;
-                        return;
-                    }
-                    if (!idBarang) {
-                        notificationAlert('error', 'Pemberitahuan',
-                            'Silakan pilih barang terlebih dahulu.');
-                        btn.innerHTML = originalText;
-                        btn.disabled = false;
-                        return;
-                    }
-
-                    const isBarangExistInRow = Array.from(
-                        document.querySelectorAll('.table-bordered tbody input[name="id_barang[]"]')
-                    ).some(input => input.value === idBarang);
-
-                    if (isBarangExistInRow) {
-                        notificationAlert(
-                            'error',
-                            'Pemberitahuan',
-                            'Barang ini sudah ada di daftar.'
-                        );
-                        btn.innerHTML = originalText;
-                        btn.disabled = false;
-                        return;
-                    }
-
-
-                    if (!qty || !harga) {
-                        notificationAlert('error', 'Pemberitahuan', 'Jumlah dan harga barang harus diisi.');
-                        btn.innerHTML = originalText;
-                        btn.disabled = false;
-                        return;
-                    }
-
-                    let allLevelsFilled = true;
-                    document.querySelectorAll('.level-harga').forEach((input) => {
-                        if (!input.value) {
-                            allLevelsFilled = false;
-                        }
-                    });
-
-                    if (!allLevelsFilled) {
-                        notificationAlert('error', 'Pemberitahuan',
-                            'Harap atur level harga ! jika tidak, silahkan isi dengan "0"');
-                        btn.innerHTML = originalText;
-                        btn.disabled = false;
-                        return;
-                    }
-
-                    await addTemporaryField(id_pembelian_post);
-                    addedItems.add(idBarang);
-                    document.querySelector(`#id_barang option[value="${idBarang}"]`).setAttribute('hidden',
-                        true);
-
-                    let subtotal = 0;
-                    document.querySelectorAll('.table-bordered tbody tr').forEach((row) => {
-                        let hargaPerItem = parseInt(row.children[6].textContent.replace(/\D/g,
-                                '')) ||
-                            0;
-                        subtotal += hargaPerItem;
-                    });
-
-                    let totalHarga = qty * harga;
-                    subtotal += totalHarga;
-
-                    let levelHargaInputs = '';
-                    document.querySelectorAll('.level-harga').forEach((input) => {
-                        levelHargaInputs +=
-                            `<input type="hidden" name="level_harga[${idBarang}][]" value="${input.value}">`;
-                    });
-
-                    let row = `
-                    <tr>
-                        <td class="text-center"><button onclick="removeRow({id_pembelian: '${id_pembelian_post}', id_barang: '${idBarang}' })" type="button" class="btn btn-danger btn-sm remove-item"><i class="fa fa-trash-alt mr-1"></i>Hapus</button></td>
-                        <td class="numbered text-center">${document.querySelectorAll('.table-bordered tbody tr').length + 1}</td>
-                        <td><input type="hidden" name="id_barang[]" value="${idBarang}">${namaBarang}</td>
-                        <td class="text-right"><input type="hidden" name="qty[]" value="${qty}">${qty}</td>
-                        <td class="text-right"><input type="hidden" name="harga_barang[]" value="${harga}">Rp ${harga.toLocaleString('id-ID')}</td>
-                        <td class="text-right">Rp ${totalHarga.toLocaleString('id-ID')}</td>
-                        ${levelHargaInputs}
-                    </tr>
-                    `;
-
-                    document.querySelector('.table-bordered tbody').insertAdjacentHTML('beforeend', row);
-
-                    document.querySelector('.table-bordered tfoot tr th:last-child').textContent =
-                        `Rp ${subtotal.toLocaleString('id-ID')}`;
-
-                    toggleInputFields(true);
-                    document.getElementById('id_barang').value = '';
-                    const tomSelect = document.getElementById('id_barang').tomselect;
-                    if (tomSelect) {
-                        tomSelect.clear();
-                    }
-
-                    resetFields();
-                    updateNumbers();
-                    $('#id_barang').val(null).trigger('change');
-
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-
-                    await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
-                        customFilter);
-                } catch (error) {
-                    console.error(error);
-                    notificationAlert('error', 'Kesalahan', 'Terjadi kesalahan saat memproses data.');
-                } finally {
-                    // ✅ PASTI DIJALANKAN
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                }
-            });
-
-            document.querySelector('.table-bordered tbody').addEventListener('click', function(e) {
-                if (e.target.classList.contains('remove-item')) {
-                    let row = e.target.closest('tr');
-                    let idBarang = row.querySelector('input[name="id_barang[]"]').value;
-                    let idJenisBarang = row.querySelector('input[name="id_jenis_barang[]"]').value;
-                    let qty = row.querySelector('input[name="qty[]"]').value;
-                    let harga = row.querySelector('input[name="harga_barang[]"]').value;
-                    let totalHarga = parseInt(row.querySelector('td:nth-child(6)').textContent.replace(
-                        /\D/g, ''));
-
-                    subtotal -= totalHarga;
-                    row.remove();
-
-                    addedItems.delete(idBarang);
-
-                    let optionElement = document.querySelector(`#id_barang option[value="${idBarang}"]`);
-                    if (optionElement) {
-                        optionElement.removeAttribute('hidden');
-                    } else {
-                        console.log(`Opsi dengan id ${idBarang} tidak ditemukan di dropdown.`);
-                    }
-
-                    document.querySelector('.table-bordered tfoot tr th:last-child').textContent =
-                        `Rp ${subtotal.toLocaleString('id-ID')}`;
-
-                    updateNumbers();
-
-                    if (!addedItems.size) {
-                        toggleInputFields(false);
-                    } else {
-                        checkInputFields();
-                    }
-                }
-            });
-
-            $('#id_barang').on('select2:select', async function() {
-
-                checkInputFields();
-                $('#jml_item').val('');
-                $('#harga_barang').val('');
-
-                let idBarang = $(this).val();
-
-                const baseUrl = "{{ route('sb.getDetail') }}";
-
-                if (idBarang) {
-                    let resp = await renderAPI('GET', baseUrl, {
-                        barang_id: idBarang,
-                        toko_id: {{ auth()->user()->toko_id }}
-                    })
-                        .then(r => r)
-                        .catch(e => e.response);
-
-                    let data = resp?.data || resp;
-
-                    if (!data) {
-                        return;
-                    }
-
-                    initialHppBaru = data.hpp_baru || 0;
-                    initialStock = data.stock || 0;
-                    initialHppAwal = data.hpp_awal || 0;
-
-                    document.querySelector('.card-text strong.stock').textContent =
-                        initialStock.toLocaleString('id-ID');
-                    document.querySelector('.card-text strong.hpp-awal').textContent = formatRupiah(
-                        initialHppAwal);
-                    document.querySelector('.card-text strong.hpp-baru').textContent = formatRupiah(
-                        initialHppBaru);
-
-                    document.querySelectorAll('.level-harga').forEach(input => {
-                        input.setAttribute('data-hpp-baru', initialHppBaru);
-                    });
-
-                    originalLevelHarga = {
-                        ...data.level_harga
-                    };
-                    const levelHargaValues = Object.values(data.level_harga);
-
-                    document.querySelectorAll('input[name="level_harga[]"]').forEach(function(inputField,
-                        index) {
-                        const persenElement = document.querySelector(`#persen_${index}`);
-                        const harga = parseFloat(levelHargaValues[index]) || 0;
-
-                        inputField.value = formatNumberID(harga);
-
-                        let persen = 0;
-                        if (initialHppAwal > 0 && harga > 0) {
-                            persen = ((harga - initialHppAwal) / initialHppAwal) * 100;
-                        }
-
-                        if (persenElement) {
-                            persenElement.textContent = `${persen.toFixed(2)}%`;
-                        }
-                    });
-
-                    setupInputListeners(data.total_harga_success, data.total_qty_success);
-
-                } else {
-                    resetFields();
-                }
-            });
-
-            function formatNumberID(value) {
-                return Number(value || 0).toLocaleString('id-ID');
-            }
-
-            document.querySelectorAll('.level-harga').forEach(function(input) {
-                input.addEventListener('input', function() {
-                    let hppAwal = initialHppAwal || 0;
-                    let hppBaru = parseFloat(input.getAttribute('data-hpp-baru')) || 0;
-                    let levelHarga = parseFloat(this.value.replace(/\./g, '')) || 0;
-
-                    let persen = 0;
-
-                    if (hppBaru === 0 && hppAwal > 0) {
-                        persen = ((levelHarga - hppAwal) / hppAwal) * 100;
-                    } else if (hppBaru > 0) {
-                        persen = ((levelHarga - hppBaru) / hppBaru) * 100;
-                    }
-
-                    const index = this.getAttribute('data-index');
-                    const persenElement = document.getElementById(`persen_${index}`);
-                    if (persenElement) {
-                        persenElement.textContent = `${persen.toFixed(2)}%`;
-                    }
-                });
-            });
-
-            function setupInputListeners(totalHarga, totalQty) {
-                document.querySelectorAll('.jumlah-item, .harga-barang').forEach(function(input) {
-                    input.addEventListener('input', function() {
-                        calculateHPP(totalHarga, totalQty);
-                    });
-                });
-            }
-
-            document.querySelectorAll('.jumlah-item, .harga-barang').forEach(function(input) {
-                input.addEventListener('input', function() {
-                    calculateHPP(0,
-                        0
-                    );
-                });
-            });
-
-            async function calculateHPP(totalHarga, totalQty) {
-                clearTimeout(debounceTimer);
-                debounceTimer = setTimeout(async () => {
-                    let id_barang = parseFloat(document.querySelector('.id-barang').value) || 0;
-                    let jumlah = parseFloat(document.querySelector('.jumlah-item').value) || 0;
-                    let harga = parseFloat($('.harga-barang').val().replace(/\./g, '')) || 0;
-
-                    let hppAwal = initialHppAwal || 0;
-
-                    if (jumlah > 0 && harga > 0) {
-                        try {
-                            let getDataRest = await renderAPI('GET',
-                                '{{ route('sb.getHpp') }}', {
-                                    barang_id: id_barang,
-                                    qty: jumlah,
-                                    harga: harga,
-                                    toko_group_id: selectedTokoGroup
-                                });
-
-                            if (getDataRest && getDataRest.status === 200) {
-                                let finalHpp = getDataRest.data.hpp_baru;
-
-                                document.querySelector('.card-text strong.hpp-baru').textContent =
-                                    formatRupiah(finalHpp);
-
-                                document.querySelectorAll('.level-harga').forEach(function(input) {
-                                    input.setAttribute('data-hpp-baru', finalHpp);
-                                });
-
-                                updatePercentages(finalHpp);
-                                return;
-                            }
-                        } catch (error) {
-                            let finalHpp = harga;
-
-                            document.querySelector('.card-text strong.hpp-baru').textContent =
-                                formatRupiah(finalHpp);
-
-                            document.querySelectorAll('.level-harga').forEach(function(input) {
-                                input.setAttribute('data-hpp-baru', finalHpp);
-                            });
-
-                            updatePercentages(finalHpp);
-                            return;
-                        }
-                    }
-
-                    document.querySelector('.card-text strong.hpp-baru').textContent =
-                        `Rp ${initialHppBaru.toLocaleString('id-ID')}`;
-
-                    document.querySelectorAll('.level-harga').forEach(function(input) {
-                        input.setAttribute('data-hpp-baru', hppAwal);
-                    });
-
-                    updatePercentages(hppAwal);
-                }, debounceDelay);
-            }
-
-            function updatePercentages(hpp) {
-                document.querySelectorAll('.level-harga').forEach(function(input) {
-                    let levelHarga = parseFloat(input.value.replace(/\./g, '')) || 0;
-                    let persen = 0;
-                    if (hpp > 0) {
-                        persen = ((levelHarga - hpp) / hpp) * 100;
-                    }
-
-                    const persenElement = document.getElementById(
-                        `persen_${input.getAttribute('data-index')}`);
-                    if (persenElement) {
-                        persenElement.textContent = `${persen.toFixed(2)}%`;
-                    }
-                });
-            }
-
-            function updateNumbers() {
-                document.querySelectorAll('.table-bordered tbody tr .numbered').forEach((element, index) => {
-                    element.textContent = index + 1;
-                });
-            }
-
-            function resetFields() {
-                document.querySelector('.card-text strong.stock').textContent = '0';
-                document.querySelector('.card-text strong.hpp-awal').textContent = 'Rp 0';
-                document.querySelector('.card-text strong.hpp-baru').textContent = 'Rp 0';
-
-                document.querySelectorAll('.level-harga').forEach(function(input) {
-                    input.value = '';
-
-                    const index = input.getAttribute('data-index');
-                    const persenElement = document.getElementById(`persen_${index}`);
-
-                    if (persenElement) {
-                        persenElement.textContent = '0%';
-                    }
-                });
-            }
-
-            function resetFieldsToOriginal() {
-                let currentHppBaru = parseFloat(document.querySelector('.card-text strong.hpp-baru').textContent
-                    .replace(/\D/g, ''));
-                let hppUntukPerhitungan = initialHppAwal;
-                let awal = 0;
-
-                if (currentHppBaru && currentHppBaru > 0) {
-                    hppUntukPerhitungan = currentHppBaru;
-                }
-
-                document.querySelector('.jumlah-item').value = '';
-                document.querySelector('.harga-barang').value = '';
-
-                document.querySelector('.card-text strong.stock').textContent = initialStock.toLocaleString(
-                    'id-ID');
-                document.querySelector('.card-text strong.hpp-awal').textContent =
-                    `Rp ${initialHppAwal.toLocaleString('id-ID')}`;
-                document.querySelector('.card-text strong.hpp-baru').textContent =
-                    `Rp ${awal.toLocaleString('id-ID')}`;
-
-                document.querySelectorAll('input[name="level_nama[]"]').forEach(function(namaLevelInput, index) {
-                    const namaLevel = namaLevelInput.value.replace(/\./g, '');
-                    const inputField = document.querySelectorAll('input[name="level_harga[]"]')[index];
-                    const persenElement = document.querySelector(`#persen_${index}`);
-
-                    if (originalLevelHarga.hasOwnProperty(namaLevel)) {
-                        inputField.value = originalLevelHarga[namaLevel] ||
-                            0;
-                        let levelHarga = parseFloat(inputField.value.replace(/\./g, '')) || 0;
-                        let persen = 0;
-                        if (hppUntukPerhitungan > 0) {
-                            persen = ((levelHarga - hppUntukPerhitungan) / hppUntukPerhitungan) * 100;
-                        }
-                        persenElement.textContent = `${persen.toFixed(2)}%`;
-                    } else {
-                        inputField.value = 0;
-                        persenElement.textContent = '0%';
-                    }
-                });
-            }
-
-            document.getElementById('reset').addEventListener('click', function() {
-                let idBarang = document.getElementById('id_barang').value;
-                if (idBarang) {
-                    resetFieldsToOriginal();
-                } else {
-                    resetFields();
+                if (input.length) {
+                    input.val(harga).trigger('input'); // trigger rupiah formatter
                 }
             });
         }
+
+        $('#btn-submit').on('click', async function() {
+            await submitFinalPembelian();
+        });
+
+        async function submitFinalPembelian() {
+
+            const btn = $('#btn-submit');
+            const btnText = btn.find('.btn-text');
+            const btnIcon = btn.find('i');
+
+            // prevent double click
+            if (btn.prop('disabled')) return;
+
+            if (!PBState.pembelianId) {
+                return notificationAlert('warning', 'Error', 'Pembelian belum dibuat');
+            }
+
+            if (PBState.items.length === 0) {
+                return notificationAlert('warning', 'Error', 'Belum ada item pembelian');
+            }
+
+            const items = PBState.items.map(i => ({
+                id_barang: Number(i.id_barang),
+                qty: Number(i.qty),
+                harga_barang: Number(i.harga_barang),
+                level_harga: i.level_harga || []
+            }));
+
+            const payload = {
+                id: PBState.pembelianId,
+                toko_group_id: PBState.header.tokoGroup,
+                toko_id: "{{ auth()->user()->toko_id }}",
+                created_by: "{{ auth()->id() }}",
+                nota: PBState.header.nota,
+                tipe: $('#tipe').val(),
+                supplier_id: PBState.header.supplier,
+                tanggal: PBState.header.tgl,
+                items
+            };
+
+            console.log("FINAL PAYLOAD:", payload);
+
+            // 🔥 LOADING STATE
+            btn.prop('disabled', true);
+            btnIcon.removeClass('fa-save').addClass('fa-spinner fa-spin');
+            btnText.text('Menyimpan...');
+
+            try {
+                const res = await renderAPI('PUT', "{{ route('tb.pb.put') }}", payload);
+
+                notificationAlert('success', 'Success', res.message || 'Pembelian berhasil disimpan');
+
+                $('#modal-form').modal('hide');
+
+                setTimeout(async () => {
+                    await getListData(defaultLimitPage, currentPage, defaultAscending,
+                        defaultSearch, customFilter);
+                }, 500);
+            } catch (e) {
+                console.error('FINAL SAVE ERROR', e);
+
+                if (e.responseJSON?.errors) {
+                    console.log("VALIDATION ERRORS:", e.responseJSON.errors);
+                }
+
+                notificationAlert('error', 'Error', 'Gagal simpan pembelian final');
+
+            } finally {
+                // 🔄 RESTORE BUTTON
+                btn.prop('disabled', false);
+                btnIcon.removeClass('fa-spinner fa-spin').addClass('fa-save');
+                btnText.text('Simpan');
+            }
+        }
+
+        $(document).on('input', '.level-harga', function() {
+            const hppBaru = Number($('.hpp-baru').text().replace(/\D/g, '')) || 0;
+
+            const index = $(this).data('index');
+            const val = Number($(this).val().replace(/\./g, '')) || 0;
+
+            let persen = 0;
+            if (hppBaru > 0) {
+                persen = ((val - hppBaru) / hppBaru * 100).toFixed(2);
+            }
+
+            $('#persen_' + index).text(persen + '%');
+        });
+
 
         async function filterList() {
             let dateRangePickerList = initializeDateRangePicker();
@@ -1635,20 +1233,43 @@
             });
         }
 
-        async function waitForPembelianBarangId() {
-            return new Promise(resolve => {
-                const checkInterval = setInterval(() => {
-                    if (pembelianBarangId !== null && pembelianBarangId !== undefined) {
-                        clearInterval(checkInterval);
-                        resolve(true);
-                    }
-                }, 100);
-            });
-        }
+        $('#modal-form').on('hidden.bs.modal', function() {
+            // reset form tambah
+            $('#form-tambah-pembelian')[0].reset();
+            $('#id_supplier, #toko_group, #kas').val(null).trigger('change');
+            $('#id_supplier, #no_nota, #tgl_nota, #toko_group, #kas, #tipe, #btn-next-step').prop('disabled',
+                false);
 
-        async function initSaveDataWatcher() {
-            await waitForPembelianBarangId();
-            saveData();
+            // reset input detail
+            $('#id_barang').val(null).trigger('change');
+            $('#jml_item').val('');
+            $('#harga_barang').val('');
+
+            // reset level harga
+            $('.level-harga').val('');
+            $('[id^=persen_]').text('0%');
+
+            // reset info stok
+            $('.stock').text('0');
+            $('.hpp-awal').text('Rp 0');
+            $('.hpp-baru').text('Rp 0');
+
+            // reset table
+            $('#tempData').html('');
+            $('#subtotal').text('Rp 0');
+
+            // reset tab ke awal
+            $('#tambah-tab').tab('show');
+
+            resetPBState();
+        });
+
+        function resetPBState() {
+            PBState.mode = 'add';
+            PBState.pembelianId = null;
+            PBState.header = {};
+            PBState.items.length = 0;
+            PBState.addedItems.clear();
         }
 
         async function initPageLoad() {
@@ -1657,12 +1278,6 @@
                 getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter),
                 searchList(),
                 filterList(),
-                addData(),
-                selectData(selectOptions),
-                showData(),
-                editData(),
-                deleteData(),
-                initSaveDataWatcher(),
             ]);
         }
     </script>

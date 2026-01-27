@@ -17,11 +17,27 @@ class PembelianBarang extends Model
 
     protected $casts = [
         'verified_at' => 'datetime',
+        'tanggal' => 'datetime',
     ];
+
+    public function tokoGroup()
+    {
+        return $this->belongsTo(TokoGroup::class, 'toko_group_id', 'id');
+    }
+
+    public function kas()
+    {
+        return $this->belongsTo(Kas::class, 'kas_id', 'id');
+    }
 
     public function detail()
     {
         return $this->hasMany(PembelianBarangDetail::class, 'pembelian_barang_id');
+    }
+
+    public function temp()
+    {
+        return $this->hasMany(PembelianBarangDetailTemp::class, 'pembelian_barang_id');
     }
 
     public function supplier()

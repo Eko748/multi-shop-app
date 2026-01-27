@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Utils;
 
+use App\Helpers\TextGenerate;
 use App\Http\Controllers\Controller;
 use App\Models\Barang;
 use App\Models\Brand;
@@ -475,11 +476,11 @@ class MasterController extends Controller
 
         $mappedData = array_map(function ($item) use ($request) {
 
-            $text = $item['nama'] ?? '';
+            $text = TextGenerate::smartTail($item['nama']) ?? '';
 
             if ($request->has('with') && $request->with == 'barcode') {
                 $barcode = $item['barcode'] ?? '-';
-                $text = "{$item['nama']} - (Barcode: {$barcode})";
+                $text = "{$text} - (Barcode: {$barcode})";
             }
 
             return [

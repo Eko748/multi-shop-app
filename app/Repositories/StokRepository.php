@@ -55,7 +55,7 @@ class StokRepository
                     'id_jenis_barang'   => $jenis->id,
                     'nama_jenis_barang' => $jenis->nama_jenis_barang,
                     'total_qty'         => $group->sum('qty_sisa'),
-                    'total_harga'       => $group->sum(fn($i) => $i->qty_sisa * $i->stockBarang->hpp_baru),
+                    'total_harga'       => $group->sum(fn($i) => $i->qty_sisa * $i->harga_beli),
                 ];
             })
             ->values();

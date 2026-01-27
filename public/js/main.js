@@ -56,6 +56,17 @@ function formatRupiah(value) {
     }).format(number);
 }
 
+function parseRupiah(text) {
+    if (!text) return 0;
+
+    return parseFloat(
+        text.replace(/[^0-9,]/g, '')
+            .replace(/\./g, '')
+            .replace(',', '.')
+    ) || 0;
+}
+
+
 function notificationAlert(tipe, title, message) {
     swal(
         title,

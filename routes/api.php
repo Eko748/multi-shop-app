@@ -40,9 +40,6 @@ Route::get('/get-asset', [AsetBarangJualanController::class, 'getAssetBarang'])-
 Route::get('/get-aset-retur', [AsetBarangReturController::class, 'getAsetBarangRetur'])->name('aset.retur');
 Route::get('/get-ratingmember', [RatingMemberController::class, 'getMember'])->name('dashboard.ratingmember');
 
-Route::get('/getpembelianbarang', [PembelianBarangController::class, 'getpembelianbarang'])->name('master.pembelian.get');
-Route::get('/gettemppembelian', [PembelianBarangController::class, 'gettemppembelian'])->name('master.temppembelian.get');
-
 Route::get('/getdatauser', [UserController::class, 'getdatauser'])->name('master.getdatauser');
 Route::get('/getpengeluaran', [PengeluaranController::class, 'getpengeluaran'])->name('master.getpengeluaran');
 Route::get('/getpemasukan', [PemasukanController::class, 'getpemasukan'])->name('master.getpemasukan');
@@ -248,10 +245,12 @@ Route::prefix('transaksi-barang')->as('tb.')->group(function () {
 
     Route::prefix('pembelian')->as('pb.')->group(function () {
         Route::put('put', [PembelianBarangController::class, 'update'])->name('put');
+        Route::get('get', [PembelianBarangController::class, 'get'])->name('get');
 
         Route::prefix('temporary')->as('temp.')->group(function () {
             Route::post('post', [PembelianBarangController::class, 'postTemp'])->name('post');
             Route::delete('delete', [PembelianBarangController::class, 'deleteTemp'])->name('delete');
+            Route::get('get-temporary', [PembelianBarangController::class, 'getTemporary'])->name('get');
         });
     });
 });

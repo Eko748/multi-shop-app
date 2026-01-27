@@ -43,16 +43,16 @@ class KasJenisBarangGenerate
             : $labelText;
     }
 
-    public static function labelForKas(object $item, $extra = null): string
+    public static function labelForKas(object $item, $extra = null, $saldo = false): string
     {
-        $toko = $item->toko ?? null;
+        $toko = $item->toko ?? $item->kas->toko_id ?? null;
 
         $tipeKasValue = $item->kas->tipe_kas ?? $item->tipe_kas ?? null;
         $labelTipeKas = $tipeKasValue
             ? TipeKas::from($tipeKasValue)->label()
             : '';
 
-        if (!$toko || !$toko->kas_detail) {
+        if (!$toko) {
             return $extra && $labelTipeKas
                 ? "{$labelTipeKas} {$extra}"
                 : ($labelTipeKas ?: ($extra ?? ''));
@@ -72,6 +72,11 @@ class KasJenisBarangGenerate
 
         if ($extra) {
             return "{$labelTipeKas} {$extra} - {$jenis}";
+        }
+
+        if ($saldo) {
+            $ss = RupiahGenerate::build($item->kas->saldo);
+            return "{$labelTipeKas} - {$jenis} ({$ss})";
         }
 
         return "{$labelTipeKas} - {$jenis}";

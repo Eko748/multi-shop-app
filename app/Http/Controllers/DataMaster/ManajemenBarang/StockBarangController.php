@@ -424,47 +424,47 @@ class StockBarangController extends Controller
         // ================================
         $tokoList = Toko::all()->sortByDesc(fn($tk) => $tk->id == $request->toko_id ? 1 : 0);
 
-        $dataPerToko = $tokoList->map(function ($tk) use ($stockBarang, $levelHargaMaster, $hargaMapping) {
+        // $dataPerToko = $tokoList->map(function ($tk) use ($stockBarang, $levelHargaMaster, $hargaMapping) {
 
-            $stock = $tk->id == 1 ? ($stockBarang->stok ?? 0) : 0;
+        //     $stock = $tk->id == 1 ? ($stockBarang->stok ?? 0) : 0;
 
-            // Decode level harga toko (aman)
-            $raw = $tk->level_harga;
-            $array = json_decode($raw, true);
+        //     // Decode level harga toko (aman)
+        //     $raw = $tk->level_harga;
+        //     $array = json_decode($raw, true);
 
-            if (!is_array($array)) {
-                if (is_string($raw) && str_contains($raw, ',')) {
-                    $array = array_map('intval', explode(',', $raw));
-                } elseif (is_numeric($raw)) {
-                    $array = [(int) $raw];
-                } else {
-                    $array = [];
-                }
-            }
+        //     if (!is_array($array)) {
+        //         if (is_string($raw) && str_contains($raw, ',')) {
+        //             $array = array_map('intval', explode(',', $raw));
+        //         } elseif (is_numeric($raw)) {
+        //             $array = [(int) $raw];
+        //         } else {
+        //             $array = [];
+        //         }
+        //     }
 
-            // Bangun output string
-            $output = [];
+        //     // Bangun output string
+        //     $output = [];
 
-            foreach ($array as $id) {
+        //     foreach ($array as $id) {
 
-                $namaLevel = $levelHargaMaster
-                    ->firstWhere('id', $id)
-                    ->nama_level_harga ?? 'N/A';
+        //         $namaLevel = $levelHargaMaster
+        //             ->firstWhere('id', $id)
+        //             ->nama_level_harga ?? 'N/A';
 
-                $harga = $hargaMapping[$id] ?? null;
+        //         $harga = $hargaMapping[$id] ?? null;
 
-                if ($harga !== null) {
-                    $formatted = 'Rp ' . number_format($harga, 0, ',', '.');
-                    $output[] = "{$namaLevel} ({$formatted})";
-                }
-            }
+        //         if ($harga !== null) {
+        //             $formatted = 'Rp ' . number_format($harga, 0, ',', '.');
+        //             $output[] = "{$namaLevel} ({$formatted})";
+        //         }
+        //     }
 
-            return [
-                'nama_toko'   => $tk->nama,
-                'stock'       => $stock,
-                'level_harga' => implode(', ', $output),
-            ];
-        });
+        //     return [
+        //         'nama_toko'   => $tk->nama,
+        //         'stock'       => $stock,
+        //         'level_harga' => implode(', ', $output),
+        //     ];
+        // });
 
         // ================================
         // RESPONSE
@@ -476,7 +476,7 @@ class StockBarangController extends Controller
             'total_harga_success'  => $totalHargaSuccess,
             'total_qty_success'    => $totalQtySuccess,
             'level_harga'          => $level_harga, // ✅ PURE ARRAY
-            'per_toko'             => $dataPerToko,
+            // 'per_toko'             => $dataPerToko,
         ]);
     }
 
@@ -539,6 +539,7 @@ class StockBarangController extends Controller
             : 0.00;
 
         return response()->json([
+            'hpp_lama'   => (float) $hpp_lama,
             'hpp_baru'   => (float) $hpp_baru,
             'stok_lama'  => (int) $totalQtyLama,
             'stok_baru'  => (int) $totalQtyBaru

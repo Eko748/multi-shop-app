@@ -273,6 +273,7 @@
                                         <label for="brand_id" class=" form-control-label">Brand Barang<span
                                                 style="color: red">*</span></label>
                                         <select name="brand_id" id="brand_id" class="form-control select2">
+                                            <option value="1" selected>Umum</option>
                                         </select>
                                     </div>
                                 </div>
@@ -627,11 +628,15 @@
                 $("#modal-title").html(`<i class="fa fa-circle-plus mr-1"></i>Form Tambah Barang`);
                 $("#modal-form").modal("show");
                 $("#formTambahData").data("action-url", '{{ route('master.barang.store') }}');
+                setTimeout(() => {
+                    $('#brand_id').val('1').trigger('change');
+                }, 100);
             });
 
             $('#garansi').on('change', function() {
                 $('#switchStatus').text(this.checked ? 'Ya' : 'Tidak');
             });
+
         }
 
         async function submitForm() {

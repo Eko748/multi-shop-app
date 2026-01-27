@@ -21,8 +21,10 @@ use App\Models\StockBarang;
 use App\Models\StockBarangBatch;
 use App\Models\Supplier;
 use App\Services\KasService;
-use App\Traits\ApiResponse;
+use App\Services\TransaksiBarang\PembelianBarangService;
+use App\Traits\{ApiResponse, HasFilter};
 use Carbon\Carbon;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -32,118 +34,68 @@ use Maatwebsite\Excel\Validators\ValidationException as ExcelValidationException
 
 class PembelianBarangController extends Controller
 {
-    use ApiResponse;
+    use ApiResponse, HasFilter;
 
     private array $menu = [];
+    protected $service;
 
-    public function __construct()
+    public function __construct(PembelianBarangService $service)
     {
         $this->menu;
         $this->title = [
             'Data Pembelian Barang',
             'Detail Data'
         ];
-    }
-
-    public function getpembelianbarang(Request $request)
-    {
-        $meta['orderBy'] = $request->ascending ? 'asc' : 'desc';
-        $meta['limit'] = $request->has('limit') && $request->limit <= 30 ? $request->limit : 30;
-
-        $query = PembelianBarang::query();
-
-        $query->orderByRaw("CASE WHEN status = 'completed_debt' THEN 1 ELSE 0 END DESC")
-            ->orderByRaw("CASE WHEN status = 'progress' THEN 1 ELSE 0 END DESC")
-            ->orderByDesc('id');
-
-        if (!empty($request['search'])) {
-            $searchTerm = trim(strtolower($request['search']));
-
-            $query->where(function ($query) use ($searchTerm) {
-                $query->orWhereRaw("LOWER(nota) LIKE ?", ["%$searchTerm%"]);
-                $query->orWhereHas('supplier', function ($subquery) use ($searchTerm) {
-                    $subquery->whereRaw("LOWER(nama) LIKE ?", ["%$searchTerm%"]);
-                });
-                $query->orWhereHas('detail.barang', function ($subquery) use ($searchTerm) {
-                    $subquery->whereRaw("LOWER(nama) LIKE ?", ["%$searchTerm%"]);
-                });
-            });
-        }
-
-        if ($request->has('startDate') && $request->has('endDate')) {
-            $startDate = $request->input('startDate');
-            $endDate = $request->input('endDate');
-
-            $query->whereBetween('tanggal', [$startDate, $endDate]);
-        }
-
-        $totalNilai = $query->sum('total');
-        $totalItem = $query->sum('qty');
-
-        $data = $query->paginate($meta['limit']);
-
-        $paginationMeta = [
-            'total' => $data->total(),
-            'per_page' => $data->perPage(),
-            'current_page' => $data->currentPage(),
-            'total_pages' => $data->lastPage()
-        ];
-
-        $mappedData = collect($data->items())->map(function ($item) {
-            if ($item->status === 'progress') {
-                $detailSum = PembelianBarangDetailTemp::where('pembelian_barang_id', $item->id)
-                    ->selectRaw('COALESCE(SUM(qty),0) as total_item, COALESCE(SUM(harga_beli * qty),0) as total_nilai')
-                    ->first();
-            } else {
-                $detailSum = PembelianBarangDetail::where('pembelian_barang_id', $item->id)
-                    ->selectRaw('COALESCE(SUM(qty),0) as total_item, COALESCE(SUM(harga_beli * qty),0) as total_nilai')
-                    ->first();
-            }
-
-            $totalItem = (int) ($detailSum->total_item ?? 0);
-            $totalNilai = (float) ($detailSum->total_nilai ?? 0);
-
-            $kas = null;
-
-            $namaJenisBarang = optional($item->jenisBarang)->nama_jenis_barang ?? 'Tidak Diketahui';
-            $kasLabel = $item->kas == 'kecil' ? 'Kas Kecil' : 'Kas Besar';
-            $kas = $kasLabel . ' - ' . $namaJenisBarang;
-
-            return [
-                'id' => $item->id,
-                'nama_supplier' => optional($item->supplier)->nama ?? 'Tidak Ada',
-                'status' => match ($item->status) {
-                    'success' => 'Sukses',
-                    'failed' => 'Gagal',
-                    default => $item->status,
-                },
-                'tgl_nota' => Carbon::parse($item->tanggal)->format('d-m-Y'),
-                'no_nota' => $item->nota,
-                'tipe' => $item->tipe,
-                'total_item' => $totalItem,
-                'total_nilai' => 'Rp. ' . number_format($totalNilai, 0, ',', '.'),
-                'kas' => $kas,
-            ];
-        });
-
-        return response()->json([
-            'data' => $mappedData,
-            'status_code' => 200,
-            'errors' => false,
-            'message' => 'Sukses',
-            'pagination' => $paginationMeta,
-            'total' => 'Rp. ' . number_format($totalNilai, 0, '.', '.'),
-            'totals' => $totalItem
-        ], 200);
+        $this->service = $service;
     }
 
     public function index(Request $request)
     {
         $menu = [$this->title[0], $this->label[1]];
-        $suppliers = Supplier::all();       // Kirim data ke view
-        $barang = Barang::all();       // Kirim data ke view
-        $LevelHarga = LevelHarga::all();       // Kirim data ke view
-        return view('transaksi.pembelianbarang.index', compact('menu', 'suppliers', 'barang', 'LevelHarga'));
+        $LevelHarga = LevelHarga::all();
+        return view('transaksi.pembelianbarang.index', compact('menu', 'LevelHarga'));
+    }
+
+    public function get(Request $request)
+    {
+        try {
+            $filter = $this->makeFilter(
+                $request,
+                30,
+                [
+                    'toko_id' => $request->input('toko_id'),
+                    'nota' => $request->input('nota'),
+                ]
+            );
+            $data = $this->service->getAll($filter);
+
+            return $this->success($data['data'], 200, 'Berhasil', $data['pagination']);
+        } catch (Exception $e) {
+            return $this->error(500, "Gagal mengambil data {$this->title[0]}", [
+                'exception' => $e->getMessage()
+            ]);
+        }
+    }
+
+    public function getTemporary(Request $request)
+    {
+        try {
+            $filter = $this->makeFilter(
+                $request,
+                30,
+                [
+                    'toko_id' => $request->input('toko_id'),
+                    'id' => $request->input('pembelian_barang_id'),
+                ]
+            );
+            $data = $this->service->getDetail($filter);
+
+            return $this->success($data, 200, 'Berhasil');
+        } catch (Exception $e) {
+            return $this->error(500, "Gagal mengambil data {$this->title[0]}", [
+                'exception' => $e->getMessage()
+            ]);
+        }
     }
 
     public function create()
@@ -185,7 +137,7 @@ class PembelianBarangController extends Controller
                 'id_users'    => $user->id,
                 'no_nota'     => $request->no_nota,
                 'tgl_nota'    => $tglNota,
-                'tipe'        => $request->tipe, // ✅ langsung ambil dari request
+                'tipe'        => $request->tipe,
             ]);
 
             DB::commit();
@@ -455,7 +407,7 @@ class PembelianBarangController extends Controller
                 $counter++;
             }
 
-            $limitTotal = Kas::where('toko_id', $request->toko_id)->where('jenis_barang_id', $pembelian->jenis_barang_id)->where('tipe_kas', $pembelian->tipe_kas)->first();
+            $limitTotal = Kas::find($pembelian->kas_id);
 
             if ($totalNilai > (float) $limitTotal->saldo && $pembelian->tipe == 'cash') {
                 DB::rollBack();
@@ -531,11 +483,11 @@ class PembelianBarangController extends Controller
             $suplier = Supplier::where('id', $pembelian->supplier_id)->first();
 
             KasService::out(
-                toko_id: $pembelian->toko_id,
-                jenis_barang_id: $pembelian->jenis_barang_id,
-                tipe_kas: $pembelian->tipe_kas,
+                toko_id: $pembelian->kas->toko_id,
+                jenis_barang_id: $pembelian->kas->jenis_barang_id,
+                tipe_kas: $pembelian->kas->tipe_kas,
                 total_nominal: $totalNilai,
-                item: $pembelian->tipe_kas,
+                item: $pembelian->kas->tipe_kas,
                 kategori: 'Pembelian Barang',
                 keterangan: $suplier->nama,
                 sumber: $pembelian,
@@ -675,41 +627,6 @@ class PembelianBarangController extends Controller
         }
     }
 
-    public function gettemppembelian(Request $request)
-    {
-        try {
-            $id_pembelian = $request->input('id_pembelian');
-
-            $tempDetails = PembelianBarangDetailTemp::where('pembelian_barang_id', $id_pembelian)
-                ->with([
-                    'pembelianBarang:id,supplier_id',
-                    'barang:id,nama,jenis_barang_id',
-                    'barang.jenis:id,nama_jenis_barang'
-                ])
-                ->get();
-
-            foreach ($tempDetails as $detail) {
-                $detail->level_harga = json_decode($detail->level_harga);
-            }
-
-            return response()->json([
-                'status' => 'success',
-                'errors' => false,
-                'status_code' => 200,
-                'message' => 'Data berhasil diambil',
-                'data' => $tempDetails,
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'status' => 'error',
-                'errors' => true,
-                'status_code' => 500,
-                'message' => $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    // Konz
     public function delete($id)
     {
         DB::beginTransaction();
@@ -746,11 +663,9 @@ class PembelianBarangController extends Controller
                 'hpp_awal' => 'required|numeric|min:0',
                 'hpp_baru' => 'required|numeric|min:0',
 
-                // 🔥 FIX UTAMA
-                'toko_id'         => 'required_without:id_pembelian|exists:toko,id',
-                'toko_group_id'   => 'required_without:id_pembelian|exists:toko_group,id',
+                'toko_group_id' => 'required_without:id_pembelian',
                 'supplier_id'     => 'required_without:id_pembelian|exists:supplier,id',
-                'jenis_barang_id' => 'required_without:id_pembelian|exists:jenis_barang,id',
+                'kas_id'          => 'required_without:id_pembelian|exists:kas,id',
                 'nota'            => 'required_without:id_pembelian|string|max:255',
                 'tanggal'         => 'required_without:id_pembelian|date',
                 'tipe'            => 'required_without:id_pembelian|string|max:50',
@@ -761,14 +676,13 @@ class PembelianBarangController extends Controller
 
             if ($idPembelian === null) {
                 $pembelian = PembelianBarang::create([
-                    'toko_id'         => $request->toko_id,
-                    'supplier_id'     => $request->supplier_id,
-                    'jenis_barang_id' => $request->jenis_barang_id,
-                    'nota'            => $request->nota,
-                    'tanggal'         => $request->tanggal,
-                    'tipe'            => $request->tipe,
-                    'created_by'      => $request->created_by,
-                    'tipe_kas'        => 'kecil',
+                    'toko_group_id' => $request->toko_group_id,
+                    'supplier_id'   => $request->supplier_id,
+                    'kas_id'        => $request->kas_id,
+                    'nota'          => $request->nota,
+                    'tanggal'       => $request->tanggal,
+                    'tipe'          => $request->tipe,
+                    'created_by'    => $request->created_by,
                 ]);
 
                 $idPembelian = $pembelian->id;

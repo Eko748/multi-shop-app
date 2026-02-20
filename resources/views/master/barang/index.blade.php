@@ -130,7 +130,7 @@
                                     @if (hasAnyPermission(['POST /barang/store']))
                                         <div class="custom-btn-tambah-wrap">
                                             <button class="btn btn-primary text-white add-data w-100" data-container="body"
-                                                data-toggle="tooltip" data-placement="top" title="Tambah Toko">
+                                                data-toggle="tooltip" data-placement="top" title="Tambah Barang">
                                                 <i class="fa fa-plus-circle"></i> Tambah
                                             </button>
                                         </div>

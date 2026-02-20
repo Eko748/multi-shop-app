@@ -30,17 +30,23 @@ class ReturMemberDetail extends Model
     /**
      * Relasi ke detail kasir.
      */
-    public function detailKasir()
+    public function transaksiKasirDetail()
     {
-        return $this->belongsTo(DetailKasir::class, 'detail_kasir_id');
+        return $this->belongsTo(TransaksiKasirDetail::class, 'transaksi_kasir_detail_id');
     }
+
+    public function batch()
+    {
+        return $this->hasMany(ReturMemberDetailBatch::class);
+    }
+
 
     /**
      * Relasi ke stok detail melalui tabel pivot retur_member_detail_stok.
      */
     public function stokDetails()
     {
-        return $this->belongsToMany(DetailStockBarang::class, 'retur_member_detail_stok', 'retur_member_detail_id', 'stok_detail_id')
+        return $this->belongsToMany(StockBarangBatch::class, 'retur_member_detail_batch', 'retur_member_detail_id', 'stock_barang_batch_id')
             ->withPivot('qty')
             ->withTimestamps();
     }

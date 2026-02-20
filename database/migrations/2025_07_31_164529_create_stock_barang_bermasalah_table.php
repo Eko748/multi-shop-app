@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('stock_barang_bermasalah', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('stock_barang_batch_id');
+            $table->unsignedBigInteger('toko_id');
             $table->enum('status', ['hilang', 'mati', 'rusak']);
             $table->integer('qty');
             $table->timestamps();

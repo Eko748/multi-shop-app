@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('td_dompet_saldo', function (Blueprint $table) {
             $table->id();
             $table->uuid('public_id')->unique();
+            $table->unsignedBigInteger('toko_id');
             $table->foreignId('dompet_kategori_id')->nullable()
                 ->constrained('td_dompet_kategori')->onDelete('set null');
             $table->unsignedBigInteger('kas_id')->nullable()->index();

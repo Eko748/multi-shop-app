@@ -34,9 +34,9 @@ class PenjualanNonFisikDetailRepository
         ];
     }
 
-    public function sumHPP(?int $month = null, ?int $year = null)
+    public function sumHPP(?int $month = null, ?int $year = null, ?int $tokoId = null)
     {
-        $query = $this->model->selectRaw('SUM(hpp * qty) as total_hpp');
+        $query = $this->model->where('toko_id', $tokoId)->selectRaw('SUM(hpp * qty) as total_hpp');
 
         if ($month && $year) {
             $query->whereYear('created_at', $year)

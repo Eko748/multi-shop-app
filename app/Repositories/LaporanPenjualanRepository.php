@@ -2,8 +2,9 @@
 
 namespace App\Repositories;
 
-use App\Models\Kasir;
+use App\Models\TransaksiKasir;
 use App\Models\PenjualanNonFisik;
+use App\Models\ReturMemberDetail;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
@@ -14,11 +15,11 @@ class LaporanPenjualanRepository
         $start = Carbon::parse($startDate)->startOfDay();
         $end = Carbon::parse($endDate)->endOfDay();
 
-        $query = Kasir::with(['detail_kasir.jenisBarang', 'toko'])
-            ->whereBetween('tgl_transaksi', [$start, $end]);
+        $query = TransaksiKasir::with(['details.stockBarangBatch.stockBarang.barang.jenis', 'toko'])
+            ->whereBetween('tanggal', [$start, $end]);
 
         if ($idToko && $idToko != 1) {
-            $query->where('id_toko', $idToko);
+            $query->where('toko_id', $idToko);
         }
 
         return $query->get();
@@ -34,7 +35,7 @@ class LaporanPenjualanRepository
 
         if ($idToko && $idToko != 1) {
             $query->whereHas('createdBy', function ($q) use ($idToko) {
-                $q->where('id_toko', $idToko);
+                $q->where('toko_id', $idToko);
             });
         }
 
@@ -43,16 +44,17 @@ class LaporanPenjualanRepository
 
     public function getBiayaRetur($startDate, $endDate, $idToko = null)
     {
-        $query = DB::table('detail_retur')
-            ->leftJoin('data_retur', 'detail_retur.id_retur', '=', 'data_retur.id')
-            ->where('detail_retur.metode', 'Cash')
-            ->whereBetween('data_retur.tgl_retur', [$startDate, $endDate]);
+        $query = ReturMemberDetail::with('retur')
+            ->where('tipe_kompensasi', 'refund')
+            ->whereBetween('created_at', [$startDate, $endDate]);
 
         if ($idToko) {
-            $query->where('data_retur.id_toko', $idToko);
+            $query->whereHas('retur', function ($q) use ($idToko) {
+                $q->where('toko_id', $idToko);
+            });
         }
 
-        return (float) ($query->sum(DB::raw('detail_retur.harga - detail_retur.hpp_jual')) ?? 0);
+        return (float) ($query->sum(DB::raw('total_refund - harga_jual')) ?? 0);
     }
 
     public function getKasbon($startDate, $endDate, $idToko = null)

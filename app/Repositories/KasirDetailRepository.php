@@ -2,13 +2,13 @@
 
 namespace App\Repositories;
 
-use App\Models\DetailKasir;
+use App\Models\TransaksiKasirDetail;
 
 class KasirDetailRepository
 {
     protected $model;
 
-    public function __construct(DetailKasir $model)
+    public function __construct(TransaksiKasirDetail $model)
     {
         $this->model = $model;
     }
@@ -35,11 +35,13 @@ class KasirDetailRepository
     public function getQRCode($filter)
     {
         $query = $this->model::with([
-            'barang:id,nama_barang',
-            'kasir:id,id_member'
+            'stockBarangBatch:id,stock_barang_id',
+            'stockBarangBatch.stockBarang:id,barang_id',
+            'stockBarangBatch.stockBarang.barang:id,nama',
+            'transaksiKasir:id,member_id'
         ])
-            ->selectRaw('id, qrcode, id_barang, id_kasir, qty, reture_qty, (qty - IFNULL(reture_qty, 0)) as qty_selisih')
-            ->whereRaw('qty > IFNULL(reture_qty, 0)');
+            ->selectRaw('id, qrcode, stock_barang_batch_id, transaksi_kasir_id, qty, retur_qty, (qty - IFNULL(retur_qty, 0)) as qty_selisih')
+            ->whereRaw('qty > IFNULL(retur_qty, 0)');
 
         if (!empty($filter->search)) {
             $query->where(function ($q) use ($filter) {
@@ -48,9 +50,13 @@ class KasirDetailRepository
         }
 
         if (isset($filter->member_id) && $filter->member_id !== '') {
-            $memberId = $filter->member_id === 'Guest' ? '0' : $filter->member_id;
-            $query->whereHas('kasir', function ($q) use ($memberId) {
-                $q->where('id_member', (string) $memberId);
+            $query->whereHas('transaksiKasir', function ($q) use ($filter) {
+
+                if ($filter->member_id === 'guest') {
+                    $q->whereNull('member_id');
+                } else {
+                    $q->where('member_id', (string) $filter->member_id);
+                }
             });
         }
 
@@ -62,21 +68,19 @@ class KasirDetailRepository
     public function getHargaBarang($filter)
     {
         $query = $this->model::with([
-            'barang:id,nama_barang',
-            'detailPembelian:id,harga_barang',
-            'detailPembelian.detailStock:id,id_detail_pembelian,id_stock,qty_now',
-            'detailPembelian.detailStock.stok:id,stock'
+            'stockBarangBatch:id,stock_barang_id,harga_beli,supplier_id,qty_sisa',
+            'stockBarangBatch.stockBarang:id,barang_id,stok',
+            'stockBarangBatch.stockBarang.barang:id,nama',
+            'transaksiKasir:id,member_id'
         ])
             ->selectRaw('
             id,
             qrcode,
-            id_supplier,
-            id_barang,
-            id_detail_pembelian,
-            harga,
+            stock_barang_batch_id, transaksi_kasir_id,
             qty,
-            reture_qty,
-            (qty - IFNULL(reture_qty, 0)) as qty_selisih
+            retur_qty,
+            nominal,
+            (qty - IFNULL(retur_qty, 0)) as qty_selisih
         ')
             ->where('id', $filter->id);
 

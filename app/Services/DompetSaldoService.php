@@ -2,9 +2,13 @@
 
 namespace App\Services;
 
+use App\Helpers\RupiahGenerate;
+use App\Models\Kas;
 use App\Repositories\DompetSaldoRepository;
 use App\Repositories\PenjualanNonFisikDetailRepository;
 use App\Traits\PaginateResponse;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class DompetSaldoService
@@ -19,18 +23,18 @@ class DompetSaldoService
         $this->repository2 = $repository2;
     }
 
-    public function sumSisaSaldo(?int $month = null, ?int $year  = null)
+    public function sumSisaSaldo(?int $month = null, ?int $year  = null, ?int $tokoId = null)
     {
-        $data = $this->repository->sumSaldo($month, $year) - $this->repository2->sumHPP($month, $year);
+        $data = $this->repository->sumSaldo($month, $year, $tokoId) - $this->repository2->sumHPP($month, $year, $tokoId);
         return [
             'saldo' => $data,
             'format' => 'Rp ' . number_format($data, 0, ',', '.')
         ];
     }
 
-    public function sumHPP(?int $month  = null, ?int $year = null)
+    public function sumHPP(?int $month  = null, ?int $year = null, ?int $tokoId = null)
     {
-        $data = $this->repository->sumHargaBeli($month, $year) - $this->repository2->sumHPP($month, $year);
+        $data = $this->repository->sumHargaBeli($month, $year, $tokoId) - $this->repository2->sumHPP($month, $year, $tokoId);
         return [
             'saldo' => $data,
             'format' => 'Rp ' . number_format($data, 0, ',', '.')
@@ -121,7 +125,9 @@ class DompetSaldoService
                 ];
             });
 
-        $data = collect(method_exists($query, 'items') ? $query->items() : $query)->map(function ($item) use ($hppData) {
+        $kas = Kas::where('jenis_barang_id', 0)->where('tipe_kas', 'kecil')->where('toko_id', $filter->toko_id)->first();
+
+        $data = collect(method_exists($query, 'items') ? $query->items() : $query)->map(function ($item) use ($hppData, $kas) {
             $dompetKategoriId = (int) ($item->dompet_kategori_id ?? 0);
             $hpp = $hppData[$dompetKategoriId] ?? 0;
             $totalSaldo = (float) ($item->total_saldo ?? 0);
@@ -133,7 +139,8 @@ class DompetSaldoService
             return [
                 'id' => $dompetKategoriId,
                 'text' => $text,
-                'saldo' => $saldoSetelahHpp
+                'saldo' => $saldoSetelahHpp,
+                'kas' => $kas->id ?? 'NEW-0',
             ];
         });
 
@@ -162,38 +169,71 @@ class DompetSaldoService
 
     public function create(array $data)
     {
-        [$kasValue, $limitTotal] = explode('/', $data['kas']) + [null, null];
+        $saldoKas   = (float) ($data['saldo_kas'] ?? 0);
+        $hargaBeli = (float) $data['harga_beli'];
 
-        $data['kas'] = $kasValue;
-
-        if ($limitTotal !== null && $data['harga_beli'] > (float)$limitTotal) {
+        if ($saldoKas < $hargaBeli) {
             throw ValidationException::withMessages([
-                'harga_beli' => [
-                    "Harga beli (" . number_format($data['harga_beli'], 0, ',', '.') .
-                        ") melebihi sisa kas (" . number_format($limitTotal, 0, ',', '.') . ")"
+                'saldo_kas' => [
+                    "Saldo kas (" . RupiahGenerate::build($saldoKas) .
+                        ") tidak mencukupi untuk harga beli (" .
+                        RupiahGenerate::build($hargaBeli) . ")"
                 ]
             ]);
         }
 
-        return $this->repository->create($data);
+        return DB::transaction(function () use ($data, $hargaBeli) {
+            $item = $this->repository->create($data);
+
+            KasService::topup(
+                toko_id: $data['toko_id'],
+                jenis_barang_id: $data['jenis_barang_id'],
+                tipe_kas: $data['tipe_kas'],
+                saldo: $data['saldo'],
+                hargaBeli: $data['harga_beli'],
+                item: $data['tipe_kas'],
+                kategori: 'Saldo Digital',
+                keterangan: 'Top-up Saldo',
+                sumber: $item,
+                tanggal: Carbon::parse($item->created_at)
+            );
+
+            return $item;
+        });
     }
+
 
     public function update($id, array $data)
     {
-        [$kasValue, $limitTotal] = explode('/', $data['kas']) + [null, null];
+        $item = $this->repository->find($id);
 
-        $data['kas'] = $kasValue;
+        $hargaLama = (float) $item->harga_beli;
+        $hargaBaru = (float) ($data['harga_beli'] ?? $hargaLama);
+        $saldoKas  = (float) ($data['saldo_kas'] ?? 0);
 
-        if ($limitTotal !== null && $data['harga_beli'] > (float)$limitTotal) {
+        if ($saldoKas < $hargaBaru) {
             throw ValidationException::withMessages([
-                'harga_beli' => [
-                    "Harga beli (" . number_format($data['harga_beli'], 0, ',', '.') .
-                        ") melebihi sisa kas (" . number_format($limitTotal, 0, ',', '.') . ")"
+                'saldo_kas' => [
+                    "Saldo kas (" . RupiahGenerate::build($saldoKas) .
+                        ") tidak mencukupi untuk harga beli (" .
+                        RupiahGenerate::build($hargaBaru) . ")"
                 ]
             ]);
         }
 
-        return $this->repository->update($id, $data);
+        return DB::transaction(function () use ($id, $data, $item, $hargaBaru) {
+            $updatedItem = $this->repository->update($id, $data);
+
+            KasService::update(
+                kasId: $item->kas_id,
+                id: $item->id,
+                sumber: get_class($item),
+                tanggal: Carbon::parse($updatedItem->updated_at),
+                totalNominal: $hargaBaru
+            );
+
+            return $updatedItem;
+        });
     }
 
     public function delete($id, array $data)

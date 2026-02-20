@@ -18,4 +18,9 @@ class PembelianBarangDetail extends Model
     {
         return $this->belongsTo(PembelianBarang::class, 'pembelian_barang_id');
     }
+
+    public function stockBarangBatch()
+    {
+        return $this->belongsTo(StockBarangBatch::class, 'stock_barang_batch_id');
+    }
 }

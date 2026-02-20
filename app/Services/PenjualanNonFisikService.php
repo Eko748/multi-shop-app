@@ -2,10 +2,15 @@
 
 namespace App\Services;
 
+use App\Helpers\KasGenerate;
+use App\Models\TransaksiKasirHarian;
+use App\Helpers\KasRekapHelper;
+use App\Models\Kas;
 use App\Services\DompetSaldoService;
 use App\Repositories\PenjualanNonFisikDetailRepository;
 use App\Repositories\PenjualanNonFisikRepository;
 use App\Traits\PaginateResponse;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -135,50 +140,108 @@ class PenjualanNonFisikService
     public function create(array $data)
     {
         return DB::transaction(function () use ($data) {
+
+            $validatedData['kas_id'] = KasGenerate::resolveKasId(
+                kasId: $data['kas_id'],
+                tokoId: $data['toko_id'],
+                jenisBarangId: 0,
+                tipeKas: 'kecil',
+                tanggal: now(),
+            );
+
             $nota = 'TNF-' . date('dmY-His');
 
+            // =========================
+            // VALIDASI
+            // =========================
             if ((float) $data['total_bayar'] < $data['total_harga_jual']) {
                 throw ValidationException::withMessages([
-                    'total_bayar' => "Total bayar tidak mencukupi. Tagihan sebesar Rp "
-                        . number_format($data['total_harga_jual'], 0, ',', '.')
-                        . ", sedangkan pembayaran hanya Rp "
-                        . number_format($data['total_bayar'], 0, ',', '.')
+                    'total_bayar' => "Total bayar tidak mencukupi."
                 ]);
             }
 
             if ((float) $data['total_hpp'] > $data['saldo']) {
                 throw ValidationException::withMessages([
-                    'saldo' => "Saldo tidak mencukupi. HPP sebesar Rp "
-                        . number_format($data['total_hpp'], 0, ',', '.')
-                        . ", sedangkan sisa saldo hanya Rp "
-                        . number_format($data['saldo'], 0, ',', '.')
+                    'saldo' => "Saldo tidak mencukupi."
                 ]);
             }
 
-            $mainData = [
-                'dompet_kategori_id'  => $data['dompet_kategori_id'],
-                'total_bayar'         => $data['total_bayar'],
-                'total_hpp'           => $data['total_hpp'],
-                'total_harga_jual'    => $data['total_harga_jual'],
-                'created_by'          => $data['created_by'],
-                'nota'                => $nota
-            ];
+            // =========================
+            // HEADER
+            // =========================
+            $penjualan = $this->repository->create([
+                'dompet_kategori_id' => $data['dompet_kategori_id'],
+                'total_bayar'        => $data['total_bayar'],
+                'total_hpp'          => $data['total_hpp'],
+                'total_harga_jual'   => $data['total_harga_jual'],
+                'created_by'         => $data['created_by'],
+                'nota'               => $nota,
+            ]);
 
-            $penjualan = $this->repository->create($mainData);
-
+            // =========================
+            // DETAIL
+            // =========================
             foreach ($data['items'] as $item) {
                 $this->repository2->create([
-                    'penjualan_nonfisik_id'   => $penjualan->id,
-                    'item_nonfisik_id'        => $item['id'],
-                    'qty'                     => $item['qty'],
-                    'hpp'                     => $item['hpp'],
-                    'harga_jual'              => $item['harga_jual'],
+                    'penjualan_nonfisik_id' => $penjualan->id,
+                    'item_nonfisik_id'      => $item['id'],
+                    'qty'                   => $item['qty'],
+                    'hpp'                   => $item['hpp'],
+                    'harga_jual'            => $item['harga_jual'],
                 ]);
             }
+
+            // =========================
+            // REKAP KAS HARIAN
+            // jenis_barang_id = 0
+            // =========================
+            $jenisBarangId = 0;
+
+            $kas = Kas::where('toko_id', $data['toko_id'])
+                ->where('jenis_barang_id', $jenisBarangId)
+                ->where('tipe_kas', 'kecil')
+                ->first();
+
+            if (!$kas) {
+                throw new \Exception("Kas kecil untuk jenis_barang_id 0 belum dibuat.");
+            }
+
+            $rekap = TransaksiKasirHarian::firstOrNew([
+                'toko_id'         => $data['toko_id'],
+                'tanggal'         => Carbon::now()->toDateString(),
+                'jenis_barang_id' => $jenisBarangId,
+                'kas_id'          => $kas->id,
+            ]);
+
+            if (!$rekap->exists) {
+                $rekap->total_transaksi   = 1;
+                $rekap->total_qty         = $data['total_qty'] ?? 1;
+                $rekap->total_nominal     = $data['total_harga_jual'];
+                $rekap->total_bayar       = $data['total_bayar'];
+                $rekap->total_diskon      = 0;
+                $rekap->total_hpp         = $data['total_hpp'];
+                $rekap->total_hpp_batch   = $data['total_hpp'];
+            } else {
+                $rekap->total_transaksi += 1;
+                $rekap->total_qty       += $data['total_qty'] ?? 1;
+                $rekap->total_nominal   += $data['total_harga_jual'];
+                $rekap->total_bayar     += $data['total_bayar'];
+                $rekap->total_hpp       += $data['total_hpp'];
+                $rekap->total_hpp_batch += $data['total_hpp'];
+            }
+
+            $rekap->updated_by = $data['created_by'];
+            $rekap->save();
+
+            // =========================
+            // SYNC KE KAS
+            // =========================
+            KasRekapHelper::syncKasForRekap($rekap);
 
             return $penjualan;
         });
     }
+
 
     public function update($id, array $data)
     {

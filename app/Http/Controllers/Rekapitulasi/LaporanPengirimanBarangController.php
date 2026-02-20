@@ -43,7 +43,7 @@ class LaporanPengirimanBarangController extends Controller
         // Mengambil data toko yang terkait dengan pengiriman pada periode tertentu
         $toko = Toko::with([
             'pengirimanSebagaiPengirim' => function ($query) use ($startDate, $endDate) {
-                $query->whereBetween('tgl_kirim', [$startDate, $endDate]);
+                $query->whereBetween('verified_at', [$startDate, $endDate]);
             }
         ])->get();
 

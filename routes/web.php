@@ -158,9 +158,9 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/rekapitulasi/laporan-penjualan', [LaporanPenjualanController::class, 'index'])->name('laporan.penjualan.index')->middleware('permission:GET /rekapitulasi/laporan-penjualan');
     Route::get('/rekapitulasi/laporan-kasir', [LaporanKasirController::class, 'index'])->name('laporan.kasir.index')->middleware('permission:GET /rekapitulasi/laporan-kasir');
-    Route::get('/lappembelian', [LaporanPembelianBarangController::class, 'index'])->name('laporan.pembelian.index')->middleware('permission:GET /lappembelian');
+    Route::get('/rekapitulasi/laporan-pembelian', [LaporanPembelianBarangController::class, 'index'])->name('laporan.pembelian.index')->middleware('permission:GET /lappembelian');
 
-    Route::get('/lappengiriman', [LaporanPengirimanBarangController::class, 'index'])->name('laporan.pengiriman.index')->middleware('permission:GET /lappengiriman');
+    Route::get('/rekapitulasi/laporan-pengiriman', [LaporanPengirimanBarangController::class, 'index'])->name('laporan.pengiriman.index')->middleware('permission:GET /lappengiriman');
 
     Route::get('/laprating', [RatingBarangController::class, 'index'])->name('laporan.rating.index')->middleware('permission:GET /laprating');
     Route::post('/get-barang-jual', [RatingBarangController::class, 'getBarangJual'])->name('get-barang-jual')->middleware('permission:POST /get-barang-jual');

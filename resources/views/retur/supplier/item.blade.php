@@ -315,7 +315,7 @@
                 }));
 
                 formData = {
-                    toko_id: {{ auth()->user()->id_toko }},
+                    toko_id: {{ auth()->user()->toko_id }},
                     created_by: {{ auth()->user()->id }},
                     tipe_retur,
                     tanggal,
@@ -397,7 +397,7 @@
 
                 formData = {
                     id: data.id,
-                    toko_id: {{ auth()->user()->id_toko }},
+                    toko_id: {{ auth()->user()->toko_id }},
                     tipe_retur,
                     tanggal,
                     qty: total_qty,

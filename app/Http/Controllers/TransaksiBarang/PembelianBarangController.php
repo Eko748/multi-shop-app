@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\TransaksiBarang;
 
+use App\Helpers\AssetGenerate;
 use App\Helpers\FormatHarga;
 use App\Helpers\KasJenisBarangGenerate;
 use App\Helpers\LogAktivitasGenerate;
 use App\Helpers\QrGenerator;
 use App\Helpers\RupiahGenerate;
+use App\Helpers\TextGenerate;
 use App\Http\Controllers\Controller;
 use App\Imports\PembelianBarangImport;
 use App\Models\Barang;
@@ -98,16 +100,6 @@ class PembelianBarangController extends Controller
         }
     }
 
-    public function create()
-    {
-        $menu = [$this->title[0], $this->label[1], $this->title[1]];
-        $barang = Barang::all();
-        $suppliers = Supplier::all();
-        $LevelHarga = LevelHarga::all();
-
-        return view('transaksi.pembelianbarang.create', compact('menu', 'suppliers', 'barang', 'LevelHarga'));
-    }
-
     public function store(Request $request)
     {
         $request->validate([
@@ -164,10 +156,10 @@ class PembelianBarangController extends Controller
     {
         $menu = [$this->title[0], $this->label[1], $this->title[1]];
 
-        return view('transaksi.pembelianbarang.edit', compact('menu'));
+        return view('transaksi.pembelianbarang.detail', compact('menu'));
     }
 
-    public function getDetailPembelian(Request $request)
+    public function getDetail(Request $request)
     {
         $id = $request->input('id_pembelian');
 
@@ -183,7 +175,7 @@ class PembelianBarangController extends Controller
         $limit = ($request->has('limit') && $request->limit <= 300) ? (int)$request->limit : 50;
         $searchTerm = strtolower(trim($request->input('search', '')));
 
-        $pembelian = PembelianBarang::with('supplier:id,nama_supplier')->find($id);
+        $pembelian = PembelianBarang::with('supplier:id,nama')->find($id);
 
         if (!$pembelian) {
             return response()->json([
@@ -194,47 +186,47 @@ class PembelianBarangController extends Controller
             ], 404);
         }
 
-        $detailQuery = DetailPembelianBarang::select('id', 'id_pembelian_barang', 'id_barang', 'qty', 'harga_barang', 'total_harga', 'status', 'qrcode', 'qrcode_path')
-            ->with([
-                'barang:id,nama_barang',
-                'detailStock:id,id_detail_pembelian,qty_out,qty_now'
-            ])
-            ->where('id_pembelian_barang', $id);
+        $detailQuery = PembelianBarangDetail::with([
+            'barang:id,nama',
+            'stockBarangBatch:id,qty_masuk,qty_sisa,qrcode'
+        ])
+            ->where('pembelian_barang_id', $id);
 
         if (!empty($searchTerm)) {
             $detailQuery->whereHas('barang', function ($q) use ($searchTerm) {
-                $q->whereRaw('LOWER(nama_barang) LIKE ?', ["%{$searchTerm}%"]);
+                $q->whereRaw('LOWER(nama) LIKE ?', ["%{$searchTerm}%"]);
             });
         }
 
-        $totalHargaSemua = DetailPembelianBarang::where('id_pembelian_barang', $id)->sum('total_harga');
+        $totalHargaSemua = PembelianBarangDetail::where('pembelian_barang_id', $id)->sum('subtotal');
 
         $paginated = $detailQuery->paginate($limit);
         $detailItems = $paginated->items();
 
         $mappedDetails = collect($detailItems)->map(function ($item) {
+            $img     = AssetGenerate::build("qrcodes/pembelian/{$item->stockBarangBatch->qrcode}.png");
             return [
                 'id' => $item->id,
-                'qrcode' => $item->qrcode,
-                'qrcode_path' => $item->qrcode_path,
-                'nama_barang' => $item->barang->nama_barang ?? '-',
+                'qrcode' => $item->stockBarangBatch->qrcode,
+                'qrcode_path' => $img,
+                'nama_barang' => TextGenerate::smartTail($item->barang->nama, 10, 30, 5),
                 'qty' => $item->qty,
-                'harga_barang' => $item->harga_barang,
-                'total_harga' => $item->total_harga,
-                'status' => $item->status,
-                'qty_out' => $item->detailStock->qty_out ?? 0,
-                'qty_now' => $item->detailStock->qty_now ?? 0,
+                'format_harga_barang' => RupiahGenerate::build($item->harga_beli),
+                'harga_barang' => $item->harga_beli,
+                'total_harga' => RupiahGenerate::build($item->subtotal),
+                'qty_out' => ($item->stockBarangBatch->qty_masuk - $item->stockBarangBatch->qty_sisa) ?? 0,
+                'qty_now' => $item->stockBarangBatch->qty_sisa ?? 0,
             ];
         });
 
         return response()->json([
             'data' => [
-                'no_nota' => $pembelian->no_nota,
-                'nama_supplier' => $pembelian->supplier->nama_supplier ?? '-',
-                'tgl_nota' => Carbon::parse($pembelian->tgl_nota)->format('Y-m-d'),
+                'no_nota' => $pembelian->nota,
+                'nama_supplier' => $pembelian->supplier->nama ?? '-',
+                'tgl_nota' => $pembelian->verified_at->format('Y-m-d H:i:s'),
                 'detail' => $mappedDetails,
-                'sub_total' => $mappedDetails->sum('total_harga'),
-                'total' => $totalHargaSemua,
+                'sub_total' => RupiahGenerate::build($totalHargaSemua),
+                'total' => RupiahGenerate::build($totalHargaSemua),
             ],
             'status_code' => 200,
             'errors' => false,
@@ -376,7 +368,7 @@ class PembelianBarangController extends Controller
 
                 $batch = StockBarangBatch::create([
                     'toko_id' => $request->toko_id,
-                    'qrcode' => QrGenerator::generate()['value'],
+                    'qrcode' => QrGenerator::generate('QR-PB-')['value'],
                     'stock_barang_id' => $stockBarang->id,
                     'qty_masuk' => $qty,
                     'qty_sisa' => $qty,
@@ -400,6 +392,10 @@ class PembelianBarangController extends Controller
                 );
 
                 $detail->save();
+
+                $batch->sumber_type = PembelianBarangDetail::class;
+                $batch->sumber_id = $detail->id;
+                $batch->save();
 
                 $totalItem += $detail->qty;
                 $totalNilai += $detail->subtotal;
@@ -505,127 +501,145 @@ class PembelianBarangController extends Controller
         }
     }
 
-    public function editDetailPembelianBarang(Request $request)
+    public function putDetail(Request $request)
     {
         $request->validate([
+            'id' => 'required|integer|exists:pembelian_barang_detail,id',
             'qty' => 'required|numeric|min:1',
             'harga_barang' => 'required|numeric|min:0',
+            'user_id' => 'required|integer|exists:users,id',
         ]);
 
-        $id = $request->id;
-
+        DB::beginTransaction();
         try {
-            DB::beginTransaction();
+            $detail = PembelianBarangDetail::with([
+                'pembelianBarang',
+                'stockBarangBatch.stockBarang'
+            ])->lockForUpdate()->findOrFail($request->id);
 
-            $detail = DetailPembelianBarang::findOrFail($id);
-            $barang = Barang::findOrFail($detail->id_barang);
-            $pembelian = PembelianBarang::findOrFail($detail->id_pembelian_barang);
-            $id_barang = $barang->id;
-            $id_supplier = $detail->id_supplier;
+            $pembelian    = $detail->pembelianBarang;
+            $editedBatch  = $detail->stockBarangBatch;
+            $stockBarang  = $editedBatch->stockBarang;
 
-            // Backup old values
-            $oldQty = $detail->qty;
-            $oldHarga = $detail->harga_barang;
-            $oldTotalItem = $pembelian->total_item;
+            /** ===============================
+             * DATA LAMA & BARU
+         ===============================*/
+            $oldQty       = $detail->qty;
+            $oldHarga     = $detail->harga_beli;
+            $oldSubtotal  = $oldQty * $oldHarga;
 
-            $stockBarang = StockBarang::firstOrNew(['id_barang' => $id_barang]);
-            $oldStock = $stockBarang->stock;
+            $newQty       = $request->qty;
+            $newHarga     = $request->harga_barang;
+            $newSubtotal  = $newQty * $newHarga;
 
-            // Update Detail Pembelian
-            $detail->qty = $request->qty;
-            $detail->harga_barang = $request->harga_barang;
-            $detail->total_harga = $request->qty * $request->harga_barang;
-            $detail->save();
+            $deltaQty     = $newQty - $oldQty;
+            $deltaNilai   = $newSubtotal - $oldSubtotal;
 
-            // Recalculate stock and HPP
-            $hpp_awal = $stockBarang->hpp_baru ?: $stockBarang->hpp_awal ?: $oldHarga;
-            $stock_awal = $stockBarang->stock ?: 0;
-
-            $qty_detail_toko = DB::table('detail_toko')
-                ->where('id_barang', $id_barang)
-                ->sum('qty');
-
-            $total_stock_lama = $stock_awal + $qty_detail_toko - $oldQty;
-
-            $nilai_total_lama = $total_stock_lama * $hpp_awal;
-            $nilai_pembelian_baru = $request->qty * $request->harga_barang;
-            $total_qty_baru = $total_stock_lama + $request->qty;
-
-            $hpp_baru = $request->harga_barang;
-
-            $stockBarang->stock = $total_stock_lama + $request->qty;
-            $stockBarang->hpp_awal = $hpp_awal;
-            $stockBarang->hpp_baru = $hpp_baru;
-            $stockBarang->nilai_total = $hpp_baru * $stockBarang->stock;
-            $stockBarang->nama_barang = $barang->nama_barang;
-            $stockBarang->save();
-
-            // Update Detail Stock Barang jika ada
-            $detailStock = DetailStockBarang::where('id_detail_pembelian', $detail->id)->first();
-            if ($detailStock) {
-                $qtyOut = $detailStock->qty_out ?? 0;
-
-                if ($qtyOut > 0 && $request->qty < $qtyOut) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => "Qty tidak boleh kurang dari jumlah yang sudah keluar ({$qtyOut}).",
-                    ], 422);
-                }
-
-                $detailStock->qty_buy = $request->qty;
-                $detailStock->qty_now = $request->qty - $qtyOut;
-                $detailStock->save();
+            /** ===============================
+             * VALIDASI QTY KELUAR
+         ===============================*/
+            $qtyKeluar = $editedBatch->qty_masuk - $editedBatch->qty_sisa;
+            if ($newQty < $qtyKeluar) {
+                throw new \Exception(
+                    "Qty tidak boleh kurang dari yang sudah keluar ({$qtyKeluar})"
+                );
             }
 
-            //  total pembelian
-            $totalItemBaru = DetailPembelianBarang::where('id_pembelian_barang', $pembelian->id)->sum('qty');
-            $totalNilaiBaru = DetailPembelianBarang::where('id_pembelian_barang', $pembelian->id)->sum('total_harga');
+            /** ===============================
+             * UPDATE DETAIL
+         ===============================*/
+            $detail->update([
+                'qty'         => $newQty,
+                'harga_beli'  => $newHarga,
+                'subtotal'    => $newSubtotal,
+            ]);
 
-            $pembelian->total_item = $totalItemBaru;
-            $pembelian->total_nilai = $totalNilaiBaru;
-            $pembelian->save();
+            /** ===============================
+             * AMBIL SEMUA BATCH (URUT)
+         ===============================*/
+            $batches = StockBarangBatch::where('stock_barang_id', $stockBarang->id)
+                ->orderBy('tanggal')
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
 
-            $this->saveLogAktivitas(
-                logName: $this->title[0],
-                subjectType: 'App\Models\DetailPembelianBarang',
-                subjectId: $detail->id,
-                event: 'Edit Detail Pembelian Barang',
-                properties: [
-                    'changes' => [
-                        'old' => [
-                            'stock_keseluruhan' => $oldStock,
-                            'total_item' => $oldTotalItem,
-                            'qty_pembelian' => $oldQty,
-                            'harga_barang' => $oldHarga,
-                        ],
-                        'new' => [
-                            'stock_keseluruhan' => $stockBarang->stock,
-                            'total_item' => $pembelian->total_item,
-                            'qty_pembelian' => $detail->qty,
-                            'harga_barang' => $detail->harga_barang,
-                        ],
-                    ],
-                ],
-                description: "Detail pembelian ID {$detail->id} untuk barang {$barang->nama_barang} (ID {$barang->id}) pada pembelian ID {$pembelian->id} diperbarui.",
-                userId: $request->user_id ?? null,
-                message: $request->message ?? '(Sistem) Perubahan data detail pembelian barang.'
-            );
+            /** ===============================
+             * SIMPAN HPP LAMA STOCK
+         ===============================*/
+            $hppStockLama = $stockBarang->hpp_baru;
+
+            /** ===============================
+             * RECALC SEMUA BATCH
+         ===============================*/
+            $prevHpp = null;
+
+            foreach ($batches as $batch) {
+
+                // kalau ini batch yang diedit
+                if ($batch->id === $editedBatch->id) {
+                    $batch->qty_masuk  = $newQty;
+                    $batch->qty_sisa   = $newQty - $qtyKeluar;
+                    $batch->harga_beli = $newHarga;
+                }
+
+                // set hpp_awal
+                if ($prevHpp !== null) {
+                    $batch->hpp_awal = $prevHpp;
+                }
+
+                // hitung hpp_akhir batch
+                if ($batch->qty_masuk > 0) {
+                    $batch->hpp_baru = (
+                        ($batch->hpp_awal * $batch->stok_awal)
+                        + ($batch->qty_masuk * $batch->harga_beli)
+                    ) / ($batch->stok_awal + $batch->qty_masuk);
+                } else {
+                    $batch->hpp_baru = $batch->hpp_awal;
+                }
+
+                $batch->save();
+
+                $prevHpp = $batch->hpp_baru;
+            }
+
+            /** ===============================
+             * UPDATE STOCK BARANG
+         ===============================*/
+            $stockBarang->update([
+                'stok'       => $stockBarang->stok + $deltaQty,
+                'hpp_awal'   => $hppStockLama,        // SEBELUM DIUBAH
+                'hpp_baru'   => $prevHpp,              // HPP AKHIR BATCH TERAKHIR
+            ]);
+
+            /** ===============================
+             * UPDATE TOTAL PEMBELIAN
+         ===============================*/
+            $pembelian->update([
+                'qty'   => $pembelian->qty + $deltaQty,
+                'total' => $pembelian->total + $deltaNilai,
+            ]);
+
+            /** ===============================
+             * UPDATE KAS
+         ===============================*/
+            if ($pembelian->tipe === 'cash' && $deltaNilai != 0) {
+                KasService::updatePembelianBarang(
+                    pembelian: $pembelian,
+                    deltaNominal: $deltaNilai,
+                    userId: $request->user_id
+                );
+            }
 
             DB::commit();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Detail pembelian barang berhasil diperbarui.',
-            ]);
-        } catch (\Exception $e) {
+            return $this->success(null, 200, 'Detail pembelian berhasil diperbarui');
+        } catch (\Throwable $e) {
             DB::rollBack();
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Gagal memperbarui detail pembelian. ' . $e->getMessage(),
-            ], 500);
+            return $this->error(500, 'Gagal update detail pembelian', [
+                'exception' => $e->getMessage()
+            ]);
         }
     }
+
 
     public function delete($id)
     {

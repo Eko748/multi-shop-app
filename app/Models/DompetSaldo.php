@@ -19,4 +19,9 @@ class DompetSaldo extends Model
         return $this->belongsTo(DompetKategori::class, 'dompet_kategori_id')
             ->select('id', 'public_id', 'nama');
     }
+
+    public function kas()
+    {
+        return $this->belongsTo(Kas::class);
+    }
 }

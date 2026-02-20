@@ -101,7 +101,7 @@ class ReturMemberController extends Controller
         try {
             $validated = $request->validate([
                 'toko_id' => 'required|exists:toko,id',
-                'member_id' => 'nullable|exists:member,id',
+                'member_id' => 'required',
                 'status' => 'required|in:draft,proses,selesai',
                 'tanggal' => 'required|date',
                 'created_by' => 'required|exists:users,id',
@@ -109,7 +109,7 @@ class ReturMemberController extends Controller
                 'items' => 'required|array|min:1',
                 'items.*.supplier_id' => 'nullable|exists:barang,id',
                 'items.*.barang_id' => 'required|exists:barang,id',
-                'items.*.detail_kasir_id' => 'required|integer',
+                'items.*.transaksi_kasir_detail_id' => 'required|integer',
                 'items.*.tipe_kompensasi' => 'nullable|in:refund,barang',
                 'items.*.qty_request' => 'required|integer|min:1',
                 'items.*.qty_barang' => 'required|integer',

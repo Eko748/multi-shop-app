@@ -42,38 +42,38 @@ class LaporanPenjualanService
         /**
          * === FASE 1: PROSES DATA KASIR ===
          */
-        foreach ($kasirData->groupBy('id_toko') as $idTokoKey => $kasirList) {
+        foreach ($kasirData->groupBy('toko_id') as $idTokoKey => $kasirList) {
             $jmlTrx = $kasirList->count();
-            $nilaiTrx = $kasirList->sum('total_nilai');
+            $nilaiTrx = $kasirList->sum('total_nominal');
             $nilaiHpp = $memberHpp = $nonMemberHpp = 0;
             $memberTrxCount = $memberTrxValue = $nonMemberTrxCount = $nonMemberTrxValue = 0;
             $typeBarang = [];
 
             foreach ($kasirList as $kasir) {
-                $isMember = $kasir->id_member && $kasir->id_member != '0';
+                $isMember = $kasir->member_id && $kasir->member_id != '0';
 
                 if ($isMember) {
                     $memberTrxCount++;
-                    $memberTrxValue += $kasir->total_nilai;
+                    $memberTrxValue += $kasir->total_nominal;
                 } else {
                     $nonMemberTrxCount++;
-                    $nonMemberTrxValue += $kasir->total_nilai;
+                    $nonMemberTrxValue += $kasir->total_nominal;
                 }
 
                 $idJenisCollected = [];
 
-                foreach ($kasir->detail_kasir as $detail) {
+                foreach ($kasir->details as $detail) {
                     if (!is_object($detail)) continue;
 
-                    $hppJual = $detail->hpp_jual ?? 0;
-                    $totalHarga = $detail->total_harga ?? 0;
+                    $hppJual = $detail->stockBarangBatch->harga_beli ?? 0;
+                    $totalHarga = $detail->subtotal ?? 0;
                     $qty = $detail->qty ?? 1;
 
                     $nilaiHpp += $hppJual * $qty;
                     if ($isMember) $memberHpp += $hppJual * $qty;
                     else $nonMemberHpp += $hppJual * $qty;
 
-                    $jenisBarang = $detail->jenisBarang ?? null;
+                    $jenisBarang = $detail->stockBarangBatch->stockBarang->barang->jenis ?? null;
                     $idJenis = $jenisBarang->id ?? 'AAAA';
                     $namaJenis = $jenisBarang->nama_jenis_barang ?? 'LAINNYA';
 
@@ -105,13 +105,14 @@ class LaporanPenjualanService
             ksort($typeBarang);
 
             $biayaRetur = $this->repository->getBiayaRetur($startDate, $endDate, $idTokoKey);
-            $kasbon = $this->repository->getKasbon($startDate, $endDate, $idTokoKey);
+            // $kasbon = $this->repository->getKasbon($startDate, $endDate, $idTokoKey);
+            $kasbon = 0;
 
             $labaKotor = max($nilaiTrx - $nilaiHpp - $biayaRetur - $kasbon, 0);
 
             $toko = $kasirList->first()?->toko;
             $areaToko = $toko
-                ? "{$toko->nama_toko} ({$toko->wilayah})"
+                ? "{$toko->nama} ({$toko->wilayah})"
                 : 'Toko Tidak Diketahui';
 
             $summaryPerToko[] = [
@@ -160,7 +161,7 @@ class LaporanPenjualanService
          * === FASE 2: PROSES DATA PENJUALAN NON FISIK ===
          */
         foreach ($penjualanNonFisikData as $pnf) {
-            $idTokoKey = $pnf->createdBy?->id_toko ?? 0;
+            $idTokoKey = $pnf->createdBy?->toko_id ?? 0;
 
             $nilaiTrx = $pnf->total_harga_jual;
             $nilaiHpp = $pnf->total_hpp;
@@ -168,7 +169,7 @@ class LaporanPenjualanService
 
             $toko = $pnf->createdBy?->toko;
             $areaToko = $toko
-                ? "{$toko->nama_toko} ({$toko->wilayah})"
+                ? "{$toko->nama} ({$toko->wilayah})"
                 : 'Toko Tidak Diketahui';
 
             // cek apakah toko ini sudah ada di summary

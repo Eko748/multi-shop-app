@@ -2,10 +2,12 @@
 
 namespace App\Services;
 
+use App\Helpers\AssetGenerate;
+use App\Models\Barang;
 use App\Repositories\KasirDetailRepository;
 use App\Repositories\ReturMemberRepository;
 use App\Repositories\ReturMemberDetailRepository;
-use App\Repositories\ReturMemberDetailStokRepository;
+use App\Repositories\ReturMemberDetailBatchRepository;
 use App\Repositories\StokBarangDetailRepository;
 use App\Repositories\StokBarangRepository;
 use App\Traits\PaginateResponse;
@@ -21,16 +23,16 @@ class ReturMemberService
     protected $kasirRepo;
     protected $stokRepo;
     protected $stokDetailRepo;
-    protected $returMemberDetailStokRepository;
+    protected $returMemberDetailBatchRepository;
 
-    public function __construct(ReturMemberRepository $repository, ReturMemberDetailRepository $detailRepo, KasirDetailRepository $kasirRepo, StokBarangDetailRepository $stokDetailRepo, StokBarangRepository $stokRepo, ReturMemberDetailStokRepository $returMemberDetailStokRepository)
+    public function __construct(ReturMemberRepository $repository, ReturMemberDetailRepository $detailRepo, KasirDetailRepository $kasirRepo, StokBarangDetailRepository $stokDetailRepo, StokBarangRepository $stokRepo, ReturMemberDetailBatchRepository $returMemberDetailBatchRepository)
     {
         $this->repository = $repository;
         $this->detailRepo = $detailRepo;
         $this->kasirRepo = $kasirRepo;
         $this->stokRepo = $stokRepo;
         $this->stokDetailRepo = $stokDetailRepo;
-        $this->returMemberDetailStokRepository = $returMemberDetailStokRepository;
+        $this->returMemberDetailBatchRepository = $returMemberDetailBatchRepository;
     }
 
     public function getTotalHarga()
@@ -87,9 +89,9 @@ class ReturMemberService
             return [
                 'id'         => $item->id,
                 'status'     => $item->status,
-                'toko'       => $item->toko->nama_toko ?? null,
-                'member'     => $item->member->nama_member ?? 'Guest',
-                'tanggal'    => $item->tanggal,
+                'toko'       => $item->toko->nama ?? null,
+                'member'     => $item->member->nama ?? 'Guest',
+                'tanggal'    => $item->tanggal->format('d-m-Y H:i:s'),
                 'created_by' => $item->createdBy->nama ?? 'System',
                 'keterangan' => implode(', ', $keterangan),
                 'total_hpp_barang' => 'Rp ' . number_format($totalHpp, 0, ',', '.'),
@@ -112,18 +114,51 @@ class ReturMemberService
         $itemFormatted = [
             'id' => $item->id,
             'status' => $item->status,
-            'member' => $item->member->nama_member ?? 'Guest',
-            'tanggal' => $item->tanggal ?? null,
+            'member' => $item->member->nama ?? 'Guest',
+            'tanggal' => $item->tanggal->format('d-m-Y H:i:s') ?? null,
             'created_by' => $item->createdBy->nama,
-            'nama_toko' => $item->createdBy->toko->nama_toko,
+            'nama_toko' => $item->createdBy->toko->nama,
         ];
 
         $query = $this->detailRepo->getAll($filter);
         $data = collect($query->items())->map(function ($detail) {
+
+            $stock = $detail->batch?->map(function ($batch) {
+
+                $stokDetail = $batch->stokDetail;
+
+                $qty = $batch->qty ?? 0;
+                $qrcode = $stokDetail?->qrcode ?? '-';
+                $tanggal = $stokDetail?->created_at
+                    ? $stokDetail->created_at->format('d-m-Y H:i:s')
+                    : '-';
+
+                $img = $qrcode !== '-'
+                    ? AssetGenerate::build("qrcodes/pembelian/{$qrcode}.png")
+                    : null;
+
+                return [
+                    'qty' => $qty,
+                    'qrcode' => $qrcode,
+                    'created_at' => $tanggal,
+                    'html' => "
+                <div style='display:flex;align-items:center;gap:8px;' class='p-1'>
+                    " . ($img ? "<img src='{$img}' width='28' height='28' style='border-radius:3px;'>" : "") . "
+                    <div style='display:flex;flex-direction:column;line-height:1.2;'>
+                        <span style='font-weight:550;font-size:12px;'>{$qrcode}</span>
+                        <small class='text-dark'>
+                            Stok: {$qty} — Tgl masuk: {$tanggal}
+                        </small>
+                    </div>
+                </div>
+            "
+                ];
+            })->values();
+
             return [
-                'id' => $detail->public_id,
-                'barang' => $detail->barang->nama_barang ?? null,
-                'supplier' => $detail->supplier->nama_supplier ?? null,
+                'id' => $detail->id,
+                'barang' => $detail->barang->nama ?? null,
+                'supplier' => $detail->supplier->nama ?? null,
                 'tipe_kompensasi' => $detail->tipe_kompensasi,
                 'format_harga_jual' => 'Rp ' . number_format($detail->harga_jual, 0, ',', '.'),
                 'format_hpp' => 'Rp ' . number_format($detail->hpp, 0, ',', '.'),
@@ -134,6 +169,7 @@ class ReturMemberService
                 'qty_barang' => $detail->qty_barang,
                 'qty_refund' => $detail->qty_refund,
                 'qty_ke_supplier' => $detail->qty_ke_supplier ?? 0,
+                'stock' => $stock,
             ];
         });
 
@@ -151,86 +187,179 @@ class ReturMemberService
         return DB::transaction(function () use ($data) {
             $retur = $this->repository->create([
                 'toko_id'    => $data['toko_id'] ?? null,
-                'member_id'  => $data['member_id'] ?? null,
+                'member_id'  => ($data['member_id'] ?? null) === 'guest'
+                    ? null
+                    : $data['member_id'],
                 'status'     => $data['status'] ?? 'draft',
                 'tanggal'    => $data['tanggal'],
                 'created_by' => $data['created_by'],
             ]);
 
+            $kasGrouped = [];
+
             foreach ($data['items'] as $detail) {
                 $detail['retur_id'] = $retur->id;
 
-                $kasirList = $this->kasirRepo->findByDetailId($detail['detail_kasir_id']);
+                $kasirList = $this->kasirRepo->findByDetailId($detail['transaksi_kasir_detail_id']);
 
                 foreach ($kasirList as $kasir) {
-                    $newRetureQty = ($kasir->reture_qty ?? 0) + $detail['qty_request'];
+                    $newRetureQty = ($kasir->retur_qty ?? 0) + $detail['qty_request'];
 
                     $this->kasirRepo->update($kasir->id, [
-                        'reture_qty' => $newRetureQty,
-                        'reture_by'  => $data['created_by'],
-                        'reture'     => true,
+                        'retur_qty' => $newRetureQty,
+                        'retur_by'  => $data['created_by'],
                     ]);
                 }
                 $detail['total_hpp'] = ($detail['qty_request'] ?? 0) * ($detail['hpp'] ?? 0);
 
                 $returDetail = $this->detailRepo->create($detail);
 
+                // $qtyBarang        = $detail['qty_barang'] ?? 0;
+                // $totalHppBarang   = $detail['total_hpp_barang'] ?? 0;
+
+                // if ($qtyBarang > 0 || $totalHppBarang > 0) {
+
+                //     if ($totalHppBarang > 0) {
+
+                //         $tanggal = \Carbon\Carbon::parse($data['tanggal']);
+
+                //         KasService::updateLabaRugi(
+                //             tokoId: $data['toko_id'],
+                //             tahun: $tanggal->year,
+                //             bulan: $tanggal->month,
+                //             tipe: 'out',
+                //             nominal: $totalHppBarang
+                //         );
+                //     }
+                // }
+
+                $barang = Barang::with('jenis')->find($detail['barang_id']);
+
+                if ($barang) {
+
+                    $qtyRefund   = $detail['qty_refund'] ?? 0;
+                    $totalRefund = $detail['total_refund'] ?? 0;
+                    $hargaJual   = $detail['harga_jual'] ?? 0;
+                    $hpp         = $detail['hpp'] ?? 0;
+
+                    if ($qtyRefund > 0 && $totalRefund > 0) {
+
+                        $totalHargaJual = $hargaJual * $qtyRefund;
+                        $totalHpp       = $hpp * $qtyRefund;
+
+                        // 🚨 VALIDASI ANOMALI
+                        if ($totalHargaJual < $totalHpp) {
+                            throw \Illuminate\Validation\ValidationException::withMessages([
+                                'harga_jual' => "Data anomali: Total harga jual lebih kecil dari total HPP untuk barang ID {$detail['barang_id']}."
+                            ]);
+                        }
+
+                        $margin = $totalHargaJual - $totalHpp;
+
+                        $jenisId = $barang->jenis_barang_id;
+
+                        if (!isset($kasGrouped[$jenisId])) {
+                            $kasGrouped[$jenisId] = [
+                                'jenis_barang_id' => $jenisId,
+                                'nama_jenis'      => $barang->jenis->nama_jenis_barang ?? '',
+                                'total_nominal'   => 0,
+                                'margin'          => 0,
+                            ];
+                        }
+
+                        $kasGrouped[$jenisId]['total_nominal'] += $totalRefund;
+                        $kasGrouped[$jenisId]['margin'] += $margin;
+                    }
+                }
+
                 if (!empty($detail['qty_barang']) && $detail['qty_barang'] > 0) {
                     $stok = $this->stokRepo->findByBarangId($detail['barang_id']);
-                    if (!$stok || $stok->stock < $detail['qty_barang']) {
+                    if (!$stok || $stok->stok < $detail['qty_barang']) {
                         throw ValidationException::withMessages([
                             'qty_barang' => "Stok barang tidak mencukupi untuk barang ID {$detail['barang_id']}."
                         ]);
                     }
 
                     $this->stokRepo->update($stok->id, [
-                        'stock' => $stok->stock - $detail['qty_barang']
+                        'stok' => $stok->stok - $detail['qty_barang']
                     ]);
 
                     $qtyNeeded   = $detail['qty_barang'];
-                    $stokDetails = $this->stokDetailRepo->findAvailableByBarangId($detail['barang_id']);
+                    $stokDetails = $this->stokDetailRepo->findAvailableByBarangId($detail['barang_id'], $data['toko_id']);
 
                     foreach ($stokDetails as $ds) {
                         if ($qtyNeeded <= 0) break;
 
-                        if ($ds->qty_now >= $qtyNeeded) {
+                        if ($ds->qty_sisa >= $qtyNeeded) {
                             $this->stokDetailRepo->update($ds->id, [
-                                'qty_out' => $ds->qty_out + $qtyNeeded,
-                                'qty_now' => $ds->qty_now - $qtyNeeded
+                                'qty_sisa' => $ds->qty_sisa - $qtyNeeded
                             ]);
 
-                            $this->returMemberDetailStokRepository->create([
+                            $this->returMemberDetailBatchRepository->create([
                                 'retur_member_detail_id' => $returDetail->id,
-                                'stok_detail_id'         => $ds->id,
+                                'stock_barang_batch_id'  => $ds->id,
                                 'qty'                    => $qtyNeeded,
                             ]);
 
                             $qtyNeeded = 0;
                         } else {
                             $this->stokDetailRepo->update($ds->id, [
-                                'qty_out' => $ds->qty_out + $ds->qty_now,
-                                'qty_now' => 0
+                                'qty_sisa' => 0
                             ]);
 
-                            $this->returMemberDetailStokRepository->create([
+                            $this->returMemberDetailBatchRepository->create([
                                 'retur_member_detail_id' => $returDetail->id,
-                                'stok_detail_id'         => $ds->id,
-                                'qty'                    => $ds->qty_now,
+                                'stock_barang_batch_id'  => $ds->id,
+                                'qty'                    => $ds->qty_sisa,
                             ]);
 
-                            $qtyNeeded -= $ds->qty_now;
+                            $qtyNeeded -= $ds->qty_sisa;
                         }
                     }
 
                     if ($qtyNeeded > 0) {
                         throw ValidationException::withMessages([
-                            'qty_now' => "Stok detail barang ID {$detail['barang_id']} tidak cukup. Sisa stok global sudah tidak valid."
+                            'qty_sisa' => "Stok detail barang ID {$detail['barang_id']} tidak cukup. Sisa stok global sudah tidak valid."
                         ]);
                     }
                 }
             }
 
-            return $retur->load('detail.stokDetails'); // eager load relasi pivot
+            foreach ($kasGrouped as $group) {
+
+                if ($group['total_nominal'] <= 0) {
+                    continue;
+                }
+
+                KasService::out(
+                    toko_id: $data['toko_id'],
+                    jenis_barang_id: $group['jenis_barang_id'],
+                    tipe_kas: 'kecil',
+                    total_nominal: $group['total_nominal'],
+                    item: 'kecil',
+                    kategori: 'Retur Transaksi Kasir',
+                    keterangan: 'Retur ' . $group['nama_jenis'],
+                    sumber: $retur,
+                    tanggal: $data['tanggal'],
+                    laba: false
+                );
+
+                if ($group['margin'] <= 0) {
+                    continue;
+                }
+
+                $tanggal = \Carbon\Carbon::parse($data['tanggal']);
+
+                KasService::updateLabaRugi(
+                    tokoId: $data['toko_id'],
+                    tahun: $tanggal->year,
+                    bulan: $tanggal->month,
+                    tipe: 'out',
+                    nominal: $group['margin']
+                );
+            }
+
+            return $retur->load('detail.stokDetails');
         });
     }
 
@@ -241,7 +370,7 @@ class ReturMemberService
         $data = collect($query->items())->map(function ($item) {
             return [
                 'id' => $item->id,
-                'text' => "{$item->qrcode} => {$item->barang->nama_barang} ~ (Sisa: $item->qty_selisih)",
+                'text' => "{$item->qrcode} => {$item->stockBarangBatch->stockBarang->barang->nama} ~ (Sisa: $item->qty_selisih)",
             ];
         });
 
@@ -256,11 +385,10 @@ class ReturMemberService
         $query = $this->kasirRepo->getHargaBarang($filter);
 
         $data = collect($query->items())->map(function ($item) use ($filter) {
-            $stokDetailId = optional(optional($item->detailPembelian)->detailStock)->id;
-            $qtyNowDetail = optional(optional($item->detailPembelian)->detailStock)->qty_now;
-            $qtyStok = optional(optional($item->detailPembelian)->detailStock->stok)->stock;
+            $stokDetailId = optional($item->stockBarangBatch)->id;
+            $qtyNowDetail = optional($item->stockBarangBatch)->qty_sisa;
+            $qtyStok = optional($item->stockBarangBatch->stockBarang)->stok;
 
-            // Default retur = qty yang diminta user
             $returQty = $item->qty;
 
             // Kalau qty_now lebih kecil dari qty retur
@@ -275,16 +403,16 @@ class ReturMemberService
             return [
                 'id'          => $item->id,
                 'qrcode'      => $item->qrcode,
-                'supplier_id' => $item->id_supplier,
-                'barang'      => $item->barang->nama_barang,
-                'barang_id'   => $item->barang->id,
+                'supplier_id' => $item->stockBarangBatch->supplier_id,
+                'barang'      => $item->stockBarangBatch->stockBarang->barang->nama,
+                'barang_id'   => $item->stockBarangBatch->stockBarang->barang->id,
                 'qty'         => $item->qty_selisih,
                 'qty_detail'  => $qtyNowDetail,
                 'qty_now'     => $qtyStok,
                 'qty_retur'   => $returQty,
                 'kompensasi'  => $kompensasi,
-                'harga'       => $item->harga,
-                'hpp'         => optional($item->detailPembelian)->harga_barang,
+                'harga'       => $item->nominal,
+                'hpp'         => optional($item->stockBarangBatch)->harga_beli,
                 'stok_detail_id'         => $stokDetailId,
             ];
         });

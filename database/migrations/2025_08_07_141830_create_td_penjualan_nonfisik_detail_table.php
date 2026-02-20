@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('td_penjualan_nonfisik_detail', function (Blueprint $table) {
             $table->id();
             $table->uuid('public_id')->unique();
+            $table->unsignedBigInteger('toko_id');
             $table->foreignId('penjualan_nonfisik_id')->nullable()
                 ->constrained('td_penjualan_nonfisik')->onDelete('set null');
             $table->foreignId('item_nonfisik_id')->nullable()

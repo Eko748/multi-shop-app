@@ -15,14 +15,18 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use App\Enums\StatusStockBarang;
+use App\Helpers\LogAktivitasGenerate;
 use App\Helpers\RupiahGenerate;
 use App\Helpers\TextGenerate;
 use App\Models\LevelHarga;
 use App\Models\PembelianBarangDetail;
 use App\Models\StockBarangBatch;
+use App\Services\KasService;
+use App\Traits\ApiResponse;
 
 class StockBarangController extends Controller
 {
+    use ApiResponse;
     private array $menu = [];
 
     public function __construct()
@@ -140,214 +144,207 @@ class StockBarangController extends Controller
         $request->validate([
             'id' => 'required|integer',
             'id_barang' => 'required|integer',
-            'pin' => 'required|string',
-            'toko_id' => 'required|string',
+            'pin' => 'required|integer',
+            'toko_id' => 'required|integer',
             'user_id' => 'required|string',
-            'message' => 'nullable|string'
+            'message' => 'nullable|string',
         ]);
 
-        $toko = Toko::where('id', $request->toko_id)->first();
-
+        $toko = Toko::find($request->toko_id);
         if (!$toko) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Data toko tidak ditemukan.',
-            ], 404);
+            return $this->error(404, 'Data toko tidak ditemukan.');
         }
 
-        if ($toko->pin !== $request->pin) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'PIN yang Anda masukkan salah.',
-            ], 403);
+        if ((int) $toko->pin !== (int) $request->pin) {
+            return $this->error(403, 'PIN yang Anda masukkan salah.');
         }
 
+        DB::beginTransaction();
         try {
-            DB::beginTransaction();
-
-            $stok = StockBarang::where('id', $request->id)
-                ->where('barang_id', $request->id_barang)
-                ->first();
-            $barang = Barang::find($request->id_barang);
-            $namaBarang = $barang?->nama ?? '-';
-
+            $stok = StockBarang::lockForUpdate()->find($request->id);
             if (!$stok) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Data stok tidak ditemukan.',
-                ], 404);
+                return $this->error(404, 'Data stok tidak ditemukan.');
             }
 
             $oldStock = $stok->stok;
-            $hppBaru = $stok->hpp_baru ?? 0;
+            $totalHargaBeli = 0; // 🔑 total kerugian HPP
 
-            StockBarangBermasalah::create([
-                'stock_barang_id' => $stok->id,
-                'status' => 'mati',
-                'qty' => $oldStock,
-                'hpp' => $hppBaru,
-                'total_hpp' => $oldStock * $hppBaru,
-            ]);
+            // Ambil semua batch
+            $batches = StockBarangBatch::where('stock_barang_id', $stok->id)
+                ->lockForUpdate()
+                ->get();
 
-            $stok->stock = 0;
+            foreach ($batches as $batch) {
+                if ($batch->qty_sisa <= 0) continue;
+
+                // hitung HPP batch
+                $batchHargaBeli = $batch->qty_sisa * ($batch->harga_beli ?? 0);
+                $totalHargaBeli += $batchHargaBeli;
+
+                // Catat stok bermasalah PER BATCH
+                StockBarangBermasalah::create([
+                    'stock_barang_batch_id' => $batch->id,
+                    'status' => 'mati',
+                    'qty' => $batch->qty_sisa,
+                ]);
+
+                // Kosongkan batch
+                $batch->qty_sisa = 0;
+                $batch->save();
+            }
+
+            // Nolkan stok utama
+            $stok->stok = 0;
             $stok->save();
 
-            DetailStockBarang::where('id_stock', $stok->id)->get()->each(function ($detail) {
-                $detail->qty_out = $detail->qty_buy;
-                $detail->qty_now = 0;
-                $detail->save();
-            });
+            // 🔥 Update laba rugi (OUT)
+            if ($totalHargaBeli > 0) {
+                $tanggal = now();
 
-            $this->saveLogAktivitas(
-                logName: $this->title[0],
-                subjectType: 'App\Models\StockBarang',
+                KasService::updateLabaRugi(
+                    tokoId: $request->toko_id,
+                    tahun: $tanggal->year,
+                    bulan: $tanggal->month,
+                    tipe: 'out',
+                    nominal: $totalHargaBeli
+                );
+            }
+
+            // Log aktivitas
+            LogAktivitasGenerate::store(
+                logName: $this->title[0] ?? 'Stok Barang',
+                subjectType: StockBarang::class,
                 subjectId: $stok->id,
                 event: 'Kosongkan Stok',
                 properties: [
-                    'changes' => [
-                        'old' => ['stock' => $oldStock],
-                        'new' => ['stock' => $stok->stock],
-                    ]
+                    'old' => ['stok' => $oldStock],
+                    'new' => ['stok' => 0],
                 ],
-                description: "Stok barang {$namaBarang} (ID {$request->id_barang}) di toko ID {$request->id_toko} dikosongkan.",
-                userId: $request->user_id ?? null,
-                message: filled($request->message) ? $request->message : '(Sistem) Stok barang dikosongkan.'
+                description: "Stok barang ID {$request->id_barang} dikosongkan.",
+                userId: $request->user_id,
+                message: $request->message ?? '(Sistem) Stok barang dikosongkan.'
             );
 
             DB::commit();
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Stok berhasil dikosongkan.',
-            ]);
-        } catch (\Exception $e) {
+            return $this->success(null, 200, 'Stok berhasil dikosongkan.');
+        } catch (\Throwable $e) {
             DB::rollBack();
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Terjadi kesalahan saat mengosongkan stok.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->error(500, $e->getMessage());
         }
     }
 
     public function updateStock(Request $request)
     {
         $request->validate([
-            'id' => 'required|integer',
-            'qty' => 'required|numeric|min:0',
+            'toko_id' => 'required|integer|exists:toko,id',
             'user_id' => 'required|string',
             'message' => 'nullable|string',
-            'status' => ['required', Rule::in(StatusStockBarang::values())],
+            'reductions' => 'required|array|min:1',
+            'reductions.*.stock_barang_batch_id' => 'required|integer|exists:stock_barang_batch,id',
+            'reductions.*.qty' => 'required|integer|min:1',
+            'reductions.*.status' => ['required', Rule::in(StatusStockBarang::values())],
         ]);
 
-        $stok = StockBarang::find($request->id);
-        $barang = Barang::find($stok?->id_barang);
-        $namaBarang = $barang?->nama_barang ?? '-';
-
-        if (!$stok) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Data stok tidak ditemukan.',
-            ], 404);
-        }
-
-        $oldStock = $stok->stock;
-        $newStock = $request->qty;
-
-        if ($newStock > $oldStock) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Tidak diperbolehkan menambahkan stok. Anda hanya dapat mengurangi stok.',
-            ], 422);
-        }
-
-        $diff = $oldStock - $newStock;
+        DB::beginTransaction();
 
         try {
-            DB::beginTransaction();
+            $userId = $request->user_id;
+            $tokoId = $request->toko_id;
+            $message = $request->message ?? '(Sistem) Stok barang dikurangi.';
 
-            $details = DetailStockBarang::where('id_stock', $stok->id)
-                ->where('qty_now', '>', 0)
-                ->orderBy('id', 'asc') // FIFO
-                ->get();
+            $stokPengurangan = []; // per stock_barang_id
+            $totalHargaBeli = 0;         // 🔥 total beban HPP
 
-            $sisaKurangi = $diff;
-            $totalHpp = 0;
+            foreach ($request->reductions as $reduction) {
 
-            foreach ($details as $detail) {
-                if ($sisaKurangi <= 0) break;
+                $batch = StockBarangBatch::lockForUpdate()
+                    ->find($reduction['stock_barang_batch_id']);
 
-                $bisaDikurang = min($detail->qty_now, $sisaKurangi);
-                $maksOut = $detail->qty_buy - $detail->qty_out;
-                $kurangi = min($bisaDikurang, $maksOut);
+                if (!$batch || $batch->qty_sisa <= 0) continue;
 
-                if ($kurangi > 0) {
-                    // Ambil harga_barang dari DetailPembelianBarang
-                    $detailPembelian = DetailPembelianBarang::find($detail->id_detail_pembelian);
-                    $hargaBarang = $detailPembelian?->harga_barang ?? 0;
+                $qtyKurangi = min($reduction['qty'], $batch->qty_sisa);
+                if ($qtyKurangi <= 0) continue;
 
-                    // Tambahkan ke total HPP
-                    $totalHpp += ($hargaBarang * $kurangi);
+                $qtyOld = $batch->qty_sisa;
 
-                    // Simpan untuk hitung rata-rata HPP
-                    $totalHargaDiambil = ($totalHargaDiambil ?? 0) + ($hargaBarang * $kurangi);
-                    $totalQtyDiambil = ($totalQtyDiambil ?? 0) + $kurangi;
+                // 🔥 HITUNG TOTAL HPP
+                $totalHargaBeli += ($batch->harga_beli * $qtyKurangi);
 
-                    // Update detail stock
-                    $detail->qty_now -= $kurangi;
-                    $detail->qty_out += $kurangi;
-                    $detail->save();
+                // kurangi batch
+                $batch->qty_sisa -= $qtyKurangi;
+                $batch->save();
 
-                    $sisaKurangi -= $kurangi;
-                }
+                // kumpulkan total per stok
+                $stokPengurangan[$batch->stock_barang_id] =
+                    ($stokPengurangan[$batch->stock_barang_id] ?? 0) + $qtyKurangi;
+
+                // stok bermasalah
+                StockBarangBermasalah::create([
+                    'stock_barang_batch_id' => $batch->id,
+                    'status' => $reduction['status'],
+                    'qty' => $qtyKurangi,
+                ]);
+
+                // log
+                $stok = StockBarang::find($batch->stock_barang_id);
+                $barang = Barang::find($stok?->id_barang);
+                $namaBarang = $barang?->nama_barang ?? '-';
+
+                LogAktivitasGenerate::store(
+                    logName: $this->title[0] ?? 'Stok Barang',
+                    subjectType: StockBarang::class,
+                    subjectId: $stok->id,
+                    event: 'Pengurangan Stok ' . ucfirst(strtolower($reduction['status'])),
+                    properties: [
+                        'changes' => [
+                            'old' => ['qty_sisa' => $qtyOld],
+                            'new' => ['qty_sisa' => $batch->qty_sisa],
+                        ]
+                    ],
+                    description: "Stok barang {$namaBarang} (Batch ID {$batch->id}) dikurangi {$qtyKurangi}.",
+                    userId: $userId,
+                    message: $message
+                );
             }
 
-            $hppRataRata = ($totalQtyDiambil ?? 0) > 0
-                ? ($totalHargaDiambil / $totalQtyDiambil)
-                : null;
+            /* ============================
+        | UPDATE STOK UTAMA
+        ============================ */
+            foreach ($stokPengurangan as $stockBarangId => $qtyTotal) {
 
-            // Update stok utama
-            $stok->stock = $newStock;
-            $stok->save();
+                $stok = StockBarang::lockForUpdate()->find($stockBarangId);
+                if (!$stok) {
+                    throw new \Exception("Stok barang ID {$stockBarangId} tidak ditemukan.");
+                }
 
-            // Catat ke StockBarangBermasalah
-            StockBarangBermasalah::create([
-                'stock_barang_id' => $stok->id,
-                'status' => $request->status,
-                'qty' => $diff,
-                'hpp' => $hppRataRata,   // rata-rata harga dari detail yang dipakai
-                'total_hpp' => $totalHpp, // hasil FIFO akumulasi
-            ]);
+                if ($qtyTotal > $stok->stok) {
+                    throw new \Exception("Pengurangan melebihi stok tersedia (Stock ID {$stockBarangId}).");
+                }
 
-            $this->saveLogAktivitas(
-                logName: $this->title[0],
-                subjectType: 'App\Models\StockBarang',
-                subjectId: $stok->id,
-                event: 'Pengurangan Stok ' . ucfirst(strtolower($request->status)),
-                properties: [
-                    'changes' => [
-                        'old' => ['stock' => $oldStock],
-                        'new' => ['stock' => $stok->stock],
-                    ]
-                ],
-                description: "Stok barang {$namaBarang} (ID {$stok->id_barang}) dikurangi dari {$oldStock} ke {$newStock}.",
-                userId: $request->user_id,
-                message: filled($request->message) ? $request->message : '(Sistem) Stok barang dikurangi.'
-            );
+                $stok->stok -= $qtyTotal;
+                $stok->save();
+            }
+
+            /* ============================
+        | 🔥 UPDATE LABA RUGI
+        ============================ */
+            if ($totalHargaBeli > 0) {
+                $fTanggal = now();
+
+                KasService::updateLabaRugi(
+                    tokoId: $tokoId,
+                    tahun: $fTanggal->year,
+                    bulan: $fTanggal->month,
+                    tipe: 'out',
+                    nominal: $totalHargaBeli
+                );
+            }
 
             DB::commit();
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Stok berhasil dikurangi.',
-            ]);
-        } catch (\Exception $e) {
+            return $this->success(null, 200, 'Stok berhasil dikurangi.');
+        } catch (\Throwable $e) {
             DB::rollBack();
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Terjadi kesalahan saat memperbarui stok.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->error(500, $e->getMessage());
         }
     }
 
@@ -365,12 +362,120 @@ class StockBarangController extends Controller
         }
     }
 
-    public function create()
+    public function getDetail(Request $request)
     {
-        return view('master.stockbarang.create');
+        $stockBarang = StockBarang::where('barang_id', $request->barang_id)->first();
+        $stockUtama = $stockBarang->stok ?? 0;
+
+        // ================================
+        // HITUNG HPP BARU
+        // ================================
+        $detail = PembelianBarangDetail::where('barang_id', $request->barang_id)->get();
+        $totalHargaSuccess = $detail->sum('subtotal');
+        $totalQtySuccess = $detail->sum('qty');
+        $hppBaru = $totalQtySuccess > 0
+            ? round($totalHargaSuccess / $totalQtySuccess, 2)
+            : 0.00;
+
+        // ================================
+        // LEVEL HARGA (ARRAY NUMERIC)
+        // ================================
+        $level_harga = [];
+
+        if ($stockBarang && $stockBarang->level_harga) {
+
+            $raw = $stockBarang->level_harga;
+
+            if (is_array($raw)) {
+                $level_harga = array_values(array_map('intval', $raw));
+            } elseif (is_string($raw)) {
+                $decoded = json_decode($raw, true);
+                if (is_array($decoded)) {
+                    $level_harga = array_values(array_map('intval', $decoded));
+                }
+            }
+        }
+
+        // ================================
+        // MASTER LEVEL HARGA
+        // ================================
+        $levelHargaMaster = LevelHarga::orderBy('id', 'asc')->get();
+
+        // ================================
+        // GABUNG → KEY VALUE
+        // ================================
+        $levelHargaKeyValue = [];
+
+        foreach ($levelHargaMaster as $index => $lv) {
+            if (isset($level_harga[$index])) {
+                $levelHargaKeyValue[$lv->nama_level_harga] = $level_harga[$index];
+            }
+        }
+
+        // ================================
+        // DATA PER TOKO
+        // ================================
+        $tokoList = Toko::all()->sortByDesc(fn($tk) => $tk->id == $request->toko_id ? 1 : 0);
+
+        // $dataPerToko = $tokoList->map(function ($tk) use ($stockBarang, $levelHargaMaster, $hargaMapping) {
+
+        //     $stock = $tk->id == 1 ? ($stockBarang->stok ?? 0) : 0;
+
+        //     // Decode level harga toko (aman)
+        //     $raw = $tk->level_harga;
+        //     $array = json_decode($raw, true);
+
+        //     if (!is_array($array)) {
+        //         if (is_string($raw) && str_contains($raw, ',')) {
+        //             $array = array_map('intval', explode(',', $raw));
+        //         } elseif (is_numeric($raw)) {
+        //             $array = [(int) $raw];
+        //         } else {
+        //             $array = [];
+        //         }
+        //     }
+
+        //     // Bangun output string
+        //     $output = [];
+
+        //     foreach ($array as $id) {
+
+        //         $namaLevel = $levelHargaMaster
+        //             ->firstWhere('id', $id)
+        //             ->nama_level_harga ?? 'N/A';
+
+        //         $harga = $hargaMapping[$id] ?? null;
+
+        //         if ($harga !== null) {
+        //             $formatted = 'Rp ' . number_format($harga, 0, ',', '.');
+        //             $output[] = "{$namaLevel} ({$formatted})";
+        //         }
+        //     }
+
+        //     return [
+        //         'nama_toko'   => $tk->nama,
+        //         'stock'       => $stock,
+        //         'level_harga' => implode(', ', $output),
+        //     ];
+        // });
+
+        // ================================
+        // RESPONSE
+        // ================================
+        $data = [
+            'id'                  => $stockBarang->id,
+            'stock'               => $stockUtama,
+            'hpp_awal'            => $stockBarang ? (float) $stockBarang->hpp_baru : 0.00,
+            'hpp_baru'            => $hppBaru,
+            'total_harga_success' => $totalHargaSuccess,
+            'total_qty_success'   => $totalQtySuccess,
+            'level_harga'         => $levelHargaKeyValue, // ✅ KEY VALUE
+        ];
+
+        return $this->success($data, 200, 'Data berhasil diambil!');
     }
 
-    public function getDetail(Request $request)
+    public function getLevelHarga(Request $request)
     {
         $stockBarang = StockBarang::where('barang_id', $request->barang_id)->first();
         $stockUtama = $stockBarang->stok ?? 0;
@@ -469,17 +574,18 @@ class StockBarangController extends Controller
         // ================================
         // RESPONSE
         // ================================
-        return response()->json([
+        $data = [
             'stock'                => $stockUtama,
-            'hpp_awal' => $stockBarang ? (float) $stockBarang->hpp_baru : 0.00,
-            'hpp_baru'             => $hppBaru,
+            'hpp_awal'             => $stockBarang->hpp_awal ?? 0,
+            'hpp_baru'             => $stockBarang->hpp_baru ?? 0,
             'total_harga_success'  => $totalHargaSuccess,
             'total_qty_success'    => $totalQtySuccess,
             'level_harga'          => $level_harga, // ✅ PURE ARRAY
             // 'per_toko'             => $dataPerToko,
-        ]);
-    }
+        ];
 
+        return $this->success($data, 200, 'Data berhasil diambil!');
+    }
 
     public function getBarang(Request $request)
     {
@@ -488,7 +594,7 @@ class StockBarangController extends Controller
         $detail = StockBarangBatch::whereHas('stockBarang', function ($q) use ($request, $userTokoId) {
             $q->where('barang_id', $request->barang_id)
                 ->where('toko_id', $userTokoId)->where('stok', '>', 0);
-        })->get();
+        })->orderByDesc('created_at')->get();
 
         if ($detail->isEmpty()) {
             return response()->json([
@@ -498,21 +604,21 @@ class StockBarangController extends Controller
             ], 404);
         }
 
-        $mappedData = $detail->map(function ($item) {
+        $data = $detail->map(function ($item) {
             return [
                 'id'        => $item->id,
                 'qty'       => $item->qty_sisa ?? 0,
-                'harga'     => 'Rp. ' . number_format($item->harga_beli ?? 0, 0, ',', '.'),
+                'harga'     => RupiahGenerate::build($item->harga_beli),
+                'hpp_awal'     => RupiahGenerate::build($item->hpp_awal),
+                'hpp_baru'     => RupiahGenerate::build($item->hpp_baru),
                 'qrcode'    => $item->qrcode ?? null,
+                'created_at' => $item->created_at
+                    ? $item->created_at->format('Y-m-d H:i:s')
+                    : null,
             ];
         });
 
-        return response()->json([
-            'data'        => $mappedData,
-            'status_code' => 200,
-            'errors'      => false,
-            'message'     => 'Sukses'
-        ], 200);
+        return $this->success($data, 200, 'Data berhasil diambil!');
     }
 
     public function getHpp(Request $request)
@@ -524,7 +630,12 @@ class StockBarangController extends Controller
         $stockBarang = StockBarang::where('barang_id', $id_barang)->where('toko_group_id', $request->toko_group_id)->first();
 
         if (!$stockBarang) {
-            return response()->json(['error' => 'Barang tidak ditemukan'], 404);
+            return response()->json([
+                'hpp_lama'   => (float) $harga_request,
+                'hpp_baru'   => (float) $harga_request,
+                'stok_lama'  => (int) $qty_request,
+                'stok_baru'  => (int) $qty_request
+            ]);
         }
 
         $stock = $stockBarang->stok;
@@ -548,47 +659,41 @@ class StockBarangController extends Controller
 
     public function updateHarga(Request $request)
     {
-        $id_barang = $request->input('id_barang');
+        $request->validate([
+            'stock_barang_id' => 'required|integer|exists:stock_barang,id',
+            'level_harga'     => 'required|array|min:1',
+            'level_harga.*'   => 'required',
+        ]);
 
         try {
             DB::beginTransaction();
 
-            $barang = Barang::findOrFail($id_barang);
+            // 🔥 NORMALISASI → PASTI ANGKA
+            $levelHarga = array_map(function ($harga) {
+                return (int) preg_replace('/\D/', '', $harga);
+            }, $request->level_harga);
 
-            $levelNamas = $request->input('level_nama', []);
-            $levelHargas = $request->input('level_harga', []);
+            // 🔥 PAKSA JADI STRING DENGAN PETIK
+            // hasil: "[33000,43000,45000]"
+            $levelHargaString = '"' . json_encode($levelHarga) . '"';
 
-            $levelHargaBarang = [];
-
-            foreach ($levelHargas as $index => $hargaLevel) {
-                $levelNama = $levelNamas[$index] ?? 'Level ' . ($index + 1);
-
-                if (!is_null($hargaLevel)) {
-                    $hargaLevel = str_replace('.', '', $hargaLevel);
-                    $levelHargaBarang[] = "{$levelNama} : {$hargaLevel}";
-                }
-            }
-
-            $barang->save();
-
-            StockBarang::where('barang_id', $id_barang)
-                ->update(['level_harga' => json_encode($levelHargaBarang)]);
+            StockBarang::where('id', $request->stock_barang_id)
+                ->update([
+                    'level_harga' => $levelHargaString,
+                ]);
 
             DB::commit();
 
             return response()->json([
-                'status' => true,
+                'status'  => true,
                 'message' => 'Level harga berhasil diperbarui',
-                'data' => [
-                    'id_barang' => $id_barang,
-                    'level_harga' => $levelHargaBarang,
-                ],
+                'data'    => $levelHargaString,
             ], 200);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
-                'status' => false,
+                'status'  => false,
                 'message' => 'Terjadi kesalahan: ' . $e->getMessage(),
             ], 500);
         }

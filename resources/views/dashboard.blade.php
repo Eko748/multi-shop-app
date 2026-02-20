@@ -451,7 +451,7 @@
             const response = await renderAPI(
                 'GET',
                 '{{ route('dashboard.omset') }}', {
-                    id_toko: '{{ auth()->user()->id_toko }}',
+                    id_toko: '{{ auth()->user()->toko_id }}',
                     ...filterParams
                 }
             ).catch(error => error.response);
@@ -475,7 +475,7 @@
             const response = await renderAPI(
                 'GET',
                 '{{ route('dashboard.laba_kotor') }}', {
-                    id_toko: '{{ auth()->user()->id_toko }}',
+                    id_toko: '{{ auth()->user()->toko_id }}',
                     ...filterParams
                 }
             ).catch(error => error.response);
@@ -499,7 +499,7 @@
             const response = await renderAPI(
                 'GET',
                 '{{ route('dashboard.jumlah_transaksi') }}', {
-                    id_toko: '{{ auth()->user()->id_toko }}',
+                    id_toko: '{{ auth()->user()->toko_id }}',
                     ...filterParams
                 }
             ).catch(error => error.response);
@@ -576,8 +576,8 @@
         async function getLaporanPenjualan(customFilter5 = {}) {
             let filterParams = {};
 
-            if ('{{ auth()->user()->id_toko != 1 }}') {
-                filterParams.nama_toko = '{{ auth()->user()->id_toko }}';
+            if ('{{ auth()->user()->toko_id != 1 }}') {
+                filterParams.nama_toko = '{{ auth()->user()->toko_id }}';
             } else if (customFilter5['nama_toko']) {
                 filterParams.nama_toko = customFilter5['nama_toko'];
             }
@@ -943,8 +943,8 @@
         async function getTopPenjualan(customFilter2 = {}) {
             let filterParams = {};
 
-            if ('{{ auth()->user()->id_toko != 1 }}') {
-                filterParams.id_toko = '{{ auth()->user()->id_toko }}';
+            if ('{{ auth()->user()->toko_id != 1 }}') {
+                filterParams.id_toko = '{{ auth()->user()->toko_id }}';
             } else if (customFilter2['id_toko']) {
                 filterParams.id_toko = customFilter2['id_toko'];
             }
@@ -1058,8 +1058,8 @@
         async function getTopMember(customFilter3 = {}) {
             let filterParams = {};
 
-            if ('{{ auth()->user()->id_toko != 1 }}') {
-                filterParams.id_toko = '{{ auth()->user()->id_toko }}';
+            if ('{{ auth()->user()->toko_id != 1 }}') {
+                filterParams.id_toko = '{{ auth()->user()->toko_id }}';
             } else if (customFilter3['id_toko']) {
                 filterParams.id_toko = customFilter3['id_toko'];
             }
@@ -1118,7 +1118,7 @@
             </span>`;
 
             let toko = '';
-            if ('{{ auth()->user()->id_toko }}' == 1) {
+            if ('{{ auth()->user()->toko_id }}' == 1) {
                 toko = `<span class="badge badge-success text-white">${nama_toko}</span>`;
             }
 

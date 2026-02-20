@@ -263,6 +263,7 @@
             const dompetPulsaData = $('#dompet_pulsa').select2('data')[0] || {};
             const dompet_kategori_id = dompetPulsaData.id || null;
             const saldo = dompetPulsaData.saldo ?? null;
+            const kas = dompetPulsaData.kas ?? null;
 
             let formData = {
                 total_harga_jual: total_harga,
@@ -271,7 +272,9 @@
                 dompet_kategori_id: dompet_kategori_id,
                 saldo: saldo,
                 items: selectedItems,
-                created_by: '{{ auth()->user()->id }}'
+                created_by: {{ auth()->user()->id }},
+                toko_id: {{ auth()->user()->toko_id }},
+                kas_id: kas,
             };
 
             if (saveButton.disabled) return;

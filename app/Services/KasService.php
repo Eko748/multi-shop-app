@@ -2,12 +2,15 @@
 
 namespace App\Services;
 
+use App\Helpers\LogAktivitasGenerate;
+use App\Helpers\RupiahGenerate;
 use App\Models\Hutang;
 use App\Models\Kas;
 use App\Models\KasTransaksi;
 use App\Models\KasSaldoHistory;
 use App\Models\LabaRugi;
 use App\Models\LabaRugiTahunan;
+use App\Models\PembelianBarang;
 use App\Models\Piutang;
 use App\Models\TransaksiKasirHarian;
 use Illuminate\Support\Facades\DB;
@@ -38,6 +41,27 @@ class KasService
     {
         return self::handleKas(['neutral', 'out'], $toko_id, $jenis_barang_id, $tipe_kas, $total_nominal, $item, $kategori, $keterangan, $sumber, $tanggal, $laba);
     }
+
+    public static function topup(
+        $toko_id,
+        $jenis_barang_id,
+        $tipe_kas,
+        $saldo,
+        $hargaBeli,
+        $item,
+        $kategori = 'Saldo Digital',
+        $keterangan = 'Top-up Saldo',
+        $sumber,
+        $tanggal = null
+    ) {
+        $kas = Kas::firstOrCreate(
+            ['toko_id' => $toko_id, 'jenis_barang_id' => $jenis_barang_id, 'tipe_kas' => $tipe_kas],
+            ['saldo_awal' => 0, 'saldo' => 0, 'tanggal' => $tanggal ?? now()]
+        );
+
+        return self::coreTopupKas($kas, $saldo, $hargaBeli, $item, $kategori, $keterangan, $sumber, $tanggal);
+    }
+
 
     /*===============================
     * FITUR MUTASI KAS (TRANSFER)
@@ -233,6 +257,251 @@ class KasService
         ]);
     }
 
+    private static function coreTopupKas(
+        Kas $kas,
+        float $saldo,
+        float $hargaBeli,
+        $item,
+        $kategori,
+        $keterangan,
+        $sumber,
+        $tanggal
+    ) {
+        $fTanggal = Carbon::now();
+        $tahunNow = $fTanggal->year;
+        $bulanNow = $fTanggal->month;
+
+        // 1️⃣ tutup bulan terakhir jika perlu
+        $lastHistory = KasSaldoHistory::where('kas_id', $kas->id)
+            ->orderBy('tahun', 'desc')
+            ->orderBy('bulan', 'desc')
+            ->first();
+
+        if ($lastHistory && ($lastHistory->bulan != $bulanNow || $lastHistory->tahun != $tahunNow)) {
+            $lastHistory->update(['saldo_akhir' => $kas->saldo]);
+            $kas->saldo_awal = $kas->saldo;
+            $kas->save();
+        }
+
+        // 2️⃣ history bulan ini
+        $historyNow = KasSaldoHistory::firstOrCreate(
+            ['kas_id' => $kas->id, 'tahun' => $tahunNow, 'bulan' => $bulanNow],
+            ['saldo_awal' => $kas->saldo_awal, 'saldo_akhir' => $kas->saldo]
+        );
+
+        /*------------------------------------------
+    | 3️⃣ HITUNG TRANSAKSI
+    -------------------------------------------*/
+        $transaksiKas = [];
+
+        // Nominal utama = min(saldo, harga_beli)
+        $nominalUtama = min($saldo, $hargaBeli);
+
+        // 1. Kurangi saldo utama (out)
+        $kas->saldo -= $nominalUtama;
+        $kas->save();
+
+        $transaksiKas[] = KasTransaksi::create([
+            'kas_id' => $kas->id,
+            'tipe' => 'out',
+            'kode_transaksi' => 'KS-' . time() . rand(100, 999),
+            'total_nominal' => $nominalUtama,
+            'kategori' => $kategori,
+            'keterangan' => $keterangan,
+            'item' => $item,
+            'sumber_type' => $sumber ? get_class($sumber) : null,
+            'sumber_id' => $sumber?->id,
+            'tanggal' => $tanggal ?? now(),
+        ]);
+
+        // 2. Hitung selisih
+        $selisih = round($hargaBeli - $saldo, 2);
+
+        if ($selisih != 0) {
+            $labaRugi = LabaRugi::firstOrCreate(
+                ['toko_id' => $kas->toko_id, 'tahun' => $tahunNow, 'bulan' => $bulanNow],
+                ['pendapatan' => 0, 'beban' => 0, 'laba_bersih' => 0]
+            );
+
+            $labaRugiTahunan = LabaRugiTahunan::firstOrCreate(
+                ['toko_id' => $kas->toko_id, 'tahun' => $tahunNow],
+                ['pendapatan' => 0, 'beban' => 0, 'laba_bersih' => 0]
+            );
+
+            if ($selisih > 0) {
+                // harga_beli > saldo → selisih sebagai beban (out)
+                $tipeSelisih = 'out';
+                $labaNominal = $selisih;
+
+                $kas->saldo -= $labaNominal; // kurangi saldo kas
+                $kas->save();
+
+                $labaRugi->beban += $labaNominal;
+                $labaRugiTahunan->beban += $labaNominal;
+            } else {
+                // harga_beli < saldo → selisih sebagai pendapatan (in)
+                $tipeSelisih = 'in';
+                $labaNominal = abs($selisih);
+
+                // kas tidak berubah
+                $labaRugi->pendapatan += $labaNominal;
+                $labaRugiTahunan->pendapatan += $labaNominal;
+            }
+
+            $labaRugi->laba_bersih = $labaRugi->pendapatan - $labaRugi->beban;
+            $labaRugi->save();
+
+            $labaRugiTahunan->laba_bersih = $labaRugiTahunan->pendapatan - $labaRugiTahunan->beban;
+            $labaRugiTahunan->save();
+
+            // Simpan transaksi selisih hanya jika selisih > 0
+            if ($selisih > 0) {
+                $transaksiKas[] = KasTransaksi::create([
+                    'kas_id' => $kas->id,
+                    'tipe' => $tipeSelisih,
+                    'kode_transaksi' => 'KS-' . time() . rand(100, 999),
+                    'total_nominal' => $labaNominal,
+                    'kategori' => $kategori,
+                    'keterangan' => 'Selisih Top-up',
+                    'item' => $item,
+                    'sumber_type' => $sumber ? get_class($sumber) : null,
+                    'sumber_id' => $sumber?->id,
+                    'tanggal' => $tanggal ?? now(),
+                ]);
+            }
+        }
+
+
+        // 4️⃣ update history saldo akhir
+        KasSaldoHistory::where('kas_id', $kas->id)
+            ->where('tahun', $tahunNow)
+            ->where('bulan', $bulanNow)
+            ->update(['saldo_akhir' => $kas->saldo]);
+
+        return $transaksiKas;
+    }
+
+
+    public static function updatePembelianBarang(
+        PembelianBarang $pembelian,
+        float $deltaNominal,
+        int $userId
+    ) {
+        if ($deltaNominal == 0) return;
+
+        DB::transaction(function () use ($pembelian, $deltaNominal, $userId) {
+
+            $kas = Kas::where('id', $pembelian->kas_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $tahun = now()->year;
+            $bulan = now()->month;
+
+            $history = KasSaldoHistory::where('kas_id', $kas->id)
+                ->where('tahun', $tahun)
+                ->where('bulan', $bulan)
+                ->lockForUpdate()
+                ->first();
+
+            /**
+             * ===============================
+             * VALIDASI SALDO
+             * ===============================
+             * deltaNominal > 0 = kas keluar
+             */
+            if ($deltaNominal > 0) {
+
+                if ($kas->saldo < $deltaNominal) {
+                    throw new \Exception(
+                        "Saldo kas tidak mencukupi. Saldo tersedia: " . RupiahGenerate::build($kas->saldo)
+                    );
+                }
+
+                if ($history && $history->saldo_akhir < $deltaNominal) {
+                    throw new \Exception(
+                        "Saldo akhir kas bulan berjalan tidak mencukupi. Saldo akhir: " .  RupiahGenerate::build($history->saldo_akhir)
+                    );
+                }
+            }
+
+            /**
+             * ===============================
+             * UPDATE SALDO KAS
+             * ===============================
+             */
+            if ($deltaNominal > 0) {
+                // pembelian naik → kas keluar
+                $kas->saldo -= abs($deltaNominal);
+            } else {
+                // pembelian turun → kas masuk
+                $kas->saldo += abs($deltaNominal);
+            }
+
+            $kas->save();
+
+            /**
+             * ===============================
+             * UPDATE HISTORY BULAN INI
+             * ===============================
+             */
+            if ($history) {
+                $history->saldo_akhir = $kas->saldo;
+                $history->save();
+            } else {
+                KasSaldoHistory::create([
+                    'kas_id' => $kas->id,
+                    'tahun' => $tahun,
+                    'bulan' => $bulan,
+                    'saldo_awal' => $kas->saldo_awal,
+                    'saldo_akhir' => $kas->saldo,
+                ]);
+            }
+
+            /**
+             * ===============================
+             * SIMPAN TRANSAKSI KAS
+             * ===============================
+             */
+            $tipeKas = $deltaNominal > 0 ? 'out' : 'in';
+
+            KasTransaksi::create([
+                'kas_id' => $kas->id,
+                'tipe' => $tipeKas,
+                'kode_transaksi' => 'KS-ADJ-' . time(),
+                'total_nominal' => abs($deltaNominal),
+                'kategori' => 'Adjustment Pembelian',
+                'keterangan' => "Perubahan pembelian nota {$pembelian->nota}",
+                'item' => 'kecil',
+                'sumber_type' => PembelianBarang::class,
+                'sumber_id' => $pembelian->id,
+                'tanggal' => now(),
+            ]);
+
+            /**
+             * ===============================
+             * LOG AKTIVITAS
+             * ===============================
+             */
+            $arahSaldo = $deltaNominal > 0 ? 'berkurang' : 'bertambah';
+            $nominal   = number_format(abs($deltaNominal), 0, ',', '.');
+
+            LogAktivitasGenerate::store(
+                logName: 'Kas',
+                subjectType: Kas::class,
+                subjectId: $kas->id,
+                event: 'Edit Data',
+                properties: [
+                    'delta_nominal' => $deltaNominal,
+                    'saldo_akhir' => $kas->saldo
+                ],
+                description: "Penyesuaian edit Pembelian Barang Nota {$pembelian->nota}, saldo {$arahSaldo} Rp {$nominal}",
+                userId: $userId,
+                message: "(Sistem) Penyesuaian Kas {$arahSaldo}"
+            );
+        });
+    }
+
     public static function pengiriman($tokoPusatId, $tokoCabangId, $jenis_barang_id, $total_nominal, $sumber = null, $tanggal = null)
     {
         return DB::transaction(function () use ($tokoPusatId, $tokoCabangId, $jenis_barang_id, $total_nominal, $sumber, $tanggal) {
@@ -285,6 +554,67 @@ class KasService
 
             return true;
         });
+    }
+
+    public static function updateLabaRugi(
+        int $tokoId,
+        int $tahun,
+        int $bulan,
+        string $tipe,   // 'in' | 'out'
+        float|int $nominal
+    ): void {
+        /* =========================
+    | LABA RUGI BULANAN
+    ==========================*/
+        $labaRugi = LabaRugi::firstOrCreate(
+            [
+                'toko_id' => $tokoId,
+                'tahun'   => $tahun,
+                'bulan'   => $bulan,
+            ],
+            [
+                'pendapatan'  => 0,
+                'beban'       => 0,
+                'laba_bersih' => 0,
+            ]
+        );
+
+        if ($tipe === 'in') {
+            $labaRugi->pendapatan += $nominal;
+        } else {
+            $labaRugi->beban += $nominal;
+        }
+
+        $labaRugi->laba_bersih =
+            $labaRugi->pendapatan - $labaRugi->beban;
+
+        $labaRugi->save();
+
+        /* =========================
+    | LABA RUGI TAHUNAN
+    ==========================*/
+        $labaRugiTahunan = LabaRugiTahunan::firstOrCreate(
+            [
+                'toko_id' => $tokoId,
+                'tahun'   => $tahun,
+            ],
+            [
+                'pendapatan'  => 0,
+                'beban'       => 0,
+                'laba_bersih' => 0,
+            ]
+        );
+
+        if ($tipe === 'in') {
+            $labaRugiTahunan->pendapatan += $nominal;
+        } else {
+            $labaRugiTahunan->beban += $nominal;
+        }
+
+        $labaRugiTahunan->laba_bersih =
+            $labaRugiTahunan->pendapatan - $labaRugiTahunan->beban;
+
+        $labaRugiTahunan->save();
     }
 
     public static function delete($kasId, $id, $sumber, $tanggal)
@@ -590,53 +920,65 @@ class KasService
         $kategori = null,
         $keterangan = null,
         $sumber = null,
-        $laba = true
+        $laba = true,
+        $beban = 0
     ) {
-        return DB::transaction(function () use ($toko_id, $jenis_barang_id, $tipe_kas, $total_nominal, $item, $kategori, $keterangan, $sumber, $laba) {
+        return DB::transaction(function () use (
+            $toko_id,
+            $jenis_barang_id,
+            $tipe_kas,
+            $total_nominal,
+            $item,
+            $kategori,
+            $keterangan,
+            $sumber,
+            $laba,
+            $beban
+        ) {
 
-            $today = Carbon::today();
+            $today    = Carbon::today();
             $tahunNow = $today->year;
             $bulanNow = $today->month;
 
-            // Ambil atau buat Kas
+            // ===== KAS =====
             $kas = Kas::firstOrCreate(
-                ['toko_id' => $toko_id, 'jenis_barang_id' => $jenis_barang_id, 'tipe_kas' => $tipe_kas],
-                ['saldo_awal' => 0, 'saldo' => 0, 'tanggal' => $today]
+                [
+                    'toko_id' => $toko_id,
+                    'jenis_barang_id' => $jenis_barang_id,
+                    'tipe_kas' => $tipe_kas
+                ],
+                [
+                    'saldo_awal' => 0,
+                    'saldo' => 0,
+                    'tanggal' => $today
+                ]
             );
 
-            // -------------------------
-            // 1. CEK HISTORY SALDO
-            // -------------------------
-            $lastHistory = KasSaldoHistory::where('kas_id', $kas->id)
-                ->orderBy('tahun', 'desc')
-                ->orderBy('bulan', 'desc')
-                ->first();
-
-            if ($lastHistory && ($lastHistory->bulan != $bulanNow || $lastHistory->tahun != $tahunNow)) {
-                // Tutup bulan sebelumnya
-                $lastHistory->update(['saldo_akhir' => $kas->saldo]);
-
-                // Set saldo awal bulan ini
-                $kas->saldo_awal = $kas->saldo;
-                $kas->save();
-            }
-
+            // ===== HISTORY =====
             $historyNow = KasSaldoHistory::firstOrCreate(
-                ['kas_id' => $kas->id, 'tahun' => $tahunNow, 'bulan' => $bulanNow],
-                ['saldo_awal' => $kas->saldo_awal, 'saldo_akhir' => $kas->saldo]
+                [
+                    'kas_id' => $kas->id,
+                    'tahun' => $tahunNow,
+                    'bulan' => $bulanNow
+                ],
+                [
+                    'saldo_awal' => $kas->saldo,
+                    'saldo_akhir' => $kas->saldo
+                ]
             );
 
-            // -------------------------
-            // 2. CEK TRANSAKSI HARI INI
-            // -------------------------
+            // ===== TRANSAKSI HARI INI =====
             $transaksi = KasTransaksi::where('kas_id', $kas->id)
                 ->whereDate('tanggal', $today)
                 ->where('sumber_type', get_class($sumber))
                 ->where('sumber_id', $sumber->id)
                 ->first();
 
+            $isNewTransaksi = false;
+
             if (!$transaksi) {
-                // Buat baru
+                $isNewTransaksi = true;
+
                 $transaksi = KasTransaksi::create([
                     'kas_id' => $kas->id,
                     'tipe' => 'in',
@@ -650,59 +992,85 @@ class KasService
                     'tanggal' => now(),
                 ]);
 
-                $kas->saldo += $total_nominal;
-                $kas->save();
-
-                $selisih = $total_nominal;
+                $selisihPendapatan = $total_nominal;
+                $selisihBeban = $beban;
             } else {
-                // Update transaksi: ambil selisih
-                $selisih = $total_nominal - $transaksi->total_nominal;
+                $selisihPendapatan = $total_nominal - $transaksi->total_nominal;
+                $selisihBeban = 0;
 
-                $transaksi->total_nominal = $total_nominal;
-                $transaksi->tanggal = now();
-                $transaksi->save();
-
-                $kas->saldo += $selisih;
-                $kas->save();
+                $transaksi->update([
+                    'total_nominal' => $total_nominal,
+                    'tanggal' => now(),
+                ]);
             }
 
-            // Update saldo akhir history bulan ini
-            $historyNow->saldo_akhir = $kas->saldo;
-            $historyNow->save();
 
-            // -------------------------
-            // 3. LABA RUGI BULANAN & TAHUNAN (HPP sebagai beban)
-            // -------------------------
-            if ($laba) {
-                // Beban diambil dari sumber->total_hpp jika ada
-                $beban = $sumber->total_hpp ?? 0;
+            // ===== SALDO KAS =====
+            if ($selisihPendapatan != 0) {
+                $kas->increment('saldo', $selisihPendapatan);
+            }
 
-                // Bulanan
+            // ===== HISTORY =====
+            $historyNow->update([
+                'saldo_akhir' => $kas->saldo
+            ]);
+
+            // ===== LABA RUGI =====
+            if ($laba && $isNewTransaksi) {
+
                 $labaRugi = LabaRugi::firstOrCreate(
-                    ['toko_id' => $toko_id, 'tahun' => $tahunNow, 'bulan' => $bulanNow],
-                    ['pendapatan' => 0, 'beban' => 0, 'laba_bersih' => 0]
+                    [
+                        'toko_id' => $toko_id,
+                        'tahun' => $tahunNow,
+                        'bulan' => $bulanNow
+                    ],
+                    [
+                        'pendapatan' => 0,
+                        'beban' => 0,
+                        'laba_bersih' => 0
+                    ]
                 );
 
-                $labaRugi->pendapatan += $selisih;
-                $labaRugi->beban += $beban;
-                $labaRugi->laba_bersih = $labaRugi->pendapatan - $labaRugi->beban;
-                $labaRugi->save();
+                $labaRugi->increment('pendapatan', $selisihPendapatan);
+                $labaRugi->increment('beban', $selisihBeban);
 
-                // Tahunan
+                $labaRugi->refresh();
+
+                $labaRugi->update([
+                    'laba_bersih' => $labaRugi->pendapatan - $labaRugi->beban
+                ]);
+
+                // ===== TAHUNAN =====
                 $labaRugiTahunan = LabaRugiTahunan::firstOrCreate(
-                    ['toko_id' => $toko_id, 'tahun' => $tahunNow],
-                    ['pendapatan' => 0, 'beban' => 0, 'laba_bersih' => 0]
+                    [
+                        'toko_id' => $toko_id,
+                        'tahun' => $tahunNow
+                    ],
+                    [
+                        'pendapatan' => 0,
+                        'beban' => 0,
+                        'laba_bersih' => 0
+                    ]
                 );
 
-                $labaRugiTahunan->pendapatan += $selisih;
-                $labaRugiTahunan->beban += $beban;
-                $labaRugiTahunan->laba_bersih = $labaRugiTahunan->pendapatan - $labaRugiTahunan->beban;
-                $labaRugiTahunan->save();
+                $labaRugiTahunan->increment('pendapatan', $selisihPendapatan);
+                $labaRugiTahunan->increment('beban', $selisihBeban);
+
+                $labaRugiTahunan->refresh();
+
+                $labaRugiTahunan->update([
+                    'laba_bersih' =>
+                    $labaRugiTahunan->pendapatan - $labaRugiTahunan->beban
+                ]);
             }
+
 
             return $transaksi;
         });
     }
+
+
+
 
 
     public static function tipeKasName($kas)

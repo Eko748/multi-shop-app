@@ -54,7 +54,7 @@ class DompetKategoriController extends Controller
 
             return $this->success($data['data'], 200, 'Berhasil', $data['pagination']);
         } catch (\Exception $e) {
-            return $this->error(500, 'Gagal mengambil data {$this->title[0]}', [
+            return $this->error(500, "Gagal mengambil data {$this->title[0]}", [
                 'exception' => $e->getMessage()
             ]);
         }

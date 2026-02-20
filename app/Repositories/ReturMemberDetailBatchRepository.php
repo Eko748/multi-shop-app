@@ -2,13 +2,13 @@
 
 namespace App\Repositories;
 
-use App\Models\ReturMemberDetailStok;
+use App\Models\ReturMemberDetailBatch;
 
-class ReturMemberDetailStokRepository
+class ReturMemberDetailBatchRepository
 {
     protected $model;
 
-    public function __construct(ReturMemberDetailStok $model)
+    public function __construct(ReturMemberDetailBatch $model)
     {
         $this->model = $model;
     }

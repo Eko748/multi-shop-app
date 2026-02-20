@@ -7,7 +7,8 @@ use App\Models\Toko;
 use App\Services\DompetKategoriService;
 use App\Services\DompetSaldoService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use App\Models\StockBarangBatch;
+use App\Models\PembelianBarangDetail;
 
 class AsetBarangJualanController extends Controller
 {
@@ -32,122 +33,54 @@ class AsetBarangJualanController extends Controller
 
         $startDate = $request->input('startDate');
         $endDate = $request->input('endDate');
-        $idTokoLogin = (int) $request->input('id_toko', 0);
+        $idTokoLogin = (int) $request->input('toko_id', 0);
         $searchTerm = trim(strtolower($request->input('search', '')));
 
         try {
             if ($idTokoLogin == 1) {
-                $stockQuery = DB::table('detail_stock as ds')
-                    ->join('stock_barang as sb', function ($join) {
-                        $join->on('sb.id', '=', 'ds.id_stock')
-                            ->on('sb.id_barang', '=', 'ds.id_barang');
+
+                $stockQuery = StockBarangBatch::query()
+                    ->with([
+                        'stockBarang.barang.jenis',
+                        'sumber',
+                        'toko'
+                    ])
+                    ->whereHas('stockBarang', function ($q) {
+                        $q->whereNull('deleted_at');
                     })
-                    ->join('barang as b', 'ds.id_barang', '=', 'b.id')
-                    ->join('jenis_barang as jb', 'b.id_jenis_barang', '=', 'jb.id')
-                    ->join('detail_pembelian_barang as dpb', 'ds.id_detail_pembelian', '=', 'dpb.id')
-                    ->join('toko as t', 't.id', '=', DB::raw('1'))
-                    ->selectRaw('
-                            1 as id_toko,
-                            t.nama_toko,
-                            t.wilayah,
-                            b.id_jenis_barang,
-                            jb.nama_jenis_barang,
-                            SUM(ds.qty_now) as total_qty,
-                            SUM(ds.qty_now * dpb.harga_barang) as total_harga
-                        ')
-                    ->whereNull('ds.deleted_at')
-                    ->whereNull('sb.deleted_at')
-                    ->whereNull('b.deleted_at')
-                    ->whereNull('dpb.deleted_at')
-                    ->groupBy(
-                        'b.id_jenis_barang',
-                        'jb.nama_jenis_barang',
-                        't.nama_toko',
-                        't.wilayah'
-                    );
+                    ->whereHas('stockBarang.barang', function ($q) {
+                        $q->whereNull('deleted_at');
+                    })
+                    ->where('sumber_type', PembelianBarangDetail::class);
 
                 if (!empty($startDate) && !empty($endDate)) {
-                    $stockQuery->whereBetween('stock_barang.created_at', [$startDate, $endDate]);
-                }
-
-                $stockData = $stockQuery->get();
-
-                $detailQuery = DB::table('detail_toko')
-                    ->join('toko', 'detail_toko.id_toko', '=', 'toko.id')
-                    ->join('barang', 'detail_toko.id_barang', '=', 'barang.id')
-                    ->join('jenis_barang', 'barang.id_jenis_barang', '=', 'jenis_barang.id')
-                    ->select(
-                        'detail_toko.id_toko',
-                        'toko.nama_toko',
-                        'toko.wilayah',
-                        'barang.id_jenis_barang',
-                        'jenis_barang.nama_jenis_barang',
-                        DB::raw('SUM(detail_toko.qty) as total_qty'),
-                        DB::raw('SUM(detail_toko.harga) as total_harga')
-                    )
-                    ->whereNull('barang.deleted_at')
-                    ->groupBy(
-                        'detail_toko.id_toko',
-                        'toko.nama_toko',
-                        'toko.wilayah',
-                        'barang.id_jenis_barang',
-                        'jenis_barang.nama_jenis_barang'
-                    );
-
-                if (!empty($startDate) && !empty($endDate)) {
-                    $detailQuery->whereBetween('detail_toko.created_at', [$startDate, $endDate]);
-                }
-
-                if (!empty($searchTerm)) {
-                    $detailQuery->where(function ($q) use ($searchTerm) {
-                        $q->orWhereRaw('LOWER(toko.nama_toko) LIKE ?', ["%$searchTerm%"]);
-                        $q->orWhereRaw('LOWER(toko.wilayah) LIKE ?', ["%$searchTerm%"]);
-                        $q->orWhereRaw('LOWER(jenis_barang.nama_jenis_barang) LIKE ?', ["%$searchTerm%"]);
+                    $stockQuery->whereHas('stockBarang', function ($q) use ($startDate, $endDate) {
+                        $q->whereBetween('created_at', [$startDate, $endDate]);
                     });
                 }
 
-                $detailData = $detailQuery->get();
+                $batches = $stockQuery->get();
 
-                $combined = $stockData->merge($detailData);
-            } else {
-                $combined = DB::table('detail_toko')
-                    ->join('toko', 'detail_toko.id_toko', '=', 'toko.id')
-                    ->join('barang', 'detail_toko.id_barang', '=', 'barang.id')
-                    ->join('jenis_barang', 'barang.id_jenis_barang', '=', 'jenis_barang.id')
-                    ->where('detail_toko.id_toko', $idTokoLogin)
-                    ->whereNull('barang.deleted_at')
-                    ->select(
-                        'detail_toko.id_toko',
-                        'toko.nama_toko',
-                        'toko.wilayah',
-                        'barang.id_jenis_barang',
-                        'jenis_barang.nama_jenis_barang',
-                        DB::raw('SUM(detail_toko.qty) as total_qty'),
-                        DB::raw('SUM(detail_toko.harga) as total_harga')
-                    )
-                    ->groupBy(
-                        'detail_toko.id_toko',
-                        'toko.nama_toko',
-                        'toko.wilayah',
-                        'barang.id_jenis_barang',
-                        'jenis_barang.nama_jenis_barang'
-                    );
+                $combined = $batches->groupBy(function ($item) {
+                    return $item->stockBarang->barang->jenis->nama_jenis_barang;
+                })->map(function ($items) {
 
-                if (!empty($startDate) && !empty($endDate)) {
-                    $combined->whereBetween('detail_toko.created_at', [$startDate, $endDate]);
-                }
+                    $first = $items->first();
+                    $jenis = $first->stockBarang->barang->jenis;
 
-                if (!empty($searchTerm)) {
-                    $combined->where(function ($q) use ($searchTerm) {
-                        $q->orWhereRaw('LOWER(toko.nama_toko) LIKE ?', ["%$searchTerm%"]);
-                        $q->orWhereRaw('LOWER(toko.wilayah) LIKE ?', ["%$searchTerm%"]);
-                        $q->orWhereRaw('LOWER(jenis_barang.nama_jenis_barang) LIKE ?', ["%$searchTerm%"]);
-                    });
-                }
-
-                $combined = $combined->get();
+                    return (object)[
+                        'toko_id' => 1,
+                        'nama_toko' => $first->toko->nama,
+                        'wilayah' => $first->toko->wilayah,
+                        'id_jenis_barang' => $jenis->id,
+                        'nama_jenis_barang' => $jenis->nama_jenis_barang,
+                        'total_qty' => $items->sum('qty_sisa'),
+                        'total_harga' => $items->sum(function ($item) {
+                            return $item->qty_sisa * ($item->sumber->harga_beli ?? 0);
+                        })
+                    ];
+                })->values();
             }
-
             // Grouping berdasarkan jenis_barang
             $grouped = $combined->groupBy('nama_jenis_barang');
 
@@ -156,17 +89,17 @@ class AsetBarangJualanController extends Controller
             $totalHarga = $combined->sum('total_harga');
 
             // $dompetSaldo = $this->service->getTotalPerKategori((object) ['limit' => null, 'search' => $searchTerm]);
-            $hppDompetSaldo = $this->service->sumHPP();
-            $dompetSaldo = $this->service->sumSisaSaldo();
-            $dompetKategori = $this->service2->count();
-            $toko = Toko::where('id', $request->id_toko)->first();
+            $hppDompetSaldo = $this->service->sumHPP($idTokoLogin);
+            $dompetSaldo = $this->service->sumSisaSaldo($idTokoLogin);
+            $dompetKategori = $this->service2->count($idTokoLogin);
+            $toko = Toko::where('id', $request->toko_id)->first();
 
             $finalData = $grouped->map(function ($items, $namaJenis) {
                 return [
                     'nama_jenis_barang' => $namaJenis,
                     'items' => $items->map(function ($item) {
                         return [
-                            'id_toko' => $item->id_toko,
+                            'toko_id' => $item->toko_id,
                             'nama_toko' => $item->nama_toko . ' (' . $item->wilayah . ')',
                             'id_jenis_barang' => $item->id_jenis_barang,
                             'nama_jenis_barang' => $item->nama_jenis_barang,
@@ -182,8 +115,8 @@ class AsetBarangJualanController extends Controller
             $finalData->push([
                 'nama_jenis_barang' => 'Saldo Digital',
                 'items' => [[
-                    'id_toko' => $toko?->id,
-                    'nama_toko' => $toko?->nama_toko . ' ('. $toko->wilayah. ')',
+                    'toko_id' => $toko?->id,
+                    'nama_toko' => $toko?->nama . ' (' . $toko->wilayah . ')',
                     'id_jenis_barang' => 'dompet-saldo',
                     'nama_jenis_barang' => 'Dompet Saldo Digital',
                     'total_qty' => $dompetKategori,

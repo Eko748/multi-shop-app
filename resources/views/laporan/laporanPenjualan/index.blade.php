@@ -92,7 +92,7 @@
             const response = await renderAPI('GET', '{{ route('rekapitulasi.laporan-penjualan') }}', {
                 start_date: filter.start_date,
                 end_date: filter.end_date,
-                id_toko: '{{ auth()->user()->id_toko }}'
+                toko_id: '{{ auth()->user()->toko_id }}'
             }).then(res => res).catch(err => err.response);
 
             if (response && response.status === 200 && response.data?.data) {

@@ -66,7 +66,7 @@ class ArusKasService
         $query = KasTransaksi::whereBetween('tanggal', [$startDate, $endDate])
             ->whereHas('kas', function ($q) use ($accessibleTokoIds) {
                 $q->whereIn('toko_id', $accessibleTokoIds);
-            })
+            })->where('total_nominal', '>', 0)
             ->orderBy('tanggal', $meta['orderBy'])
             ->orderBy('id', 'desc');
 

@@ -162,15 +162,16 @@
 
             const btn = $(this);
             const saveButton = this;
-            const kas = $('#kas').select2('data')[0] || {};
-            const kas_jenis_barang = kas.jenis_id ?? null;
 
             let formData = {
+                toko_id: {{ auth()->user()->toko_id }},
                 dompet_kategori_id: $('#dompet_kategori').val(),
-                kas: $('#kas').val(),
-                saldo: $('#saldo').val(),
+                kas_id: $('#kas_id').val(),
+                jenis_barang_id: $("#kas_id").select2('data')[0].jenis_id,
+                tipe_kas: $("#kas_id").select2('data')[0].tipe_kas,
+                saldo_kas: $("#kas_id").select2('data')[0].saldo_kas,
                 harga_beli: $('#harga_beli').val(),
-                kas_jenis_barang: kas_jenis_barang
+                saldo: $('#saldo').val(),
             };
 
             if (mode === 'edit') {
@@ -367,8 +368,8 @@
                 </div>
                 <div class="col-6">
                     <div class="form-group">
-                        <label for="kas">Sumber Dana</label>
-                        <select id="kas" name="kas" class="form-control select2 w-100"></select>
+                        <label for="kas_id">Sumber Dana</label>
+                        <select id="kas_id" name="kas_id" class="form-control select2 w-100"></select>
                     </div>
                 </div>
             </div>

@@ -23,6 +23,7 @@ return new class extends Migration
             $table->integer('retur_qty')->nullable();
             $table->unsignedBigInteger('retur_by')->nullable();
             $table->timestamps();
+            $table->unsignedBigInteger('deleted_by')->nullable();
             $table->softDeletes();
         });
     }

@@ -25,7 +25,7 @@ class ReturMemberDetailRepository
 
     public function getAll($filter)
     {
-        $query = $this->model->query()->with('barang:id,nama_barang', 'supplier:id,nama_supplier');
+        $query = $this->model->query()->with('barang:id,nama', 'supplier:id,nama', 'batch.stokDetail');
 
         if (!empty($filter->start_date) && !empty($filter->end_date)) {
             $query->whereBetween('tanggal', [$filter->start_date, $filter->end_date]);
@@ -55,7 +55,7 @@ class ReturMemberDetailRepository
 
     public function getDistinctSuppliers($filter)
     {
-        $query = $this->model->with('supplier:id,nama_supplier,contact')
+        $query = $this->model->with('supplier:id,nama,telepon')
             ->select('supplier_id')
             ->distinct()
             // exclude supplier yg semua itemnya sudah terpenuhi (qty_ke_supplier = qty_request)
@@ -69,8 +69,8 @@ class ReturMemberDetailRepository
         if (!empty($filter->search)) {
             $search = $filter->search;
             $query->whereHas('supplier', function ($q) use ($search) {
-                $q->where('nama_supplier', 'like', "%{$search}%")
-                    ->orWhere('contact', 'like', "%{$search}%");
+                $q->where('nama', 'like', "%{$search}%")
+                    ->orWhere('telepon', 'like', "%{$search}%");
             });
         }
 
@@ -87,8 +87,8 @@ class ReturMemberDetailRepository
 
             return (object) [
                 'id'               => $supplierId,
-                'nama'             => $item->supplier->nama_supplier ?? null,
-                'contact'          => $item->supplier->contact ?? null,
+                'nama'             => $item->supplier->nama ?? null,
+                'telepon'          => $item->supplier->telepon ?? null,
                 'total_item_retur' => $totalItemRetur,
             ];
         });
@@ -99,16 +99,16 @@ class ReturMemberDetailRepository
     public function getHargaBarang($filter)
     {
         $query = $this->model::with([
-            'supplier:id,nama_supplier,contact',
-            'barang:id,nama_barang',
-            'detailKasir:id,id_detail_pembelian',
-            'detailKasir.detailPembelian' => function ($q) {
+            'supplier:id,nama,telepon',
+            'barang:id,nama',
+            'transaksiKasirDetail:id,stock_barang_batch_id',
+            'transaksiKasirDetail.stockBarangBatch' => function ($q) {
                 $q->select('id', 'qrcode');
             },
         ])
             ->select(
                 'id',
-                'detail_kasir_id',
+                'transaksi_kasir_detail_id',
                 'supplier_id',
                 'barang_id',
                 'qty_request',

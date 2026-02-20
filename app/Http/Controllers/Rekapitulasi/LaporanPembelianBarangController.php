@@ -40,7 +40,7 @@ class LaporanPembelianBarangController extends Controller
 
         // Ambil data pembelian berdasarkan tanggal
         $pembelian_dt = PembelianBarang::where('status', 'success')
-            ->whereBetween('tgl_nota', [$startDate, $endDate])
+            ->whereBetween('nota', [$startDate, $endDate])
             ->orderBy('id', 'desc')
             ->get();
 

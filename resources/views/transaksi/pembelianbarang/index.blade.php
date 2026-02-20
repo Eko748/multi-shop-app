@@ -1069,15 +1069,12 @@
             let tokoId = $('#toko_group').val(); // atau toko aktif
 
             try {
-                let res = await renderAPI('GET', '{{ route('sb.getDetail') }}', {
+                let res = await renderAPI('GET', '{{ route('sb.getLevelHarga') }}', {
                     barang_id: barangId,
                     toko_id: {{ auth()->user()->toko_id }}
                 });
 
-                let data = res.data;
-
-                console.log('DETAIL BARANG:', data);
-
+                let data = res.data.data;
                 // ================= STOCK INFO =================
                 $('.hpp-awal').text(formatRupiah(data.hpp_awal ?? 0));
                 $('.stock').text(data.stock);

@@ -29,16 +29,19 @@ Route::get('/user', function (Request $request) {
 Route::get('/arusKasir', [ArusKasController::class, 'getaruskas'])->name('master.aruskas.get');
 Route::get('/labarugi', [LabaRugiController::class, 'getlabarugi'])->name('master.labarugi.get');
 
-Route::get('/get-komparasi-toko', [DashboardController::class, 'getKomparasiToko'])->name('dashboard.komparasi');
 Route::get('/get-rekapitulasi-penjualan', [DashboardController::class, 'laporan_kasir'])->name('master.index.kasir');
-Route::get('/get-top-penjualan', [DashboardController::class, 'getBarangJual'])->name('dashboard.rating');
-Route::get('/get-top-member', [DashboardController::class, 'getMember'])->name('dashboard.member');
-Route::get('/get-omset', [DashboardController::class, 'getOmset'])->name('dashboard.omset');
-Route::get('/get-laba-kotor', [DashboardController::class, 'getLabaKotor'])->name('dashboard.laba_kotor');
-Route::get('/get-jumlah-transaksi', [DashboardController::class, 'getJumlahTransaksi'])->name('dashboard.jumlah_transaksi');
-Route::get('/get-asset', [AsetBarangJualanController::class, 'getAssetBarang'])->name('dashboard.asset');
 Route::get('/get-aset-retur', [AsetBarangReturController::class, 'getAsetBarangRetur'])->name('aset.retur');
-Route::get('/get-ratingmember', [RatingMemberController::class, 'getMember'])->name('dashboard.ratingmember');
+
+Route::prefix('dashboard')->as('dashboard.')->group(function () {
+    Route::get('/get-komparasi-toko', [DashboardController::class, 'getKomparasiToko'])->name('komparasi');
+    Route::get('/get-top-penjualan', [DashboardController::class, 'getBarangJual'])->name('rating');
+    Route::get('/get-top-member', [DashboardController::class, 'getMember'])->name('member');
+    Route::get('/get-omset', [DashboardController::class, 'getOmset'])->name('omset');
+    Route::get('/get-laba-kotor', [DashboardController::class, 'getLabaKotor'])->name('laba_kotor');
+    Route::get('/get-jumlah-transaksi', [DashboardController::class, 'getJumlahTransaksi'])->name('jumlah_transaksi');
+    Route::get('/get-asset', [AsetBarangJualanController::class, 'getAssetBarang'])->name('asset');
+    Route::get('/get-ratingmember', [RatingMemberController::class, 'getMember'])->name('ratingmember');
+});
 
 Route::get('/getdatauser', [UserController::class, 'getdatauser'])->name('master.getdatauser');
 Route::get('/getpengeluaran', [PengeluaranController::class, 'getpengeluaran'])->name('master.getpengeluaran');
@@ -174,10 +177,11 @@ Route::prefix('retur')->as('retur.')->group(function () {
 Route::prefix('stock-barang')->as('sb.')->group(function () {
     Route::get('get', [StockBarangController::class, 'get'])->name('get');
     Route::get('get-detail', [StockBarangController::class, 'getDetail'])->name('getDetail');
+    Route::get('get-level-harga', [StockBarangController::class, 'getLevelHarga'])->name('getLevelHarga');
     Route::get('get-item/{id}', [StockBarangController::class, 'getItem'])->name('get.item');
     Route::get('get-hpp', [StockBarangController::class, 'getHpp'])->name('getHpp');
     Route::get('get-barang', [StockBarangController::class, 'getBarang'])->name('getBarang');
-    Route::put('put-harga', [StockBarangController::class, 'updateHarga'])->name('updateHarga');
+    Route::post('post-harga', [StockBarangController::class, 'updateHarga'])->name('updateHarga');
     Route::put('put-refresh', [StockBarangController::class, 'refreshStock'])->name('refreshStock');
     Route::put('put-stok', [StockBarangController::class, 'updateStock'])->name('updateStock');
 
@@ -239,13 +243,16 @@ Route::prefix('transaksi-barang')->as('tb.')->group(function () {
         Route::get('get', [TransaksiKasirController::class, 'get'])->name('get');
         Route::get('detail', [TransaksiKasirController::class, 'detail'])->name('detail');
         Route::post('post', [TransaksiKasirController::class, 'post'])->name('post');
+        Route::delete('delete', [TransaksiKasirController::class, 'delete'])->name('delete');
         Route::get('get-harga', [TransaksiKasirController::class, 'getHarga'])->name('getHarga');
-        Route::get('print/{id_kasir}', [TransaksiKasirController::class, 'print'])->name('print');
+        Route::get('print', [TransaksiKasirController::class, 'print'])->name('print');
     });
 
     Route::prefix('pembelian')->as('pb.')->group(function () {
         Route::put('put', [PembelianBarangController::class, 'update'])->name('put');
         Route::get('get', [PembelianBarangController::class, 'get'])->name('get');
+        Route::get('get-detail', [PembelianBarangController::class, 'getDetail'])->name('getDetail');
+        Route::put('put-detail', [PembelianBarangController::class, 'putDetail'])->name('putDetail');
 
         Route::prefix('temporary')->as('temp.')->group(function () {
             Route::post('post', [PembelianBarangController::class, 'postTemp'])->name('post');

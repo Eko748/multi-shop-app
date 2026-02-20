@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->uuid('public_id')->unique();
             $table->unsignedBigInteger('toko_id');
-            $table->string('nota')->unique();
+            $table->string('nota');
             $table->dateTime('tanggal');
             $table->integer('total_qty');
             $table->decimal('total_nominal', 15, 2);
@@ -25,6 +25,7 @@ return new class extends Migration
             $table->unsignedBigInteger('member_id')->nullable();
             $table->unsignedBigInteger('created_by');
             $table->timestamps();
+            $table->unsignedBigInteger('deleted_by')->nullable();
             $table->softDeletes();
         });
     }

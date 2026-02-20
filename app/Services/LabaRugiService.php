@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Helpers\RupiahGenerate;
-use App\Models\{Pemasukan, Pengeluaran, PengeluaranTipe, KasTransaksi, TransaksiKasirHarian};
+use App\Models\{DompetSaldo, Pemasukan, Pengeluaran, PengeluaranTipe, KasTransaksi, TransaksiKasirHarian};
 use App\Models\PenjualanNonFisikDetail;
 use App\Models\ReturMember;
 use App\Models\{LabaRugi, LabaRugiTahunan};
@@ -89,17 +89,22 @@ class LabaRugiService
             })
             ->sum('total_nominal');
 
-        $nilaiReturMember = KasTransaksi::where('tipe', 'in')
+        $nilaiReturMember = KasTransaksi::where('tipe', 'out')
             ->where('sumber_type', ReturMember::class)
             ->whereMonth('tanggal', $month)
             ->whereYear('tanggal', $year)
             ->where($filterToko)
             ->sum('total_nominal');
 
-        $pendapatanNonTransaksi = 0;
+        $pendapatanNonTransaksi = DompetSaldo::whereMonth('created_at', $month)
+            ->whereYear('created_at', $year)
+            ->where($filterToko)
+            ->get()
+            ->filter(fn($row) => $row->harga_beli < $row->saldo) // hanya yang harga_beli < saldo
+            ->sum(fn($row) => $row->saldo - $row->harga_beli); // hitung selisih dan sum
 
-        $penjualanUmum += $penjualanNF;
-        $totalPendapatan = $penjualanUmum + $pendapatanLainnya + $nilaiReturMember + $pendapatanNonTransaksi;
+        $penjualanUmum += $penjualanNF -= $nilaiReturMember;
+        $totalPendapatan = $penjualanUmum + $pendapatanLainnya + $pendapatanNonTransaksi;
 
         // ============================
         // HPP (sementara 0)
@@ -113,10 +118,29 @@ class LabaRugiService
             ->get()
             ->sum(fn($kt) => (float) $kt->sumber->total_hpp ?? 0);
 
-        $hppretur = 0;
-        $hppBarangGanti = 0;
+        $hppretur = KasTransaksi::where('kas_transaksi.tipe', 'out')
+            ->where('kas_transaksi.sumber_type', ReturMember::class)
+            ->whereMonth('kas_transaksi.tanggal', $month)
+            ->whereYear('kas_transaksi.tanggal', $year)
+            ->where($filterToko)
+            ->join('retur_member', function ($join) {
+                $join->on('retur_member.id', '=', 'kas_transaksi.sumber_id')
+                    ->where('kas_transaksi.sumber_type', ReturMember::class);
+            })
+            ->join('retur_member_detail', 'retur_member_detail.retur_id', '=', 'retur_member.id')
+            ->where('retur_member_detail.qty_refund', '>', 0)
+            ->sum('retur_member_detail.total_hpp');
 
-        $total_hpp = $hppPenjualan + $hppretur + $hppBarangGanti;
+        $hppSelisihTopup = KasTransaksi::where('tipe', 'out')
+            ->where('sumber_type', DompetSaldo::class)
+            ->whereMonth('tanggal', $month)
+            ->whereYear('tanggal', $year)
+            ->where($filterToko)
+            ->where('keterangan', 'Selisih Top-up')
+            ->sum('total_nominal');
+
+        $hppPenjualan -= $hppretur;
+        $total_hpp = $hppPenjualan;
 
         // ============================
         // BEBAN OPERASIONAL
@@ -158,26 +182,40 @@ class LabaRugiService
         // STOK HILANG / BARANG BERMASALAH
         // ============================
 
-        $stockBermasalah = KasTransaksi::where('tipe', 'out')
-            ->where('sumber_type', StockBarangBermasalah::class)
-            ->whereMonth('tanggal', $month)
-            ->whereYear('tanggal', $year)
-            ->where($filterToko)
-            ->sum('total_nominal');
+        $stockBermasalah = StockBarangBermasalah::query()
+            ->join('stock_barang_batch as batch', 'batch.id', '=', 'stock_barang_bermasalah.stock_barang_batch_id')
+            ->whereMonth('stock_barang_bermasalah.created_at', $month)
+            ->whereYear('stock_barang_bermasalah.created_at', $year)
+            ->where('batch.toko_id', $tokoId)
+            ->selectRaw('SUM(stock_barang_bermasalah.qty * batch.harga_beli) as total')
+            ->value('total');
 
         $nextNumber = count($jenisList) + 1;
 
+        // 3.11 = HPP Selisih Topup
         $bebanOperasional[] = [
-            'label' => '3.' . $nextNumber . ' Stok Barang Hilang',
+            'label' => '3.' . ($nextNumber) . ' Selisih Top-up Saldo Digital',
+            'value' => $hppSelisihTopup
+        ];
+
+        $totalBeban += $hppSelisihTopup;
+
+        // 3.12 = Stok Barang Bermasalah
+        $nextNumber++; // +1 untuk nomor berikutnya
+
+        $bebanOperasional[] = [
+            'label' => '3.' . ($nextNumber) . ' Stok Barang Bermasalah',
             'value' => $stockBermasalah
         ];
 
         $totalBeban += $stockBermasalah;
 
+        // Total Beban Operasional
         $bebanOperasional[] = [
             'label' => 'Total Beban Operasional',
             'value' => $totalBeban
         ];
+
 
         // ============================
         // LABA RUGI
@@ -199,8 +237,7 @@ class LabaRugiService
             $nilaiReturMember,
             $totalPendapatan,
             $hppPenjualan,
-            $hppretur,
-            $hppBarangGanti,
+            $hppSelisihTopup,
             $total_hpp,
             $bebanOperasional,
             $total_labarugi,
@@ -214,8 +251,7 @@ class LabaRugiService
         $assetRetur,
         $totalPendapatan,
         $hppPenjualan,
-        $hppretur,
-        $hppBarangGanti,
+        $hppSelisihTopup,
         $total_hpp,
         $bebanOperasional,
         $total_labarugi,
@@ -226,9 +262,8 @@ class LabaRugiService
                 'I. Pendapatan',
                 [
                     ['1.1 Penjualan Umum', RupiahGenerate::build($penjualanUmum)],
-                    ['1.2 Pendapatan Lainnya', RupiahGenerate::build($pendapatanLainnya)],
-                    ['1.3 Pengembalian Retur', RupiahGenerate::build($assetRetur)],
-                    ['1.4 Pendapatan Non Transaksi', RupiahGenerate::build($pendapatanNonTransaksi)],
+                    ['1.2 Pendapatan Retur Pembelian', RupiahGenerate::build(0)],
+                    ['1.3 Pendapatan Lainnya', RupiahGenerate::build($pendapatanLainnya)],
                     ['Total Pendapatan', RupiahGenerate::build($totalPendapatan)]
                 ]
             ],
@@ -236,8 +271,7 @@ class LabaRugiService
                 'II. HPP',
                 [
                     ['2.1 HPP Penjualan', RupiahGenerate::build($hppPenjualan)],
-                    ['2.2 HPP Retur', RupiahGenerate::build($hppretur)],
-                    ['2.3 HPP Barang Ganti', RupiahGenerate::build($hppBarangGanti)],
+                    ['2.2 HPP Top Up', RupiahGenerate::build(0)],
                     ['Total HPP', RupiahGenerate::build($total_hpp)]
                 ]
             ],

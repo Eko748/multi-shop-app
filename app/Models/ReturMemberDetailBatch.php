@@ -5,15 +5,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
-class ReturMemberDetailStok extends Model
+class ReturMemberDetailBatch extends Model
 {
     use HasFactory;
 
-    protected $table = 'retur_member_detail_stok';
+    protected $table = 'retur_member_detail_batch';
 
     protected $fillable = [
         'retur_member_detail_id',
-        'stok_detail_id',
+        'stock_barang_batch_id',
         'qty',
     ];
 
@@ -30,6 +30,6 @@ class ReturMemberDetailStok extends Model
      */
     public function stokDetail()
     {
-        return $this->belongsTo(DetailStockBarang::class, 'stok_detail_id');
+        return $this->belongsTo(StockBarangBatch::class, 'stock_barang_batch_id');
     }
 }

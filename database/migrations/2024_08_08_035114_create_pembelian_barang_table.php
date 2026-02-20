@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::create('pembelian_barang', function (Blueprint $table) {
             $table->id();
+            $table->uuid('public_id')->unique();
             $table->unsignedBigInteger('kas_id');
             $table->unsignedBigInteger('toko_group_id');
             $table->unsignedBigInteger('supplier_id');

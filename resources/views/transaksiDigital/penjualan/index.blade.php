@@ -269,8 +269,14 @@
             id: '#dompet_pulsa',
             isUrl: '{{ route('td.dompetSaldo.getSaldoAkhir') }}',
             placeholder: `Pilih Dompet Pulsa`,
+            isFilter: {
+                toko_id: {{ auth()->user()->toko_id }}
+            },
             isModal: '#modal-form',
-            extraFields: 'saldo',
+            extraFields: {
+                saldo: 'saldo',
+                kas: 'kas'
+            },
         }];
     </script>
 

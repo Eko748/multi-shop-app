@@ -343,16 +343,26 @@
         async function handleData(data) {
             let detail_button = `
                 <a class="p-1 btn detail-data action_button" data-toggle="modal" data-target=".kasirDetailModal"
-                    onclick="openDetailKasir(${data.id})">
+                    onclick="openDetailKasir('${data.id}')">
                     <span class="text-dark">Detail</span>
                     <div class="icon text-info">
                         <i class="fa fa-book"></i>
                     </div>
                 </a>`;
 
+            let print_button = `
+                <a class="p-1 btn detail-data action_button"
+                    onclick="cetakStruk('${data.id}')">
+                    <span class="text-dark">Cetak</span>
+                    <div class="icon text-success">
+                        <i class="fa fa-print"></i>
+                    </div>
+                </a>`;
+
             let delete_button = `
                 <a class="p-1 btn hapus-data action_button"
                     data-container="body" data-toggle="tooltip" data-placement="top"
+                    onclick="deleteData('${encodeURIComponent(JSON.stringify(data))}')"
                     title="Hapus ${title}: ${data.nota}"
                     data-id='${data.id}'
                     data-name='${data.nota}'>
@@ -381,6 +391,7 @@
                 created_by: data?.created_by ?? '-',
                 detail_button,
                 delete_button,
+                print_button,
                 info
             };
         }
@@ -402,10 +413,10 @@
                                         <th scope="col" class="${tdClass} text-center" style="width:5%">No</th>
                                         <th scope="col" class="${tdClass}" style="width:15%">Tanggal</th>
                                         <th scope="col" class="${tdClass}" style="width:15%">Informasi</th>
-                                        <th scope="col" class="${tdClass}" style="width:30%">Nota</th>
+                                        <th scope="col" class="${tdClass}" style="width:25%">Nota</th>
                                         <th scope="col" class="${tdClass} text-center" style="width:5%">Qty</th>
                                         <th scope="col" class="${tdClass} text-right" style="width:10%">Nominal</th>
-                                        <th scope="col" class="${tdClass} text-center" style="width:20%">Aksi</th>
+                                        <th scope="col" class="${tdClass} text-center" style="width:25%">Aksi</th>
                                     </tr>
                                 </thead>
                                 <thead>
@@ -425,9 +436,10 @@
                     <div class="d-flex justify-content-center flex-column flex-sm-row align-items-center align-items-sm-start mx-3" style="gap: 0.5rem;">
                         ${hasButtons
                             ? `
-                                            ${element.detail_button || ''}
-                                            ${element.delete_button || ''}
-                                        `
+                                ${element.print_button || ''}
+                                ${element.detail_button || ''}
+                                ${element.delete_button || ''}
+                               `
                             : `<i class="text-muted">Tidak ada aksi</span>`
                         }
                     </div>
@@ -459,6 +471,74 @@
             $('#countPage').text(`${display_from} - ${display_to}`);
             $('[data-toggle="tooltip"]').tooltip();
             renderPagination();
+        }
+
+        async function deleteData(encodedData) {
+            let data = JSON.parse(decodeURIComponent(encodedData));
+
+            swal({
+                title: `Hapus ${title}`,
+                html: `
+                    <p class="font-weight-bold">Transaksi ${data.nota} akan dihapus!</p>
+                    <hr>
+                    <div class="px-4" style="gap: 0.5rem;">
+                        <div class="form-group">
+                            <label for="input-pin" class="form-control-label d-flex justify-content-start">PIN<span class="text-danger ml-1">*</span></label>
+                            <input type="text" id="input-pin" class="swal-content__input form-control mb-2" placeholder="Masukkan PIN Toko">
+                        </div>
+                        <div class="form-group">
+                            <label for="input-message" class="form-control-label d-flex justify-content-start">Pesan<span class="text-danger ml-1">*</span></label>
+                            <textarea id="input-message" class="swal-content__input form-control mb-2" placeholder="Masukkan Pesan" rows="4"></textarea>
+                        </div>
+                    </div>
+                `,
+                type: "question",
+                showCancelButton: true,
+                confirmButtonText: "Konfirmasi",
+                cancelButtonText: "Batal",
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                reverseButtons: true,
+                confirmButtonClass: "btn btn-danger",
+                cancelButtonClass: "btn btn-secondary"
+            }).then(async (result) => {
+                const pin = document.getElementById('input-pin')?.value;
+                const message = document.getElementById('input-message')?.value;
+
+                if (!pin) {
+                    notificationAlert("error", "Gagal", "PIN tidak boleh kosong!");
+                    return;
+                }
+                if (!message) {
+                    notificationAlert("error", "Gagal", "Pesan tidak boleh kosong!");
+                    return;
+                }
+
+                let postDataRest = await renderAPI(
+                        'DELETE',
+                        '{{ route('tb.kasir.delete') }}', {
+                            public_id: data.id,
+                            deleted_by: {{ auth()->user()->id }},
+                            toko_id: {{ auth()->user()->toko_id }},
+                            message: message,
+                            pin: pin
+                        }
+                    ).then(response => response)
+                    .catch(error => error.response);
+
+                swal.close();
+
+                if (postDataRest.status == 200) {
+                    setTimeout(() => {
+                        getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
+                            customFilter);
+                    }, 500);
+                    notificationAlert('success', 'Pemberitahuan', postDataRest.data.message);
+                } else {
+                    notificationAlert('error', 'Gagal', postDataRest.data?.message ||
+                        'Terjadi kesalahan.');
+                }
+            }).catch(swal.noop);
         }
 
         async function openDetailKasir(id) {
@@ -505,225 +585,226 @@
         }
 
         function generateKasirDetailHTML(ksr, detail_kasir, grouped_details) {
-            const noNota = ksr.no_nota ?? '-';
-            const noNotaFormatted = noNota.length >= 12 ?
-                `${noNota.slice(0, 6)}-${noNota.slice(6, 12)}-${noNota.slice(12)}` :
-                noNota;
+            return `
+        <div class="row">
+            ${generateKasirLeftColumn(ksr, detail_kasir)}
+            ${generateKasirRightColumn(ksr, grouped_details)}
+        </div>
+    `;
+        }
 
-            const createdAt = ksr.formatted_created_at ?? '-';
+        function generateKasirLeftColumn(ksr, detail_kasir) {
+            const noNota = ksr.nota ?? '-';
+            const tanggal = ksr.tanggal;
             const kasirNama = ksr.users?.nama ?? '-';
-            const totalItem = ksr.total_item ?? 0;
-            const totalNilai = formatRupiah(ksr.total_nilai ?? 0);
-            const totalDiskon = formatRupiah(ksr.total_diskon ?? 0);
-            const jmlBayar = formatRupiah(ksr.jml_bayar ?? 0);
-            const kembalian = formatRupiah(ksr.kembalian ?? 0);
-            const memberNama = ksr.member?.nama_member ?? 'Guest';
-            const tokoNama = ksr.toko?.nama_toko ?? '-';
-            const tokoAlamat = ksr.toko?.alamat ?? '-';
-            const kasbon = ksr.kasbon?.utang ? formatRupiah(ksr.kasbon.utang) : null;
+            const totalItem = ksr.total_qty ?? 0;
+            const totalNilai = ksr.total_nominal ?? 0;
+            const totalDiskon = ksr.total_diskon ?? 0;
+            const jmlBayar = ksr.total_bayar ?? 0;
+            const kembalian = ksr.total_kembalian ?? 0;
 
             let html = `
-            <div class="row">
-                <div class="col-md-7 mb-4">
-                    <div class="info-wrapper p-3 border rounded bg-light">
-                        <div class="row mb-0 pb-0">
-                            <div class="col-md-8">
-                                <div class="info-row d-flex mb-2">
-                                    <p class="label mr-2"><i class="feather icon-file-text mr-1"></i>No Nota</p>
-                                    <p class="value">: ${noNotaFormatted}</p>
-                                </div>
-                                <div class="info-row d-flex mb-2">
-                                    <p class="label mr-2"><i class="feather icon-calendar mr-1"></i>Tanggal Transaksi</p>
-                                    <p class="value">: ${createdAt}</p>
-                                </div>
-                            </div>
-                            <div class="col-md-4 text-md-right text-left">
-                                <div class="info-row d-flex justify-content-md-end mb-2">
-                                    <p class="label mr-2"><i class="feather icon-user mr-1"></i>Kasir</p>
-                                    <p class="value">: ${kasirNama}</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="info-row d-flex mb-2"><p class="label mr-2"><i class="feather icon-layers mr-1"></i>Jumlah Item</p><p class="value">: ${totalItem} Item</p></div>
-                        <div class="info-row d-flex mb-2"><p class="label mr-2"><i class="feather icon-credit-card mr-1"></i>Nilai Transaksi</p><p class="value">: ${totalNilai}</p></div>
-                        <div class="info-row d-flex mb-2"><p class="label mr-2"><i class="feather icon-percent mr-1"></i>Total Potongan</p><p class="value">: ${totalDiskon}</p></div>
-                        <div class="info-row d-flex mb-2"><p class="label mr-2"><i class="feather icon-credit-card mr-1"></i>Jumlah Bayar</p><p class="value">: ${jmlBayar}</p></div>
-                        <div class="info-row d-flex mb-2"><p class="label mr-2"><i class="feather icon-corner-down-left mr-1"></i>Kembalian</p><p class="value">: ${kembalian}</p></div>
-                    </div>
-                    <div class="table-responsive table-scroll-wrapper mt-3">
-                        <table class="table table-striped m-0">
-                            <thead>
-                                <tr>
-                                    <th>Nama Barang</th>
-                                    <th class="text-right">Retur</th>
-                                    <th class="text-right">Qty</th>
-                                    <th class="text-right">Harga</th>
-                                    <th>QR Code</th>
-                                    <th class="text-center">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody>`;
+    <div class="col-md-7 mb-4">
+        <div class="info-wrapper p-3 border rounded bg-light">
+                    <div class="row">
+    <div class="col-12 col-xl-6 col-lg-12 col-md-12">
+        <div class="info-row d-flex">
+            <p class="label mr-2">No Nota</p>
+            <p class="value">: ${noNota}</p>
+        </div>
+    </div>
 
-            detail_kasir.forEach(dtks => {
-                const namaBarang = dtks.barang?.nama_barang ?? '-';
-                const shortNamaBarang = namaBarang.length > 30 ? namaBarang.slice(0, 30) + '...' : namaBarang;
-                const harga = formatRupiah(dtks.harga);
-                const qty = dtks.qty;
-                const qrcode = dtks.qrcode ?? '-';
-                const qrcodePath = dtks.qrcode_path ? `/storage/${dtks.qrcode_path}` : '#';
-                let download_button = `
-                        <a href="${qrcodePath}" download class="action_button btn btn-outline-secondary btn-md" title="Download QR Code" data-container="body" data-toggle="tooltip" data-placement="top">
-                            <span class="text-dark">Unduh</span>
-                            <div class="icon text-success">
-                                <i class="mb-1 fa fa-download"></i>
-                            </div>
-                        </a>
-                    `;
-                let delete_button = '';
+    <div class="col-12 col-xl-6 col-lg-12 col-md-12">
+        <div class="info-row d-flex">
+            <p class="label mr-2">Tanggal Transaksi</p>
+            <p class="value">: ${tanggal}</p>
+        </div>
+    </div>
 
-                if (hasPermission('DELETE /pengembalian/delete')) {
-                    delete_button = `
-                        <button onClick="pengembalianData(${dtks.id}, '${encodeURIComponent(dtks.barang.nama_barang)}', ${detail_kasir.length}, ${ksr.id})" class="action_button btn btn-outline-secondary btn-md" title="Pengembalian Barang" data-container="body" data-toggle="tooltip" data-placement="top">
-                            <span class="text-dark">Hapus</span>
-                            <div class="icon text-danger">
-                                <i class="mb-1 fa fa-rotate"></i>
-                            </div>
-                        </button>
-                    `;
-                }
-                const hasButtons = download_button || delete_button;
-                const actionHTML = `
-                    <div class="d-flex justify-content-center flex-column flex-sm-row align-items-center align-items-sm-start mx-3" style="gap: 0.5rem;">
-                        ${download_button}
-                        ${hasButtons
-                            ? `
-                                                                                                                                                                                                                                                        ${delete_button || ''}
-                                                                                                                                                                                                                                                    `
-                            : ``
-                        }
-                    </div>
-                `;
+    <div class="col-12 col-xl-6 col-lg-12 col-md-12">
+        <div class="info-row d-flex">
+            <p class="label mr-2">Kasir</p>
+            <p class="value">: ${kasirNama}</p>
+        </div>
+    </div>
 
+    <div class="col-12 col-xl-6 col-lg-12 col-md-12">
+        <div class="info-row d-flex">
+            <p class="label mr-2">Total Qty</p>
+            <p class="value">: ${totalItem} Qty</p>
+        </div>
+    </div>
+
+    <div class="col-12 col-xl-6 col-lg-12 col-md-12">
+        <div class="info-row d-flex">
+            <p class="label mr-2">Nominal Transaksi</p>
+            <p class="value">: ${totalNilai}</p>
+        </div>
+    </div>
+
+    <div class="col-12 col-xl-6 col-lg-12 col-md-12">
+        <div class="info-row d-flex">
+            <p class="label mr-2">Total Potongan</p>
+            <p class="value">: ${totalDiskon}</p>
+        </div>
+    </div>
+
+    <div class="col-12 col-xl-6 col-lg-12 col-md-12">
+        <div class="info-row d-flex">
+            <p class="label mr-2">Jumlah Bayar</p>
+            <p class="value">: ${jmlBayar}</p>
+        </div>
+    </div>
+
+    <div class="col-12 col-xl-6 col-lg-12 col-md-12">
+        <div class="info-row d-flex">
+            <p class="label mr-2">Kembalian</p>
+            <p class="value">: ${kembalian}</p>
+        </div>
+    </div>
+</div>
+
+
+        <div class="table-responsive table-scroll-wrapper mt-3">
+            <table class="table table-striped m-0">
+                <thead>
+                    <tr>
+                        <th class="text-center">No</th>
+                        <th>Nama Barang</th>
+                        <th class="text-center">Qty</th>
+                        <th class="text-right">Harga</th>
+                        <th class="text-right">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+            detail_kasir.forEach((dtks, idx) => {
                 html += `
-                <tr>
-                    <td class="text-wrap align-top" title="${namaBarang}">${shortNamaBarang}</td>
-                    <td class="text-wrap align-top text-right">${dtks.reture_qty ?? 0}</td>
-                    <td class="text-wrap align-top text-right">${qty}</td>
-                    <td class="text-wrap align-top text-right">${harga}</td>
-                    <td class="text-wrap align-top">
-                        <div class="d-flex flex-wrap align-items-start justify-content-between">
-                            <span id="qrcode-text-${dtks.id}" class="mr-1 text-break">${qrcode}</span>
-                            <button class="btn btn-sm btn-outline-primary copy-btn"
-                                data-toggle="tooltip"
-                                title="Salin: ${qrcode}"
-                                data-target="qrcode-text-${dtks.id}">
-                                <i class="fas fa-copy"></i>
-                            </button>
-                        </div>
-                    </td>
-                    <td class="text-wrap align-top">
-                        ${actionHTML}
-                    </td>
-                </tr>`;
+            <tr>
+                <td class="text-center">${idx + 1}</td>
+                <td style="
+                    max-width: 280px;
+                    width: 280px;
+                    overflow: hidden;
+                    vertical-align: top;
+                ">
+                    <div style="
+                        max-width: 100%;
+                        overflow: hidden;
+                    ">
+                        ${dtks.text ?? '-'}
+                    </div>
+                </td>
+                <td class="text-center">${dtks.qty ?? 0}</td>
+                <td class="text-right">${dtks.harga ?? 0}</td>
+                <td class="text-right">${dtks.subtotal ?? 0}</td>
+            </tr>
+        `;
             });
 
-            html += `</tbody></table></div></div>
-                <div class="col-md-5 bg-light p-3">
-                    <button class="btn btn-primary btn-sm mb-3 w-100" onclick="cetakStruk(${ksr.id})"><i class="fa fa-print mr-2"></i>Cetak Struk</button>
-                    <div class="card text-center p-0">
-                        <div class="card-header p-0">
-                            <h5 class="card-subtitle">${tokoNama}</h5>
-                            <p class="card-text">${tokoAlamat}</p>
-                        </div>
-                        <div class="card-body p-1">
-                            <div class="info-wrapper">
-                                <div class="info-wrapper">
-                                    <div class="info-row">
-                                        <p class="label text-left">No Nota</p>
-                                        <p class="value">: ${noNotaFormatted}</p>
-                                    </div>
-                                    <div class="info-row">
-                                        <p class="label text-left">Tgl Transaksi</p>
-                                        <p class="value">: ${createdAt}</p>
-                                    </div>
-                                    <div class="info-row">
-                                        <p class="label text-left">Member</p>
-                                        <p class="value">: ${memberNama}</p>
-                                    </div>
-                                    <div class="info-row">
-                                        <p class="label text-left">Kasir</p>
-                                        <p class="value">: ${kasirNama}</p>
+            html += `
+                </tbody>
+            </table>
+        </div>
+                </div>
+    </div>`;
+
+            return html;
+        }
+
+        function generateKasirRightColumn(ksr, grouped_details) {
+            const noNota = ksr.nota ?? '-';
+            const tanggal = ksr.tanggal;
+            const kasirNama = ksr.users?.nama ?? '-';
+            const memberNama = ksr.member ?? '-';
+            const tokoNama = ksr.toko?.nama ?? '-';
+            const tokoAlamat = ksr.toko?.alamat ?? '-';
+
+            const totalNilai = ksr.total_nominal ?? 0;
+            const totalDiskon = ksr.total_diskon ?? 0;
+            const total = ksr.total ?? 0;
+            const jmlBayar = ksr.total_bayar ?? 0;
+            const kembalian = ksr.total_kembalian ?? 0;
+
+            let html = `
+            <div class="col-md-5 bg-light p-3">
+                <button class="btn btn-primary btn-sm mb-3 w-100" onclick="cetakStruk('${ksr.public_id}')">
+                    <i class="fa fa-print mr-2"></i>Cetak Struk
+                </button>
+
+                <div class="card text-center p-0">
+                                <div class="card-header p-2">
+                                    <h5 class="card-subtitle">${tokoNama}</h5>
+                                    <div><span class="card-text">${tokoAlamat}</span></div>
+                                </div>
+                                <div class="card-body p-1">
+                                    <div class="info-wrapper">
+                                        <div class="info-wrapper">
+                                            <div class="info-row">
+                                                <p class="label text-left">No Nota</p>
+                                                <p class="value">: ${noNota}</p>
+                                            </div>
+                                            <div class="info-row">
+                                                <p class="label text-left">Tgl Transaksi</p>
+                                                <p class="value">: ${tanggal}</p>
+                                            </div>
+                                            <div class="info-row">
+                                                <p class="label text-left">Member</p>
+                                                <p class="value">: ${memberNama}</p>
+                                            </div>
+                                            <div class="info-row">
+                                                <p class="label text-left">Kasir</p>
+                                                <p class="value">: ${kasirNama}</p>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                    <div class="table-responsive-js">
-                    <table class="table table-borderless mb-2">
-                        <thead>
-                            <tr>
-                                <td class="narrow-column align-top font-weight-bold">#</td>
-                                <td class="wide-column align-top font-weight-bold">Barang</td>
-                                <td class="price-column align-top font-weight-bold">Potongan</td>
-                                <td class="price-column align-top font-weight-bold">Harga</td>
-                            </tr>
-                        </thead>
-                        <tbody>`;
+
+                <table class="table table-borderless mb-2">
+                <thead>
+                                    <tr>
+                                        <td class="narrow-column align-top font-weight-bold text-center">No</td>
+                                        <td class="wide-column align-top font-weight-bold">Barang</td>
+                                        <td class="price-column align-top font-weight-bold">Potongan</td>
+                                        <td class="price-column align-top font-weight-bold">Harga</td>
+                                    </tr>
+                                </thead>
+                    <tbody>
+            `;
 
             grouped_details.forEach((item, idx) => {
                 html += `
-                    <tr>
-                        <td class="narrow-column align-top">${idx + 1}.</td>
-                        <td class="wide-column align-top">(${item.nama_barang}) ${item.qty}pcs @ ${formatRupiah(item.harga)}</td>
-                        <td class="price-column align-top">${formatRupiah(item.diskon)}</td>
-                        <td class="price-column align-top">${formatRupiah(item.total_harga)}</td>
-                    </tr>`;
+                <tr>
+                    <td class="narrow-column align-top text-center">${idx + 1}.</td>
+                    <td colspan="3" class="wide-column align-top"><b>${item.nama_barang}</b></td>
+                </tr>
+                <tr>
+                    <td colspan="1"></td>
+                    <td class="wide-column align-top">${item.qty} pcs @ ${item.harga}</td>
+                    <td class="price-column align-top">${item.diskon}</td>
+                    <td class="price-column align-top"><b>${item.total_harga}</b></td>
+                </tr>
+            `;
             });
 
-            html +=
-                `
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td></td>
-                    </tr>
-                    <tr>
-                        <td colspan="3" class="text-right">Total Harga</td>
-                        <td class="price-column">${totalNilai}</td>
-                    </tr>
-                    <tr>
-                        <td colspan="3" class="text-left">Total Diskon</td>
-                        <td class="price-column">${totalDiskon}</td>
-                    </tr>
-                    <tr class="bg-light">
-                        <td colspan="3" class="text-left"><b>Total</b></td>
-                        <td class="price-column"><b>${formatRupiah(ksr.total_nilai - ksr.total_diskon)}</b></td>
-                    </tr>
-                    <tr class="bg-success text-white">
-                        <td colspan="3" class="text-left">Dibayar</td>
-                        <td class="price-column">${jmlBayar}</td>
-                    </tr>`;
+            html += `
+                    </tbody>
+                    <tfoot>
+                        <tr><td colspan="3">Total Harga</td><td class="text-right">${totalNilai}</td></tr>
+                        <tr><td colspan="3">Total Diskon</td><td class="text-right">${totalDiskon}</td></tr>
+                        <tr class="bg-light"><td colspan="3"><b>Total</b></td><td class="text-right"><b>${total}</b></td></tr>
+                        <tr class="bg-success text-white"><td colspan="3">Dibayar</td><td class="text-right">${jmlBayar}</td></tr>
+                        ${kembalian != 0 ? `
+                                                                        <tr class="bg-info text-white"><td colspan="3">Kembalian</td><td class="text-right">${kembalian}</td></tr>` : ''}
+                    </tfoot>
+                </table>
 
-            if (ksr.kembalian != 0) {
-                html +=
-                    `<tr class="bg-info text-white">
-                        <td colspan="3" class="text-left">Kembalian</td>
-                        <td class="price-column">${kembalian}</td>
-                    </tr>`;
-            }
-            if (kasbon) {
-                html +=
-                    `<tr class="bg-danger text-white">
-                        <td colspan="3" class="text-left">Sisa Pembayaran</td>
-                        <td class="price-column">${kasbon}</td>
-                    </tr>`;
-            }
-
-            html += `</tfoot></table></div>
-            <p class="text-center">Terima Kasih</p>
-            <hr>
-            <button class="btn btn-primary btn-sm mb-3 w-100" onclick="cetakStruk(${ksr.id})"><i class="fa fa-print mr-2"></i>Cetak Struk</button>
-            </div>
+                <p class="text-center">Terima Kasih</p>
+                <button class="btn btn-primary btn-sm mb-3 w-100" onclick="cetakStruk('${ksr.public_id}')">
+                    <i class="fa fa-print mr-2"></i>Cetak Struk
+                </button>
             </div>`;
 
             return html;
@@ -770,7 +851,6 @@
             }).catch(swal.noop);
         }
 
-
         async function filterList() {
             let dateRangePickerList = initializeDateRangePicker();
 
@@ -811,120 +891,103 @@
             });
         }
 
-        async function cetakStruk(id_kasir) {
+        async function cetakStruk(kasir_id) {
             try {
-                const url = `{{ route('tb.kasir.print', ':id_kasir') }}`.replace(':id_kasir', id_kasir);
+                const url = `{{ route('tb.kasir.print') }}`;
 
-                const res = await fetch(url);
-                if (!res.ok) throw new Error("Gagal ambil data struk");
-                const data = await res.json();
+                const res = await renderAPI('GET', url, {
+                    id: kasir_id
+                });
 
+                const data = res?.data?.data;
                 if (!data || !data.detail) {
                     notificationAlert('warning', 'Info', 'Data tidak ditemukan untuk dicetak.');
                     return;
                 }
 
-                // Buat detail baris item
-                let detailRows = data.detail.map(d => `
+                /* ===============================
+                 * DETAIL BARANG
+                 * =============================== */
+                const detailRows = data.detail.map(d => `
                     <tr>
                         <td colspan="4" class="align-top text-left">${d.nama_barang}</td>
                     </tr>
                     <tr>
-                        <td colspan="2" class="align-top text-left">${d.qty} x ${d.harga}</td>
-                        <td colspan="2" class="align-top text-right">${formatRupiah(d.total_harga)}</td>
+                        <td colspan="2" class="align-top text-left">
+                            ${d.qty} x ${d.harga}
+                        </td>
+                        <td colspan="2" class="align-top text-right">
+                            ${d.total_harga}
+                        </td>
                     </tr>
                 `).join("");
 
-                const hr = '<hr style="border:none; border-top:1px dashed #000; margin:6px 0;"/>';
-                const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="black" viewBox="0 0 24 24">
-                                <path fill-rule="evenodd" clip-rule="evenodd" d="M2 1C1.44772 1 1 1.44772 1 2C1 2.55228 1.44772 3 2 3H3.21922L6.78345 17.2569C5.73276 17.7236 5 18.7762 5 20C5 21.6569 6.34315 23 8 23C9.65685 23 11 21.6569 11 20C11 19.6494 10.9398 19.3128 10.8293 19H15.1707C15.0602 19.3128 15 19.6494 15 20C15 21.6569 16.3431 23 18 23C19.6569 23 21 21.6569 21 20C21 18.3431 19.6569 17 18 17H8.78078L8.28078 15H18C20.0642 15 21.3019 13.6959 21.9887 12.2559C22.6599 10.8487 22.8935 9.16692 22.975 7.94368C23.0884 6.24014 21.6803 5 20.1211 5H5.78078L5.15951 2.51493C4.93692 1.62459 4.13696 1 3.21922 1H2ZM18 13H7.78078L6.28078 7H20.1211C20.6742 7 21.0063 7.40675 20.9794 7.81078C20.9034 8.9522 20.6906 10.3318 20.1836 11.3949C19.6922 12.4251 19.0201 13 18 13ZM18 20.9938C17.4511 20.9938 17.0062 20.5489 17.0062 20C17.0062 19.4511 17.4511 19.0062 18 19.0062C18.5489 19.0062 18.9938 19.4511 18.9938 20C18.9938 20.5489 18.5489 20.9938 18 20.9938ZM7.00617 20C7.00617 20.5489 7.45112 20.9938 8 20.9938C8.54888 20.9938 8.99383 20.5489 8.99383 20C8.99383 19.4511 8.54888 19.0062 8 19.0062C7.45112 19.0062 7.00617 19.4511 7.00617 20Z"/>
-                            </svg>`;
+                const hr = `<hr style="border:none;border-top:1px dashed #000;margin:6px 0;">`;
+
+                const svg = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="black" viewBox="0 0 24 24">
+                    <path d="M2 1h1.219l3.564 14.257A3 3 0 1 0 11 20h4a3 3 0 1 0 3-3H8.78l-.5-2H18c2 0 3-3 3-6s-2-4-4-4H5.78L5.16 2.515A2 2 0 0 0 3.22 1H2z"/>
+                </svg>`;
+
                 const printContent = `
-                    <div style="font-family: monospace; width: 300px; position: relative;">
-                        <div style="display:flex; align-items:center; justify-content:center; margin-bottom:6px; position: relative; z-index: 2;">
-                            <div style="flex:0 0 auto; display:flex; align-items:center;">
-                                ${svg}
-                            </div>
-                            <div style="flex:1; text-align:center;">
-                                <div style="font-size:16px; font-weight:bold;">${data.toko.nama}</div>
-                                <div style="font-size:12px; margin-top:2px;">${data.toko.alamat}</div>
-                            </div>
-                            <div style="flex:0 0 auto; display:flex; align-items:center;">
-                                ${svg}
-                            </div>
+                <div style="font-family: monospace; width:300px;">
+                    <div style="display:flex;justify-content:center;align-items:center;gap:6px;">
+                        ${svg}
+                        <div style="text-align:center;">
+                            <div style="font-size:16px;font-weight:bold;">${data.toko.nama}</div>
+                            <div style="font-size:12px;">${data.toko.alamat}</div>
                         </div>
-                        ${hr}
-                        <table style="width:100%; font-size:12px; table-layout:fixed;">
-                            <colgroup>
-                                <col style="width:35%;">
-                                <col style="width:5%;">
-                                <col style="width:60%;">
-                            </colgroup>
-                            <tbody>
-                                <tr>
-                                    <td>No Nota</td><td>:</td><td class="text-right">${data.nota.no_nota}</td>
-                                </tr>
-                                <tr>
-                                    <td>Tanggal</td><td>:</td><td class="text-right">${data.nota.tanggal}</td>
-                                </tr>
-                                <tr>
-                                    <td>Member</td><td>:</td><td class="text-right">${data.nota.member}</td>
-                                </tr>
-                                <tr>
-                                    <td>Kasir</td><td>:</td><td class="text-right">${data.nota.kasir}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                        ${hr}
-                        <table style="width:100%; font-size:14px;">
-                            <tbody>
-                                ${detailRows}
-                            </tbody>
-                        </table>
-                        ${hr}
-                        <table style="width:100%; font-size:14px; table-layout:fixed;">
-                            <colgroup>
-                                <col style="width:35%;">
-                                <col style="width:5%;">
-                                <col style="width:60%;">
-                            </colgroup>
-                            <tbody>
-                                <tr>
-                                    <td>Total</td><td>:</td><td class="text-right">${formatRupiah(data.total.total_harga)}</td>
-                                </tr>
-                                <tr>
-                                    <td>Potongan</td><td>:</td><td class="text-right">${formatRupiah(data.total.total_potongan)}</td>
-                                </tr>
-                                <tr>
-                                    <td style="font-weight:bold;">Total Bayar</td><td>:</td>
-                                    <td class="text-right" style="font-weight:bold;">${formatRupiah(data.total.total_bayar)}</td>
-                                </tr>
-                                <tr>
-                                    <td>Tunai</td><td>:</td><td class="text-right">${formatRupiah(data.total.dibayar)}</td>
-                                </tr>
-                                <tr>
-                                    <td>Kembali</td><td>:</td><td class="text-right">${formatRupiah(data.total.kembalian)}</td>
-                                </tr>
-                                ${data.total.sisa_pembayaran && data.total.sisa_pembayaran > 0 ? `
-                                                                                                                                                                                                                                                                                                        <tr>
-                                                                                                                                                                                                                                                                                                            <td>Sisa</td><td>:</td><td class="text-right">${formatRupiah(data.total.sisa_pembayaran)}</td>
-                                                                                                                                                                                                                                                                                                        </tr>` : ""}
-                            </tbody>
-                        </table>
-                        ${hr}
-                        <p style="text-align:center;">${data.footer}</p>
+                        ${svg}
                     </div>
+
+                    ${hr}
+
+                    <table style="width:100%;font-size:12px;">
+                        <tr><td>No Nota</td><td>:</td><td class="text-right">${data.nota.no_nota}</td></tr>
+                        <tr><td>Tanggal</td><td>:</td><td class="text-right">${data.nota.tanggal}</td></tr>
+                        <tr><td>Member</td><td>:</td><td class="text-right">${data.nota.member}</td></tr>
+                        <tr><td>Kasir</td><td>:</td><td class="text-right">${data.nota.kasir}</td></tr>
+                    </table>
+
+                    ${hr}
+
+                    <table style="width:100%;font-size:13px;">
+                        ${detailRows}
+                    </table>
+
+                    ${hr}
+
+                    <table style="width:100%;font-size:13px;">
+                        <tr><td>Total</td><td>:</td><td class="text-right">${data.total.total_harga}</td></tr>
+                        <tr><td>Potongan</td><td>:</td><td class="text-right">${data.total.total_potongan}</td></tr>
+                        <tr style="font-weight:bold;">
+                            <td>Total Bayar</td><td>:</td>
+                            <td class="text-right">${data.total.total_bayar}</td>
+                        </tr>
+                        <tr><td>Dibayar</td><td>:</td><td class="text-right">${data.total.dibayar}</td></tr>
+                        <tr><td>Kembali</td><td>:</td><td class="text-right">${data.total.kembalian}</td></tr>
+
+                        ${
+                            data.total.sisa_pembayaran !== 'Rp 0'
+                                ? `<tr><td>Sisa</td><td>:</td><td class="text-right">${data.total.sisa_pembayaran}</td></tr>`
+                                : ''
+                        }
+                    </table>
+
+                    ${hr}
+                    <p style="text-align:center;">${data.footer}</p>
+                </div>
                 `;
 
-                let w = window.open("", "_blank", "width=400,height=600");
+                const w = window.open("", "_blank", "width=400,height=600");
                 w.document.write(`
                     <html>
                     <head>
-                        <title>Print Nota</title>
+                        <title>Print Struk</title>
                         <style>
                             body { font-family: monospace; padding:10px; }
-                            table { border-collapse: collapse; width:100%; }
-                            td, th { padding: 4px; }
+                            table { width:100%; border-collapse:collapse; }
+                            td { padding:3px 0; }
                             .text-right { text-align:right; }
                         </style>
                     </head>
@@ -936,7 +999,7 @@
                 w.document.close();
 
             } catch (err) {
-                console.error("Error cetakStruk:", err);
+                console.error(err);
                 notificationAlert('error', 'Error', 'Gagal mencetak struk.');
             }
         }
@@ -945,10 +1008,13 @@
             renderModalForm('add');
 
             $('#submit-button')
-                .removeClass('btn-primary d-none')
+                .removeClass('btn-primary btn-info d-none')
                 .addClass('btn-success')
+                .attr("type", "submit")
+                .attr("form", "form-data")
                 .prop('disabled', false)
-                .html('<i class="fa fa-save mr-1"></i>Simpan');
+                .html('<i class="fa fa-save mr-1"></i>Simpan')
+                .off("click");
 
             setDatePicker();
             addRowItem();
@@ -1425,6 +1491,7 @@
 
                 const $submitButton = $("#submit-button");
                 const originalHTML = $submitButton.html();
+                let isSuccess = false;
 
                 $submitButton.prop("disabled", true)
                     .html(`<i class="fas fa-spinner fa-spin"></i> Menyimpan...`);
@@ -1483,17 +1550,41 @@
                     loadingPage(false);
 
                     if (postData.status >= 200 && postData.status < 300) {
-                        notificationAlert("success", "Berhasil", postData.data.message || "Transaksi berhasil");
+                        isSuccess = true;
+
+                        const kasirPublicId = postData.data?.data?.public_id;
+
+                        notificationAlert(
+                            "success",
+                            "Berhasil",
+                            postData.data.message || "Transaksi berhasil"
+                        );
+
+                        if (kasirPublicId) {
+                            $submitButton
+                                .removeClass("btn-success")
+                                .addClass("btn-info")
+                                .prop("disabled", false)
+                                .attr("type", "button") // 🔥 INI PENTING
+                                .removeAttr("form") // 🔥 ini juga
+                                .html('<i class="fa fa-print mr-1"></i> Cetak Struk')
+                                .off("click")
+                                .on("click", function(e) {
+                                    e.preventDefault();
+                                    e.stopImmediatePropagation();
+                                    cetakStruk(`${kasirPublicId}`);
+                                });
+                        }
 
                         setTimeout(async () => {
-                            await getListData(defaultLimitPage, currentPage, defaultAscending,
-                                defaultSearch, customFilter);
+                            await getListData(
+                                defaultLimitPage,
+                                currentPage,
+                                defaultAscending,
+                                defaultSearch,
+                                customFilter
+                            );
                         }, 500);
-
-                        setTimeout(() => {
-                            $("#modal-form").modal("hide");
-                        }, 500);
-
                     } else {
                         notificationAlert("info", "Pemberitahuan", postData.data.message ||
                             "Terjadi kesalahan");
@@ -1504,7 +1595,11 @@
                     const resp = error.response?.data || {};
                     notificationAlert("error", "Kesalahan", resp.message || "Terjadi kesalahan");
                 } finally {
-                    $submitButton.prop("disabled", false).html(originalHTML);
+                    if (!isSuccess) {
+                        $submitButton
+                            .prop("disabled", false)
+                            .html(originalHTML);
+                    }
                 }
             });
         }

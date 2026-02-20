@@ -2,13 +2,13 @@
 
 namespace App\Repositories;
 
-use App\Models\PembelianBarangDetail;
+use App\Models\StockBarangBatch;
 
-class PembelianBarangDetailRepository
+class StockBarangBatchRepo
 {
     protected $model;
 
-    public function __construct(PembelianBarangDetail $model)
+    public function __construct(StockBarangBatch $model)
     {
         $this->model = $model;
     }
@@ -35,13 +35,11 @@ class PembelianBarangDetailRepository
     public function getQRCode($filter)
     {
         $query = $this->model::with([
-            'barang:id,nama',
-            'stockBarangBatch:id,qty_sisa,qrcode',
+            'stockBarang:id,barang_id',
+            'stockBarang.barang:id,nama',
         ])
-            ->select('id', 'qrcode', 'barang_id', 'status', 'created_at')
-            ->whereHas('stockBarangBatch', function ($q) {
-                $q->where('qty_sisa', '>', 0);
-            });
+            ->select('id', 'qrcode', 'qty_sisa', 'stock_barang_id', 'created_at')
+            ->where('qty_sisa', '>', 0);
 
         if (!empty($filter->search)) {
             $search = $filter->search;
@@ -59,11 +57,9 @@ class PembelianBarangDetailRepository
     {
         $query = $this->model::with([
             'supplier:id,nama,telepon',
-            'barang:id,barang',
-            'stockBarangBatch:id,qrcode,qty_sisa',
-            'pembelian:id',
+            'stockBarang.barang:id,nama',
         ])
-            ->select('id', 'supplier_id', 'barang_id', 'harga_beli as hpp', 'qty', 'created_at')
+            ->select('id', 'supplier_id', 'stock_barang_id', 'harga_beli as hpp', 'qty_sisa', 'created_at')
             ->where('id', $filter->id);
 
         return !empty($filter->limit)

@@ -13,28 +13,28 @@ class DompetSaldoRepository
         $this->model = $model;
     }
 
-    public function sumSaldo(?int $month  = null, ?int $year  = null)
+    public function sumSaldo(?int $month  = null, ?int $year  = null, ?int $tokoId = null)
     {
         $query = $this->model;
 
         if ($month && $year) {
-           $query->whereYear('created_at', $year)
+            $query->whereYear('created_at', $year)
                 ->whereMonth('created_at', '<=', $month);
         }
 
-        return $query->sum('saldo');
+        return $query->where('toko_id', $tokoId)->sum('saldo');
     }
 
-    public function sumHargaBeli(?int $month  = null, ?int $year  = null)
+    public function sumHargaBeli(?int $month  = null, ?int $year  = null, ?int $tokoId = null)
     {
         $query = $this->model;
 
         if ($month && $year) {
-           $query->whereYear('created_at', $year)
+            $query->whereYear('created_at', $year)
                 ->whereMonth('created_at', '<=', $month);
         }
 
-        return $query->sum('harga_beli');
+        return $query->where('toko_id', $tokoId)->sum('harga_beli');
     }
 
     public function getAll($filter)
@@ -117,6 +117,11 @@ class DompetSaldoRepository
     public function create(array $data)
     {
         return $this->model::create($data);
+    }
+
+    public function find($id)
+    {
+        return $this->model::where('public_id', $id)->first();
     }
 
     public function update($id, array $data)

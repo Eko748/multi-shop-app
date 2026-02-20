@@ -116,7 +116,7 @@
     </div>
 
     <div class="modal fade" id="modal-form" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-dialog modal-xl" role="document">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="modalLabel"><i class="fa fa-edit mr-1"></i>Form Pengurangan Stok Barang</h5>
@@ -124,39 +124,47 @@
                             class="fa fa-xmark"></i></button>
                 </div>
                 <div class="modal-body card-body">
-                    <form id="form-data">
-                        <div class="row">
-                            <div class="col-md-12">
-                                <div class="form-group">
-                                    <div class="font-weight-bold">Barang: <span id="label_barang"></span></div>
+                    <div class="mb-2">
+                        <div class="alert alert-light border mb-2">
+                            <div class="row">
+                                <div class="col-md-12 mb-2">
+                                    <label>Barang</label>
+                                    <h5 id="label_barang"></h5>
                                 </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="stock">Stok<span class="text-danger ml-1">*</span></label>
-                                    <input type="number" class="form-control" id="stock" name="stock"
-                                        placeholder="Masukkan stok barang" required>
-                                    <small class="font-weight-bold">Maks: <span id="maks-stock"
-                                            class="text-danger"></span></small>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="status">Status<span class="text-danger ml-1">*</span></label>
-                                    <select name="status" id="status" class="form-control">
+                                <div class="col-md-6 mb-2">
+                                    <label>Status</label>
+                                    <select id="status" class="form-control form-control-sm">
                                         <option value="hilang">Barang Hilang</option>
                                         <option value="mati">Barang Mati</option>
                                     </select>
                                 </div>
-                            </div>
-                            <div class="col-md-12">
-                                <div class="form-group">
-                                    <label for="input-pesan">Pesan</label>
-                                    <textarea id="input-pesan" class="form-control" placeholder="Masukkan Pesan (Opsional)" rows="4"></textarea>
+                                <div class="col-md-6 mb-2">
+                                    <label>Pesan</label>
+                                    <input type="text" id="input-pesan" class="form-control form-control-sm"
+                                        placeholder="Keterangan pengurangan stok">
                                 </div>
                             </div>
                         </div>
-                    </form>
+                        <div class="scroll-section">
+                            <div class="section-title">Detail Barang</div>
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-striped">
+                                    <thead class="thead-light">
+                                        <tr class="tb-head">
+                                            <th class="text-center">No.</th>
+                                            <th>QR Code</th>
+                                            <th class="text-center">Stok</th>
+                                            <th class="text-right">Harga Beli</th>
+                                            <th class="text-right">Riwayat Hpp</th>
+                                            <th class="text-center">Tanggal Masuk</th>
+                                            <th>Input Stok Bermasalah</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="detailStockBarang"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" aria-label="Close"><i
@@ -328,9 +336,23 @@
             renderPagination();
         }
 
-        function openEditModal(encodedData) {
+        async function openEditModal(encodedData) {
             try {
                 let item = JSON.parse(decodeURIComponent(encodedData));
+
+                const resp = await renderAPI('GET', '{{ route('sb.getDetail') }}', {
+                    barang_id: item.id_barang
+                }).then(r => r).catch(e => e
+                    .response);
+
+                if (resp.status !== 200) {
+                    notyf.error(resp.data?.message || 'Gagal memuat data stok barang.');
+                    return;
+                }
+
+                const stokData = resp.data.data;
+
+                await renderTabDetailStockBarang(item.id_barang, '#detailStockBarang');
                 let currentStock = item.stock;
 
                 $('#label_barang').text(item.nama_barang);
@@ -373,24 +395,40 @@
                 const btn = $(this);
                 const saveButton = this;
 
-                const userId = '{{ auth()->user()->id }}';
-                const status = $('#status').val();
-                const qty = $('#stock').val();
+                const status = $('#status').val(); // hilang/mati/rusak
                 const message = $('#input-pesan').val();
 
+                // Ambil semua input reduce-stock
+                const stockReductions = [];
+                document.querySelectorAll('.reduce-stock').forEach(input => {
+                    const qty = parseInt(input.value, 10);
+                    if (qty > 0) { // hanya yang ada pengurangan
+                        stockReductions.push({
+                            stock_barang_batch_id: input.dataset.id,
+                            status: status,
+                            qty: qty
+                        });
+                    }
+                });
+
+                if (stockReductions.length === 0) {
+                    notificationAlert('info', 'Peringatan', 'Tidak ada stok yang dikurangi.');
+                    return;
+                }
+
                 const payload = {
-                    id: data.id,
-                    user_id: userId,
-                    status: status,
-                    qty: qty,
-                    message: message
+                    stock_barang_id: data.id,
+                    user_id: '{{ auth()->user()->id }}',
+                    toko_id: '{{ auth()->user()->toko_id }}',
+                    message: message,
+                    reductions: stockReductions
                 };
 
                 if (saveButton.disabled) return;
 
                 swal({
                     title: "Konfirmasi",
-                    text: `Apakah Anda yakin ingin menyimpan ${title} ini?`,
+                    text: `Apakah Anda yakin ingin menyimpan perubahan stok ini?`,
                     type: "question",
                     showCancelButton: true,
                     confirmButtonColor: '#2ecc71',
@@ -412,8 +450,7 @@
 
                     try {
                         const response = await renderAPI('PUT',
-                            '{{ route('sb.updateStock') }}',
-                            payload);
+                            '{{ route('sb.updateStock') }}', payload);
                         loadingPage(false);
 
                         if (response.status >= 200 && response.status < 300) {
@@ -450,7 +487,7 @@
         async function showModal(id_barang, encoded_nama_barang, hpp_baru) {
             const nama_barang = decodeURIComponent(atob(encoded_nama_barang));
             const modalId = '#dynamicModal';
-            const modalTitle = `${nama_barang} : ${formatRupiah(hpp_baru)}`;
+            const modalTitle = `${nama_barang} : ${hpp_baru}`;
 
             const canAturHarga = hasPermission('POST /update-level-harga');
             const canDetailBarang = hasPermission('GET /get-detail-barang/{id_barang}');
@@ -461,7 +498,7 @@
 
             $('.modal-barang-title').text(modalTitle);
 
-            const resp = await renderAPI('GET', '{{ route('sb.get') }}', {
+            const resp = await renderAPI('GET', '{{ route('sb.getDetail') }}', {
                 barang_id: id_barang
             }).then(r => r).catch(e => e
                 .response);
@@ -471,7 +508,7 @@
                 return;
             }
 
-            const stokData = resp.data;
+            const stokData = resp.data.data;
 
             await renderTabStokBarang(stokData);
 
@@ -568,10 +605,12 @@
                         <table class="table table-bordered table-striped">
                             <thead class="thead-light">
                                 <tr class="tb-head">
-                                    <th>No.</th>
+                                    <th class="text-center">No.</th>
                                     <th>QR Code</th>
-                                    <th>Stok</th>
-                                    <th>Harga Beli</th>
+                                    <th class="text-center">Stok</th>
+                                    <th class="text-right">Harga Beli</th>
+                                    <th class="text-right">Riwayat Hpp</th>
+                                    <th>Tanggal Masuk</th>
                                 </tr>
                             </thead>
                             <tbody id="modal-detail-barang-body"></tbody>
@@ -591,6 +630,7 @@
                                     <th class="toko-col">Nama Toko</th>
                                     <th>Stok</th>
                                     <th class="level-header">Level Harga</th>
+                                    <th class="level-header">Hpp Akhir</th>
                                 </tr>
                             </thead>
                             <tbody id="modal-stock-table-body"></tbody>
@@ -654,137 +694,203 @@
             let rows = '';
             let showTokoColumn = false;
 
-            if (Array.isArray(stokData.per_toko) && stokData.per_toko.length > 0) {
+            // === DATA PER TOKO ===
+            if (
+                stokData &&
+                Array.isArray(stokData.per_toko) &&
+                stokData.per_toko.length > 0
+            ) {
                 showTokoColumn = true;
+
                 stokData.per_toko.forEach(toko => {
-                    const levelHargaToko = toko.level_harga;
+                    if (!toko) return;
+
+                    const levelHargaToko =
+                        toko.level_harga &&
+                        typeof toko.level_harga === 'object' &&
+                        Object.keys(toko.level_harga).length > 0 ?
+                        Object.entries(toko.level_harga)
+                        .map(([nama, harga]) =>
+                            `${nama}: ${formatRupiah(harga)}`
+                        )
+                        .join('<br>') :
+                        'Tidak Ada Level Harga';
 
                     rows += `
                 <tr>
-                    <td>${toko.nama_toko}</td>
-                    <td>${toko.stock}</td>
+                    <td>${toko.nama_toko ?? '-'}</td>
+                    <td>${toko.stock ?? 0}</td>
                     <td>${levelHargaToko}</td>
-                </tr>`;
+                    <td>${toko.hpp_baru}</td>
+                </tr>
+            `;
                 });
+
+                // === TOKO UTAMA / STOK GLOBAL ===
             } else {
-                const levelHargaList = stokData.level_harga && Object.keys(stokData.level_harga).length > 0 ?
-                    Object.entries(stokData.level_harga).map(([key, value]) => `${key} (${value})`).join(', ') :
+                const levelHargaList =
+                    stokData?.level_harga &&
+                    typeof stokData.level_harga === 'object' &&
+                    Object.keys(stokData.level_harga).length > 0 ?
+                    Object.entries(stokData.level_harga)
+                    .map(([nama, harga]) =>
+                        `${nama}: ${formatRupiah(harga)}`
+                    )
+                    .join('<br>') :
                     'Tidak Ada Level Harga';
 
                 rows += `
-            <tr>
-                <td class="d-none">Toko Utama</td>
-                <td>${stokData.stock}</td>
-                <td>${levelHargaList}</td>
-            </tr>`;
+                    <tr>
+                        <td class="d-none">Toko Utama</td>
+                        <td>${stokData?.stock ?? 0}</td>
+                        <td>${levelHargaList}</td>
+                        <td>${stokData?.hpp_baru ? formatRupiah(stokData?.hpp_baru) : 0}</td>
+                    </tr>
+                `;
             }
 
             $('#modal-stock-table-body').html(rows);
-            $('#modal-stock-table-head th.toko-col').toggleClass('d-none', !showTokoColumn);
+            $('#modal-stock-table-head th.toko-col')
+                .toggleClass('d-none', !showTokoColumn);
         }
 
-
         async function renderTabAturHarga(id_barang, stokData) {
-            const hppValue = stokData.hpp_awal || 0;
+            const hppValue = Number(stokData?.hpp_awal) || 0;
 
-            let formContent = `
-            <form class="level-harga-form">
-                <input type="hidden" name="id_barang" value="${id_barang}">`;
+            // === NORMALISASI LEVEL HARGA (OBJECT → ARRAY) ===
+            let levelHargaList = [];
 
-            let i = 0;
-            for (const [levelName, levelVal] of Object.entries(stokData.level_harga || {})) {
-                const cleanValue = parseInt(levelVal.replace(/[^\d]/g, '')) || 0;
-                const inputId = `harga-${id_barang}-${levelName.replace(/\s+/g, '-')}`;
-                const hiddenId = `level_harga_raw_${i}`;
-                const nameAttr = `harga_level_${levelName.replace(/\s+/g, '_')}_barang_${id_barang}`;
-                const persenId = `persen-${id_barang}-${levelName.replace(/\s+/g, '-')}`;
-                const persen = hppValue > 0 ? (((cleanValue - hppValue) / hppValue) * 100).toFixed(2) : '0';
-
-                formContent += `
-                <div class="input-group mb-3">
-                    <div class="input-group-prepend"><span class="input-group-text">${levelName}</span></div>
-                    <input type="text" name="level_harga[]" id="${inputId}" class="form-control level-harga"
-                        placeholder="Atur harga baru" value="${cleanValue.toLocaleString('id-ID')}"
-                        data-raw-value="${cleanValue}" data-hpp-baru="${hppValue}">
-                    <input type="hidden" id="${hiddenId}" name="${nameAttr}" value="${cleanValue}">
-                    <input type="hidden" name="level_nama[]" value="${levelName}">
-                    <div class="input-group-append"><span class="input-group-text" id="${persenId}">${persen}%</span></div>
-                </div>`;
-                i++;
+            if (stokData?.level_harga && typeof stokData.level_harga === 'object') {
+                levelHargaList = Object.entries(stokData.level_harga).map(
+                    ([nama, harga]) => ({
+                        nama,
+                        harga: Number(harga) || 0
+                    })
+                );
             }
 
+            let formContent = `<form class="level-harga-form">`;
+
+            levelHargaList.forEach(level => {
+                const cleanValue = level.harga;
+                const safeName = level.nama.replace(/\s+/g, '-');
+                const inputId = `harga-${id_barang}-${safeName}`;
+                const persenId = `persen-${id_barang}-${safeName}`;
+
+                const persen = hppValue > 0 ?
+                    (((cleanValue - hppValue) / hppValue) * 100).toFixed(2) :
+                    '0';
+
+                formContent += `
+        <div class="input-group mb-3">
+            <div class="input-group-prepend">
+                <span class="input-group-text">${level.nama}</span>
+            </div>
+
+            <input type="text"
+                id="${inputId}"
+                class="form-control level-harga"
+                value="${cleanValue.toLocaleString('id-ID')}"
+                data-raw-value="${cleanValue}"
+                data-hpp-baru="${hppValue}"
+                placeholder="Atur harga">
+
+            <div class="input-group-append">
+                <span class="input-group-text" id="${persenId}">
+                    ${persen}%
+                </span>
+            </div>
+        </div>
+        `;
+            });
+
             formContent += `
-                <input type="hidden" id="hpp-baru-${id_barang}" value="${hppValue}">
-                <button type="submit" class="btn btn-primary w-100" id="btn-update-level-harga">
-                    <i class="fa fa-save mr-1"></i>Update
-                </button>
-            </form>`;
+        <button type="submit" class="btn btn-primary w-100" id="btn-update-level-harga">
+            <i class="fa fa-save mr-1"></i>Update
+        </button>
+        </form>
+    `;
 
             $('#dynamic-harga-form').html(formContent);
 
+            // === FORMAT INPUT & HITUNG PERSEN ===
             document.querySelectorAll('.level-harga').forEach(input => {
                 input.addEventListener('input', function() {
                     let rawValue = this.value.replace(/[^0-9]/g, '');
-                    this.setAttribute('data-raw-value', rawValue);
-                    this.value = rawValue ? parseInt(rawValue).toLocaleString('id-ID') : '';
+                    this.dataset.rawValue = rawValue;
+                    this.value = rawValue ?
+                        Number(rawValue).toLocaleString('id-ID') :
+                        '';
                     calculatePercentage(this);
                 });
+                calculatePercentage(input);
             });
 
-            document.querySelectorAll('.level-harga').forEach(input => calculatePercentage(input));
+            // === SUBMIT FORM ===
+            document.querySelector('.level-harga-form')
+                ?.addEventListener('submit', async function(e) {
+                    e.preventDefault();
 
-            document.querySelector('.level-harga-form').addEventListener('submit', async function(e) {
-                e.preventDefault();
-                const form = this;
-                const formData = new FormData(form);
-                const btnSubmit = document.querySelector('#btn-update-level-harga');
-                const originalBtnHTML = btnSubmit.innerHTML;
-                btnSubmit.innerHTML =
-                    `<span class="spinner-border spinner-border-sm mr-1"></span> Mengupdate...`;
-                btnSubmit.disabled = true;
+                    const formData = new FormData();
+                    formData.append('stock_barang_id', stokData.id);
 
-                form.querySelectorAll('.level-harga').forEach(input => {
-                    const hidden = form.querySelector(
-                        `#${input.id.replace(/^harga/, 'level_harga_raw')}`);
-                    if (hidden) {
-                        hidden.value = input.getAttribute('data-raw-value') || '0';
-                        formData.set(hidden.name, hidden.value);
+                    // 🔥 kirim ARRAY harga saja (backend format: [25000,30000,...])
+                    document.querySelectorAll('.level-harga').forEach(input => {
+                        const raw = Number(input.dataset.rawValue || 0);
+                        formData.append('level_harga[]', raw);
+                    });
+
+                    const btnSubmit = document.querySelector('#btn-update-level-harga');
+                    const originalBtnHTML = btnSubmit.innerHTML;
+
+                    btnSubmit.innerHTML =
+                        `<span class="spinner-border spinner-border-sm mr-1"></span> Mengupdate...`;
+                    btnSubmit.disabled = true;
+
+                    const resp = await renderAPI(
+                        'POST',
+                        '{{ route('sb.updateHarga') }}',
+                        formData
+                    );
+
+                    if (resp.status === 200) {
+                        notyf.success(resp.data.message || 'Harga berhasil diperbarui');
+                        setTimeout(() => {
+                            getListData(
+                                defaultLimitPage,
+                                currentPage,
+                                defaultAscending,
+                                defaultSearch,
+                                customFilter
+                            );
+                        }, 1000);
+                    } else {
+                        notyf.error(resp.data?.message || 'Gagal memperbarui harga');
                     }
+
+                    btnSubmit.innerHTML = originalBtnHTML;
+                    btnSubmit.disabled = false;
                 });
 
-                const resp = await renderAPI('PUT', '{{ route('sb.updateHarga') }}', formData);
-
-                if (resp.status === 200) {
-                    notyf.success(resp.data.message || 'Harga berhasil diperbarui');
-                    setTimeout(() => {
-                        getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
-                            customFilter);
-                    }, 1000);
-                } else {
-                    notyf.error(resp.data?.message || 'Gagal memperbarui harga');
-                }
-
-                btnSubmit.innerHTML = originalBtnHTML;
-                btnSubmit.disabled = false;
-            });
-
             function calculatePercentage(input) {
-                const hpp = parseFloat(input.getAttribute('data-hpp-baru')) || 0;
-                const raw = parseFloat(input.getAttribute('data-raw-value')) || 0;
+                const hpp = Number(input.dataset.hppBaru) || 0;
+                const raw = Number(input.dataset.rawValue) || 0;
                 const persen = hpp > 0 ? ((raw - hpp) / hpp) * 100 : 0;
-                const idParts = input.id.split('-');
-                const idSuffix = idParts.slice(2).join('-');
-                const persenElem = document.getElementById(`persen-${idParts[1]}-${idSuffix}`);
+
+                const [, barangId, ...suffix] = input.id.split('-');
+                const persenElem = document.getElementById(
+                    `persen-${barangId}-${suffix.join('-')}`
+                );
                 if (persenElem) persenElem.textContent = `${persen.toFixed(2)}%`;
             }
         }
 
-        async function renderTabDetailBarang(id_barang) {
+        async function renderTabDetailBarang(id_barang, id = '#modal-detail-barang-body') {
             const detailResp = await renderAPI('GET', '{{ route('sb.getBarang') }}', {
                 barang_id: id_barang
             }).then(r => r).catch(
                 e => e.response);
-            const target = '#modal-detail-barang-body';
+            const target = id;
 
             if (detailResp && detailResp.status === 200 && Array.isArray(detailResp.data.data)) {
                 const rows = detailResp.data.data.map((el, idx) => `
@@ -799,8 +905,10 @@
                         </button>
                     </div>
                 </td>
-                <td>${el.qty}</td>
-                <td>${el.harga}</td>
+                <td class="text-center">${el.qty}</td>
+                <td class="text-right">${el.harga}</td>
+                <td class="text-right">${el.hpp_baru}</td>
+                <td>${el.created_at}</td>
             </tr>`).join('');
                 $(target).html(rows);
 
@@ -817,6 +925,76 @@
                 });
             } else {
                 $(target).html(`<tr><td colspan="5">Tidak ada stok detail barang</td></tr>`);
+            }
+        }
+
+        async function renderTabDetailStockBarang(id_barang, target = '#detailStockBarang') {
+            const detailResp = await renderAPI('GET', '{{ route('sb.getBarang') }}', {
+                barang_id: id_barang
+            }).catch(e => e.response);
+
+            if (detailResp?.status === 200 && Array.isArray(detailResp.data.data)) {
+
+                const rows = detailResp.data.data.map((el, idx) => `
+            <tr>
+                <td class="text-center">${idx + 1}</td>
+
+                <td>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span id="qrcode-text-${idx}">${el.qrcode}</span>
+                        <button type="button"
+                            class="btn btn-sm btn-outline-primary copy-btn"
+                            data-target="qrcode-text-${idx}">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </td>
+
+                <td class="text-center">${el.qty}</td>
+                <td class="text-right">${el.harga}</td>
+                <td class="text-right">${el.hpp_baru}</td>
+                <td class="text-center">${el.created_at}</td>
+
+                <!-- INPUT PENGURANGAN PER ROW -->
+                <td class="text-left">
+                    <input type="number"
+                        class="form-control form-control-sm reduce-stock"
+                        min="0"
+                        max="${el.qty}"
+                        value="0"
+                        data-id="${el.id}"
+                        data-max="${el.qty}">
+                    <small class="text-muted text-danger">Maks: ${el.qty}</small>
+                </td>
+            </tr>
+        `).join('');
+
+                $(target).html(rows);
+
+                // Copy QR
+                document.querySelectorAll('.copy-btn').forEach(btn => {
+                    btn.onclick = () => {
+                        const text = document.getElementById(btn.dataset.target).innerText;
+                        navigator.clipboard.writeText(text)
+                            .then(() => notyf.success('QR Code disalin'))
+                            .catch(() => notyf.error('Gagal menyalin QR Code'));
+                    };
+                });
+
+                // Validasi max per row
+                document.querySelectorAll('.reduce-stock').forEach(input => {
+                    input.addEventListener('input', function() {
+                        const max = Number(this.dataset.max);
+                        if (Number(this.value) > max) {
+                            this.value = max;
+                            notyf.error(`Maksimal pengurangan ${max}`);
+                        }
+                        if (Number(this.value) < 0) this.value = 0;
+                    });
+                });
+
+            } else {
+                $(target).html(`<tr><td colspan="7" class="text-center">Tidak ada stok</td></tr>`);
             }
         }
 

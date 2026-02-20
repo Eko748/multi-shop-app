@@ -28,7 +28,7 @@ class LaporanPenjualanController extends Controller
         try {
             $startDate = $request->start_date;
             $endDate = $request->end_date;
-            $idToko = $request->id_toko;
+            $idToko = $request->toko_id;
 
             if (($startDate && !strtotime($startDate)) || ($endDate && !strtotime($endDate))) {
                 return $this->error(422, 'Format tanggal tidak valid');

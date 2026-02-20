@@ -1,4 +1,6 @@
 <script>
+    let expectedQRCodes = [];
+
     async function getListData2(limit = 10, page = 1, ascending = 0, search = '', customFilter = {}) {
         const loadingCard = `
             <div class="col-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
@@ -72,44 +74,94 @@
     }
 
     async function setDetailData2(data) {
+
         let itemContent = `
-            <div class="col-12">
-                    <div class="row">
-                        <div class="col-12 col-sm-12 col-md-12 col-lg-8 col-xl-8">
-                            <table class="table table-borderless table-sm mb-2">
-                                <tbody>
-                                    <tr>
-                                        <td class="align-middle">
-                                            <i class="fa fa-user text-primary mr-2"></i> <strong>Member</strong>
-                                        </td>
-                                        <td class="align-middle">: ${data.member}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="align-middle" style="width: 20%;">
-                                            <i class="fa fa-tags text-primary mr-2"></i> <strong>Toko</strong>
-                                        </td>
-                                        <td class="align-middle">: ${data.nama_toko}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="align-middle">
-                                            <i class="fa fa-layer-group text-primary mr-2"></i> <strong>Status</strong>
-                                        </td>
-                                        <td class="align-middle">: ${data.status}</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="col-12 col-sm-12 col-md-12 col-lg-4 col-xl-4">
-                            <div class="text-center text-sm-right small text-muted ml-auto pb-2 p-sm-2">
-                                <div><strong>${data.created_by}</strong></div>
-                                <div>${data.tanggal}</div>
-                            </div>
-                        </div>
+        <div class="col-12">
+            <div class="row">
+                <div class="col-lg-8">
+                    <table class="table table-borderless table-sm mb-2">
+                        <tbody>
+                            <tr>
+                                <td><strong>Member</strong></td>
+                                <td>: ${data.member}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Toko</strong></td>
+                                <td>: ${data.nama_toko}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Status</strong></td>
+                                <td>: ${data.status}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="col-lg-4 text-right small text-muted">
+                    <div><strong>${data.created_by}</strong></div>
+                    <div>${data.tanggal}</div>
+
+                    <div class="mt-2">
+                        <input
+                            type="text"
+                            id="scanQrcode"
+                            class="form-control form-control-sm text-center"
+                            placeholder="Cek Barang dengan Scan QR Code..."
+                            autocomplete="off"
+                        >
                     </div>
+                </div>
             </div>
+        </div>
     `;
+
         $('#detailData2').html(itemContent);
+
+        initScannerInput();
     }
+
+    function initScannerInput() {
+        const $input = $('#scanQrcode');
+
+        $input.focus();
+
+        $input.on('keydown', function(e) {
+            if (e.key === 'Enter') {
+
+                e.preventDefault();
+                e.stopPropagation();
+
+                let scannedCode = $(this).val().trim();
+
+                if (scannedCode !== '') {
+
+                    let found = expectedQRCodes.find(item => item.qrcode === scannedCode);
+
+                    if (found) {
+                        notificationAlert(
+                            'success',
+                            'Sesuai',
+                            `QR Code sesuai dengan barang: ${found.barang}`,
+                        );
+                    } else {
+                        notificationAlert(
+                            'warning',
+                            'Salah',
+                            `QR Code tidak termasuk dalam daftar barang yang harus disiapkan`,
+                        );
+                    }
+
+                    $('#scanQrcode').prop('disabled', true);
+
+                    setTimeout(() => {
+                        $('#scanQrcode').val('').prop('disabled', false).focus();
+                    }, 500);
+                }
+            }
+
+        });
+    }
+
 
     async function handleData2(data) {
         return {
@@ -126,10 +178,12 @@
             qty_barang: data?.qty_barang ?? '-',
             qty_refund: data?.qty_refund ?? '-',
             qty_ke_supplier: data?.qty_ke_supplier ?? '-',
+            stock: data?.stock
         };
     }
 
     async function setListData2(dataList, pagination) {
+        expectedQRCodes = [];
         totalPage2 = pagination.total_pages;
         currentPage2 = pagination.current_page;
         let display_from = ((defaultLimitPage2 * (currentPage2 - 1)) + 1);
@@ -144,9 +198,9 @@
                             <thead class="glossy-thead">
                                 <tr>
                                     <th scope="col" class="${tdClass} text-center" style="width:5%">No</th>
-                                    <th scope="col" class="${tdClass}" style="width:20%">Barang</th>
+                                    <th scope="col" class="${tdClass}" style="width:30%">Barang</th>
                                     <th scope="col" class="${tdClass}" style="width:15%">Kompensasi</th>
-                                    <th scope="col" class="${tdClass}" style="width:25%">Qty Retur</th>
+                                    <th scope="col" class="${tdClass}" style="width:15%">Qty Retur</th>
                                     <th scope="col" class="${tdClass} text-right" style="width:10%">Harga Jual</th>
                                     <th scope="col" class="${tdClass} text-right" style="width:10%">Hpp</th>
                                     <th scope="col" class="${tdClass} text-right" style="width:10%">Refund</th>
@@ -156,11 +210,34 @@
                             <tbody>`;
 
         dataList.forEach((element, index) => {
+            if (element.stock && element.stock.length) {
+                element.stock.forEach(s => {
+                    expectedQRCodes.push({
+                        qrcode: s.qrcode,
+                        barang: element.barang
+                    });
+                });
+            }
             const number = display_from + index;
             getDataTable += `
                 <tr class="glossy-tr">
                     <td class="${tdClass} text-center">${number}</td>
-                    <td class="${tdClass}"><details><summary>${element.barang}</summary><p>Suplier: ${element.supplier}</p></details></td>
+                    <td class="${tdClass}">
+                        <details>
+                            <summary>${element.barang}</summary>
+                            <p>Supplier: ${element.supplier}</p>
+                            ${
+                               element.stock && element.stock.length
+                                ? `
+                                    <div>
+                                        <div class="font-weight-bold">Siapkan Barang Berikut.</div>
+                                        ${element.stock.map(s => s.html).join('')}
+                                    </div>
+                                `
+                                : '<p>Tidak ada stok</p>'
+                            }
+                        </details>
+                    </td>
                     <td class="${tdClass} text-left">${element.tipe_kompensasi}</td>
                     <td class="${tdClass} text-left"><details><summary>${element.qty_request}</summary><ul><li>Refund: ${element.qty_refund} (Total ${element.format_total_refund})</li><li>Barang: ${element.qty_barang} (Total${element.format_total_hpp_barang})</li></ul></details></td>
                     <td class="${tdClass} text-right">${element.format_harga_jual}</td>

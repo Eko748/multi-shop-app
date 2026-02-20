@@ -247,7 +247,7 @@
                 selectedItems.push({
                     supplier_id: supplier_id,
                     barang_id: barang_id,
-                    detail_kasir_id: kasir,
+                    transaksi_kasir_detail_id: kasir,
                     tipe_kompensasi: kompensasi,
                     qty_request: qty,
                     qty_barang: qty_barang,
@@ -268,10 +268,10 @@
             let memberId = $('#member').val();
 
             let formData = {
-                status: "{{ auth()->user()->id_toko == 1 ? 'selesai' : 'draft' }}",
+                status: "{{ auth()->user()->toko_id == 1 ? 'selesai' : 'draft' }}",
                 tanggal: $('#tanggal').val(),
                 created_by: '{{ auth()->user()->id }}',
-                toko_id: '{{ auth()->user()->id_toko }}',
+                toko_id: '{{ auth()->user()->toko_id }}',
                 items: selectedItems,
             };
 
@@ -737,7 +737,7 @@
         await selectData([{
             id: '#member',
             isFilter: {
-                id_toko: '{{ auth()->user()->id_toko }}',
+                toko_id: '{{ auth()->user()->toko_id }}',
             },
             isUrl: '{{ route('master.member') }}',
             placeholder: 'Pilih Member',

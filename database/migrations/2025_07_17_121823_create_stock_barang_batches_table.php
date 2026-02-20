@@ -23,6 +23,8 @@ return new class extends Migration
             $table->decimal('hpp_baru', 15, 2);
             $table->unsignedBigInteger('supplier_id')->nullable();
             $table->unsignedBigInteger('parent_id')->nullable();
+            $table->nullableMorphs('sumber');
+            $table->dateTime('tanggal')->nullable();
             $table->timestamps();
         });
     }

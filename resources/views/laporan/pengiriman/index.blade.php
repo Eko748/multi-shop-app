@@ -109,15 +109,15 @@
                                                 </tr>
                                             @else
                                                 @foreach ($toko as $tk)
-                                                    {{-- Filter hanya untuk user dengan id_toko selain 1 --}}
-                                                    @if (auth()->user()->id_toko == 1 || $tk->id == auth()->user()->id_toko)
+                                                    {{-- Filter hanya untuk user dengan toko_id selain 1 --}}
+                                                    @if (auth()->user()->toko_id == 1 || $tk->id == auth()->user()->toko_id)
                                                         <tr>
                                                             <td>{{ $loop->iteration }}</td>
-                                                            <td>{{ $tk->nama_toko }}</td>
+                                                            <td>{{ $tk->toko }}</td>
                                                             <td>
                                                                 @if ($tk->pengirimanSebagaiPengirim->isNotEmpty())
                                                                     @foreach ($tk->pengirimanSebagaiPengirim->unique('toko_penerima') as $pengiriman)
-                                                                        @if (auth()->user()->id_toko == 1 || $pengiriman->toko_penerima == auth()->user()->id_toko)
+                                                                        @if (auth()->user()->toko_id == 1 || $pengiriman->toko_penerima == auth()->user()->toko_id)
                                                                             <div style="margin-bottom: 10px;">
                                                                                 {{ $pengiriman->tokos->nama_toko ?? '-' }}
                                                                             </div>
@@ -130,7 +130,7 @@
                                                             <td>
                                                                 @if ($tk->pengirimanSebagaiPengirim->isNotEmpty())
                                                                     @foreach ($tk->pengirimanSebagaiPengirim->groupBy('toko_penerima') as $tokoPenerimaId => $pengirimanGroup)
-                                                                        @if (auth()->user()->id_toko == 1 || $tokoPenerimaId == auth()->user()->id_toko)
+                                                                        @if (auth()->user()->toko_id == 1 || $tokoPenerimaId == auth()->user()->toko_id)
                                                                             <div style="margin-bottom: 10px;">
                                                                                 {{ $pengirimanGroup->sum('total_item') }}
                                                                             </div>
@@ -143,9 +143,9 @@
                                                             <td>
                                                                 @if ($tk->pengirimanSebagaiPengirim->isNotEmpty())
                                                                     @foreach ($tk->pengirimanSebagaiPengirim->groupBy('toko_penerima') as $tokoPenerimaId => $pengirimanGroup)
-                                                                        @if (auth()->user()->id_toko == 1 || $tokoPenerimaId == auth()->user()->id_toko)
+                                                                        @if (auth()->user()->toko_id == 1 || $tokoPenerimaId == auth()->user()->toko_id)
                                                                             <div style="margin-bottom: 10px;">
-                                                                                {{ number_format($pengirimanGroup->sum('total_nilai'), 0, '.', '.') }}
+                                                                                {{ number_format($pengirimanGroup->sum('total_nominal'), 0, '.', '.') }}
                                                                             </div>
                                                                         @endif
                                                                     @endforeach
@@ -160,7 +160,7 @@
                                                             <td></td>
                                                             <td><strong>{{ $tk->pengirimanSebagaiPengirim->sum('total_item') }}</strong>
                                                             </td>
-                                                            <td><strong>{{ number_format($tk->pengirimanSebagaiPengirim->sum('total_nilai'), 0, '.', '.') }}</strong>
+                                                            <td><strong>{{ number_format($tk->pengirimanSebagaiPengirim->sum('total_nominal'), 0, '.', '.') }}</strong>
                                                             </td>
                                                         </tr>
                                                     @endif

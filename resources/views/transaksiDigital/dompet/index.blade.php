@@ -356,14 +356,18 @@
             placeholder: `Pilih ${title4}`,
             isModal: '#modal-form',
         }, {
-            id: '#kas',
+            id: '#kas_id',
             isUrl: '{{ route('total.kas') }}',
             placeholder: 'Pilih Kas',
             isModal: '#modal-form',
             isFilter: {
-                id_toko: '{{ auth()->user()->id_toko }}'
+                toko_id: {{ auth()->user()->toko_id }}
             },
-            extraFields: 'jenis_id',
+            extraFields: {
+                jenis_id: 'jenis_id',
+                tipe_kas: 'tipe_kas',
+                saldo_kas: 'saldo_kas',
+            }
         }];
     </script>
 

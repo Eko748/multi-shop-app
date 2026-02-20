@@ -6,6 +6,7 @@ use App\Http\Controllers\BarangController;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class PembelianBarang extends Model
 {
@@ -53,5 +54,14 @@ class PembelianBarang extends Model
     public function level_harga()
     {
         return $this->belongsTo(LevelHarga::class, 'id_level_harga');
+    }
+
+    protected static function booted()
+    {
+        static::creating(function ($model) {
+            if (empty($model->public_id)) {
+                $model->public_id = (string) Str::uuid();
+            }
+        });
     }
 }

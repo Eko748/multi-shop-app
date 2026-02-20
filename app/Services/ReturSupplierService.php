@@ -8,6 +8,7 @@ use App\Repositories\ReturSupplierDetailRepository;
 use App\Repositories\ReturSupplierSummaryRepository;
 use App\Repositories\ReturMemberDetailRepository;
 use App\Repositories\KasirDetailRepository;
+use App\Repositories\StockBarangBatchRepo;
 use App\Repositories\StokBarangDetailRepository;
 use App\Repositories\StokBarangRepository;
 use App\Traits\PaginateResponse;
@@ -22,18 +23,18 @@ class ReturSupplierService
     protected $detailRepo;
     protected $returSupplierSummaryRepo;
     protected $returMemberDetailRepo;
-    protected $pembelianBarangDetailRepo;
+    protected $stockBarangBatchRepo;
     protected $stokRepo;
     protected $stokDetailRepo;
     protected $detailKasirRepo;
 
-    public function __construct(ReturSupplierRepository $repository, ReturSupplierDetailRepository $detailRepo, ReturSupplierSummaryRepository $returSupplierSummaryRepo, ReturMemberDetailRepository $returMemberDetailRepo, PembelianBarangDetailRepository $pembelianBarangDetailRepo, StokBarangDetailRepository $stokDetailRepo, StokBarangRepository $stokRepo, KasirDetailRepository $detailKasirRepo,)
+    public function __construct(ReturSupplierRepository $repository, ReturSupplierDetailRepository $detailRepo, ReturSupplierSummaryRepository $returSupplierSummaryRepo, ReturMemberDetailRepository $returMemberDetailRepo, StockBarangBatchRepo $stockBarangBatchRepo, StokBarangDetailRepository $stokDetailRepo, StokBarangRepository $stokRepo, KasirDetailRepository $detailKasirRepo,)
     {
         $this->repository = $repository;
         $this->detailRepo = $detailRepo;
         $this->returSupplierSummaryRepo = $returSupplierSummaryRepo;
         $this->returMemberDetailRepo = $returMemberDetailRepo;
-        $this->pembelianBarangDetailRepo = $pembelianBarangDetailRepo;
+        $this->stockBarangBatchRepo = $stockBarangBatchRepo;
         $this->stokRepo = $stokRepo;
         $this->stokDetailRepo = $stokDetailRepo;
         $this->detailKasirRepo = $detailKasirRepo;
@@ -76,9 +77,7 @@ class ReturSupplierService
     {
         $query = $this->repository->getAll($filter);
 
-        $data = collect(method_exists($query, 'items') ? $query->items() : $query)->map(function ($item) {
-
-            // Hitung total qty dari detail
+        $data = collect($query->items())->map(function ($item) {
             $totalQtyDetail = 0;
             $refund = 0;
             $barang = 0;
@@ -246,34 +245,6 @@ class ReturSupplierService
                             }
                         }
                     }
-
-                    // CASE 2: RETUR MEMBER → stok berkurang juga
-                    // if ($data['tipe_retur'] === 'member' && !empty($detail['id'])) {
-                    //     $memberDetail = $this->returMemberDetailRepo->getById($detail['id']);
-
-                    //     if ($memberDetail && !empty($memberDetail->detail_kasir_id)) {
-                    //         $detailKasir = $this->detailKasirRepo->findById($memberDetail->detail_kasir_id);
-
-                    //         if ($detailKasir && !empty($detailKasir->id_detail_pembelian)) {
-                    //             $stokDetail = $this->stokDetailRepo->findByPembelianWithZero($detailKasir->id_detail_pembelian);
-                    //             if ($stokDetail) {
-                    //                 $updateData = [
-                    //                     'qty_now' => max($stokDetail->qty_now - $qtyBarang, 0),
-                    //                     'qty_out' => $stokDetail->qty_out + $qtyBarang,
-                    //                 ];
-                    //                 $this->stokDetailRepo->updateWithPembelian($detailKasir->id_detail_pembelian, $updateData);
-
-                    //                 // Kurangi stok utama juga
-                    //                 $stok = $this->stokRepo->find($stokDetail->id_stock);
-                    //                 if ($stok) {
-                    //                     $this->stokRepo->update($stok->id, [
-                    //                         'stock' => max($stok->stock - $qtyBarang, 0),
-                    //                     ]);
-                    //                 }
-                    //             }
-                    //         }
-                    //     }
-                    // }
                 }
 
                 $created[] = $retur;
@@ -480,7 +451,7 @@ class ReturSupplierService
     {
         $query = $this->returMemberDetailRepo->getAll($filter);
 
-        $data = collect(method_exists($query, 'items') ? $query->items() : $query)->map(function ($item) {
+        $data = collect($query->items())->map(function ($item) {
             return [
                 'id' => $item->id,
                 'barang_id' => $item->barang_id,
@@ -508,8 +479,8 @@ class ReturSupplierService
         $data = collect(method_exists($query, 'items') ? $query->items() : $query)->map(function ($item) {
             return [
                 'id'   => $item->id,
-                'text' => $item->contact
-                    ? "{$item->nama}/{$item->contact} ~ ({$item->total_item_retur} Item)"
+                'text' => $item->telepon
+                    ? "{$item->nama}/{$item->telepon} ~ ({$item->total_item_retur} Item)"
                     : "{$item->nama} ~ ({$item->total_item_retur} Item)",
             ];
         });
@@ -522,12 +493,12 @@ class ReturSupplierService
 
     public function getQRCode($filter)
     {
-        $query = $this->pembelianBarangDetailRepo->getQRCode($filter);
+        $query = $this->stockBarangBatchRepo->getQRCode($filter);
 
         $data = collect($query->items())->map(function ($item) {
             return [
                 'id' => $item->id,
-                'text' => "{$item->qrcode} => {$item->barang->nama_barang} ~ (Sisa: {$item->detailStock->qty_now})",
+                'text' => "{$item->qrcode} => {$item->stockBarang->barang->nama} ~ (Sisa: {$item->qty_sisa})",
             ];
         });
 
@@ -540,7 +511,7 @@ class ReturSupplierService
     public function getHargaBarang($filter)
     {
         if ($filter->tipe == 'pembelian') {
-            $query = $this->pembelianBarangDetailRepo->getHargaBarang($filter);
+            $query = $this->stockBarangBatchRepo->getHargaBarang($filter);
         } elseif ($filter->tipe == 'member') {
             $query = $this->returMemberDetailRepo->getHargaBarang($filter);
         }

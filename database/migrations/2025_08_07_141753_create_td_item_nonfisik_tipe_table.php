@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('td_item_nonfisik_tipe', function (Blueprint $table) {
             $table->id();
             $table->uuid('public_id')->unique();
+            $table->unsignedBigInteger('toko_id');
             $table->string('nama', 25);
             $table->timestamps();
             $table->softDeletes();

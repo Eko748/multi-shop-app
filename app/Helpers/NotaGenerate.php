@@ -30,9 +30,7 @@ class NotaGenerate
             $kodeToko = strtoupper($kodeToko);
         }
 
-        $tokoKey = str_pad($toko->id, 3, '0', STR_PAD_LEFT);
-
-        return DB::transaction(function () use ($tokoId, $date, $dateKey, $kodeToko, $tokoKey) {
+        return DB::transaction(function () use ($tokoId, $date, $dateKey, $kodeToko) {
 
             $lastNota = TransaksiKasir::where('toko_id', $tokoId)
                 ->whereDate('tanggal', $date->toDateString())
@@ -41,13 +39,12 @@ class NotaGenerate
                 ->value('nota');
 
             $number = $lastNota
-                ? ((int) substr($lastNota, -6)) + 1
+                ? ((int) substr($lastNota, -4)) + 1
                 : 1;
 
             return sprintf(
-                'TRX-%s-%s-%s-%06d',
+                'TRX-%s-%s-%06d',
                 $kodeToko,
-                $tokoKey,
                 $dateKey,
                 $number
             );

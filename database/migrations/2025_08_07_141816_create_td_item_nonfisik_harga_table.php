@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('td_item_nonfisik_harga', function (Blueprint $table) {
             $table->id();
             $table->uuid('public_id')->unique();
+            $table->unsignedBigInteger('toko_id');
             $table->foreignId('item_nonfisik_id')->nullable()
                 ->constrained('td_item_nonfisik')->onDelete('set null');
             $table->foreignId('dompet_kategori_id')->nullable()

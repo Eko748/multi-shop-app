@@ -2,11 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
 class TransaksiKasir extends Model
 {
+    use HasFactory, SoftDeletes;
+
     protected $table = 'transaksi_kasir';
     protected $guarded = [];
     protected $casts = [
@@ -21,6 +25,16 @@ class TransaksiKasir extends Model
     public function createdBy()
     {
         return $this->belongsTo(User::class, 'created_by', 'id');
+    }
+
+    public function member()
+    {
+        return $this->belongsTo(Member::class, 'member_id', 'id');
+    }
+
+    public function toko()
+    {
+        return $this->belongsTo(Toko::class, 'toko_id', 'id');
     }
 
     protected static function booted()

@@ -12,9 +12,9 @@ class QrGenerator
     /**
      * Generate QR + simpan ke storage
      */
-    public static function generate()
+    public static function generate(string $prefix = 'QR-')
     {
-        $qrValue = self::generateValue();
+        $qrValue = self::generateValue($prefix);
 
         $fileName = "{$qrValue}.png";
         $path = "qrcodes/pembelian/{$fileName}";
@@ -48,11 +48,18 @@ class QrGenerator
         return "{$qrValue}.png";
     }
 
+    public static function build(string $prefix = 'QR-')
+    {
+        $qrValue = self::generateValue($prefix);
+
+        return $qrValue;
+    }
+
     /**
      * 🔹 Centralized QR value generator
-     */       
-    private static function generateValue()
+     */
+    private static function generateValue(string $prefix = 'QR-')
     {
-        return 'QR-' . bin2hex(random_bytes(6));
+        return $prefix . bin2hex(random_bytes(6));
     }
 }

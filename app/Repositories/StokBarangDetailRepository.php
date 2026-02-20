@@ -2,13 +2,14 @@
 
 namespace App\Repositories;
 
-use App\Models\DetailStockBarang;
+use App\Models\PembelianBarangDetail;
+use App\Models\StockBarangBatch;
 
 class StokBarangDetailRepository
 {
     protected $model;
 
-    public function __construct(DetailStockBarang $model)
+    public function __construct(StockBarangBatch $model)
     {
         $this->model = $model;
     }
@@ -24,7 +25,8 @@ class StokBarangDetailRepository
 
     public function updateWithPembelian($id, array $data)
     {
-        $item = $this->model::where('id_detail_pembelian', $id);
+        $item = $this->model::where('sumber_id', $id)
+            ->where('sumber_type', PembelianBarangDetail::class);
         if ($item) {
             $item->update($data);
         }
@@ -33,18 +35,24 @@ class StokBarangDetailRepository
 
     public function findByPembelian($id)
     {
-        return $this->model::where('id_detail_pembelian', $id)->where('qty_now', '>', 0)->first();
+        return $this->model::where('sumber_id', $id)
+            ->where('sumber_type', PembelianBarangDetail::class)->where('qty_sisa', '>', 0)->first();
     }
 
     public function findByPembelianWithZero($id)
     {
-        return $this->model::where('id_detail_pembelian', $id)->first();
+        return $this->model::where('sumber_id', $id)
+            ->where('sumber_type', PembelianBarangDetail::class)
+            ->first();
     }
 
-    public function findAvailableByBarangId($barangId)
+    public function findAvailableByBarangId($barangId, $tokoId)
     {
-        return $this->model::where('id_barang', $barangId)
-            ->where('qty_now', '>', 0)
+        return $this->model::whereHas('stockBarang', function ($q) use ($barangId) {
+            $q->where('barang_id', $barangId);
+        })
+            ->where('qty_sisa', '>', 0)
+            ->where('toko_id', $tokoId)
             ->orderBy('created_at', 'asc')
             ->get();
     }

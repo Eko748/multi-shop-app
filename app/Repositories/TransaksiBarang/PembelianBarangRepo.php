@@ -60,7 +60,13 @@ class PembelianBarangRepo
 
         if (!empty($filter->search)) {
             $query->where(function ($q) use ($filter) {
+                // Search di kolom utama
                 $q->where('nota', 'like', '%' . $filter->search . '%');
+
+                // Search di relasi detail -> barang -> nama
+                $q->orWhereHas('detail.barang', function ($q2) use ($filter) {
+                    $q2->where('nama', 'like', '%' . $filter->search . '%');
+                });
             });
         }
 
@@ -76,6 +82,7 @@ class PembelianBarangRepo
             ? $query->orderByDesc('id')->paginate($filter->limit)
             : $query->orderByDesc('id')->get();
     }
+
 
     public function getDetail($filter)
     {

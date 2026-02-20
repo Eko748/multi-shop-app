@@ -365,7 +365,7 @@ class NeracaKeuanganService
      * =============================== */
         $hppDompetSaldo = $this->dompetSaldoService->sumHPP($month, $year);
         $sisaDompetSaldo = $this->dompetSaldoService->sumSisaSaldo($month, $year);
-        $hppDompetSaldoNilai = (float) ($hppDompetSaldo['saldo'] ?? 0);
+        $hppDompetSaldoNilai = (float) ($sisaDompetSaldo['saldo'] ?? 0);
 
         $returTotal = (float) ($returData['total_retur'] ?? 0);
         $pengirimanTotal = (float) ($pengirimanData['total_harga'] ?? 0);
@@ -412,9 +412,9 @@ class NeracaKeuanganService
                 ...$stokPerJenisItems,
                 [
                     "kode"   => "I.5",
-                    "nama"   => "Stok Dompet Digital (Sisa saldo: {$sisaDompetSaldo['format']})",
-                    "nilai"  => $hppDompetSaldoNilai,
-                    "format" => $hppDompetSaldo['format'],
+                    "nama"   => "Stok Dompet Digital",
+                    "nilai"  => $sisaDompetSaldo,
+                    "format" => $sisaDompetSaldo['format'],
                 ],
                 [
                     "kode"   => "I.6",

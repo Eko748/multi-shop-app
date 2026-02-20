@@ -83,6 +83,7 @@ class DompetSaldoController extends Controller
                 'limit' => $request->input('limit', 30),
                 'search' => $request->input('search'),
                 'dompet_kategori' => $request->input('dompet_kategori'),
+                'toko_id' => $request->input('toko_id'),
             ];
 
             $data = $this->service->getSaldoAkhir($filter);
@@ -115,12 +116,15 @@ class DompetSaldoController extends Controller
     {
         try {
             $validated = $request->validate([
+                'toko_id' => 'required|exists:toko,id',
                 'dompet_kategori_id' => 'required|integer|exists:td_dompet_kategori,id',
-                'kas_jenis_barang'   => 'nullable|integer',
+                'kas_id' => 'required',
+                'saldo_kas' => 'required|numeric',
                 'saldo'              => ['required', 'numeric', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
+                'tipe_kas' => 'required',
+                'jenis_barang_id' => 'required|integer',
                 'harga_beli'         => ['required', 'numeric', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
                 'created_by'         => 'required|integer|exists:users,id',
-                'kas'                => 'required|string',
             ]);
 
             $data = $this->service->create($validated);

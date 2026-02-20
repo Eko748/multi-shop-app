@@ -116,7 +116,7 @@
                     limit: limit,
                     ascending: ascending,
                     search: search,
-                    id_toko: '{{ auth()->user()->id_toko }}',
+                    toko_id: '{{ auth()->user()->toko_id }}',
                     ...filterParams
                 }
             ).then(function(response) {
@@ -148,7 +148,7 @@
             return {
                 nama_jenis_barang: data?.nama_jenis_barang ?? '-',
                 items: data?.items.map(item => ({
-                    id: item?.id_toko ?? '-',
+                    id: item?.toko_id ?? '-',
                     nama_toko: item?.nama_toko ?? '-',
                     total_qty: item?.total_qty ?? 0,
                     total_harga: item?.total_harga ?? 0,

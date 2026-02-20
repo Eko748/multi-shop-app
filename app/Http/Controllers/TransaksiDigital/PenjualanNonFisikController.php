@@ -105,7 +105,9 @@ class PenjualanNonFisikController extends Controller
                 'items.*.qty' => 'required|integer|min:1',
                 'items.*.hpp' => ['required', 'numeric', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
                 'items.*.harga_jual' => ['required', 'numeric', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
-                'created_by' => 'required|integer',
+                'created_by' => 'required|exists:users,id',
+                'toko_id' => 'required|exists:toko,id',
+                'kas_id' => 'required',
             ]);
 
             $data = $this->service->create($validated);

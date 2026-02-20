@@ -118,15 +118,14 @@
                                             <thead>
                                                 <tr class="tb-head">
                                                     <th style="width: 40px;" class="text-center">No</th>
-                                                    <th style="width: 50px;">Status</th>
-                                                    <th style="min-width: 200px;">QR Code Pembelian Barang</th>
-                                                    <th style="min-width: 200px;">Nama Barang</th>
-                                                    <th class="text-right">Qty Pembelian</th>
+                                                    <th style="min-width: 200px;">QR Code</th>
+                                                    <th style="min-width: 200px;">Barang</th>
+                                                    <th class="text-right">Qty IN</th>
                                                     <th class="text-right">Harga</th>
                                                     <th class="text-right">Total</th>
-                                                    <th class="text-right">Qty Out</th>
-                                                    <th class="text-right">Qty Tersisa</th>
-                                                    <th class="text-center">Action</th>
+                                                    <th class="text-right">Qty OUT</th>
+                                                    <th class="text-right">Qty Sisa</th>
+                                                    <th class="text-center">Aksi</th>
                                                 </tr>
                                             </thead>
                                             <tbody id="listData">
@@ -173,9 +172,9 @@
     </div>
 
     <div class="modal fade" id="modalEditDetail" tabindex="-1" aria-labelledby="modalEditLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <form id="formEditDetail">
-                <div class="modal-content">
+        <div class="modal-dialog modal-md">
+            <div class="modal-content">
+                <form id="formEditDetail">
                     <div class="modal-header">
                         <h5 class="modal-title"><i class="fa fa-edit mr-1"></i>Edit Detail Pembelian Barang</h5>
                         <button type="button" class="btn-close reset-all close" data-bs-dismiss="modal"
@@ -200,8 +199,8 @@
                         <button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> Simpan
                             Perubahan</button>
                     </div>
-                </div>
-            </form>
+                </form>
+            </div>
         </div>
     </div>
 @endsection
@@ -245,7 +244,17 @@
                     return;
                 }
 
-                const printWindow = window.open('', '_blank');
+                const width = 1020;
+                const height = 620;
+
+                const left = (screen.width / 2) - (width / 2);
+                const top = (screen.height / 2) - (height / 2);
+
+                const printWindow = window.open(
+                    '',
+                    'printWindow',
+                    `width=${width},height=${height},top=${top},left=${left},resizable=no,scrollbars=no,toolbar=no,menubar=no,location=no,status=no`
+                );
 
                 let imagesHtml = '';
                 for (let i = 0; i < qty; i++) {
@@ -259,7 +268,7 @@
 
                     imagesHtml += `
                         <div class="label">
-                            <img src="{{ asset('storage') }}/${qrCodePath}" alt="QR Code">
+                            <img src="${qrCodePath}" alt="QR Code">
                             <div class="label-text">${displayName}</div>
                         </div>
                     `;
@@ -272,7 +281,7 @@
                 printWindow.document.write(`
                     <html>
                         <head>
-                            <title>Print QR Code Pembelian</title>
+                            <title>Print QR Code Pembelian ${namaBarang}</title>
                             <style>
                             @media print {
                                 @page {
@@ -463,7 +472,17 @@
         $(document).off("submit", "#print-all-form").on("submit", "#print-all-form", function(e) {
             e.preventDefault();
 
-            const printWindow = window.open('', '_blank');
+            const width = 1020;
+            const height = 620;
+
+            const left = (screen.width / 2) - (width / 2);
+            const top = (screen.height / 2) - (height / 2);
+
+            const printWindow = window.open(
+                '',
+                'printWindow',
+                `width=${width},height=${height},top=${top},left=${left},resizable=no,scrollbars=no,toolbar=no,menubar=no,location=no,status=no`
+            );
             let imagesHtml = '';
             let count = 0;
 
@@ -484,7 +503,7 @@
 
                         imagesHtml += `
                             <div class="label">
-                                <img src="{{ asset('storage') }}/${qrCodePath}" alt="QR Code">
+                                <img src="${qrCodePath}" alt="QR Code">
                                 <div class="label-text">${displayName}</div>
                             </div>
                         `;
@@ -589,18 +608,18 @@
             let filterParams = {};
 
             detailBody.innerHTML = `
-                <tr id="loading-spinner">
-                    <td colspan="10" class="text-center py-4">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="sr-only">Loading...</span>
-                        </div>
-                    </td>
-                </tr>
-            `;
+        <tr id="loading-spinner">
+            <td colspan="10" class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="sr-only">Loading...</span>
+                </div>
+            </td>
+        </tr>
+    `;
             detailFooter.innerHTML = '';
 
             try {
-                let response = await renderAPI('GET', '{{ route('transaksi.pembelianbarang.Getdetail') }}', {
+                let response = await renderAPI('GET', '{{ route('tb.pb.getDetail') }}', {
                     id_pembelian: dataParams,
                     page: page,
                     limit: limit,
@@ -612,105 +631,112 @@
                 if (response.status === 200) {
                     const data = response.data.data;
                     const pagination = response.data.pagination;
-                    const jsonItems = encodeURIComponent(JSON.stringify(data.detail));
 
                     $('#no_nota').text(data.no_nota || '-');
                     $('#nama_supplier').text(data.nama_supplier || '-');
                     $('#tgl_nota').text(data.tgl_nota || '-');
-                    $('#total_transaksi').text(data.total ? formatRupiah(data.total) : 'Rp 0');
+                    $('#total_transaksi').text(data.total);
 
                     detailBody.innerHTML = '';
                     detailFooter.innerHTML = '';
+
+                    if (!data.detail || data.detail.length === 0) {
+                        // Jika array kosong
+                        detailBody.innerHTML = `
+                    <tr class="text-dark">
+                        <td class="text-center" colspan="10">Tidak ada data</td>
+                    </tr>`;
+                        $('#countPage').text("0 - 0");
+                        $('#totalPage').text("0");
+                        return; // stop eksekusi selanjutnya
+                    }
 
                     let subTotal = 0;
                     totalPage = pagination.total_pages;
                     currentPage = pagination.current_page;
 
-                    data.detail.forEach((item, index) => {
-                        const total = item.qty * item.harga_barang;
+                    const jsonItems = encodeURIComponent(JSON.stringify(data.detail));
 
+                    data.detail.forEach((item, index) => {
                         let buttons = [];
 
                         if (hasPermission(['PUT /pembelianbarang/edit/detail-pembelian-barang'])) {
                             buttons.push(`
-                                <button type="button" class="btn btn-outline-warning btn-sm" style="min-width: 120px;" data-container="body" data-toggle="tooltip" data-placement="top"
-                                    title="Edit Barang" onClick="openModalEdit('${btoa(JSON.stringify(item))}')">
-                                    <i class="fa fa-edit"></i>
-                                    <span class="d-none d-md-inline"> Edit</span>
-                                </button>
-                            `);
+                        <button type="button" class="btn btn-outline-warning btn-sm" style="min-width: 120px;" data-container="body" data-toggle="tooltip" data-placement="top"
+                            title="Edit Barang" onClick="openModalEdit('${btoa(JSON.stringify(item))}')">
+                            <i class="fa fa-edit"></i>
+                            <span class="d-none d-md-inline"> Edit</span>
+                        </button>
+                    `);
                         }
 
                         buttons.push(`
-                            <a href="{{ asset('storage') }}/${item.qrcode_path}" download class="btn btn-outline-success btn-sm" style="min-width: 120px;" data-container="body" data-toggle="tooltip" data-placement="top"
-                                title="Unduh QR Code Pembelian Barang">
-                                <i class="fa fa-download"></i>
-                                <span class="d-none d-md-inline"> Unduh</span>
-                            </a>
-                        `);
+                    <a href="${item.qrcode_path}"
+                    download="${item.qrcode}.png"
+                    class="btn btn-outline-success btn-sm"
+                    style="min-width: 120px;"
+                    data-container="body"
+                    data-toggle="tooltip"
+                    data-placement="top"
+                    title="Unduh QR Code Pembelian Barang">
+                        <i class="fa fa-download"></i>
+                        <span class="d-none d-md-inline"> Unduh</span>
+                    </a>
+                `);
 
                         buttons.push(`
-                            <button type="button" class="btn btn-outline-info btn-sm open-modal-print" style="min-width: 120px;" data-container="body" data-toggle="tooltip" data-placement="top"
-                                title="Atur print QR Code Pembelian Barang"
-                                data-qty="${item.qty}" data-barang="${item.nama_barang}" data-qrcode="${item.qrcode_path}">
-                                <i class="fa fa-print"></i>
-                                <span class="d-none d-md-inline"> Print</span>
-                            </button>
-                        `);
-
-                        subTotal += total;
+                    <button type="button" class="btn btn-outline-info btn-sm open-modal-print" style="min-width: 120px;" data-container="body" data-toggle="tooltip" data-placement="top"
+                        title="Atur print QR Code Pembelian Barang"
+                        data-qty="${item.qty}" data-barang="${item.nama_barang}" data-qrcode="${item.qrcode_path}">
+                        <i class="fa fa-print"></i>
+                        <span class="d-none d-md-inline"> Print</span>
+                    </button>
+                `);
 
                         detailBody.innerHTML += `
-                        <tr>
-                            <td class="text-center">${index + 1}</td>
-                            <td>
-                                ${item.status === 'success'
-                                    ? `<span class="badge badge-success w-100"><i class="fas fa-circle-check mr-1"></i>Sukses</span>`
-                                    : `<select class="form-control">
-                                                <option value="" disabled ${!item.status ? 'selected' : ''}>Pilih Status</option>
-                                                <option value="progress" ${item.status === 'progress' ? 'selected' : ''}>progress</option>
-                                                <option value="success" ${item.status === 'success' ? 'selected' : ''}>success</option>
-                                                <option value="failed" ${item.status === 'failed' ? 'selected' : ''}>failed</option>
-                                                </select>`}
-                            </td>
-                            <td>
-                                <div class="d-flex align-items-start" style="gap: 10px;">
-                                    <img src="{{ asset('storage') }}/${item.qrcode_path}" alt="QR Code" style="max-width: 50px; height: auto;">
-                                    <div class="d-flex flex-column">
-                                        <span id="qrcode-text-${index}" class="mr-2 mb-1 text-dark font-weight-bold">${item.qrcode || '-'}</span>
-                                        <button type="button" class="btn btn-sm btn-outline-primary copy-btn" data-target="qrcode-text-${index}">
-                                            <i class="fas fa-copy"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </td>
-                            <td style="word-wrap: break-word; white-space: normal;">${item.nama_barang}</td>
-                            <td class="text-right">${item.qty}</td>
-                            <td class="text-right">Rp ${Number(item.harga_barang).toLocaleString('id-ID')}</td>
-                            <td class="text-right">Rp ${Number(total).toLocaleString('id-ID')}</td>
-                            <td class="text-right">${item.qty_out}</td>
-                            <td class="text-right">${item.qty_now}</td>
-                            <td>
-                                <div class="d-flex flex-wrap justify-content-center" style="gap: 0.5rem;">
-                                    ${buttons.join('')}
-                                </div>
-                            </td>
-                        </tr>`;
+                <tr>
+                    <td class="text-center">${index + 1}</td>
+                    <td>
+                        <div class="d-flex align-items-start" style="gap: 10px; flex-wrap: wrap;">
+                            <img src="${item.qrcode_path}" alt="QR Code" style="max-width: 50px; max-height: 50px; object-fit: contain;">
+                            <div class="d-flex flex-column" style="flex: 1; min-width: 0;">
+                                <span id="qrcode-text-${index}" class="mr-2 mb-1 text-dark font-weight-bold text-truncate" style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                    ${item.qrcode || '-'}
+                                </span>
+                                <button type="button" class="btn btn-sm btn-outline-primary copy-btn" data-target="qrcode-text-${index}">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </td>
+                    <td style="word-break: break-word; white-space: normal;">${item.nama_barang}</td>
+                    <td class="text-right">${item.qty}</td>
+                    <td class="text-right">${item.format_harga_barang}</td>
+                    <td class="text-right">${item.total_harga}</td>
+                    <td class="text-right">${item.qty_out}</td>
+                    <td class="text-right">${item.qty_now}</td>
+                    <td>
+                        <div class="d-flex flex-wrap justify-content-center" style="gap: 0.5rem;">
+                            ${buttons.join('')}
+                        </div>
+                    </td>
+                </tr>`;
                     });
 
+                    // Footer subtotal
                     detailFooter.innerHTML = `
-                    <tr>
-                        <th colspan="6" class="text-right">SubTotal</th>
-                        <th class="text-right">Rp ${Number(data.sub_total).toLocaleString('id-ID')}</th>
-                        <th colspan="2"></th>
-                        <th>
-                            <button type="button" class="btn btn-info btn-sm w-100 open-modal-print-all" data-container="body" data-toggle="tooltip" data-placement="top"
-                                title="Atur semua print QR Code Pembelian Barang"
-                                data-items='${jsonItems}'>
-                                <i class="fa fa-print"></i> Print Semua
-                            </button>
-                        </th>
-                    </tr>`;
+            <tr>
+                <th colspan="5" class="text-right">SubTotal</th>
+                <th class="text-right">${data.sub_total}</th>
+                <th colspan="2"></th>
+                <th>
+                    <button type="button" class="btn btn-info btn-sm w-100 open-modal-print-all" data-container="body" data-toggle="tooltip" data-placement="top"
+                        title="Atur semua print QR Code Pembelian Barang"
+                        data-items='${jsonItems}'>
+                        <i class="fa fa-print"></i> Print Semua
+                    </button>
+                </th>
+            </tr>`;
 
                     const notyf = new Notyf({
                         duration: 2000,
@@ -744,23 +770,26 @@
                     $('#totalPage').text(`${pagination.total}`);
                     $('[data-toggle="tooltip"]').tooltip();
                     renderPagination();
+
                 } else {
+                    // Response bukan 200
                     detailBody.innerHTML = `
-                    <tr class="text-dark">
-                        <th class="text-center" colspan="8">Tidak ada data</th>
-                    </tr>`;
+            <tr class="text-dark">
+                <td class="text-center" colspan="10">Tidak ada data</td>
+            </tr>`;
                     $('#countPage').text("0 - 0");
                     $('#totalPage').text("0");
                 }
             } catch (err) {
                 detailBody.innerHTML = `
-                <tr class="text-danger">
-                    <td colspan="8" class="text-center">Gagal memuat data detail.</td>
-                </tr>`;
+        <tr class="text-danger">
+            <td colspan="10" class="text-center">Gagal memuat data detail.</td>
+        </tr>`;
                 $('#countPage').text("0 - 0");
                 $('#totalPage').text("0");
             }
         }
+
 
         async function openModalEdit(encodedItem) {
             const item = JSON.parse(atob(encodedItem));
@@ -795,16 +824,17 @@
             const payload = {
                 id: id,
                 qty: qty,
-                harga_barang: harga_barang
+                harga_barang: harga_barang,
+                user_id: {{ auth()->user()->id }}
             };
 
             try {
-                let response = await renderAPI('PUT', '{{ route('transaksi.pembelianbarang.update-detail') }}',
+                let response = await renderAPI('PUT', '{{ route('tb.pb.putDetail') }}',
                     payload);
 
-                if (response.status === 200 && response.data.success) {
+                if (response.status === 200) {
                     $('#modalEditDetail').modal('hide');
-                    notificationAlert('success', 'Berhasil', 'Data berhasil diperbarui!');
+                    notificationAlert('success', 'Berhasil', response.data.message || 'Data berhasil diperbarui!');
                     await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter);
                 } else {
                     notificationAlert('error', 'Pemberitahuan', response.data.message || 'Gagal memperbarui data.');
@@ -820,9 +850,11 @@
         $('#formEditDetail').on('submit', submitEditDetail);
 
         async function initPageLoad() {
-            await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter);
-            await searchList();
-            await showData();
+            await Promise.all([
+                getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter),
+                searchList(),
+                showData(),
+            ])
         }
     </script>
 @endsection

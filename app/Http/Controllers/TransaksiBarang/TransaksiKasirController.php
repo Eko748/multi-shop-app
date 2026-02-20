@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\TransaksiBarang;
 
+use App\Helpers\RupiahGenerate;
 use App\Http\Controllers\Controller;
 use App\Models\Barang;
 use App\Models\DetailKasir;
@@ -15,6 +16,8 @@ use App\Models\Member;
 use App\Models\Promo;
 use App\Models\StockBarang;
 use App\Models\Toko;
+use App\Models\TransaksiKasir;
+use App\Models\TransaksiKasirDetail;
 use App\Models\User;
 use App\Services\TransaksiBarang\TransaksiKasirService;
 use Carbon\Carbon;
@@ -57,11 +60,14 @@ class TransaksiKasirController extends Controller
     public function get(Request $request)
     {
         try {
-            $filter = $this->makeFilter($request, 30,
-            [
-                'toko_id' => $request->input('toko_id'),
-                'nota' => $request->input('nota'),
-            ]);
+            $filter = $this->makeFilter(
+                $request,
+                30,
+                [
+                    'toko_id' => $request->input('toko_id'),
+                    'nota' => $request->input('nota'),
+                ]
+            );
             $data = $this->service->getAll($filter);
 
             return $this->success($data['data'], 200, 'Berhasil', $data['pagination']);
@@ -100,93 +106,18 @@ class TransaksiKasirController extends Controller
         }
     }
 
-
-    public function print($id_kasir)
-    {
-        $kasir = Kasir::with('toko', 'member', 'users', 'kasbon')->findOrFail($id_kasir);
-
-        // Ambil detail kasir sesuai id
-        $detail_kasir = DetailKasir::where('id_kasir', $id_kasir)->get();
-
-        // Grouping detail barang
-        $groupedDetails = $detail_kasir
-            ->groupBy('id_barang')
-            ->map(function ($items) {
-                $first = $items->first();
-                return [
-                    'id_barang'   => $first->id_barang,
-                    'nama_barang' => $first->barang->nama_barang,
-                    'qty'         => $items->sum('qty'),
-                    'harga'       => $first->harga,
-                    'diskon'      => $first->diskon,
-                    'total_harga' => $items->sum('total_harga'),
-                ];
-            })
-            ->values();
-
-        // Format nomor nota
-        $noNotaFormatted = substr($kasir->no_nota, 0, 6) . '-' .
-            substr($kasir->no_nota, 6, 6) . '-' .
-            substr($kasir->no_nota, 12);
-
-        // Data final
-        $data = [
-            'toko' => [
-                'nama'   => $kasir->toko->nama_toko,
-                'alamat' => $kasir->toko->alamat,
-            ],
-            'nota' => [
-                'no_nota'   => $noNotaFormatted,
-                'tanggal'   => $kasir->created_at->format('d-m-Y H:i:s'),
-                'member'    => $kasir->id_member == 0 ? 'Guest' : $kasir->member->nama_member,
-                'kasir'     => $kasir->users->nama,
-            ],
-            'detail' => $groupedDetails,
-            'total' => [
-                'total_harga'    => $kasir->total_nilai,
-                'total_potongan' => $kasir->total_diskon,
-                'total_bayar'    => $kasir->total_nilai - $kasir->total_diskon,
-                'dibayar'        => $kasir->jml_bayar,
-                'kembalian'      => $kasir->kembalian,
-                'sisa_pembayaran' => $kasir->kasbon ? $kasir->kasbon->utang : 0,
-            ],
-            'footer' => 'Terima Kasih'
-        ];
-
-        return response()->json($data);
-    }
-
     public function detail(Request $request)
     {
         try {
-            $kasir = Kasir::with(['users', 'toko', 'member', 'kasbon'])->findOrFail($request->id);
-            $detail_kasir = DetailKasir::where('id_kasir', $request->id)->with('barang')->get();
+            $data = $this->service->detail($request->id);
 
-            $kasir->formatted_created_at = $kasir->created_at
-                ? $kasir->created_at->setTimezone('Asia/Jakarta')->format('d-m-Y H:i:s')
-                : null;
-
-            $groupedDetails = $detail_kasir
-                ->groupBy('id_barang')
-                ->map(function ($items) {
-                    $first = $items->first();
-                    return [
-                        'nama_barang' => $first->barang->nama_barang,
-                        'qty' => $items->sum('qty'),
-                        'harga' => $first->harga,
-                        'diskon' => $first->diskon,
-                        'total_harga' => $items->sum('total_harga'),
-                    ];
-                })
-                ->values();
-
-            return $this->success([
-                'kasir' => $kasir,
-                'detail_kasir' => $detail_kasir,
-                'grouped_details' => $groupedDetails,
-            ]);
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return $this->error(404, 'Data kasir tidak ditemukan.');
+            return $this->success(
+                $data,
+                200,
+                "{$this->title[0]} berhasil diambil."
+            );
+        } catch (ValidationException $e) {
+            return $this->error(422, 'Validation Error', $e->errors());
         } catch (\Exception $e) {
             return $this->error(500, 'Terjadi kesalahan saat mengambil detail kasir.', [
                 'exception' => $e->getMessage(),
@@ -194,6 +125,49 @@ class TransaksiKasirController extends Controller
         }
     }
 
+    public function print(Request $request)
+    {
+        try {
+            $data = $this->service->print($request->id);
+
+            return $this->success(
+                $data,
+                200,
+                "{$this->title[0]} berhasil diambil."
+            );
+        } catch (ValidationException $e) {
+            return $this->error(422, 'Validation Error', $e->errors());
+        } catch (\Exception $e) {
+            return $this->error(500, 'Terjadi kesalahan saat mengambil detail kasir.', [
+                'exception' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    public function delete(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'public_id' => 'required|string|exists:transaksi_kasir,public_id',
+                'deleted_by' => 'required|integer|exists:users,id',
+                'pin' => 'required|integer',
+                'toko_id' => 'required|integer|exists:toko,id',
+                'message' => 'required|string',
+            ]);
+
+            $deleted = $this->service->delete($validated['public_id'], $validated);
+
+            if (!$deleted) {
+                return $this->error(404, 'Data not found');
+            }
+
+            return $this->success(null, 200, 'Data berhasil dihapus');
+        } catch (ValidationException $e) {
+            return $this->error(422, 'Validation Error', $e->errors());
+        } catch (Exception $e) {
+            return $this->error(500, 'Internal Server Error', $e->getMessage());
+        }
+    }
 
     public function getHarga(Request $request)
     {

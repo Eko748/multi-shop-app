@@ -31,29 +31,29 @@ class AsetBarangReturController extends Controller
 
         $startDate = $request->input('startDate');
         $endDate = $request->input('endDate');
-        $idTokoLogin = (int) $request->input('id_toko', 0);
+        $idTokoLogin = (int) $request->input('toko_id', 0);
         $searchTerm = trim(strtolower($request->input('search', '')));
 
         try {
             if ($idTokoLogin == 1) {
                 $stockQuery = DB::table('retur_member_detail as ds')
                     ->join('barang as b', 'ds.barang_id', '=', 'b.id')
-                    ->join('jenis_barang as jb', 'b.id_jenis_barang', '=', 'jb.id')
+                    ->join('jenis_barang as jb', 'b.jenis_barang_id', '=', 'jb.id')
                     ->join('toko as t', 't.id', '=', DB::raw('1'))
                     ->selectRaw('
-                        1 as id_toko,
-                        t.nama_toko,
+                        1 as toko_id,
+                        t.nama,
                         t.wilayah,
-                        b.id_jenis_barang,
+                        b.jenis_barang_id,
                         jb.nama_jenis_barang,
                         SUM(ds.qty_request - COALESCE(ds.qty_ke_supplier, 0)) as total_qty,
                         SUM((ds.qty_request - COALESCE(ds.qty_ke_supplier, 0)) * ds.hpp) as total_harga
                     ')
                     ->whereNull('b.deleted_at')
                     ->groupBy(
-                        'b.id_jenis_barang',
+                        'b.jenis_barang_id',
                         'jb.nama_jenis_barang',
-                        't.nama_toko',
+                        't.nama',
                         't.wilayah'
                     );
 
@@ -63,80 +63,7 @@ class AsetBarangReturController extends Controller
 
                 $stockData = $stockQuery->get();
 
-                $detailQuery = DB::table('detail_toko')
-                    ->join('toko', 'detail_toko.id_toko', '=', 'toko.id')
-                    ->join('barang', 'detail_toko.id_barang', '=', 'barang.id')
-                    ->join('jenis_barang', 'barang.id_jenis_barang', '=', 'jenis_barang.id')
-                    ->select(
-                        'detail_toko.id_toko',
-                        'toko.nama_toko',
-                        'toko.wilayah',
-                        'barang.id_jenis_barang',
-                        'jenis_barang.nama_jenis_barang',
-                        DB::raw('SUM(detail_toko.qty) as total_qty'),
-                        DB::raw('SUM(detail_toko.harga) as total_harga')
-                    )
-                    ->whereNull('barang.deleted_at')
-                    ->groupBy(
-                        'detail_toko.id_toko',
-                        'toko.nama_toko',
-                        'toko.wilayah',
-                        'barang.id_jenis_barang',
-                        'jenis_barang.nama_jenis_barang'
-                    );
-
-                if (!empty($startDate) && !empty($endDate)) {
-                    $detailQuery->whereBetween('detail_toko.created_at', [$startDate, $endDate]);
-                }
-
-                if (!empty($searchTerm)) {
-                    $detailQuery->where(function ($q) use ($searchTerm) {
-                        $q->orWhereRaw('LOWER(toko.nama_toko) LIKE ?', ["%$searchTerm%"]);
-                        $q->orWhereRaw('LOWER(toko.wilayah) LIKE ?', ["%$searchTerm%"]);
-                        $q->orWhereRaw('LOWER(jenis_barang.nama_jenis_barang) LIKE ?', ["%$searchTerm%"]);
-                    });
-                }
-
-                $detailData = $detailQuery->get();
-
-                $combined = $stockData->merge($detailData);
-            } else {
-                $combined = DB::table('detail_toko')
-                    ->join('toko', 'detail_toko.id_toko', '=', 'toko.id')
-                    ->join('barang', 'detail_toko.id_barang', '=', 'barang.id')
-                    ->join('jenis_barang', 'barang.id_jenis_barang', '=', 'jenis_barang.id')
-                    ->where('detail_toko.id_toko', $idTokoLogin)
-                    ->whereNull('barang.deleted_at')
-                    ->select(
-                        'detail_toko.id_toko',
-                        'toko.nama_toko',
-                        'toko.wilayah',
-                        'barang.id_jenis_barang',
-                        'jenis_barang.nama_jenis_barang',
-                        DB::raw('SUM(detail_toko.qty) as total_qty'),
-                        DB::raw('SUM(detail_toko.harga) as total_harga')
-                    )
-                    ->groupBy(
-                        'detail_toko.id_toko',
-                        'toko.nama_toko',
-                        'toko.wilayah',
-                        'barang.id_jenis_barang',
-                        'jenis_barang.nama_jenis_barang'
-                    );
-
-                if (!empty($startDate) && !empty($endDate)) {
-                    $combined->whereBetween('detail_toko.created_at', [$startDate, $endDate]);
-                }
-
-                if (!empty($searchTerm)) {
-                    $combined->where(function ($q) use ($searchTerm) {
-                        $q->orWhereRaw('LOWER(toko.nama_toko) LIKE ?', ["%$searchTerm%"]);
-                        $q->orWhereRaw('LOWER(toko.wilayah) LIKE ?', ["%$searchTerm%"]);
-                        $q->orWhereRaw('LOWER(jenis_barang.nama_jenis_barang) LIKE ?', ["%$searchTerm%"]);
-                    });
-                }
-
-                $combined = $combined->get();
+                $combined = $stockData;
             }
 
             // Grouping berdasarkan jenis_barang
@@ -151,9 +78,9 @@ class AsetBarangReturController extends Controller
                     'nama_jenis_barang' => $namaJenis,
                     'items' => $items->map(function ($item) {
                         return [
-                            'id_toko' => $item->id_toko,
-                            'nama_toko' => $item->nama_toko . ' (' . $item->wilayah . ')',
-                            'id_jenis_barang' => $item->id_jenis_barang,
+                            'toko_id' => $item->toko_id,
+                            'nama_toko' => $item->nama . ' (' . $item->wilayah . ')',
+                            'id_jenis_barang' => $item->jenis_barang_id,
                             'nama_jenis_barang' => $item->nama_jenis_barang,
                             'total_qty' => $item->total_qty,
                             'total_harga' => 'Rp ' . number_format($item->total_harga, 0, ',', '.'),

@@ -98,7 +98,7 @@
                                                 @foreach ($suppliers as $spl)
                                                     <tr>
                                                         <td>{{ $loop->iteration }}</td>
-                                                        <td>{{ $spl->nama_supplier }}</td>
+                                                        <td>{{ $spl->nama }}</td>
                                                         <td>{{ $pembelian_dt->where('id_supplier', $spl->id)->count() }}
                                                         </td>
                                                         <td>{{ $pembelian_dt->where('id_supplier', $spl->id)->sum('total_item') }}

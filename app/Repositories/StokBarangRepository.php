@@ -24,7 +24,7 @@ class StokBarangRepository
 
     public function findByBarangId($barangId)
     {
-        return $this->model::where('id_barang', $barangId)->first();
+        return $this->model::where('barang_id', $barangId)->first();
     }
 
     public function find($id)

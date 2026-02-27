@@ -134,7 +134,7 @@
         let customFilter = {};
         let jenisBarangList = @json($jenis_barang);
         let selectOptions = [{
-            id: '#id_toko',
+            id: '#toko_id',
             isUrl: '{{ route('master.toko') }}',
             placeholder: 'Pilih Toko',
             isModal: '#modal-form',
@@ -182,8 +182,8 @@
         async function handleData(data) {
             let edit_button = `
             <a class="p-1 btn edit-data action_button" onClick="openEditModal('${encodeURIComponent(JSON.stringify(data))}')">
-                <span class="text-dark" title="Edit ${title}: ${data.nama_member}">Edit</span>
-                <div class="icon text-warning" title="Edit ${title}: ${data.nama_member}">
+                <span class="text-dark" title="Edit ${title}: ${data.nama}">Edit</span>
+                <div class="icon text-warning" title="Edit ${title}: ${data.nama}">
                     <i class="fa fa-edit"></i>
                 </div>
             </a>`;
@@ -191,9 +191,9 @@
             let delete_button = `
                 <a class="p-1 btn hapus-data action_button"
                     data-container="body" data-toggle="tooltip" data-placement="top"
-                    title="Hapus ${title}: ${data.nama_member}"
+                    title="Hapus ${title}: ${data.nama}"
                     data-id='${data.id}'
-                    data-name='${data.nama_member}'>
+                    data-name='${data.nama}'>
                     <span class="text-dark">Hapus</span>
                     <div class="icon text-danger">
                         <i class="fa fa-trash"></i>
@@ -202,7 +202,7 @@
 
             return {
                 id: data?.id ?? '-',
-                nama_member: data?.nama_member ?? '-',
+                nama: data?.nama ?? '-',
                 nama_toko: data?.nama_toko ?? '<span class="badge badge-danger">Tidak Ada Toko</span>',
                 level: data?.level ?? [],
                 no_hp: data?.no_hp ?? '-',
@@ -236,7 +236,7 @@
                 getDataTable += `
                     <tr class="text-dark">
                         <td class="${classCol} text-center">${display_from + index}.</td>
-                        <td class="${classCol}">${element.nama_member}</td>
+                        <td class="${classCol}">${element.nama}</td>
                         <td class="${classCol}">${element.nama_toko}</td>
                         <td class="${classCol}">${levelList}</td>
                         <td class="${classCol}">${element.no_hp}</td>
@@ -282,7 +282,8 @@
                 }).then(async (result) => {
                     let postDataRest = await renderAPI(
                         'DELETE',
-                        `member/delete/${id}`, {
+                        '{{ route('member.delete') }}', {
+                            id: id,
                             user_id: {{ auth()->user()->id }}
                         }
                     ).then(function(response) {
@@ -346,12 +347,12 @@
                         <div class="card-body">
                             <div class="table-responsive">
                                 <div class="form-group">
-                                    <label for="id_toko" class="form-control-label">Nama Toko<span style="color: red">*</span></label>
-                                    <select id="id_toko" name="id_toko" class="form-control id-toko select2"></select>
+                                    <label for="toko_id" class="form-control-label">Nama Toko<span style="color: red">*</span></label>
+                                    <select id="toko_id" name="toko_id" class="form-control id-toko select2"></select>
                                 </div>
                                 <div class="form-group">
-                                    <label for="nama_member" class="form-control-label">Nama Member<span style="color: red">*</span></label>
-                                    <input type="text" id="nama_member" name="nama_member" placeholder="Contoh : Member 1" class="form-control">
+                                    <label for="nama" class="form-control-label">Nama Member<span style="color: red">*</span></label>
+                                    <input type="text" id="nama" name="nama" placeholder="Contoh : Member 1" class="form-control">
                                 </div>
                                 <div class="form-group">
                                     <label for="jenis_barang" class="form-control-label">Jenis Barang</label>
@@ -381,13 +382,15 @@
 
             await $('#form-data').html(formContent);
 
-            const tokoId = mode === 'edit' ? data.id_toko : {{ auth()->user()->toko_id }};
+            const tokoId = mode === 'edit' ? data.toko_id : {{ auth()->user()->toko_id }};
 
             jenisBarangList.forEach(jb => {
                 selectOptions.push({
                     id: `#level_harga_${jb.id}`,
-                    isUrl: `{{ route('master.member.level-harga', ['id_toko' => '__ID__']) }}`.replace(
-                        '__ID__', tokoId),
+                    isUrl: `{{ route('member.getLevelHarga') }}`,
+                    isFilter: {
+                        'toko_id': {{ auth()->user()->toko_id }}
+                    },
                     placeholder: 'Pilih Level Harga',
                     isModal: '#modal-form',
                 });
@@ -396,14 +399,14 @@
             await selectData(selectOptions);
 
             if (mode === 'edit') {
-                if ($('#id_toko option[value="' + data.id_toko + '"]').length === 0) {
-                    const newOption = new Option(data.nama_toko, data.id_toko, true, true);
-                    $('#id_toko').append(newOption).trigger('change');
+                if ($('#toko_id option[value="' + data.toko_id + '"]').length === 0) {
+                    const newOption = new Option(data.nama_toko, data.toko_id, true, true);
+                    $('#toko_id').append(newOption).trigger('change');
                 } else {
-                    $('#id_toko').val(data.id_toko).trigger('change');
+                    $('#toko_id').val(data.toko_id).trigger('change');
                 }
 
-                $('#nama_member').val(data.nama_member);
+                $('#nama').val(data.nama);
                 $('#no_hp').val(data.no_hp);
                 $('#alamat').val(data.alamat);
 
@@ -474,14 +477,13 @@
 
                     const isEdit = formData.get('id') !== null && formData.get('id') !== '';
                     const url = isEdit ?
-                        `{{ route('master.member.update', ['id' => '__ID__']) }}`.replace(
-                            '__ID__', formData.get('id')) :
-                        `{{ route('master.member.store') }}`;
+                        `{{ route('member.update') }}` : `{{ route('member.post') }}`;
 
                     let method = 'POST';
 
                     if (isEdit) {
                         formData.append('_method', 'PUT');
+                        formData.append('id', formData.get('id'));
                     }
 
                     try {

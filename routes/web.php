@@ -53,20 +53,10 @@ Route::middleware(['auth'])->group(function () {
 
     // Member Controller
     Route::get('/member', [MemberController::class, 'index'])->name('master.member.index')->middleware('permission:GET /member');
-    Route::post('/member/store', [MemberController::class, 'store'])->name('master.member.store')->middleware('permission:POST /member/store');
-    Route::get('/members/{id}/edit', [MemberController::class, 'edit'])->name('members.edit')->middleware('permission:GET /members/{id}/edit');
-    Route::put('/member/update/{id}', [MemberController::class, 'update'])->name('master.member.update')->middleware('permission:PUT /member/update/{id}');
-    Route::delete('/member/delete/{id}', [MemberController::class, 'delete'])->name('master.member.delete')->middleware('permission:DELETE /member/delete/{id}');
-    Route::get('/get-level-harga/{id_toko}', [MemberController::class, 'getLevelHarga'])->name('master.member.level-harga')->middleware('permission:GET /get-level-harga/{id_toko}');
-    Route::post('/import-member', [MemberController::class, 'import'])->name('master.member.import')->middleware('permission:POST /import-member');
+    Route::post('/import-member', [MemberController::class, 'import'])->name('master.member.import');
 
     // Supplier Controller
     Route::get('/supplier', [SupplierController::class, 'index'])->name('master.supplier.index')->middleware('permission:GET /supplier');
-    Route::get('/supplier/create', [SupplierController::class, 'create'])->name('master.supplier.create')->middleware('permission:GET /supplier/create');
-    Route::post('/supplier/store', [SupplierController::class, 'store'])->name('master.supplier.store')->middleware('permission:POST /supplier/store');
-    Route::get('/supplier/edit/{id}', [SupplierController::class, 'edit'])->name('master.supplier.edit')->middleware('permission:GET /supplier/edit/{id}');
-    Route::put('/supplier/update/{id}', [SupplierController::class, 'update'])->name('master.supplier.update')->middleware('permission:PUT /supplier/update/{id}');
-    Route::delete('/supplier/delete/{id}', [SupplierController::class, 'delete'])->name('master.supplier.delete')->middleware('permission:DELETE /supplier/delete/{id}');
     Route::post('/import-supplier', [SupplierController::class, 'import'])->name('master.supplier.import')->middleware('permission:POST /import-supplier');
 
     // Jenis Barang Controller

@@ -2,6 +2,10 @@
 
 namespace App\Services;
 
+use App\Helpers\RupiahGenerate;
+use App\Helpers\TextGenerate;
+use App\Models\PembelianBarangDetail;
+use App\Models\StockBarangBatch;
 use App\Repositories\PembelianBarangDetailRepository;
 use App\Repositories\ReturSupplierRepository;
 use App\Repositories\ReturSupplierDetailRepository;
@@ -102,13 +106,13 @@ class ReturSupplierService
             return [
                 'id' => $item->id,
                 'no_retur' => "R-{$item->id}",
-                'supplier' => $item->supplier->nama_supplier ?? '-',
+                'supplier' => $item->supplier->nama ?? '-',
                 'tipe_retur' => $item->tipe_retur === 'member' ? 'Retur Member' : 'Pembelian Barang',
                 'tanggal' => $item->tanggal,
                 'qty' => $item->qty,
-                'total_refund' => 'Rp ' . number_format($refund, 0, ',', '.'),
-                'total_hpp' => 'Rp ' . number_format($barang, 0, ',', '.'),
-                'total_selisih' => 'Rp ' . number_format($item->total_selisih, 0, ',', '.'),
+                'total_refund' => RupiahGenerate::build($refund),
+                'total_hpp' => RupiahGenerate::build($barang),
+                'total_selisih' => RupiahGenerate::build($item->total_selisih),
                 'status' => $item->status,
                 'keterangan' => $item->keterangan,
                 'created_by' => $item->createdBy->nama ?? 'System',
@@ -127,25 +131,25 @@ class ReturSupplierService
 
     public function getDetail($filter)
     {
-        $item = $this->repository->getDetailById($filter->id);
+        $item = $this->repository->getDetailById($filter->id, $filter->toko_id);
         $itemFormatted = [
             'id' => $item->id,
             'tipe_retur' => $item->tipe_retur,
-            'supplier' => $item->supplier->nama_supplier ?? 'Guest',
+            'supplier' => $item->supplier->nama ?? 'Guest',
             'tanggal' => $item->tanggal ?? null,
             'total_refund' => 'Rp ' . number_format($item->total_refund, 0, ',', '.'),
             'total_hpp' => 'Rp ' . number_format($item->total_hpp, 0, ',', '.'),
             'total_selisih' => 'Rp ' . number_format($item->total_selisih, 0, ',', '.'),
             'status' => $item->status,
             'created_by' => $item->createdBy->nama,
-            'nama_toko' => $item->createdBy->toko->nama_toko,
+            'nama_toko' => $item->toko->nama,
         ];
 
         $query = $this->detailRepo->getAll($filter);
         $data = collect($query->items())->map(function ($detail) {
             return [
                 'id' => $detail->public_id,
-                'barang' => $detail->barang->nama_barang ?? null,
+                'barang' => TextGenerate::smartTail($detail->barang->nama),
                 'tipe_kompensasi' => $detail->tipe_kompensasi,
                 'format_harga_jual' => 'Rp ' . number_format($detail->harga_jual, 0, ',', '.'),
                 'format_hpp' => 'Rp ' . number_format($detail->hpp, 0, ',', '.'),
@@ -179,7 +183,7 @@ class ReturSupplierService
         }
 
         return [
-            'data' => $this->repository->find($filter->id)
+            'data' => $this->repository->find($filter->id, $filter->toko_id)
         ];
     }
 
@@ -216,7 +220,7 @@ class ReturSupplierService
                     ];
 
                     if ($data['tipe_retur'] === 'pembelian') {
-                        $payload['detail_pembelian_barang_id'] = $detail['id'];
+                        $payload['pembelian_barang_detail_id'] = $detail['id'];
                     } elseif ($data['tipe_retur'] === 'member') {
                         $payload['retur_member_detail_id'] = $detail['id'];
                     }
@@ -228,19 +232,21 @@ class ReturSupplierService
 
                     // CASE 1: RETUR PEMBELIAN → stok berkurang
                     if ($data['tipe_retur'] === 'pembelian' && !empty($detail['id'])) {
-                        $stokDetail = $this->stokDetailRepo->findByPembelianWithZero($detail['id']);
+                        $pembelian = PembelianBarangDetail::find($detail['id']);
+                        $batch = StockBarangBatch::find($pembelian->stock_barang_batch_id);
+
+                        $stokDetail = $this->stokDetailRepo->findByPembelianWithZero($batch->id, $detail['id']);
                         if ($stokDetail) {
                             $updateData = [
-                                'qty_now' => max($stokDetail->qty_now - $qtyBarang, 0),
-                                'qty_out' => $stokDetail->qty_out + $qtyBarang,
+                                'qty_sisa' => max($stokDetail->qty_now - $qtyBarang, 0),
                             ];
-                            $this->stokDetailRepo->updateWithPembelian($detail['id'], $updateData);
+                            $this->stokDetailRepo->updateWithPembelian($batch->id, $detail['id'], $updateData);
 
                             // Kurangi stok utama juga
-                            $stok = $this->stokRepo->find($stokDetail->id_stock);
+                            $stok = $this->stokRepo->find($stokDetail->stock_barang_id);
                             if ($stok) {
                                 $this->stokRepo->update($stok->id, [
-                                    'stock' => max($stok->stock - $qtyBarang, 0),
+                                    'stok' => max($stok->stok - $qtyBarang, 0),
                                 ]);
                             }
                         }
@@ -258,7 +264,7 @@ class ReturSupplierService
     {
         return DB::transaction(function () use ($data) {
             // 🔹 Ambil retur utama
-            $returUtama = $this->repository->find($data['id']);
+            $returUtama = $this->repository->find($data['id'], $data['toko_id']);
             if (!$returUtama) {
                 throw ValidationException::withMessages([
                     'retur_id' => "Data retur dengan ID {$data['id']} tidak ditemukan."
@@ -341,7 +347,7 @@ class ReturSupplierService
     {
         return DB::transaction(function () use ($data) {
             // Ambil retur utama
-            $returUtama = $this->repository->find($data['id']);
+            $returUtama = $this->repository->find($data['id'], $data['toko_id']);
             if (!$returUtama) {
                 throw ValidationException::withMessages([
                     'retur_id' => "Data retur dengan ID {$data['id']} tidak ditemukan."
@@ -365,34 +371,35 @@ class ReturSupplierService
                 // ===============================
                 if (
                     $returUtama->tipe_retur === 'pembelian' &&
-                    $detail->detail_pembelian_barang_id &&
+                    $detail->pembelian_barang_detail_id &&
                     $detail->qty_barang > 0
                 ) {
                     $qtyBarang = (float) $detail->qty_barang;
 
-                    // Ambil stok detail terkait
-                    $stokDetail = $this->stokDetailRepo->findByPembelianWithZero($detail->detail_pembelian_barang_id);
+                    $pembelian = PembelianBarangDetail::find($detail->pembelian_barang_detail_id);
+                    $batch = StockBarangBatch::find($pembelian->stock_barang_batch_id);
+
+                    $stokDetail = $this->stokDetailRepo->findByPembelianWithZero($batch->id, $detail->pembelian_barang_detail_id);
 
                     if ($stokDetail) {
                         $updateData = [
-                            'qty_now' => $stokDetail->qty_now + $qtyBarang,
-                            'qty_out' => max($stokDetail->qty_out - $qtyBarang, 0),
+                            'qty_sisa' => $stokDetail->qty_sisa + $qtyBarang,
                         ];
 
-                        $this->stokDetailRepo->updateWithPembelian($detail->detail_pembelian_barang_id, $updateData);
+                        $this->stokDetailRepo->updateWithPembelian($batch->id, $detail->pembelian_barang_detail_id, $updateData);
 
                         // Update stok utama
-                        if (!empty($stokDetail->id_stock)) {
-                            $stok = $this->stokRepo->find($stokDetail->id_stock);
+                        if (!empty($stokDetail->stock_barang_id)) {
+                            $stok = $this->stokRepo->find($stokDetail->stock_barang_id);
                             if ($stok) {
                                 $this->stokRepo->update($stok->id, [
-                                    'stock' => $stok->stock + $qtyBarang,
+                                    'stok' => $stok->stok + $qtyBarang,
                                 ]);
                             }
                         }
                     } else {
                         info('stokDetail tidak ditemukan:', [
-                            'detail_pembelian_barang_id' => $detail->detail_pembelian_barang_id
+                            'pembelian_barang_detail_id' => $detail->pembelian_barang_detail_id
                         ]);
                     }
                 }
@@ -412,28 +419,30 @@ class ReturSupplierService
                             'qty_ke_supplier' => $memberDetail->qty_request,
                         ]);
 
-                        // Ambil id_detail_pembelian dari tabel detail_kasir
+                        // Ambil stock_barang_batch_id dari tabel detail_kasir
                         if (!empty($memberDetail->detail_kasir_id)) {
                             $detailKasir = $this->detailKasirRepo->findById($memberDetail->detail_kasir_id);
 
-                            if ($detailKasir && !empty($detailKasir->id_detail_pembelian)) {
+                            if ($detailKasir && !empty($detailKasir->stock_barang_batch_id)) {
+
+                                $batch = StockBarangBatch::find($detailKasir->stock_barang_batch_id);
+
                                 $qtyBarang = (float) $detail->qty_barang;
 
-                                $stokDetail = $this->stokDetailRepo->findByPembelianWithZero($detailKasir->id_detail_pembelian);
+                                $stokDetail = $this->stokDetailRepo->findByPembelianWithZero($batch->id, $batch->sumber_id);
 
                                 if ($stokDetail) {
                                     $updateData = [
-                                        'qty_now' => $stokDetail->qty_now + $qtyBarang,
-                                        'qty_out' => max($stokDetail->qty_out - $qtyBarang, 0),
+                                        'qty_sisa' => $stokDetail->qty_sisa + $qtyBarang,
                                     ];
 
-                                    $this->stokDetailRepo->updateWithPembelian($detailKasir->id_detail_pembelian, $updateData);
+                                    $this->stokDetailRepo->updateWithPembelian($batch->id, $batch->sumber_id, $updateData);
 
                                     // Update stok utama
-                                    $stok = $this->stokRepo->find($stokDetail->id_stock);
+                                    $stok = $this->stokRepo->find($stokDetail->stock_barang_id);
                                     if ($stok) {
                                         $this->stokRepo->update($stok->id, [
-                                            'stock' => $stok->stock + $qtyBarang,
+                                            'stok' => $stok->stok + $qtyBarang,
                                         ]);
                                     }
                                 }
@@ -456,7 +465,7 @@ class ReturSupplierService
                 'id' => $item->id,
                 'barang_id' => $item->barang_id,
                 'retur_member_detail_id' => $item->retur_member_detail_id,
-                'detail_pembelian_barang_id' => $item->detailKasir->detailPembelian->id,
+                'pembelian_barang_detail_id' => $item->detailKasir->detailPembelian->id,
                 'hpp' => $item->hpp,
                 'harga' => $item->harga,
                 'qty_request' => $item->qty_request
@@ -496,9 +505,10 @@ class ReturSupplierService
         $query = $this->stockBarangBatchRepo->getQRCode($filter);
 
         $data = collect($query->items())->map(function ($item) {
+            $barang = TextGenerate::smartTail($item->stockBarang->barang->nama);
             return [
                 'id' => $item->id,
-                'text' => "{$item->qrcode} => {$item->stockBarang->barang->nama} ~ (Sisa: {$item->qty_sisa})",
+                'text' => "{$item->qrcode} => {$barang} ~ (Sisa: {$item->qty_sisa})",
             ];
         });
 
@@ -517,31 +527,51 @@ class ReturSupplierService
         }
 
         $data = collect($query->items())->map(function ($item) use ($filter) {
+            $stokDetailId = null;
+            $supplierId   = null;
+            $namaSupplier = null;
+
             if ($filter->tipe == 'pembelian') {
-                $stokDetailId = optional($item->detailStock)->id;
-                $qtyNowDetail = optional($item->detailStock)->qty_now;
+
+                $stokDetailId = $item->id;
+                $qtyNowDetail = $item->qty_sisa;
                 $tgl = "Tgl Pembelian:<br>{$item->created_at}";
-                $supplierId = $item->id_supplier;
                 $qrcode = $item->qrcode;
+
+                $supplier = optional($item->sumber?->pembelianBarang?->supplier);
+                $supplierId   = $supplier->id;
+                $namaSupplier = $supplier->nama;
+
+                $barang = optional($item->stockBarang?->barang);
+                $barangId   = $barang->id;
+                $namaBarang = $barang->nama;
             } elseif ($filter->tipe == 'member') {
+
                 $qtyNowDetail = $item->qty;
-                $supplierId = $item->supplier_id;
                 $tgl = "Tgl Retur:<br>{$item->created_at}";
-                $qrcode = $item->detailKasir->detailPembelian->qrcode;
+                $qrcode = $item->transaksiKasirDetail->qrcode;
+
+                $supplier = optional($item->supplier);
+                $supplierId   = $supplier->id;
+                $namaSupplier = $supplier->nama;
+
+                $barang = optional($item->barang);
+                $barangId   = $barang->id;
+                $namaBarang = $barang->nama;
             }
 
             return [
-                'id'          => $item->id,
-                'tgl'         => $tgl,
-                'qrcode'      => $qrcode,
-                'supplier_id' => $supplierId,
-                'nama_supplier' => $item->supplier->nama_supplier,
-                'barang'      => $item->barang->nama_barang,
-                'barang_id'   => $item->barang->id,
-                'qty_now'     => $qtyNowDetail,
-                'hpp'         => $item->hpp,
-                'harga_jual'     => $item->harga_jual ?? 0,
-                'stok_detail_id' => $stokDetailId ?? null,
+                'id'            => $item->id,
+                'tgl'           => $tgl,
+                'qrcode'        => $qrcode,
+                'supplier_id'   => $supplierId,
+                'nama_supplier' => $namaSupplier,
+                'barang'        => TextGenerate::smartTail($namaBarang),
+                'barang_id'     => $barangId,
+                'qty_now'       => $qtyNowDetail,
+                'hpp'           => $item->hpp,
+                'harga_jual'    => $item->harga_jual ?? 0,
+                'stok_detail_id' => $stokDetailId,
             ];
         });
 

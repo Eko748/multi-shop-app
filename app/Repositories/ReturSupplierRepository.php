@@ -2,6 +2,7 @@
 
 namespace App\Repositories;
 
+use App\Helpers\TextGenerate;
 use App\Models\ReturSupplier;
 
 class ReturSupplierRepository
@@ -13,10 +14,11 @@ class ReturSupplierRepository
         $this->model = $model;
     }
 
-    public function find($id)
+    public function find($id, $tokoId)
     {
         $data = $this->model
-            ->with(['detail', 'supplier', 'toko', 'detail.barang:id,nama_barang'])
+            ->with(['detail', 'supplier', 'toko', 'detail.barang:id,nama'])
+            ->where('toko_id', $tokoId)
             ->find($id);
 
         if ($data) {
@@ -28,7 +30,15 @@ class ReturSupplierRepository
                 $data->tipe_retur_text = ucfirst($data->tipe_retur);
             }
             $data->no_retur = "R-{$data->id}";
+
+            foreach ($data->detail as $detail) {
+                if ($detail->barang) {
+                    $detail->barang->nama =
+                        TextGenerate::smartTail($detail->barang->nama, 10);
+                }
+            }
         }
+
 
         return $data;
     }
@@ -40,7 +50,7 @@ class ReturSupplierRepository
 
     public function getAll($filter)
     {
-        $query = $this->model->with(['detail', 'toko', 'supplier', 'createdBy']);
+        $query = $this->model->with(['detail', 'toko', 'supplier', 'createdBy'])->where('toko_id', $filter->toko_id);
 
         if (!empty($filter->start_date) && !empty($filter->end_date)) {
             $query->whereBetween('tanggal', [$filter->start_date, $filter->end_date]);
@@ -56,9 +66,9 @@ class ReturSupplierRepository
         return $query->paginate($filter->limit ?? 30);
     }
 
-    public function getDetailById($id)
+    public function getDetailById($id, $tokoId)
     {
-        return $this->model->where('id', $id)->first();
+        return $this->model->where('id', $id)->where('toko_id', $tokoId)->first();
     }
 
     public function create(array $data)

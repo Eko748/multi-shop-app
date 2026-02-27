@@ -90,6 +90,19 @@ Route::get('/get/total-kas-hirarki', [KasController::class, 'getTotalKasHirarki'
 Route::get('/get/total-kas-besar', [KasController::class, 'getTotalKasBesar'])->name('total.kas-besar');
 Route::get('/get/total-kas-kecil', [KasController::class, 'getTotalKasKecil'])->name('total.kas-kecil');
 
+Route::prefix('member')->as('member.')->group(function () {
+    Route::post('post', [MemberController::class, 'post'])->name('post');
+    Route::put('put', [MemberController::class, 'update'])->name('update');
+    Route::delete('delete', [MemberController::class, 'delete'])->name('delete');
+    Route::get('get/level-harga', [MemberController::class, 'getLevelHarga'])->name('getLevelHarga');
+});
+
+Route::prefix('supplier')->as('supplier.')->group(function () {
+    Route::post('post', [SupplierController::class, 'post'])->name('post');
+    Route::put('put', [SupplierController::class, 'update'])->name('update');
+    Route::delete('delete', [SupplierController::class, 'delete'])->name('delete');
+});
+
 Route::prefix('neraca')->as('neraca.')->group(function () {
     Route::get('get', [NeracaPenyesuaianController::class, 'get'])->name('get');
     Route::post('post', [NeracaPenyesuaianController::class, 'post'])->name('post');

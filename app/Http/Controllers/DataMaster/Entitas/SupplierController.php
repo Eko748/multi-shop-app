@@ -6,12 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Helpers\ActivityLogger;
 use App\Imports\SupplierImport;
 use App\Models\Supplier;
+use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
+use Throwable;
 
 class SupplierController extends Controller
 {
+    use ApiResponse;
     private array $menu = [];
 
     public function __construct()
@@ -80,7 +84,7 @@ class SupplierController extends Controller
                 'nama' => $item->nama,
                 'email' => $item->email,
                 'alamat' => $item->alamat,
-                'kontak' => $item->telepon,
+                'telepon' => $item->telepon,
             ];
         });
 
@@ -109,31 +113,51 @@ class SupplierController extends Controller
         return view('master.supplier.create', compact('menu'));
     }
 
-    public function store(Request $request)
+    public function post(Request $request)
     {
-        $data = $request->all();
-
-        $validatedData = $request->validate([
-            'nama' => 'required|max:255',
-            'alamat' => 'required|max:255',
-        ], [
-            'nama.required' => 'Nama Supplier tidak boleh kosong.',
-            'alamat.required' => 'Alamat tidak boleh kosong.',
-        ]);
-
         try {
-            Supplier::create([
-                'nama' => $request->nama,
-                'email' => $request->email,
-                'alamat' => $request->alamat,
-                'telepon' => $request->telepon,
+            $data = $request->all();
+
+            $validatedData = $request->validate([
+                'nama' => 'required|max:255',
+                'alamat' => 'required|max:255',
+                'email' => 'nullable',
+                'telepon' => 'nullable',
+            ], [
+                'nama.required' => 'Nama Supplier tidak boleh kosong.',
+                'alamat.required' => 'Alamat tidak boleh kosong.',
             ]);
 
-        } catch (\Throwable $th) {
-            return redirect()->back()->with('error', $th->getMessage())->withInput();
-        }
+            DB::beginTransaction();
 
-        return redirect()->route('master.supplier.index')->with('success', 'Berhasil menambahkan Supplier Baru');
+            $data = Supplier::create([
+                'nama' => $validatedData['nama'],
+                'alamat' => $validatedData['alamat'],
+                'email' => $validatedData['email'],
+                'telepon' => $validatedData['telepon'],
+            ]);
+
+            $this->saveLogAktivitas(
+                logName: $this->title[0],
+                subjectType: Supplier::class,
+                subjectId: $data->id,
+                event: 'Tambah Data',
+                properties: [
+                    'changes' => [
+                        'new' => Arr::except($data->toArray(), ['id', 'created_at', 'updated_at', 'deleted_at']),
+                    ],
+                ],
+                description: "Suplier {$data->nama} (ID {$data->id}) ditambahkan.",
+                userId: $request->user_id ?? null,
+                message: $request->message ?? '(Sistem) Penambahan suplier baru.'
+            );
+
+            DB::commit();
+            return $this->success($data, 201, 'Data berhasil ditambahkan');
+        } catch (Throwable $th) {
+            DB::rollBack();
+            return $this->error(500, 'Internal Server Error', $th->getMessage());
+        }
     }
 
     public function edit(string $id)
@@ -144,49 +168,97 @@ class SupplierController extends Controller
     }
 
 
-    public function update(Request $request, $id)
+    public function update(Request $request)
     {
-        $supplier = Supplier::findOrFail($id);
-
         try {
-            $supplier->update([
-                'nama_supplier' => $request->nama_supplier,
-                'email' => $request->email,
-                'alamat' => $request->alamat,
-                'contact' => $request->contact,
+            $request->validate([
+                'nama' => 'required|string',
+                'email' => 'nullable|string',
+                'alamat' => 'nullable|string',
+                'telepon' => 'nullable|string',
             ]);
 
-            ActivityLogger::log('Ubah Supplier', $request->all());
+            DB::beginTransaction();
 
-        } catch (\Throwable $th) {
-            return redirect()->back()->with('error', $th->getMessage())->withInput();
+            $supplier = Supplier::findOrFail($request->id);
+
+            $originalData = Arr::except($supplier->toArray(), ['id', 'created_at', 'updated_at', 'deleted_at']);
+
+            $updateData = [
+                'nama' => $request->nama,
+                'email' => $request->email,
+                'alamat' => $request->alamat,
+                'telepon' => $request->telepon,
+            ];
+
+            $changedData = [];
+            foreach ($updateData as $key => $value) {
+                $oldValue = $originalData[$key] ?? null;
+                if ((string)$oldValue !== (string)$value) {
+                    $changedData['old'][$key] = $oldValue;
+                    $changedData['new'][$key] = $value;
+                }
+            }
+
+            $updated = $supplier->update($updateData);
+
+            if (!$updated) {
+                throw new \Exception('Gagal memperbarui data member');
+            }
+
+            if (!empty($changedData)) {
+                $this->saveLogAktivitas(
+                    logName: $this->title[0],
+                    subjectType: Supplier::class,
+                    subjectId: $supplier->id,
+                    event: 'Edit Data',
+                    properties: ['changes' => $changedData],
+                    description: "Suplier {$supplier->nama} (ID {$supplier->id}) diperbarui.",
+                    userId: $request->user_id ?? null,
+                    message: $request->message ?? '(Sistem) Perubahan data suplier.'
+                );
+            }
+
+            DB::commit();
+            return $this->success($updateData, 201, 'Data berhasil diperbarui');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return $this->error(500, 'Internal Server Error', $e->getMessage());
         }
-        return redirect()->route('master.supplier.index')->with('success', 'Sukses Mengubah Data Supplier');
     }
 
-    public function delete(string $id)
+    public function delete(Request $request)
     {
-        $supplier = Supplier::findOrFail($id);
+        $supplier = Supplier::findOrFail($request->id);
 
         try {
             DB::beginTransaction();
+
+            $originalData = Arr::except($supplier->toArray(), ['id', 'created_at', 'updated_at', 'deleted_at']);
+
+            $this->saveLogAktivitas(
+                logName: $this->title[0],
+                subjectType: Supplier::class,
+                subjectId: $supplier->id,
+                event: 'Hapus Data',
+                properties: [
+                    'changes' => [
+                        'old' => $originalData,
+                    ],
+                ],
+                description: "Suplier {$supplier->nama} (ID {$supplier->id}) dihapus.",
+                userId: $request->user_id ?? null,
+                message: '(Sistem) Penghapusan data suplier.'
+            );
 
             $supplier->delete();
 
             DB::commit();
 
-            ActivityLogger::log('Hapus Supplier', ['id' => $id]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Sukses menghapus Data Supplier'
-            ]);
-        } catch (\Throwable $th) {
+            return $this->success(null, 200, 'Data berhasil dihapus');
+        } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Gagal menghapus Data Supplier: ' . $th->getMessage()
-            ], 500);
+            return $this->error(500, 'Internal Server Error', $e->getMessage());
         }
     }
 

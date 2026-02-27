@@ -289,7 +289,7 @@ class DashboardController extends Controller
         // ====== QUERY DASAR ======
         $query = Member::select(
             'member.id',
-            'member.nama',
+            'member.nama as nama_member',
             'transaksi_kasir.toko_id',
             'toko.nama',
             // jumlah total barang (qty) dikurangi retur
@@ -334,7 +334,7 @@ class DashboardController extends Controller
         }
 
         // ====== GROUPING ======
-        $query->groupBy('transaksi_kasir.toko_id', 'toko.nama', 'member.id', 'member.nama');
+        $query->groupBy('transaksi_kasir.toko_id', 'toko.nama', 'member.id', 'nama_member');
 
         // ====== HASIL ======
         $dataMember = $query->orderByDesc('total_pembayaran_setelah_retur')
@@ -344,7 +344,7 @@ class DashboardController extends Controller
         // ====== MAPPING ======
         $data = $dataMember->map(function ($item) {
             return [
-                'nama_member' => $item->member->nama,
+                'nama_member' => $item->nama_member,
                 'id_toko' => $item->toko_id,
                 'nama_toko' => $item->toko->nama,
                 'total_barang_dibeli' => (int) $item->total_barang_dibeli,

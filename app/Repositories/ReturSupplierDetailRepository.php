@@ -25,7 +25,7 @@ class ReturSupplierDetailRepository
 
     public function getAll($filter)
     {
-        $query = $this->model->query()->with('barang:id,nama_barang');
+        $query = $this->model->query()->with('barang:id,nama');
 
         if (!empty($filter->start_date) && !empty($filter->end_date)) {
             $query->whereBetween('tanggal', [$filter->start_date, $filter->end_date]);

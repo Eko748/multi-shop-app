@@ -56,10 +56,11 @@ class StockBarangBatchRepo
     public function getHargaBarang($filter)
     {
         $query = $this->model::with([
-            'supplier:id,nama,telepon',
+            'sumber.pembelianBarang.supplier:id,nama,telepon',
+            'stockBarang:id,barang_id',
             'stockBarang.barang:id,nama',
         ])
-            ->select('id', 'supplier_id', 'stock_barang_id', 'harga_beli as hpp', 'qty_sisa', 'created_at')
+            ->select('id', 'supplier_id', 'stock_barang_id', 'harga_beli as hpp', 'qty_sisa', 'created_at', 'sumber_type', 'sumber_id', 'qrcode')
             ->where('id', $filter->id);
 
         return !empty($filter->limit)

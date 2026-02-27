@@ -21,6 +21,7 @@
         let getDataRest = await renderAPI(
             'GET',
             '{{ route('retur.supplier.getDetail') }}', {
+                toko_id: {{ auth()->user()->toko_id }},
                 page: page,
                 limit: limit,
                 ascending: ascending,

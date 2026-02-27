@@ -19,6 +19,7 @@
         let getDataRest = await renderAPI(
             'GET',
             '{{ route('retur.supplier.get') }}', {
+                toko_id: {{ auth()->user()->toko_id }},
                 page: page,
                 limit: limit,
                 ascending: ascending,
@@ -200,18 +201,17 @@
                                     <th scope="col" class="${tdClass}" style="width:10%">Tanggal</th>
                                     <th scope="col" class="${tdClass}" style="width:10%">Informasi</th>
                                     <th scope="col" class="${tdClass}" style="width:7%">Status</th>
-                                    <th scope="col" class="${tdClass}" style="width:7%">No Retur</th>
                                     <th scope="col" class="${tdClass}" style="width:7%">Suplier</th>
                                     <th scope="col" class="${tdClass}" style="width:10%">Tipe</th>
                                     <th scope="col" class="${tdClass} text-right" style="width:7%">Qty</th>
-                                    <th scope="col" class="${tdClass} text-right" style="width:12%">Total Hpp Ganti Barang</th>
+                                    <th scope="col" class="${tdClass} text-right" style="width:12%">Total Hpp</th>
                                     <th scope="col" class="${tdClass} text-right" style="width:12%">Total Refund</th>
                                     <th scope="col" class="${tdClass} text-center" style="width:10%">Aksi</th>
                                 </tr>
                             </thead>
                             <thead>
                                 <tr>
-                                    <th colspan="8"></th>
+                                    <th colspan="7"></th>
                                     <th colspan="1" class="${tdClass} text-right"><span class="badge badge-primary">${total.hpp.format || 0}</span></th>
                                     <th colspan="1" class="${tdClass} text-right"><span class="badge badge-primary">${total.refund.format || 0}</span></th>
                                     <th colspan="1"></th>
@@ -227,7 +227,6 @@
                     <td class="${tdClass}">${element.tanggal}</td>
                     <td class="${tdClass}">${element.info}</td>
                     <td class="${tdClass}">${element.statusBadge}</td>
-                    <td class="${tdClass}">${element.no_retur}</td>
                     <td class="${tdClass}">${element.supplier}</td>
                     <td class="${tdClass}">${element.tipe_retur}</td>
                     <td class="${tdClass} text-right">${element.qty}</td>
@@ -406,7 +405,7 @@
                     subtotal_refund,
                     subtotal_hpp,
                     subtotal_selisih,
-                    updated_by: '{{ auth()->user()->id }}',
+                    updated_by: {{ auth()->user()->id }},
                     retur
                 };
 
@@ -544,6 +543,7 @@
                     'GET',
                     '{{ route('retur.supplier.getData') }}', {
                         id: id,
+                        toko_id: {{ auth()->user()->toko_id }},
                     }
                 ).then(res => res)
                 .catch(err => err.response);
@@ -680,12 +680,12 @@
 
             const supplier = data.supplier ? data.supplier : {
                 id: '-',
-                nama_supplier: '-'
+                nama: '-'
             };
             const supplierRow = `
             <tr class="supplier-row table-active font-weight-bold" data-supplier="${supplier.id}">
                 <td colspan="9">
-                    <i class="fa fa-truck mr-1"></i> Supplier: ${supplier.nama_supplier}
+                    <i class="fa fa-truck mr-1"></i> Supplier: ${supplier.nama}
                 </td>
             </tr>`;
 
@@ -703,7 +703,7 @@
                     data-harga_jual="${d.harga_jual}">
                     <td class="align-top text-center">${index + 1}</td>
                     <td class="align-top text-wrap">
-                        <details><summary>${d.barang?.nama_barang || '-'}</summary>
+                        <details><summary>${d.barang?.nama || '-'}</summary>
                         <hr><p>${d.keterangan || ''}</p></details>
                     </td>
                     <td class="align-top">
@@ -1060,7 +1060,7 @@
                 const supplierRow = `
             <tr class="supplier-row table-active font-weight-bold" data-supplier="${item.supplier_id}">
                 <td colspan="${mode === 'edit' ? 8 : 9}">
-                    <i class="fa fa-truck mr-1"></i> Supplier: ${item.nama_supplier}
+                    <i class="fa fa-truck mr-1"></i> Supplier: ${item.nama}
                 </td>
                 ${
                     mode === 'add'
@@ -1187,7 +1187,7 @@
         function handleAddItem(item) {
             const tbody = $('#tableReturItems tbody');
             const existingRow = tbody.find(
-                `.item-row[data-barang="${item.barang_id}"][data-supplier="${item.supplier_id}"]`);
+                `.item-row[data-id="${item.id}"]`);
 
             if (existingRow.length > 0) {
                 // Barang sudah ada, tambahkan qty jika belum mencapai maks
@@ -1213,7 +1213,7 @@
                 const supplierRow = `
             <tr class="supplier-row table-active font-weight-bold" data-supplier="${item.supplier_id}">
                 <td colspan="5">
-                    <i class="fa fa-truck mr-1"></i> Supplier: ${item.nama_supplier}
+                    <i class="fa fa-truck mr-1"></i> Supplier: ${item.nama}
                 </td>
                 <td class="text-center">
                     <button type="button" class="btn btn-sm btn-danger remove-supplier" data-supplier="${item.supplier_id}">

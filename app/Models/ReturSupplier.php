@@ -43,13 +43,13 @@ class ReturSupplier extends Model
     public function createdBy()
     {
         return $this->belongsTo(User::class, 'created_by')
-            ->select('id', 'nama', 'id_toko');
+            ->select('id', 'nama', 'toko_id');
     }
 
     public function updatedBy()
     {
         return $this->belongsTo(User::class, 'updated_by')
-            ->select('id', 'nama', 'id_toko');
+            ->select('id', 'nama', 'toko_id');
     }
 
     public function deletedBy()

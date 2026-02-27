@@ -23,9 +23,9 @@ class StokBarangDetailRepository
         return $item;
     }
 
-    public function updateWithPembelian($id, array $data)
+    public function updateWithPembelian($id, $pembelianId, array $data)
     {
-        $item = $this->model::where('sumber_id', $id)
+        $item = $this->model::where('id', $id)->where('sumber_id', $pembelianId)
             ->where('sumber_type', PembelianBarangDetail::class);
         if ($item) {
             $item->update($data);
@@ -39,9 +39,9 @@ class StokBarangDetailRepository
             ->where('sumber_type', PembelianBarangDetail::class)->where('qty_sisa', '>', 0)->first();
     }
 
-    public function findByPembelianWithZero($id)
+    public function findByPembelianWithZero($id, $pembelianId)
     {
-        return $this->model::where('sumber_id', $id)
+        return $this->model::where('id', $id)->where('sumber_id', $pembelianId)
             ->where('sumber_type', PembelianBarangDetail::class)
             ->first();
     }

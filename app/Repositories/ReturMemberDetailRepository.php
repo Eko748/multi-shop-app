@@ -81,6 +81,7 @@ class ReturMemberDetailRepository
 
             $totalItemRetur = $this->model
                 ->where('supplier_id', $supplierId)
+                ->where('qty_barang', '>', 0)
                 ->whereRaw('qty_request > COALESCE(qty_ke_supplier,0)')
                 ->selectRaw('SUM(qty_request - COALESCE(qty_ke_supplier,0)) as total')
                 ->value('total');
@@ -101,7 +102,7 @@ class ReturMemberDetailRepository
         $query = $this->model::with([
             'supplier:id,nama,telepon',
             'barang:id,nama',
-            'transaksiKasirDetail:id,stock_barang_batch_id',
+            'transaksiKasirDetail:id,stock_barang_batch_id,qrcode',
             'transaksiKasirDetail.stockBarangBatch' => function ($q) {
                 $q->select('id', 'qrcode');
             },
@@ -112,6 +113,7 @@ class ReturMemberDetailRepository
                 'supplier_id',
                 'barang_id',
                 'qty_request',
+                'qty_barang',
                 'qty_ke_supplier',
                 'hpp',
                 'harga_jual',
@@ -119,6 +121,7 @@ class ReturMemberDetailRepository
             )
             ->selectRaw('(qty_request - COALESCE(qty_ke_supplier,0)) as qty')
             ->where('supplier_id', $filter->id)
+            ->where('qty_barang', '>', 0)
             ->whereRaw('(qty_request - COALESCE(qty_ke_supplier,0)) > 0');
 
         return !empty($filter->limit)

@@ -107,8 +107,8 @@ class MemberController extends Controller
 
             return [
                 'id'          => $item->id,
-                'nama_member' => $item->nama,
-                'id_toko'     => $item->toko->id ?? null,
+                'nama' => $item->nama,
+                'toko_id'     => $item->toko->id ?? null,
                 'nama_toko'   => $item->toko->nama ?? null,
                 'level'       => $selectedLevels,
                 'no_hp'       => $item->no_hp,
@@ -134,12 +134,12 @@ class MemberController extends Controller
         return view('master.member.index', compact('menu', 'jenis_barang'));
     }
 
-    public function getLevelHarga($id_toko)
+    public function getLevelHarga(Request $request)
     {
-        $toko = Toko::where('id', $id_toko)->first();
+        $toko = Toko::findOrFail($request->toko_id);
 
         if ($toko) {
-            $levelHargaIds = json_decode($toko->id_level_harga, true);
+            $levelHargaIds = json_decode($toko->level_harga, true);
 
             $levelHarga = LevelHarga::whereIn('id', $levelHargaIds)
                 ->get(['id', 'nama_level_harga'])
@@ -159,31 +159,19 @@ class MemberController extends Controller
         return response()->json(['error' => 'Toko tidak ditemukan'], 404);
     }
 
-    public function create()
+    public function post(Request $request)
     {
-        $toko = Toko::all();
-        $levelharga = LevelHarga::all();
-        $jenis_barang = JenisBarang::all();
-
-        return view('master.member.create', compact('toko', 'leveluser', 'levelharga', 'jenis_barang'));
-    }
-
-    public function store(Request $request)
-    {
-        DB::beginTransaction();
-
         try {
             $validatedData = $request->validate(
                 [
-                    'id_toko' => 'required',
-                    'nama_member' => 'required',
-                    'no_hp' => 'required',
+                    'toko_id' => 'required',
+                    'nama' => 'required',
+                    'no_hp' => 'nullable',
                     'alamat' => 'required',
                 ],
                 [
-                    'id_toko.required' => 'Toko Wajib diisi.',
-                    'nama_member.required' => 'Nama Member tidak boleh kosong',
-                    'no_hp.required' => 'No Hp Wajib diisi',
+                    'toko_id.required' => 'Toko Wajib diisi.',
+                    'nama.required' => 'Nama Member tidak boleh kosong',
                     'alamat.required' => 'Alamat Wajib diisi',
                 ]
             );
@@ -197,9 +185,11 @@ class MemberController extends Controller
                 }
             }
 
+            DB::beginTransaction();
+
             $data = Member::create([
-                'id_toko' => $validatedData['id_toko'],
-                'nama_member' => $validatedData['nama_member'],
+                'toko_id' => $validatedData['toko_id'],
+                'nama' => $validatedData['nama'],
                 'no_hp' => $validatedData['no_hp'],
                 'alamat' => $validatedData['alamat'],
                 'level_info' => json_encode($levelInfo),
@@ -215,7 +205,7 @@ class MemberController extends Controller
                         'new' => Arr::except($data->toArray(), ['id', 'created_at', 'updated_at', 'deleted_at']),
                     ],
                 ],
-                description: "Member {$data->nama_member} (ID {$data->id}) di toko ID {$data->id_toko} ditambahkan.",
+                description: "Member {$data->nama} (ID {$data->id}) di toko ID {$data->toko_id} ditambahkan.",
                 userId: $request->user_id ?? null,
                 message: $request->message ?? '(Sistem) Penambahan member baru.'
             );
@@ -228,31 +218,20 @@ class MemberController extends Controller
         }
     }
 
-    public function edit($id)
-    {
-        $member = Member::with('levelharga')->findOrFail($id);
-        $jenis_barang = JenisBarang::all();
-        $levelharga = LevelHarga::all();
-
-        $selected_levels = $member->level_data;
-
-        return view('member.edit', compact('member', 'jenis_barang', 'levelharga', 'selected_levels'));
-    }
-
-    public function update(Request $request, $id)
+    public function update(Request $request)
     {
         try {
             $request->validate([
-                'id_toko' => 'required|integer',
-                'nama_member' => 'required|string',
-                'no_hp' => 'required|string',
+                'toko_id' => 'required|integer',
+                'nama' => 'required|string',
+                'no_hp' => 'nullable|string',
                 'alamat' => 'nullable|string',
                 'level_harga' => 'nullable|array',
             ]);
 
             DB::beginTransaction();
 
-            $member = Member::findOrFail($id);
+            $member = Member::findOrFail($request->id);
 
             $originalData = Arr::except($member->toArray(), ['id', 'created_at', 'updated_at', 'deleted_at']);
 
@@ -268,8 +247,8 @@ class MemberController extends Controller
             }
 
             $updateData = [
-                'id_toko' => $request->id_toko,
-                'nama_member' => $request->nama_member,
+                'toko_id' => $request->toko_id,
+                'nama' => $request->nama,
                 'no_hp' => $request->no_hp,
                 'alamat' => $request->alamat,
                 'level_info' => json_encode($levelInfo),
@@ -297,7 +276,7 @@ class MemberController extends Controller
                     subjectId: $member->id,
                     event: 'Edit Data',
                     properties: ['changes' => $changedData],
-                    description: "Member {$member->nama_member} (ID {$member->id}) di toko ID {$member->id_toko} diperbarui.",
+                    description: "Member {$member->nama} (ID {$member->id}) di toko ID {$member->id_toko} diperbarui.",
                     userId: $request->user_id ?? null,
                     message: $request->message ?? '(Sistem) Perubahan data member.'
                 );
@@ -311,12 +290,9 @@ class MemberController extends Controller
         }
     }
 
-    public function delete(Request $request, string $id)
+    public function delete(Request $request)
     {
-        $member = Member::findOrFail($id);
-
-        ActivityLogger::log('Delete Member', ['id' => $id]);
-
+        $member = Member::findOrFail($request->id);
         try {
             DB::beginTransaction();
 
@@ -332,7 +308,7 @@ class MemberController extends Controller
                         'old' => $originalData,
                     ],
                 ],
-                description: "Member {$member->nama_member} (ID {$member->id}) di toko ID {$member->id_toko} dihapus.",
+                description: "Member {$member->nama} (ID {$member->id}) di toko ID {$member->toko_id} dihapus.",
                 userId: $request->user_id ?? null,
                 message: '(Sistem) Penghapusan data member.'
             );
@@ -341,16 +317,10 @@ class MemberController extends Controller
 
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Sukses menghapus Data Member'
-            ]);
-        } catch (Throwable $th) {
+            return $this->success(null, 200, 'Data berhasil dihapus');
+        } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Gagal menghapus Data Member: ' . $th->getMessage()
-            ], 500);
+            return $this->error(500, 'Internal Server Error', $e->getMessage());
         }
     }
 

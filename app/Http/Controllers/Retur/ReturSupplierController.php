@@ -34,7 +34,9 @@ class ReturSupplierController extends Controller
     public function get(Request $request)
     {
         try {
-            $filter = $this->makeFilter($request, 30);
+            $filter = $this->makeFilter($request, 30, [
+                'toko_id' => $request->toko_id
+            ]);
             $data = $this->service->getAll($filter);
 
             return $this->success($data['data'], 200, 'Berhasil', $data['pagination']);
@@ -50,6 +52,7 @@ class ReturSupplierController extends Controller
         try {
             $filter = $this->makeFilter($request, 30, [
                 'id' => $request->input('id'),
+                'toko_id' => $request->input('toko_id'),
             ]);
             $data = $this->service->getData($filter);
 
@@ -66,6 +69,7 @@ class ReturSupplierController extends Controller
         try {
             $filter = $this->makeFilter($request, 30, [
                 'id' => $request->input('id'),
+                'toko_id' => $request->input('toko_id'),
             ]);
             $data = $this->service->getDetail($filter);
 
@@ -299,6 +303,7 @@ class ReturSupplierController extends Controller
         try {
             $validated = $request->validate([
                 'id' => 'required|integer|exists:retur_supplier,id',
+                'toko_id' => 'required|integer|exists:toko,id',
                 'updated_by' => 'required|integer|exists:users,id',
             ]);
 

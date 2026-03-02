@@ -12,16 +12,7 @@ class JenisBarang extends Model
     use HasFactory, SoftDeletes;
 
     protected $table = 'jenis_barang';
-
-    protected $guarded = [''];
-
-    public $incrementing = false;
-
-    public $timestamps = false;
-
-    protected $keyType = 'string';
-
-    public $primaryKey = 'id';
+    protected $guarded = [];
 
     public function barang()
     {

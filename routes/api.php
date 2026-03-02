@@ -103,6 +103,25 @@ Route::prefix('supplier')->as('supplier.')->group(function () {
     Route::delete('delete', [SupplierController::class, 'delete'])->name('delete');
 });
 
+Route::prefix('jenis-barang')->as('jenisBarang.')->group(function () {
+    Route::post('post', [JenisBarangController::class, 'post'])->name('post');
+    Route::put('put', [JenisBarangController::class, 'update'])->name('update');
+    Route::delete('delete', [JenisBarangController::class, 'delete'])->name('delete');
+});
+
+Route::prefix('barang')->as('barang.')->group(function () {
+    Route::post('post', [BarangController::class, 'post'])->name('post');
+    Route::put('put', [BarangController::class, 'update'])->name('update');
+    Route::delete('delete', [BarangController::class, 'delete'])->name('delete');
+    Route::get('get-brands-by-jenis', [BrandController::class, 'getBrandsByJenis'])->name('getBrandsByJenis');
+});
+
+Route::prefix('brand')->as('brand.')->group(function () {
+    Route::post('post', [BrandController::class, 'post'])->name('post');
+    Route::put('put', [BrandController::class, 'update'])->name('update');
+    Route::delete('delete', [BrandController::class, 'delete'])->name('delete');
+});
+
 Route::prefix('neraca')->as('neraca.')->group(function () {
     Route::get('get', [NeracaPenyesuaianController::class, 'get'])->name('get');
     Route::post('post', [NeracaPenyesuaianController::class, 'post'])->name('post');

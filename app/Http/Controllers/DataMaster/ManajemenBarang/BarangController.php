@@ -9,9 +9,9 @@ use App\Helpers\TextGenerate;
 use App\Imports\BarangImport;
 use App\Models\Barang;
 use App\Models\Brand;
-use App\Models\JenisBarang;
 use Illuminate\Http\Request;
 use App\Traits\ApiResponse;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Milon\Barcode\Facades\DNS1DFacade;
@@ -89,13 +89,17 @@ class BarangController extends Controller
         $mappedData = collect($data['data'])->map(function ($item) {
             return [
                 'id' => $item['id'],
-                'garansi' => $item->garansi === 'Yes' ? 'Ada' : 'Tidak Ada',
+                'garansi' => $item->garansi === 1 ? 'Aktif' : 'Tidak Ada',
+                'status_garansi' => $item->garansi,
                 'barcode' => $item->barcode,
                 'barcode_path' => AssetGenerate::build("barcodes/{$item->barcode}.png"),
                 'gambar' => $item->gambar,
-                'nama_barang' => TextGenerate::short($item->nama, 60),
+                'nama_barang' => TextGenerate::smartTail($item->nama),
+                'nama_barang_long' => $item->nama,
                 'nama_jenis_barang' => optional($item['jenis'])->nama_jenis_barang ?? 'Tidak Ada',
+                'jenis_barang_id' => optional($item['jenis'])->id ?? null,
                 'nama_brand' => optional($item['brand'])->nama_brand ?? 'Tidak Ada',
+                'brand_id' => optional($item['brand'])->id ?? null,
             ];
         });
 
@@ -115,18 +119,6 @@ class BarangController extends Controller
         return view('master.barang.index', compact('menu'));
     }
 
-    public function create()
-    {
-        $menu = [$this->title[0], $this->label[0], $this->title[1]];
-        $jenis = JenisBarang::all();
-        $brand = Brand::all();
-        // Mengirim data ke view
-        return view('master.barang.create', compact('menu', 'brand', 'jenis'), [
-            'brand' => Brand::all()->pluck('nama_brand', 'id'),
-            'jenis' => JenisBarang::all()->pluck('nama_jenis_barang', 'id'),
-        ]);
-    }
-
     public function getBrandsByJenis(Request $request)
     {
         // Validasi bahwa id_jenis_barang dikirim melalui AJAX
@@ -141,13 +133,14 @@ class BarangController extends Controller
         return response()->json($brands);
     }
 
-    public function store(Request $request)
+    public function post(Request $request)
     {
         $request->validate([
-            'nama' => 'required|string|max:255',
+            'user_id' => 'required|integer',
+            'nama_barang' => 'required|string|max:255',
             'jenis_barang_id' => 'required|exists:jenis_barang,id',
             'brand_id' => 'required|exists:brand,id',
-            'barcode' => 'nullable|string|max:255',
+            'barcode' => 'nullable|string|max:255|unique:barang,barcode',
             'garansi' => 'nullable|boolean',
             'gambar' => 'nullable|image|max:2048',
         ]);
@@ -176,8 +169,8 @@ class BarangController extends Controller
             }
 
             Barang::create([
-                'created_by' => $request->created_by,
-                'nama' => $request->nama,
+                'created_by' => $request->user_id,
+                'nama' => $request->nama_barang,
                 'jenis_barang_id' => $request->jenis_barang_id,
                 'gambar' => $gambarPath ? $gambarPath : null,
                 'barcode' => $barcodeValue,
@@ -220,62 +213,102 @@ class BarangController extends Controller
         return redirect()->back()->with('error', 'Barcode tidak ditemukan.');
     }
 
-    public function edit(string $id)
+    public function update(Request $request)
     {
-        $menu = [$this->title[0], $this->label[0], $this->title[2]];
-        $barang = Barang::with('brand', 'jenis')->findOrFail($id);
-        $brand = Brand::all();
-        $jenis = JenisBarang::all();
-        $item = [
-            'id' => $id,
-            'garansi' => null, // Contoh value garansi
-        ];
-        return view('master.barang.edit', compact('menu', 'barang', 'brand', 'jenis', 'item'));
-    }
-
-    public function update(Request $request, string $id)
-    {
-        $request->validate([
-            'id_jenis_barang' => 'required|integer',
-            'id_brand_barang' => 'required|integer',
-            'nama_barang' => 'required|string|max:255',
-        ]);
-
-        ActivityLogger::log('Update Barang', ['id' => $id, 'data' => $request->all()]);
-
-        $barang = Barang::findOrFail($id);
-
         try {
-            $barang->update([
-                'id_jenis_barang' => $request->id_jenis_barang,
-                'id_brand_barang' => $request->id_brand_barang,
-                'nama_barang' => $request->nama_barang,
-                'garansi' => $request->garansi,
+            $request->validate([
+                'id' => 'required|integer',
+                'user_id' => 'required|integer',
+                'brand_id' => 'required|integer',
+                'jenis_barang_id' => 'required|integer',
+                'nama_barang' => 'required|string|max:255',
+                'barcode' => 'nullable|string|max:255|unique:barang,barcode,' . $request->id,
+                'gambar' => 'nullable',
+                'garansi' => 'nullable|boolean',
             ]);
-            return redirect()->route('master.barang.index')->with('success', 'Sukses Mengubah Data Barang');
-        } catch (\Throwable $th) {
-            return redirect()->back()->with('error', $th->getMessage())->withInput();
+
+            DB::beginTransaction();
+
+            $data = Barang::findOrFail($request->id);
+
+            $originalData = Arr::except($data->toArray(), ['id', 'created_at', 'updated_at', 'deleted_at']);
+
+            $updateData = [
+                'updated_by' => $request->user_id,
+                'brand_id' => $request->brand_id,
+                'jenis_barang_id' => $request->jenis_barang_id,
+                'nama' => $request->nama_barang,
+                'barcode' => $request->barcode,
+                'gambar' => $request->gambar,
+                'garansi' => $request->garansi ?? 0,
+            ];
+
+            $changedData = [];
+            foreach ($updateData as $key => $value) {
+                $oldValue = $originalData[$key] ?? null;
+                if ((string)$oldValue !== (string)$value) {
+                    $changedData['old'][$key] = $oldValue;
+                    $changedData['new'][$key] = $value;
+                }
+            }
+
+            $updated = $data->update($updateData);
+            if (!$updated) {
+                throw new \Exception('Gagal memperbarui data barang');
+            }
+
+            if (!empty($changedData)) {
+                $this->saveLogAktivitas(
+                    logName: $this->title[0],
+                    subjectType: Barang::class,
+                    subjectId: $data->id,
+                    event: 'Edit Data',
+                    properties: ['changes' => $changedData],
+                    description: "Barang {$data->nama} (ID {$data->id}) diperbarui.",
+                    userId: $request->user_id ?? null,
+                    message: $request->message ?? '(Sistem) Perubahan data barang.'
+                );
+            }
+
+            DB::commit();
+            return $this->success($updateData, 201, 'Data berhasil diperbarui');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return $this->error(500, $e->getMessage());
         }
     }
 
-    public function delete(string $id)
+    public function delete(Request $request)
     {
-        DB::beginTransaction();
-
-        ActivityLogger::log('Delete Barang', ['id' => $id]);
-
-        $barang = Barang::findOrFail($id);
+        $data = Barang::findOrFail($request->id);
         try {
+            DB::beginTransaction();
 
-            $barang->delete();
+            $originalData = Arr::except($data->toArray(), ['id', 'created_at', 'updated_at', 'deleted_at']);
+
+            $this->saveLogAktivitas(
+                logName: $this->title[0],
+                subjectType: Barang::class,
+                subjectId: $data->id,
+                event: 'Hapus Data',
+                properties: [
+                    'changes' => [
+                        'old' => $originalData,
+                    ],
+                ],
+                description: "Barang {$data->nama} (ID {$data->id}) dihapus.",
+                userId: $request->user_id ?? null,
+                message: '(Sistem) Penghapusan data barang.'
+            );
+
+            $data->delete();
 
             DB::commit();
 
-            return redirect()->route('master.barang.index')->with('success', 'Sukses menghapus Data Barang');
-        } catch (\Throwable $th) {
+            return $this->success(null, 200, 'Data berhasil dihapus');
+        } catch (\Exception $e) {
             DB::rollBack();
-
-            return redirect()->back()->with('error', 'Gagal menghapus Data Barang: ' . $th->getMessage());
+            return $this->error(500, 'Internal Server Error', $e->getMessage());
         }
     }
 

@@ -61,28 +61,12 @@ Route::middleware(['auth'])->group(function () {
 
     // Jenis Barang Controller
     Route::get('/jenis_barang', [JenisBarangController::class, 'index'])->name('master.jenisbarang.index')->middleware('permission:GET /jenis_barang');
-    Route::get('/jenis_barang/create', [JenisBarangController::class, 'create'])->name('master.jenisbarang.create')->middleware('permission:GET /jenis_barang/create');
-    Route::post('/jenis_barang/store', [JenisBarangController::class, 'store'])->name('master.jenisbarang.store')->middleware('permission:POST /jenis_barang/store');
-    Route::get('/jenis_barang/edit/{id}', [JenisBarangController::class, 'edit'])->name('master.jenisbarang.edit')->middleware('permission:GET /jenis_barang/edit/{id}');
-    Route::put('/jenis_barang{id}/update', [JenisBarangController::class, 'update'])->name('master.jenisbarang.update')->middleware('permission:PUT /jenis_barang{id}/update');
-    Route::delete('/jenis_barang/delete/{id}', [JenisBarangController::class, 'delete'])->name('master.jenisbarang.delete')->middleware('permission:DELETE /jenis_barang/delete/{id}');
 
     // Brand Controller
     Route::get('/brand', [BrandController::class, 'index'])->name('master.brand.index')->middleware('permission:GET /brand');
-    Route::get('/brand/create', [BrandController::class, 'create'])->name('master.brand.create')->middleware('permission:GET /brand/create');
-    Route::post('/brand/store', [BrandController::class, 'store'])->name('master.brand.store')->middleware('permission:POST /brand/store');
-    Route::get('/brand/edit/{id}', [BrandController::class, 'edit'])->name('master.brand.edit')->middleware('permission:GET /brand/edit/{id}');
-    Route::put('/brand/{id}', [BrandController::class, 'update'])->name('master.brand.update')->middleware('permission:PUT /brand/{id}');
-    Route::delete('/brand/delete/{id}', [BrandController::class, 'delete'])->name('master.brand.delete')->middleware('permission:DELETE /brand/delete/{id}');
 
     // Barang Controller
     Route::get('/barang', [BarangController::class, 'index'])->name('master.barang.index')->middleware('permission:GET /barang');
-    Route::get('/barang/create', [BarangController::class, 'create'])->name('master.barang.create')->middleware('permission:GET /barang/create');
-    Route::post('/barang/store', [BarangController::class, 'store'])->name('master.barang.store')->middleware('permission:POST /barang/store');
-    Route::get('/barang/edit/{id}', [BarangController::class, 'edit'])->name('master.barang.edit')->middleware('permission:GET /barang/edit/{id}');
-    Route::put('/barang/update/{id}', [BarangController::class, 'update'])->name('master.barang.update')->middleware('permission:PUT /barang/update/{id}');
-    Route::delete('/barang/delete/{id}', [BarangController::class, 'delete'])->name('master.barang.delete')->middleware('permission:DELETE /barang/delete/{id}');
-    Route::get('/get-brands-by-jenis', [BrandController::class, 'getBrandsByJenis'])->name('getBrandsByJenis')->middleware('permission:GET /get-brands-by-jenis');
     Route::post('/import-barang', [BarangController::class, 'import'])->name('master.barang.import')->middleware('permission:POST /import-barang');
 
     // Stock Barang Controller

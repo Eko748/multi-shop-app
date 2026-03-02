@@ -20,11 +20,10 @@
                         <div class="card-header">
                             <div class="row">
                                 <div class="col-12 col-xl-2 col-lg-2 mb-2">
-                                    <a href="{{ route('master.jenisbarang.create') }}" class="mr-2 btn btn-primary w-100"
-                                        data-container="body" data-toggle="tooltip" data-placement="top"
-                                        title="Tambah Data Jenis Barang">
-                                        <i class="fa fa-circle-plus"></i> Tambah
-                                    </a>
+                                    <button type="button" class="btn btn-primary w-100" id="btn-add-data"
+                                        onclick="openAddModal()">
+                                        <i class="fa fa-circle-plus"></i><span> Tambah Data</span>
+                                    </button>
                                 </div>
                                 <div class="col-12 col-xl-10 col-lg-10 mb-2">
                                     <div class="row justify-content-end">
@@ -44,7 +43,6 @@
                             </div>
                         </div>
                         <div class="content">
-                            <x-adminlte-alerts />
                             <div class="card-body p-0">
                                 <div class="table-responsive table-scroll-wrapper">
                                     <table class="table table-striped m-0">
@@ -80,6 +78,28 @@
             </div>
         </div>
     </div>
+
+    <div id="modal-form" class="modal fade bd-example-modal-lg" tabindex="-1" role="dialog"
+        aria-labelledby="myLargeModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalLabel">Tambah Data Jenis Barang</h5>
+                    <button type="button" class="btn-close reset-all close" data-bs-dismiss="modal" aria-label="Close"><i
+                            class="fa fa-xmark"></i></button>
+                </div>
+                <div class="modal-body">
+                    <form id="form-data">
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" aria-label="Close"><i
+                            class="fa fa-times mr-1"></i>Tutup</button>
+                    <button type="submit" form="form-data" class="btn btn-success" id="save-btn">Simpan</button>
+                </div>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @section('asset_js')
@@ -108,6 +128,7 @@
                     limit: limit,
                     ascending: ascending,
                     search: search,
+                    toko_id: {{ auth()->user()->toko_id }},
                     ...filterParams
                 }
             ).then(function(response) {
@@ -136,12 +157,9 @@
 
         async function handleData(data) {
             let edit_button = `
-            <a href='jenis_barang/edit/${data.id}' class="p-1 btn edit-data action_button"
-                data-container="body" data-toggle="tooltip" data-placement="top"
-                title="Edit ${title}: ${data.nama_jenis_barang}"
-                data-id='${data.id}'>
-                <span class="text-dark">Edit</span>
-                <div class="icon text-warning">
+            <a class="p-1 btn edit-data action_button" onClick="openEditModal('${encodeURIComponent(JSON.stringify(data))}')">
+                <span class="text-dark" title="Edit ${title}: ${data.nama_jenis_barang}">Edit</span>
+                <div class="icon text-warning" title="Edit ${title}: ${data.nama_jenis_barang}">
                     <i class="fa fa-edit"></i>
                 </div>
             </a>`;
@@ -222,7 +240,10 @@
                 }).then(async (result) => {
                     let postDataRest = await renderAPI(
                         'DELETE',
-                        `jenis_barang/delete/${id}`
+                        '{{ route('jenisBarang.delete') }}', {
+                            id: id,
+                            user_id: {{ auth()->user()->id }}
+                        }
                     ).then(function(response) {
                         return response;
                     }).catch(function(error) {
@@ -242,10 +263,165 @@
             })
         }
 
+        function openAddModal() {
+            renderModalForm('add');
+            $('#save-btn')
+                .removeClass('btn-primary')
+                .addClass('btn-success')
+                .prop('disabled', false)
+                .html('<i class="fa fa-save mr-1"></i>Simpan');
+
+            $('#modal-form').modal('show');
+        }
+
+        async function renderModalForm(mode = 'add', data = {}) {
+            const title = mode === 'edit' ?
+                '<i class="fa fa-edit mr-1"></i>Edit Data Jenis Barang' :
+                '<i class="fa fa-circle-plus mr-1"></i>Tambah Data Jenis Barang';
+
+            $('#modalLabel').html(title);
+
+            const formContent = `
+                <div class="row">
+                    <div class="col-xl-12">
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <div class="form-group">
+                                    <label for="nama_jenis_barang" class=" form-control-label">Nama Jenis Barang<span style="color: red">*</span></label>
+                                    <input type="text" id="nama_jenis_barang" name="nama_jenis_barang" placeholder="Masukkan jenis barang" class="form-control">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            await $('#form-data').html(formContent);
+
+            if (mode === 'edit') {
+                $('#nama_jenis_barang').val(data.nama_jenis_barang);
+
+                if ($('#form-data input[name="id"]').length === 0) {
+                    $('<input>').attr({
+                        type: 'hidden',
+                        name: 'id',
+                        value: data.id
+                    }).appendTo('#form-data');
+                } else {
+                    $('#form-data input[name="id"]').val(data.id);
+                }
+            }
+        }
+
+        async function saveData() {
+            $(document).on("click", "#save-btn", async function(e) {
+                e.preventDefault();
+
+                const btn = $(this);
+                const saveButton = this;
+                const form = $('#form-data')[0];
+                const formData = new FormData(form);
+
+                const userId = '{{ auth()->user()->id }}';
+                formData.append('user_id', userId);
+
+                if (saveButton.disabled) return;
+
+                swal({
+                    title: "Konfirmasi",
+                    text: `Apakah Anda yakin ingin menyimpan ${title} ini?`,
+                    type: "question",
+                    showCancelButton: true,
+                    confirmButtonColor: '#2ecc71',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Ya, Simpan',
+                    cancelButtonText: 'Batal',
+                    reverseButtons: true,
+                }).then(async (willSave) => {
+                    if (!willSave) return;
+
+                    saveButton.disabled = true;
+                    const originalContent = btn.data('original-content') || btn.html();
+                    btn.data('original-content', originalContent);
+                    btn.html(
+                        `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Menyimpan`
+                    );
+
+                    loadingPage(true);
+
+                    const isEdit = formData.get('id') !== null && formData.get('id') !== '';
+                    const url = isEdit ?
+                        `{{ route('jenisBarang.update') }}` :
+                        `{{ route('jenisBarang.post') }}`;
+
+                    let method = 'POST';
+
+                    if (isEdit) {
+                        formData.append('_method', 'PUT');
+                        formData.append('id', formData.get('id'));
+                    }
+
+                    try {
+                        const response = await renderAPI(method, url, formData);
+                        loadingPage(false);
+
+                        if (response.status >= 200 && response.status < 300) {
+                            notificationAlert('success', 'Pemberitahuan', response.data
+                                .message || 'Data berhasil disimpan.');
+                            isDataSaved = true;
+
+                            setTimeout(async function() {
+                                await getListData(defaultLimitPage, currentPage,
+                                    defaultAscending,
+                                    defaultSearch, customFilter);
+                            }, 500);
+
+                            setTimeout(() => {
+                                $('#modal-form').modal('hide');
+                            }, 500);
+
+                        } else {
+                            notificationAlert('info', 'Pemberitahuan', response.data.message ||
+                                'Terjadi kesalahan saat menyimpan.');
+                            saveButton.disabled = false;
+                            btn.html(btn.data('original-content'));
+                        }
+                    } catch (error) {
+                        loadingPage(false);
+                        notificationAlert('error', 'Kesalahan', error?.response?.data
+                            ?.message || 'Terjadi kesalahan saat menyimpan data.');
+                        saveButton.disabled = false;
+                        btn.html(btn.data('original-content'));
+                    }
+                });
+            });
+        }
+
+        function openEditModal(data) {
+            try {
+                let item = JSON.parse(decodeURIComponent(data));
+
+                renderModalForm('edit', item);
+
+                $('#save-btn')
+                    .removeClass('btn-success')
+                    .addClass('btn-primary')
+                    .prop('disabled', false)
+                    .html('<i class="fa fa-edit mr-1"></i>Update');
+
+                $('#modal-form').modal('show');
+            } catch (e) {
+                notificationAlert('info', 'Pemberitahuan', 'Terjadi kesalahan saat memuat data untuk diedit.');
+            }
+        }
+
         async function initPageLoad() {
-            await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter);
-            await searchList();
-            await deleteData();
+            await Promise.all([
+                getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter),
+                searchList(),
+                deleteData(),
+                saveData(),
+            ]);
         }
     </script>
 @endsection

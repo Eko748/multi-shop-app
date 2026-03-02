@@ -4,14 +4,16 @@ namespace App\Http\Controllers\DataMaster\ManajemenBarang;
 
 use App\Http\Controllers\Controller;
 use App\Models\Brand;
-use App\Models\JenisBarang;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Helpers\ActivityLogger;
+use App\Traits\ApiResponse;
+use Illuminate\Support\Arr;
+use Throwable;
 
 class BrandController extends Controller
 {
+    use ApiResponse;
     private array $menu = [];
 
     public function __construct()
@@ -93,16 +95,6 @@ class BrandController extends Controller
         return view('master.brand.index', compact('menu'));
     }
 
-    public function create()
-    {
-        $menu = [$this->title[0], $this->label[0], $this->title[1]];
-        $jenis = JenisBarang::all();
-
-        return view('master.brand.create', compact('menu', 'jenis'), [
-            'jenis' => JenisBarang::all()->pluck('id', 'nama_jenis_barang'),
-        ]);
-    }
-
     public function getBrandsByJenis(Request $request)
     {
         $request->validate([
@@ -114,88 +106,129 @@ class BrandController extends Controller
         return response()->json($brands);
     }
 
-    public function store(Request $request)
+    public function post(Request $request)
     {
-        $validatedData = $request->validate([
-            'nama_brand' => 'required|string|max:255',
-        ], [
-            'nama_brand.required' => 'Nama Brand tidak boleh kosong.',
-        ]);
-
-        ActivityLogger::log('Tambah Brand', $request->all());
-
         try {
+            $validatedData = $request->validate([
+                'nama_brand' => 'required|string|max:255',
+            ], [
+                'nama_brand.required' => 'Nama Brand tidak boleh kosong.',
+            ]);
 
             DB::beginTransaction();
 
-            Brand::create([
-                'nama_brand' => $request->nama_brand,
+            $data = Brand::create([
+                'nama_brand' => $validatedData['nama_brand'],
             ]);
 
+            $this->saveLogAktivitas(
+                logName: $this->title[0],
+                subjectType: Brand::class,
+                subjectId: $data->id,
+                event: 'Tambah Data',
+                properties: [
+                    'changes' => [
+                        'new' => Arr::except($data->toArray(), ['id', 'created_at', 'updated_at', 'deleted_at']),
+                    ],
+                ],
+                description: "Brand {$data->nama_brand} (ID {$data->id}) ditambahkan.",
+                userId: $request->user_id ?? null,
+                message: $request->message ?? '(Sistem) Penambahan brand baru.'
+            );
+
             DB::commit();
-
-            return redirect()->route('master.brand.index')->with('success', 'Data berhasil ditambahkan!');
-        } catch (\Exception $e) {
+            return $this->success($data, 201, 'Data berhasil ditambahkan');
+        } catch (Throwable $th) {
             DB::rollBack();
-
-            return redirect()->back()->with(['error' => $e->getMessage()]);
+            return $this->error(500, 'Internal Server Error', $th->getMessage());
         }
     }
 
-    public function edit(string $id)
+    public function update(Request $request)
     {
-        $menu = [$this->title[0], $this->label[0], $this->title[2]];
-        $brand = Brand::with('jenis')->findOrFail($id);
+        try {
+            $request->validate([
+                'nama_brand' => 'required|string',
+            ]);
 
-        $jenis = JenisBarang::all();
-        return view('master.brand.edit', compact('menu', 'brand', 'jenis'));
+            DB::beginTransaction();
+
+            $brand = Brand::findOrFail($request->id);
+
+            $originalData = Arr::except($brand->toArray(), ['id', 'created_at', 'updated_at', 'deleted_at']);
+
+            $updateData = [
+                'nama_brand' => $request->nama_brand,
+            ];
+
+            $changedData = [];
+            foreach ($updateData as $key => $value) {
+                $oldValue = $originalData[$key] ?? null;
+                if ((string)$oldValue !== (string)$value) {
+                    $changedData['old'][$key] = $oldValue;
+                    $changedData['new'][$key] = $value;
+                }
+            }
+
+            $updated = $brand->update($updateData);
+
+            if (!$updated) {
+                throw new \Exception('Gagal memperbarui data brand');
+            }
+
+            if (!empty($changedData)) {
+                $this->saveLogAktivitas(
+                    logName: $this->title[0],
+                    subjectType: Brand::class,
+                    subjectId: $brand->id,
+                    event: 'Edit Data',
+                    properties: ['changes' => $changedData],
+                    description: "Brand {$brand->nama_brand} (ID {$brand->id}) diperbarui.",
+                    userId: $request->user_id ?? null,
+                    message: $request->message ?? '(Sistem) Perubahan data brand.'
+                );
+            }
+
+            DB::commit();
+            return $this->success($updateData, 201, 'Data berhasil diperbarui');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return $this->error(500, 'Internal Server Error', $e->getMessage());
+        }
     }
 
-    public function update(Request $request, string $id)
+    public function delete(Request $request)
     {
-        $validatedData = $request->validate([
-            'nama_brand' => 'required|string|max:255',
-        ], [
-            'nama_brand.required' => 'Nama Brand tidak boleh kosong.',
-        ]);
-
-        ActivityLogger::log('Update Brand', ['id' => $id, 'data' => $request->all()]);
-
-        DB::beginTransaction();
-
-        $brand = Brand::findOrFail($id);
-
-        $brand->update([
-            'nama_brand' => $request->nama_brand,
-        ]);
-
-        DB::commit();
-
-        return redirect()->route('master.brand.index')->with('success', 'Data berhasil diperbarui!');
-    }
-
-    public function delete(string $id)
-    {
-        ActivityLogger::log('Delete Brand', ['id' => $id]);
+        $data = Brand::findOrFail($request->id);
 
         try {
             DB::beginTransaction();
 
-            $brand = Brand::findOrFail($id);
-            $brand->delete();
+            $originalData = Arr::except($data->toArray(), ['id', 'created_at', 'updated_at', 'deleted_at']);
+
+            $this->saveLogAktivitas(
+                logName: $this->title[0],
+                subjectType: Brand::class,
+                subjectId: $data->id,
+                event: 'Hapus Data',
+                properties: [
+                    'changes' => [
+                        'old' => $originalData,
+                    ],
+                ],
+                description: "Brand {$data->nama_brand} (ID {$data->id}) dihapus.",
+                userId: $request->user_id ?? null,
+                message: '(Sistem) Penghapusan data brand.'
+            );
+
+            $data->delete();
 
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Sukses menghapus Data Brand'
-            ]);
-        } catch (\Throwable $th) {
+            return $this->success(null, 200, 'Data berhasil dihapus');
+        } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Gagal menghapus Data Brand: ' . $th->getMessage()
-            ], 500);
+            return $this->error(500, 'Internal Server Error', $e->getMessage());
         }
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Helpers\TextGenerate;
 use App\Http\Controllers\Controller;
 use App\Models\DetailKasir;
 use App\Models\PenjualanNonFisik;
@@ -257,7 +258,7 @@ class DashboardController extends Controller
             // ===== MAPPING HASIL =====
             $data = $dataBarang->map(function ($item) {
                 return [
-                    'nama_barang' => $item->nama,
+                    'nama_barang' => TextGenerate::smartTail($item->nama),
                     'jumlah' => (int) $item->net_terjual,
                     'total_retur' => (int) $item->total_retur,
                     'total_nilai' => (float) $item->net_nilai

@@ -129,9 +129,9 @@
                                 @if (hasAnyPermission(['POST /barang/store', 'POST /import-barang']))
                                     @if (hasAnyPermission(['POST /barang/store']))
                                         <div class="custom-btn-tambah-wrap">
-                                            <button class="btn btn-primary text-white add-data w-100" data-container="body"
-                                                data-toggle="tooltip" data-placement="top" title="Tambah Barang">
-                                                <i class="fa fa-plus-circle"></i> Tambah
+                                            <button type="button" class="btn btn-primary w-100" id="btn-add-data"
+                                                onclick="openAddModal()">
+                                                <i class="fa fa-circle-plus"></i><span> Tambah Data</span>
                                             </button>
                                         </div>
                                     @endif
@@ -197,7 +197,6 @@
                                     </div>
                                 </form>
                             </div>
-                            <x-adminlte-alerts />
                             <div class="card-body p-0">
                                 <div class="table-responsive table-scroll-wrapper">
                                     <table class="table table-striped m-0">
@@ -243,80 +242,18 @@
             <div class="modal-dialog modal-xl" role="document">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title" id="modal-title">Tambah Data Barang</h5>
+                        <h5 class="modal-title" id="modalLabel">Tambah Data Barang</h5>
                         <button type="button" class="btn-close reset-all close" data-bs-dismiss="modal"
                             aria-label="Close"><i class="fa fa-xmark"></i></button>
                     </div>
                     <div class="modal-body">
-                        <form id="formTambahData">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <div class="form-group">
-                                            <label for="nama" class=" form-control-label">Nama Barang<span
-                                                    style="color: red">*</span></label>
-                                            <input type="text" id="nama" name="nama_barang" value=""
-                                                class="form-control" placeholder="Contoh : Barang Baru">
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="form-group">
-                                        <label for="jenis_barang_id" class=" form-control-label">Jenis Barang<span
-                                                style="color: red">*</span></label>
-                                        <select name="jenis_barang_id" id="jenis_barang_id" class="form-control select2">
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="form-group">
-                                        <label for="brand_id" class=" form-control-label">Brand Barang<span
-                                                style="color: red">*</span></label>
-                                        <select name="brand_id" id="brand_id" class="form-control select2">
-                                            <option value="1" selected>Umum</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <div class="form-group">
-                                            <label for="gambar" class="form-control-label">Gambar Barang<span
-                                                    style="font-size: 11px; color: rgb(193, 79, 79)"> (Ukuran tidak lebih
-                                                    dari 1MB)</span></label>
-                                            <input type="file" id="gambar" name="gambar" class="form-control">
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="form-group">
-                                        <div class="form-group">
-                                            <label for="barcode" class=" form-control-label">Barcode</label>
-                                            <input type="text" id="barcode" name="barcode" value=""
-                                                class="form-control" placeholder="Kosongkan jika tidak ada barcode">
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="form-group">
-                                        <div class="form-group">
-                                            <label for="flexSwitchCheckDefault"
-                                                class=" form-control-label">Garansi</label>
-                                            <div class="form-check form-switch">
-                                                <input class="form-check-input" type="checkbox" id="garansi"
-                                                    name="garansi" checked="false">
-                                                <span id="switchStatus">Tidak</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                        <form id="form-data">
                         </form>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" aria-label="Close"><i
-                                class="fa fa-circle-xmark mr-1"></i>Tutup</button>
-                        <button type="submit" class="btn btn-primary" id="submit-button" form="formTambahData"><i
-                                class="fa fa-save mr-1"></i>Simpan</button>
+                                class="fa fa-times mr-1"></i>Tutup</button>
+                        <button type="submit" form="form-data" class="btn btn-success" id="save-btn">Simpan</button>
                     </div>
                 </div>
             </div>
@@ -412,6 +349,7 @@
                     limit: limit,
                     ascending: ascending,
                     search: search,
+                    toko_id: {{ auth()->user()->toko_id }},
                     ...filterParams
                 }
             ).then(function(response) {
@@ -455,15 +393,12 @@
                 `<span class="badge badge-danger">Tidak Ada Gambar</span>`;
 
             let edit_button = `
-                <a href='barang/edit/${data.id}' class="p-1 btn edit-data action_button"
-                    data-container="body" data-toggle="tooltip" data-placement="top"
-                    title="Edit ${title}: ${data.nama_barang}"
-                    data-id='${data.id}'>
-                    <span class="text-dark">Edit</span>
-                    <div class="icon text-warning">
-                        <i class="fa fa-edit"></i>
-                    </div>
-                </a>`;
+            <a class="p-1 btn edit-data action_button" onClick="openEditModal('${encodeURIComponent(JSON.stringify(data))}')">
+                <span class="text-dark" title="Edit ${title}: ${data.nama_barang}">Edit</span>
+                <div class="icon text-warning" title="Edit ${title}: ${data.nama_barang}">
+                    <i class="fa fa-edit"></i>
+                </div>
+            </a>`;
 
             let download_button = data?.barcode_path && data.barcode_path !== "" ?
                 `<a href="${data.barcode_path}" download class="p-1 btn download-data action_button"
@@ -570,7 +505,10 @@
                 }).then(async (result) => {
                     let postDataRest = await renderAPI(
                         'DELETE',
-                        `barang/delete/${id}`
+                        '{{ route('barang.delete') }}', {
+                            id: id,
+                            user_id: {{ auth()->user()->id }}
+                        }
                     ).then(function(response) {
                         return response;
                     }).catch(function(error) {
@@ -617,80 +555,80 @@
             });
         }
 
-        async function addData() {
-            $(document).on("click", ".add-data", function() {
-                $("#formTambahData")[0].reset();
-                $("#formTambahData select").val("");
-                $("#formTambahData .select2").val(null).trigger("change");
-                $('#garansi').prop('checked', false);
-                $('#switchStatus').text('Tidak');
+        // async function addData() {
+        //     $(document).on("click", ".add-data", function() {
+        //         $("#formTambahData")[0].reset();
+        //         $("#formTambahData select").val("");
+        //         $("#formTambahData .select2").val(null).trigger("change");
+        //         $('#garansi').prop('checked', false);
+        //         $('#switchStatus').text('Tidak');
 
-                $("#modal-title").html(`<i class="fa fa-circle-plus mr-1"></i>Form Tambah Barang`);
-                $("#modal-form").modal("show");
-                $("#formTambahData").data("action-url", '{{ route('master.barang.store') }}');
-                setTimeout(() => {
-                    $('#brand_id').val('1').trigger('change');
-                }, 100);
-            });
+        //         $("#modal-title").html(`<i class="fa fa-circle-plus mr-1"></i>Form Tambah Barang`);
+        //         $("#modal-form").modal("show");
+        //         $("#formTambahData").data("action-url", '{{ route('barang.post') }}');
+        //         setTimeout(() => {
+        //             $('#brand_id').val('1').trigger('change');
+        //         }, 100);
+        //     });
 
-            $('#garansi').on('change', function() {
-                $('#switchStatus').text(this.checked ? 'Ya' : 'Tidak');
-            });
+        //     $('#garansi').on('change', function() {
+        //         $('#switchStatus').text(this.checked ? 'Ya' : 'Tidak');
+        //     });
 
-        }
+        // }
 
-        async function submitForm() {
-            $(document).off("submit").on("submit", "#formTambahData", async function(e) {
-                e.preventDefault();
+        // async function submitForm() {
+        //     $(document).off("submit").on("submit", "#formTambahData", async function(e) {
+        //         e.preventDefault();
 
-                const $submitButton = $("#submit-button");
-                const originalButtonHTML = $submitButton.html();
+        //         const $submitButton = $("#submit-button");
+        //         const originalButtonHTML = $submitButton.html();
 
-                $submitButton.prop("disabled", true).html(
-                    `<i class="fas fa-spinner fa-spin"></i> Menyimpan...`);
+        //         $submitButton.prop("disabled", true).html(
+        //             `<i class="fas fa-spinner fa-spin"></i> Menyimpan...`);
 
-                loadingPage(true);
+        //         loadingPage(true);
 
-                let actionUrl = $("#formTambahData").data("action-url");
+        //         let actionUrl = $("#formTambahData").data("action-url");
 
-                const userId = {{ auth()->user()->id }};
+        //         const userId = {{ auth()->user()->id }};
 
-                let formData = {
-                    created_by: userId,
-                    nama: $('#nama').val(),
-                    barcode: $('#barcode').val(),
-                    gambar: $('#gambar').val(),
-                    jenis_barang_id: $('#jenis_barang_id').val(),
-                    brand_id: $('#brand_id').val(),
-                    garansi: $('#garansi').is(':checked'),
-                };
+        //         let formData = {
+        //             created_by: userId,
+        //             nama: $('#nama').val(),
+        //             barcode: $('#barcode').val(),
+        //             gambar: $('#gambar').val(),
+        //             jenis_barang_id: $('#jenis_barang_id').val(),
+        //             brand_id: $('#brand_id').val(),
+        //             garansi: $('#garansi').is(':checked'),
+        //         };
 
-                try {
-                    let postData = await renderAPI("POST", actionUrl, formData);
+        //         try {
+        //             let postData = await renderAPI("POST", actionUrl, formData);
 
-                    loadingPage(false);
-                    if (postData.status >= 200 && postData.status < 300) {
-                        notificationAlert("success", "Pemberitahuan", postData.data.message || "Berhasil");
-                        setTimeout(async function() {
-                            await getListData(defaultLimitPage, currentPage, defaultAscending,
-                                defaultSearch, customFilter);
-                        }, 500);
-                        setTimeout(() => {
-                            $("#modal-form").modal("hide");
-                        }, 500);
-                    } else {
-                        notificationAlert("info", "Pemberitahuan", postData.data.message ||
-                            "Terjadi kesalahan");
-                    }
-                } catch (error) {
-                    loadingPage(false);
-                    let resp = error.response?.data || {};
-                    notificationAlert("error", "Kesalahan", resp.message || "Terjadi kesalahan");
-                } finally {
-                    $submitButton.prop("disabled", false).html(originalButtonHTML);
-                }
-            });
-        }
+        //             loadingPage(false);
+        //             if (postData.status >= 200 && postData.status < 300) {
+        //                 notificationAlert("success", "Pemberitahuan", postData.data.message || "Berhasil");
+        //                 setTimeout(async function() {
+        //                     await getListData(defaultLimitPage, currentPage, defaultAscending,
+        //                         defaultSearch, customFilter);
+        //                 }, 500);
+        //                 setTimeout(() => {
+        //                     $("#modal-form").modal("hide");
+        //                 }, 500);
+        //             } else {
+        //                 notificationAlert("info", "Pemberitahuan", postData.data.message ||
+        //                     "Terjadi kesalahan");
+        //             }
+        //         } catch (error) {
+        //             loadingPage(false);
+        //             let resp = error.response?.data || {};
+        //             notificationAlert("error", "Kesalahan", resp.message || "Terjadi kesalahan");
+        //         } finally {
+        //             $submitButton.prop("disabled", false).html(originalButtonHTML);
+        //         }
+        //     });
+        // }
 
         function previewBarcode(base64) {
             const overlay = document.getElementById('barcodePreview');
@@ -712,6 +650,283 @@
             if (e.target === this) closeBarcodePreview();
         });
 
+        function openAddModal() {
+            renderModalForm('add');
+            $('#save-btn')
+                .removeClass('btn-primary')
+                .addClass('btn-success')
+                .prop('disabled', false)
+                .html('<i class="fa fa-save mr-1"></i>Simpan');
+
+            $('#modal-form').modal('show');
+        }
+
+        function openEditModal(data) {
+            try {
+                let item = JSON.parse(decodeURIComponent(data));
+
+                renderModalForm('edit', item);
+
+                $('#save-btn')
+                    .removeClass('btn-success')
+                    .addClass('btn-primary')
+                    .prop('disabled', false)
+                    .html('<i class="fa fa-edit mr-1"></i>Update');
+
+                $('#modal-form').modal('show');
+            } catch (e) {
+                notificationAlert('info', 'Pemberitahuan', 'Terjadi kesalahan saat memuat data untuk diedit.');
+            }
+        }
+
+        async function renderModalForm(mode = 'add', data = {}) {
+            const title = mode === 'edit' ?
+                '<i class="fa fa-edit mr-1"></i>Edit Data Barang' :
+                '<i class="fa fa-circle-plus mr-1"></i>Tambah Data Barang';
+
+            $('#modalLabel').html(title);
+
+            const formContent = `
+                <div class="row">
+                    <div class="col-xl-12">
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <div class="form-group">
+                                                <label for="nama" class=" form-control-label">Nama Barang<span
+                                                        style="color: red">*</span></label>
+                                                <input type="text" id="nama" name="nama_barang" value=""
+                                                    class="form-control" placeholder="Contoh : Barang Baru">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="form-group">
+                                            <label for="jenis_barang_id" class=" form-control-label">Jenis Barang<span
+                                                    style="color: red">*</span></label>
+                                            <select name="jenis_barang_id" id="jenis_barang_id" class="form-control select2">
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="form-group">
+                                            <label for="brand_id" class=" form-control-label">Brand Barang<span
+                                                    style="color: red">*</span></label>
+                                            <select name="brand_id" id="brand_id" class="form-control select2">
+                                                <option value="1" selected>Umum</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <div class="form-group">
+                                                <label for="gambar" class="form-control-label">Gambar Barang<span
+                                                        style="font-size: 11px; color: rgb(193, 79, 79)"> (Ukuran tidak lebih
+                                                        dari 1MB)</span></label>
+                                                <input type="file" id="gambar" name="gambar" class="form-control">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="form-group">
+                                            <div class="form-group">
+                                                <label for="barcode" class=" form-control-label">Barcode</label>
+                                                <input type="text" id="barcode" name="barcode" value=""
+                                                    class="form-control" placeholder="Kosongkan jika tidak ada barcode">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="form-group">
+                                            <div class="form-group">
+                                                <label class="form-control-label">Garansi</label>
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input"
+                                                        type="checkbox"
+                                                        id="garansi"
+                                                        name="garansi"
+                                                        value="1">
+                                                    <span id="switchStatus">Tidak</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            await $('#form-data').html(formContent);
+
+            const tokoId = mode === 'edit' ? data.toko_id : {{ auth()->user()->toko_id }};
+
+            selectOptions.push({
+                id: `#jenis_barang_id`,
+                isUrl: `{{ route('master.jenisBarang') }}`,
+                isFilter: {
+                    'toko_id': {{ auth()->user()->toko_id }}
+                },
+                placeholder: 'Pilih Jenis Barang',
+                isModal: '#modal-form',
+            });
+
+            await selectData(selectOptions);
+            // default add = Tidak
+            $('#garansi').prop('checked', false);
+            $('#switchStatus').text('Tidak');
+
+            if (mode === 'edit') {
+                $('#nama').val(data.nama_barang_long);
+                $('#barcode').val(data.barcode);
+                $('#gambar').val(data.gambar);
+                const isGaransi = data.status_garansi == 1;
+
+                $('#garansi').prop('checked', isGaransi);
+                $('#switchStatus').text(isGaransi ? 'Ya' : 'Tidak');
+
+                const selectorJB = '#jenis_barang_id';
+
+                if ($(selectorJB).length && data.jenis_barang_id) {
+
+                    if ($(selectorJB + ' option[value="' + data.jenis_barang_id + '"]').length === 0) {
+
+                        const newOption = new Option(
+                            data.nama_jenis_barang,
+                            data.jenis_barang_id,
+                            true,
+                            true
+                        );
+
+                        $(selectorJB).append(newOption).trigger('change');
+
+                    } else {
+                        $(selectorJB).val(data.jenis_barang_id).trigger('change');
+                    }
+                }
+
+                const selectorBrand = '#brand_id';
+
+                if ($(selectorBrand).length && data.brand_id) {
+
+                    if ($(selectorBrand + ' option[value="' + data.brand_id + '"]').length === 0) {
+
+                        const newOption = new Option(
+                            data.nama_brand,
+                            data.brand_id,
+                            true,
+                            true
+                        );
+
+                        $(selectorBrand).append(newOption).trigger('change');
+
+                    } else {
+                        $(selectorBrand).val(data.brand_id).trigger('change');
+                    }
+                }
+
+                if ($('#form-data input[name="id"]').length === 0) {
+                    $('<input>').attr({
+                        type: 'hidden',
+                        name: 'id',
+                        value: data.id
+                    }).appendTo('#form-data');
+                } else {
+                    $('#form-data input[name="id"]').val(data.id);
+                }
+            }
+
+            $(document).on('change', '#garansi', function() {
+                $('#switchStatus').text($(this).is(':checked') ? 'Ya' : 'Tidak');
+            });
+        }
+
+        async function saveData() {
+            $(document).on("click", "#save-btn", async function(e) {
+                e.preventDefault();
+
+                const btn = $(this);
+                const saveButton = this;
+                const form = $('#form-data')[0];
+                const formData = new FormData(form);
+
+                const userId = '{{ auth()->user()->id }}';
+                formData.append('user_id', userId);
+
+                if (saveButton.disabled) return;
+
+                swal({
+                    title: "Konfirmasi",
+                    text: `Apakah Anda yakin ingin menyimpan ${title} ini?`,
+                    type: "question",
+                    showCancelButton: true,
+                    confirmButtonColor: '#2ecc71',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Ya, Simpan',
+                    cancelButtonText: 'Batal',
+                    reverseButtons: true,
+                }).then(async (willSave) => {
+                    if (!willSave) return;
+
+                    saveButton.disabled = true;
+                    const originalContent = btn.data('original-content') || btn.html();
+                    btn.data('original-content', originalContent);
+                    btn.html(
+                        `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Menyimpan`
+                    );
+
+                    loadingPage(true);
+
+                    const isEdit = formData.get('id') !== null && formData.get('id') !== '';
+                    const url = isEdit ?
+                        `{{ route('barang.update') }}` : `{{ route('barang.post') }}`;
+
+                    let method = 'POST';
+
+                    if (isEdit) {
+                        formData.append('_method', 'PUT');
+                        formData.append('id', formData.get('id'));
+                    }
+
+                    try {
+                        const response = await renderAPI(method, url, formData);
+                        loadingPage(false);
+
+                        if (response.status >= 200 && response.status < 300) {
+                            notificationAlert('success', 'Pemberitahuan', response.data
+                                .message || 'Data berhasil disimpan.');
+                            isDataSaved = true;
+
+                            setTimeout(async function() {
+                                await getListData(defaultLimitPage, currentPage,
+                                    defaultAscending,
+                                    defaultSearch, customFilter);
+                            }, 500);
+
+                            setTimeout(() => {
+                                $('#modal-form').modal('hide');
+                            }, 500);
+
+                        } else {
+                            notificationAlert('info', 'Pemberitahuan', response.data.message ||
+                                'Terjadi kesalahan saat menyimpan.');
+                            saveButton.disabled = false;
+                            btn.html(btn.data('original-content'));
+                        }
+                    } catch (error) {
+                        loadingPage(false);
+                        notificationAlert('error', 'Kesalahan', error?.response?.data
+                            ?.message || 'Terjadi kesalahan saat menyimpan data.');
+                        saveButton.disabled = false;
+                        btn.html(btn.data('original-content'));
+                    }
+                });
+            });
+        }
+
         async function initPageLoad() {
             await Promise.all([
                 selectData(selectOptions),
@@ -720,8 +935,7 @@
                 searchList(),
                 filterList(),
                 deleteData(),
-                addData(),
-                submitForm(),
+                saveData(),
             ]);
         }
     </script>

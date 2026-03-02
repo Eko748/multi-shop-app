@@ -3,13 +3,16 @@
 namespace App\Http\Controllers\DataMaster\ManajemenBarang;
 
 use App\Http\Controllers\Controller;
-use App\Helpers\ActivityLogger;
 use App\Models\JenisBarang;
+use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 class JenisBarangController extends Controller
 {
+    use ApiResponse;
     private array $menu = [];
 
     public function __construct()
@@ -93,85 +96,128 @@ class JenisBarangController extends Controller
         return view('master.jenisbarang.index', compact('menu', 'jenisbarang'));
     }
 
-    public function create()
+    public function post(Request $request)
     {
-        $menu = [$this->title[0], $this->label[0], $this->title[1]];
-
-        return view('master.jenisbarang.create', compact('menu'));
-    }
-
-    public function store(Request $request)
-    {
-        $validatedData = $request->validate([
-            'nama_jenis_barang' => 'required|max:255',
-        ], [
-            'nama_jenis_barang.required' => 'Jenis Barang tidak boleh kosong.',
-        ]);
-
-        ActivityLogger::log('Tambah Jenis Barang', $request->all());
-
         try {
-
-            JenisBarang::create([
-                'nama_jenis_barang' => $request->nama_jenis_barang,
+            $validatedData = $request->validate([
+                'nama_jenis_barang' => 'required|max:255',
+            ], [
+                'nama_jenis_barang.required' => 'Jenis Barang tidak boleh kosong.',
             ]);
 
-        } catch (\Throwable $th) {
-            return redirect()->back()->with('error', $th->getMessage())->withInput();
-        }
-        return redirect()->route('master.jenisbarang.index')->with('success', 'Sukses menambahkan Jenis Barang Baru');
-    }
+            DB::beginTransaction();
 
-    public function edit(string $id)
-    {
-        $menu = [$this->title[0], $this->label[0], $this->title[2]];
-
-        $jenisbarang = JenisBarang::findOrFail($id);
-
-        return view('master.jenisbarang.edit', compact('menu', 'jenisbarang'));
-    }
-
-    public function update(Request $request, string $id)
-    {
-        $jenisbarang = JenisBarang::findOrFail($id);
-
-        ActivityLogger::log('Update Jenis Barang', ['id' => $id, 'data' => $request->all()]);
-
-        try {
-
-            $jenisbarang->update([
-                'nama_jenis_barang' => $request->nama_jenis_barang,
+            $data = JenisBarang::create([
+                'nama_jenis_barang' => $validatedData['nama_jenis_barang'],
             ]);
 
-            return redirect()->route('master.jenisbarang.index')->with('success', 'Sukses Mengubah Data Jenis Barang');
-        } catch (\Throwable $th) {
-            return redirect()->back()->with('error', $th->getMessage())->withInput();
+            $this->saveLogAktivitas(
+                logName: $this->title[0],
+                subjectType: JenisBarang::class,
+                subjectId: $data->id,
+                event: 'Tambah Data',
+                properties: [
+                    'changes' => [
+                        'new' => Arr::except($data->toArray(), ['id', 'created_at', 'updated_at', 'deleted_at']),
+                    ],
+                ],
+                description: "Jenis Barang {$data->nama_jenis_barang} (ID {$data->id}) ditambahkan.",
+                userId: $request->user_id ?? null,
+                message: $request->message ?? '(Sistem) Penambahan jenis barang baru.'
+            );
+
+            DB::commit();
+            return $this->success($data, 201, 'Data berhasil ditambahkan');
+        } catch (Throwable $th) {
+            DB::rollBack();
+            return $this->error(500, 'Internal Server Error', $th->getMessage());
         }
     }
 
-    public function delete(string $id)
+    public function update(Request $request)
     {
-        $jenisbarang = JenisBarang::findOrFail($id);
+        try {
+            $request->validate([
+                'nama_jenis_barang' => 'required|string',
+            ]);
+            
+            DB::beginTransaction();
 
-        ActivityLogger::log('Delete Jenis Barang', ['id' => $id]);
+            $jenisbarang = JenisBarang::findOrFail($request->id);
+            $originalData = Arr::except($jenisbarang->toArray(), ['id', 'created_at', 'updated_at', 'deleted_at']);
+
+            $updateData = [
+                'nama_jenis_barang' => $request->nama_jenis_barang,
+            ];
+
+            $changedData = [];
+            foreach ($updateData as $key => $value) {
+                $oldValue = $originalData[$key] ?? null;
+                if ((string)$oldValue !== (string)$value) {
+                    $changedData['old'][$key] = $oldValue;
+                    $changedData['new'][$key] = $value;
+                }
+            }
+
+            $updated = $jenisbarang->update($updateData);
+
+            if (!$updated) {
+                throw new \Exception('Gagal memperbarui data jenis barang');
+            }
+
+            if (!empty($changedData)) {
+                $this->saveLogAktivitas(
+                    logName: $this->title[0],
+                    subjectType: JenisBarang::class,
+                    subjectId: $jenisbarang->id,
+                    event: 'Edit Data',
+                    properties: ['changes' => $changedData],
+                    description: "Jenis Barang {$jenisbarang->nama_jenis_barang} (ID {$jenisbarang->id}) diperbarui.",
+                    userId: $request->user_id ?? null,
+                    message: $request->message ?? '(Sistem) Perubahan data jenis barang.'
+                );
+            }
+
+            DB::commit();
+            return $this->success($updateData, 201, 'Data berhasil diperbarui');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return $this->error(500, 'Internal Server Error', $e->getMessage());
+        }
+    }
+
+    public function delete(Request $request)
+    {
+        $jenisbarang = JenisBarang::findOrFail($request->id);
 
         try {
             DB::beginTransaction();
+
+            $originalData = Arr::except($jenisbarang->toArray(), ['id', 'created_at', 'updated_at', 'deleted_at']);
+
+            $this->saveLogAktivitas(
+                logName: $this->title[0],
+                subjectType: JenisBarang::class,
+                subjectId: $jenisbarang->id,
+                event: 'Hapus Data',
+                properties: [
+                    'changes' => [
+                        'old' => $originalData,
+                    ],
+                ],
+                description: "Jenis Barang {$jenisbarang->nama_jenis_barang} (ID {$jenisbarang->id}) dihapus.",
+                userId: $request->user_id ?? null,
+                message: '(Sistem) Penghapusan data jenis barang.'
+            );
 
             $jenisbarang->delete();
 
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Sukses menghapus Data Jenis Barang'
-            ]);
-        } catch (\Throwable $th) {
+            return $this->success(null, 200, 'Data berhasil dihapus');
+        } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Gagal menghapus Data Jenis Barang: ' . $th->getMessage()
-            ], 500);
+            return $this->error(500, 'Internal Server Error', $e->getMessage());
         }
     }
 }

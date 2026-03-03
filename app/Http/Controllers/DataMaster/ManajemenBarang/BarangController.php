@@ -163,20 +163,39 @@ class BarangController extends Controller
             }
 
             $gambarPath = null;
+
             if ($request->hasFile('gambar')) {
                 $gambarFile = $request->file('gambar');
-                $gambarPath = $gambarFile->store('gambar', 'public');
+
+                $fileName = time() . '_' . uniqid() . '.' . $gambarFile->getClientOriginalExtension();
+
+                $gambarPath = $gambarFile->storeAs('barang/gambar', $fileName, 'public');
             }
 
-            Barang::create([
+            $data = Barang::create([
                 'created_by' => $request->user_id,
                 'nama' => $request->nama_barang,
                 'jenis_barang_id' => $request->jenis_barang_id,
-                'gambar' => $gambarPath ? $gambarPath : null,
+                'gambar' => $gambarPath,
                 'barcode' => $barcodeValue,
                 'brand_id' => $request->brand_id,
-                'garansi' => $request->garansi,
+                'garansi' => $request->garansi ?? 0,
             ]);
+
+            $this->saveLogAktivitas(
+                logName: $this->title[0],
+                subjectType: Barang::class,
+                subjectId: $data->id,
+                event: 'Tambah Data',
+                properties: [
+                    'changes' => [
+                        'new' => Arr::except($data->toArray(), ['id', 'created_at', 'updated_at', 'deleted_at']),
+                    ],
+                ],
+                description: "Barang {$data->nama} (ID {$data->id}) ditambahkan.",
+                userId: $request->user_id ?? null,
+                message: $request->message ?? '(Sistem) Penambahan barang baru.'
+            );
 
             DB::commit();
             return $this->success(null, 200, 'Data berhasil disimpan!');
@@ -233,13 +252,60 @@ class BarangController extends Controller
 
             $originalData = Arr::except($data->toArray(), ['id', 'created_at', 'updated_at', 'deleted_at']);
 
+            $barcodeValue = $request->barcode ?: $this->generateIncrementalBarcode();
+
+            $oldBarcode = $data->barcode;
+
+            if ($barcodeValue !== $oldBarcode) {
+
+                // Hapus barcode lama jika ada
+                $oldBarcodePath = "barcodes/{$oldBarcode}.png";
+
+                if ($oldBarcode && Storage::disk('public')->exists($oldBarcodePath)) {
+                    Storage::disk('public')->delete($oldBarcodePath);
+                }
+
+                // Generate barcode baru
+                $barcodeFilename = "{$barcodeValue}.png";
+                $barcodeRelativePath = "barcodes/{$barcodeFilename}";
+
+                if (!Storage::disk('public')->exists($barcodeRelativePath)) {
+
+                    $barcodeImage = DNS1DFacade::getBarcodePNG($barcodeValue, 'C128', 3, 100);
+
+                    if (!$barcodeImage) {
+                        throw new \Exception('Gagal membuat barcode PNG dari base64');
+                    }
+
+                    Storage::disk('public')->put(
+                        $barcodeRelativePath,
+                        base64_decode($barcodeImage)
+                    );
+                }
+            }
+
+            $gambarPath = $data->gambar; // default pakai lama
+
+            if ($request->hasFile('gambar')) {
+
+                // Hapus file lama jika ada
+                if ($data->gambar && Storage::disk('public')->exists($data->gambar)) {
+                    Storage::disk('public')->delete($data->gambar);
+                }
+
+                $gambarFile = $request->file('gambar');
+                $fileName = time() . '_' . uniqid() . '.' . $gambarFile->getClientOriginalExtension();
+
+                $gambarPath = $gambarFile->storeAs('barang/gambar', $fileName, 'public');
+            }
+
             $updateData = [
                 'updated_by' => $request->user_id,
                 'brand_id' => $request->brand_id,
                 'jenis_barang_id' => $request->jenis_barang_id,
                 'nama' => $request->nama_barang,
-                'barcode' => $request->barcode,
-                'gambar' => $request->gambar,
+                'barcode' => $barcodeValue,
+                'gambar' => $gambarPath,
                 'garansi' => $request->garansi ?? 0,
             ];
 

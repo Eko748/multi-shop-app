@@ -7,6 +7,25 @@ function loadingPage(value) {
     return;
 }
 
+function setSelect2Value(selector, id, text) {
+    let option = new Option(text, id, true, true);
+    $(selector).append(option).trigger('change');
+}
+
+function setSelect2MultiValue(selector, values, texts = []) {
+    if (typeof values === 'string') {
+        values = JSON.parse(values);
+    }
+
+    values.forEach((id, index) => {
+        let text = texts[index] ?? id;
+        let option = new Option(text, id, true, true);
+        $(selector).append(option);
+    });
+
+    $(selector).trigger('change');
+}
+
 function showScanInfo(message, statusClass) {
     let $info = $("#scan-info");
 

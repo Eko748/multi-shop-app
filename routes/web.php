@@ -31,11 +31,7 @@ Route::middleware(['auth'])->group(function () {
 
     // Toko Controller
     Route::get('/toko', [TokoController::class, 'index'])->name('master.toko.index')->middleware('permission:GET /toko');
-    Route::get('/toko/create', [TokoController::class, 'create'])->name('master.toko.create')->middleware('permission:GET /toko/create');
-    Route::post('/toko/store', [TokoController::class, 'store'])->name('master.toko.store')->middleware('permission:POST /toko/store');
-    Route::get('/toko/edit/{id}', [TokoController::class, 'edit'])->name('master.toko.edit')->middleware('permission:GET /toko/edit/{id}');
-    Route::put('/toko/update/{id}', [TokoController::class, 'update'])->name('master.toko.update')->middleware('permission:PUT /toko/update/{id}');
-    Route::delete('/toko/delete/{id}', [TokoController::class, 'delete'])->name('master.toko.delete')->middleware('permission:DELETE /toko/delete/{id}');
+    
     Route::get('/toko/detail/{id}', [TokoController::class, 'detail'])->name('master.toko.detail')->middleware('permission:GET /toko/detail/{id}');
     Route::get('/toko/detail/create/{id}', [TokoController::class, 'create_detail'])->name('master.toko.create_detail')->middleware('permission:GET /toko/detail/create/{id}');
     Route::post('/toko/store_detail', [TokoController::class, 'store_detail'])->name('master.toko.store_detail')->middleware('permission:POST /toko/store_detail');

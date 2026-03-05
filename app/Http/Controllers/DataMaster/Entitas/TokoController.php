@@ -13,6 +13,7 @@ use App\Models\TokoGroup;
 use App\Models\TokoGroupItem;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
@@ -75,23 +76,38 @@ class TokoController extends Controller
         }
 
         $mappedData = collect($data['data'])->map(function ($item) {
-            $idLevelHarga = is_array($item->level_harga) ? $item->level_harga : json_decode($item->level_harga, true);
+
+            $idLevelHarga = is_array($item->level_harga)
+                ? $item->level_harga
+                : json_decode($item->level_harga, true);
 
             if (!is_array($idLevelHarga)) {
                 $idLevelHarga = [];
             }
 
-            $levelHargaNames = LevelHarga::whereIn('id', $idLevelHarga)
-                ->pluck('nama_level_harga')
-                ->toArray();
+            $levelHarga = LevelHarga::whereIn('id', $idLevelHarga)
+                ->get(['id', 'nama_level_harga']);
+
+            $levelHargaNames = $levelHarga->pluck('nama_level_harga')->toArray();
 
             return [
                 'id' => $item['id'],
                 'nama' => $item['nama'],
                 'singkatan' => $item['singkatan'],
-                'nama_level_harga' => !empty($levelHargaNames) ? implode(', ', $levelHargaNames) : 'Tidak Ada Level',
+
+                // untuk tabel
+                'nama_level_harga' => !empty($levelHargaNames)
+                    ? implode(', ', $levelHargaNames)
+                    : 'Tidak Ada Level',
+
                 'wilayah' => $item->wilayah,
+                'kas_detail' => $item->kas_detail,
+                'kas_detail_status' => $item->kas_detail == 1 ? 'Ya' : 'Tidak',
                 'alamat' => $item->alamat,
+
+                // untuk edit form
+                'level_harga' => $idLevelHarga,
+                'level_harga_text' => $levelHargaNames,
             ];
         });
 
@@ -129,7 +145,7 @@ class TokoController extends Controller
         return view('master.toko.create', compact('menu', 'levelharga'));
     }
 
-    public function store(Request $request)
+    public function post(Request $request)
     {
         $request->validate([
             'toko_id'        => 'required|integer',
@@ -139,8 +155,8 @@ class TokoController extends Controller
             'level_harga'    => 'required|array',
             'wilayah'        => 'required|max:255',
             'alamat'         => 'required|max:255',
-            'pin'            => 'nullable|numeric',
-            'kas_detail'     => 'nullable',
+            'pin'            => 'required|numeric',
+            'kas_detail'     => 'required',
         ], [
             'nama.required' => 'Nama Toko tidak boleh kosong.',
             'singkatan.required' => 'Singkatan Wajib di Isi.',
@@ -152,7 +168,6 @@ class TokoController extends Controller
         try {
             DB::beginTransaction();
 
-            /** 1️⃣ Buat toko baru */
             $toko = Toko::create([
                 'parent_id'   => $request->toko_id,
                 'nama'        => $request->nama,
@@ -161,7 +176,7 @@ class TokoController extends Controller
                 'alamat'      => $request->alamat,
                 'level_harga' => json_encode($request->level_harga),
                 'pin'         => $request->filled('pin') ? $request->pin : null,
-                'kas_detail'  => 1,
+                'kas_detail'  => $request->kas_detail,
             ]);
 
             if ($request->filled('toko_group_id')) {
@@ -183,12 +198,26 @@ class TokoController extends Controller
                 'toko_id'       => $toko->id,
             ]);
 
-            DB::commit();
+            $this->saveLogAktivitas(
+                logName: $this->title[0],
+                subjectType: Toko::class,
+                subjectId: $toko->id,
+                event: 'Tambah Data',
+                properties: [
+                    'changes' => [
+                        'new' => Arr::except($toko->toArray(), ['id', 'created_at', 'updated_at', 'deleted_at']),
+                    ],
+                ],
+                description: "Toko {$toko->nama} (ID {$toko->id}) ditambahkan.",
+                userId: $request->user_id ?? null,
+                message: $request->message ?? '(Sistem) Penambahan toko baru.'
+            );
 
+            DB::commit();
             return $this->success(null, 200, 'Data berhasil disimpan!');
         } catch (\Exception $e) {
             DB::rollBack();
-            return $this->error(500, $e->getMessage());
+            return $this->error(500, 'Terjadi kesalahan saat menyimpan data: ' . $e->getMessage());
         }
     }
 
@@ -306,39 +335,67 @@ class TokoController extends Controller
         return view('master.toko.edit_detail', compact('toko', 'barang', 'detail_toko'));
     }
 
-    public function update(Request $request, string $id)
+    public function update(Request $request)
     {
-        $toko = Toko::findOrFail($id);
-
-        // Validasi input
-        $request->validate([
-            'nama' => 'required',
-            'singkatan' => 'required|max:4|unique:toko,singkatan,' . $id,
-            'wilayah' => 'required',
-            'alamat' => 'required',
-            'pin' => 'nullable|numeric',
-            'tipe_kas' => 'nullable|in:umum,barang', // validasi enum
-        ], [
-            'singkatan.unique' => 'Singkatan sudah digunakan.',
-            'tipe_kas.in' => 'Tipe kas hanya boleh umum atau barang.',
-        ]);
-
         try {
-            // Update data
-            $toko->update([
+            $request->validate([
+                'nama' => 'required',
+                'singkatan' => 'required|max:4|unique:toko,singkatan,' . $request->id,
+                'wilayah' => 'required',
+                'alamat' => 'required',
+                'pin' => 'nullable|numeric',
+                'level_harga'    => 'nullable|array',
+                'kas_detail'     => 'nullable',
+            ], [
+                'singkatan.unique' => 'Singkatan sudah digunakan.',
+            ]);
+
+            $data = Toko::findOrFail($request->id);
+
+            $updateData = [
                 'nama' => $request->nama,
                 'singkatan' => $request->singkatan,
                 'wilayah' => $request->wilayah,
                 'alamat' => $request->alamat,
-                'id_level_harga' => json_encode($request->id_level_harga),
-                'pin' => $request->filled('pin') ? $request->pin : null,
-                'tipe_kas' => $request->filled('tipe_kas') ? $request->tipe_kas : null,
-            ]);
-        } catch (\Throwable $th) {
-            return redirect()->back()->with('error', $th->getMessage())->withInput();
-        }
+                'level_harga' => $request->filled('level_harga') ? json_encode($request->level_harga) : $data->level_harga,
+                'pin' => $request->filled('pin') ? $request->pin : $data->pin,
+                'kas_detail' => $request->filled('kas_detail') ? $request->kas_detail : $data->kas_detail,
+            ];
 
-        return redirect()->route('master.toko.index')->with('success', 'Sukses Mengubah Data Toko');
+            $changedData = [];
+            foreach ($updateData as $key => $value) {
+                $oldValue = $originalData[$key] ?? null;
+                if ((string)$oldValue !== (string)$value) {
+                    $changedData['old'][$key] = $oldValue;
+                    $changedData['new'][$key] = $value;
+                }
+            }
+
+            $updated = $data->update($updateData);
+
+            if (!$updated) {
+                throw new \Exception('Gagal memperbarui data toko');
+            }
+
+            if (!empty($changedData)) {
+                $this->saveLogAktivitas(
+                    logName: $this->title[0],
+                    subjectType: Toko::class,
+                    subjectId: $data->id,
+                    event: 'Edit Data',
+                    properties: ['changes' => $changedData],
+                    description: "Toko {$data->nama} (ID {$data->id}) diperbarui.",
+                    userId: $request->user_id ?? null,
+                    message: $request->message ?? '(Sistem) Perubahan data toko.'
+                );
+            }
+
+            DB::commit();
+            return $this->success($updateData, 201, 'Data berhasil diperbarui');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return $this->error(500, 'Internal Server Error', $e->getMessage());
+        }
     }
 
     public function update_detail(Request $request, string $id_toko, string $id_barang)
@@ -389,24 +446,38 @@ class TokoController extends Controller
         }
     }
 
-    public function delete(string $id)
+    public function delete(Request $request)
     {
-        DB::beginTransaction();
-        $toko = Toko::findOrFail($id);
+        $data = Toko::findOrFail($request->id);
+
         try {
-            $toko->delete();
+            DB::beginTransaction();
+
+            $originalData = Arr::except($data->toArray(), ['id', 'created_at', 'updated_at', 'deleted_at']);
+
+            $this->saveLogAktivitas(
+                logName: $this->title[0],
+                subjectType: Toko::class,
+                subjectId: $data->id,
+                event: 'Hapus Data',
+                properties: [
+                    'changes' => [
+                        'old' => $originalData,
+                    ],
+                ],
+                description: "Toko {$data->nama} (ID {$data->id}) dihapus.",
+                userId: $request->user_id ?? null,
+                message: '(Sistem) Penghapusan data toko.'
+            );
+
+            $data->delete();
+
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Sukses menghapus Data Toko'
-            ]);
-        } catch (\Throwable $th) {
+            return $this->success(null, 200, 'Data berhasil dihapus');
+        } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Gagal menghapus Data Toko: ' . $th->getMessage()
-            ], 500);
+            return $this->error(500, 'Internal Server Error', $e->getMessage());
         }
     }
 

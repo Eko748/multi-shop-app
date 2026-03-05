@@ -96,6 +96,12 @@ Route::prefix('user')->as('user.')->group(function () {
     Route::delete('delete', [UserController::class, 'delete'])->name('delete');
 });
 
+Route::prefix('toko')->as('toko.')->group(function () {
+    Route::post('post', [TokoController::class, 'post'])->name('post');
+    Route::put('update', [TokoController::class, 'update'])->name('update');
+    Route::delete('delete', [TokoController::class, 'delete'])->name('delete');
+});
+
 Route::prefix('member')->as('member.')->group(function () {
     Route::post('post', [MemberController::class, 'post'])->name('post');
     Route::put('put', [MemberController::class, 'update'])->name('update');

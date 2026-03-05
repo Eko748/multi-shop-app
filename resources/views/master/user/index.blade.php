@@ -211,79 +211,6 @@
             </div>
         </div>
     </div>
-
-    <div class="modal fade" id="modal-form" tabindex="-1" role="dialog" aria-labelledby="modal-form-label"
-        aria-hidden="true">
-        <div class="modal-dialog modal-xl" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="modal-title">Tambah Data Pemasukan</h5>
-                    <button type="button" class="btn-close reset-all close" data-bs-dismiss="modal" aria-label="Close"><i
-                            class="fa fa-xmark"></i></button>
-                </div>
-                <div class="modal-body">
-                    <form id="formTambahData">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="toko_id" class=" form-control-label">Nama Toko<span
-                                            style="color: red">*</span></label>
-                                    <select name="toko_id" id="toko_id" class="form-control select2" tabindex="1">
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="role_id" class="form-control-label">Role<span
-                                            style="color: red">*</span></label>
-                                    <select name="role_id" id="role_id" class="form-control" tabindex="2">
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="nama" class=" form-control-label">Nama<span
-                                            style="color: red">*</span></label>
-                                    <input required type="text" id="nama" name="nama"
-                                        placeholder="Masukkan nama" class="form-control">
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="username" class=" form-control-label">Username<span
-                                            style="color: red">*</span></label>
-                                    <input type="text" id="username" name="username" placeholder="Masukkan username"
-                                        class="form-control">
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="password" class=" form-control-label">Password<span
-                                            style="color: red">*</span></label>
-                                    <input type="password" id="password" class="form-control" name="password"
-                                        placeholder="Masukkan password" aria-label="Recipient's username"
-                                        aria-describedby="basic-addon2">
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="alamat" class=" form-control-label">Alamat<span
-                                            style="color: red">*</span></label>
-                                    <textarea name="alamat" id="alamat" rows="4" placeholder="Masukkan alamat" class="form-control"></textarea>
-                                </div>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" aria-label="Close"><i
-                            class="fa fa-circle-xmark mr-1"></i>Tutup</button>
-                    <button type="submit" class="btn btn-primary" id="submit-button" form="formTambahData"><i
-                            class="fa fa-save mr-1"></i>Simpan</button>
-                </div>
-            </div>
-        </div>
-    </div>
 @endsection
 
 @section('asset_js')
@@ -491,7 +418,6 @@
             })
         }
 
-
         function openAddModal() {
             renderModalForm('add');
             $('#save-btn')
@@ -535,7 +461,7 @@
                                 <div class="row p-0">
                                     <div class="col-md-6">
                                         <div class="form-group">
-                                            <label for="toko_id" class=" form-control-label">Nama Toko<span
+                                            <label for="toko_id" class=" form-control-label">Toko<span
                                                     style="color: red">*</span></label>
                                             <select name="toko_id" id="toko_id" class="form-control select2" tabindex="1">
                                             </select>
@@ -703,11 +629,6 @@
                     }
                 });
             });
-        }
-
-        function setSelect2Value(selector, id, text) {
-            let option = new Option(text, id, true, true);
-            $(selector).append(option).trigger('change');
         }
 
         async function initPageLoad() {

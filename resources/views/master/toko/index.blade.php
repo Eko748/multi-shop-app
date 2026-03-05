@@ -135,9 +135,9 @@
                                 @if (hasAnyPermission(['POST /toko/store', 'POST /import-toko']))
                                     @if (hasAnyPermission(['POST /toko/store']))
                                         <div class="custom-btn-tambah-wrap">
-                                            <button class="btn btn-primary text-white add-data w-100" data-container="body"
-                                                data-toggle="tooltip" data-placement="top" title="Tambah Toko">
-                                                <i class="fa fa-plus-circle"></i> Tambah
+                                            <button type="button" class="btn btn-primary w-100" id="btn-add-data"
+                                                onclick="openAddModal()">
+                                                <i class="fa fa-circle-plus"></i><span> Tambah Data</span>
                                             </button>
                                         </div>
                                     @endif
@@ -209,95 +209,23 @@
         </div>
     </div>
 
-    <div class="modal fade" id="modal-form" tabindex="-1" role="dialog" aria-labelledby="modal-form-label"
-        aria-hidden="true">
-        <div class="modal-dialog modal-xl" role="document">
+    <div id="modal-form" class="modal fade bd-example-modal-lg" tabindex="-1" role="dialog"
+        aria-labelledby="myLargeModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="modal-title">Tambah Data Pemasukan</h5>
+                    <h5 class="modal-title" id="modalLabel">Tambah Data Toko</h5>
                     <button type="button" class="btn-close reset-all close" data-bs-dismiss="modal" aria-label="Close"><i
                             class="fa fa-xmark"></i></button>
                 </div>
                 <div class="modal-body">
-                    <form id="formTambahData">
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="form-group">
-                                    <label for="nama" class=" form-control-label">Nama Toko<span
-                                            style="color: red">*</span></label>
-                                    <input type="text" id="nama" name="nama"
-                                        placeholder="Contoh : Toko Sejahtera" class="form-control">
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="form-group">
-                                    <label for="singkatan" class="form-control-label">Singkatan<span
-                                            style="color: red">*</span></label>
-                                    <input type="text" id="singkatan" name="singkatan"
-                                        placeholder="Maksimal 4 Karakter" class="form-control"
-                                        value="{{ old('singkatan') }}">
-                                    @error('singkatan')
-                                        <small class="text-danger">{{ $message }}</small>
-                                    @enderror
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="form-group">
-                                    <label for="pin" class=" form-control-label">PIN Toko<span
-                                            style="color: red">*</span></label>
-                                    <input type="password" id="pin" name="pin" placeholder="Masukkan PIN"
-                                        class="form-control">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="form-group">
-                                    <label for="level_harga" class="form-control-label">Level Harga<span
-                                            style="color: red">*</span></label>
-                                    <select class="form-control" id="level_harga" name="level_harga">
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="form-group">
-                                    <label for="kas_detail" class="form-control-label">Tipe Kas Jenis Barang<span
-                                            style="color: red">*</span></label>
-                                    <select class="form-control" id="kas_detail" name="kas_detail">
-                                        <option value="1">Ya</option>
-                                        <option value="0">Tidak</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="form-group">
-                                    <label for="toko_group" class="form-control-label">Grup Toko</label>
-                                    <select class="form-control" id="toko_group" name="toko_group">
-                                    </select>
-                                    <small class="text-muted"><i>**kosongkan jika ingin membuat grup toko baru</i></small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="wilayah" class=" form-control-label">Wilayah<span
-                                    style="color: red">*</span></label>
-                            <input type="text" id="wilayah" name="wilayah" placeholder="Contoh : Cirebon Timur"
-                                class="form-control">
-                        </div>
-                        <div class="form-group">
-                            <label for="wilayah" class=" form-control-label">Alamat<span
-                                    style="color: red">*</span></label>
-                            <textarea name="alamat" id="alamat" rows="4"
-                                placeholder="Contoh : Jl. Nyimas Gandasari No.18 Plered - Cirebon" class="form-control"></textarea>
-                        </div>
+                    <form id="form-data">
                     </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" aria-label="Close"><i
-                            class="fa fa-circle-xmark mr-1"></i>Tutup</button>
-                    <button type="submit" class="btn btn-primary" id="submit-button" form="formTambahData"><i
-                            class="fa fa-save mr-1"></i>Simpan</button>
+                            class="fa fa-times mr-1"></i>Tutup</button>
+                    <button type="submit" form="form-data" class="btn btn-success" id="save-btn">Simpan</button>
                 </div>
             </div>
         </div>
@@ -395,15 +323,12 @@
             let edit_button = '';
             if (hasPermission(['PUT /toko/update/{id}'])) {
                 edit_button = `
-                <a href='toko/edit/${data.id}' class="p-1 btn edit-data action_button"
-                    data-container="body" data-toggle="tooltip" data-placement="top"
-                    title="Edit ${title}: ${data.nama}"
-                    data-id='${data.id}'>
-                    <span class="text-dark">Edit</span>
-                    <div class="icon text-warning">
+                <button class="p-1 btn edit-data action_button" onClick="openEditModal('${encodeURIComponent(JSON.stringify(data))}')">
+                    <span class="text-dark" title="Edit ${title}: ${data.nama}">Edit</span>
+                    <div class="icon text-warning" title="Edit ${title}: ${data.nama}">
                         <i class="fa fa-edit"></i>
                     </div>
-                </a>`;
+                </button>`;
             }
 
             let delete_button = '';
@@ -476,69 +401,6 @@
             renderPagination();
         }
 
-        async function addData() {
-            $(document).on("click", ".add-data", function() {
-                $("#modal-title").html(`<i class="fa fa-circle-plus mr-1"></i>Form Tambah Toko`);
-                $("#modal-form").modal("show");
-                $("#formTambahData").data("action-url", '{{ route('master.toko.store') }}');
-            });
-        }
-
-        async function submitForm() {
-            $(document).off("submit").on("submit", "#formTambahData", async function(e) {
-                e.preventDefault();
-
-                const $submitButton = $("#submit-button");
-                const originalButtonHTML = $submitButton.html();
-
-                $submitButton.prop("disabled", true).html(
-                    `<i class="fas fa-spinner fa-spin"></i> Menyimpan...`);
-
-                loadingPage(true);
-
-                let actionUrl = $("#formTambahData").data("action-url");
-
-                const idToko = '{{ auth()->user()->toko_id }}';
-
-                let formData = {
-                    toko_id: idToko,
-                    nama: $('#nama').val(),
-                    toko_group_id: $('#toko_group').val(),
-                    singkatan: $('#singkatan').val(),
-                    wilayah: $('#wilayah').val(),
-                    alamat: $('#alamat').val(),
-                    level_harga: $('#level_harga').val(),
-                    pin: $('#pin').val(),
-                    kas_detail: $('#kas_detail').val(),
-                };
-
-                try {
-                    let postData = await renderAPI("POST", actionUrl, formData);
-
-                    loadingPage(false);
-                    if (postData.status >= 200 && postData.status < 300) {
-                        notificationAlert("success", "Pemberitahuan", postData.data.message || "Berhasil");
-                        setTimeout(async function() {
-                            await getListData(defaultLimitPage, currentPage, defaultAscending,
-                                defaultSearch, customFilter);
-                        }, 500);
-                        setTimeout(() => {
-                            $("#modal-form").modal("hide");
-                        }, 500);
-                    } else {
-                        notificationAlert("info", "Pemberitahuan", postData.data.message ||
-                            "Terjadi kesalahan");
-                    }
-                } catch (error) {
-                    loadingPage(false);
-                    let resp = error.response?.data || {};
-                    notificationAlert("error", "Kesalahan", resp.message || "Terjadi kesalahan");
-                } finally {
-                    $submitButton.prop("disabled", false).html(originalButtonHTML);
-                }
-            });
-        }
-
         async function deleteData() {
             $(document).on("click", ".hapus-data", async function() {
                 isActionForm = "destroy";
@@ -560,7 +422,10 @@
                 }).then(async (result) => {
                     let postDataRest = await renderAPI(
                         'DELETE',
-                        `toko/delete/${id}`
+                        '{{ route('toko.delete') }}', {
+                            id: id,
+                            user_id: {{ auth()->user()->id }}
+                        }
                     ).then(function(response) {
                         return response;
                     }).catch(function(error) {
@@ -580,14 +445,252 @@
             })
         }
 
+        function openAddModal() {
+            renderModalForm('add');
+            $('#save-btn')
+                .removeClass('btn-primary')
+                .addClass('btn-success')
+                .prop('disabled', false)
+                .html('<i class="fa fa-save mr-1"></i>Simpan');
+
+            $('#modal-form').modal('show');
+        }
+
+        function openEditModal(data) {
+            try {
+                let item = JSON.parse(decodeURIComponent(data));
+
+                renderModalForm('edit', item);
+
+                $('#save-btn')
+                    .removeClass('btn-success')
+                    .addClass('btn-primary')
+                    .prop('disabled', false)
+                    .html('<i class="fa fa-edit mr-1"></i>Update');
+
+                $('#modal-form').modal('show');
+            } catch (e) {
+                notificationAlert('info', 'Pemberitahuan', 'Terjadi kesalahan saat memuat data untuk diedit.');
+            }
+        }
+
+        async function renderModalForm(mode = 'add', data = {}) {
+            const title = mode === 'edit' ?
+                '<i class="fa fa-edit mr-1"></i>Edit Data Toko' :
+                '<i class="fa fa-circle-plus mr-1"></i>Tambah Data Toko';
+
+            const tokoGroup = mode !== 'edit' ?
+                `<div class="col-md-4">
+                    <div class="form-group">
+                        <label for="toko_group" class="form-control-label">Grup Toko</label>
+                        <select class="form-control" id="toko_group" name="toko_group">
+                        </select>
+                        <small class="text-muted"><i>**kosongkan jika ingin membuat grup toko baru</i></small>
+                    </div>
+                </div>` : '';
+
+            const cols = mode === 'edit' ? '6' : '4';
+
+            $('#modalLabel').html(title);
+
+            const formContent = `
+                <div class="row">
+                    <div class="col-xl-12">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="nama" class=" form-control-label">Nama Toko<span
+                                                style="color: red">*</span></label>
+                                        <input type="text" id="nama" name="nama"
+                                            placeholder="Masukkan nama toko" class="form-control">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="singkatan" class="form-control-label">Singkatan<span
+                                                style="color: red">*</span></label>
+                                        <input type="text" id="singkatan" name="singkatan"
+                                            placeholder="Maksimal 4 Karakter" class="form-control"
+                                            value="{{ old('singkatan') }}">
+                                        @error('singkatan')
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="pin" class=" form-control-label">PIN Toko<span
+                                                style="color: red">*</span></label>
+                                        <input type="password" id="pin" name="pin" placeholder="Masukkan PIN"
+                                            class="form-control">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-${cols}">
+                                    <div class="form-group">
+                                        <label for="level_harga" class="form-control-label">Level Harga<span
+                                                style="color: red">*</span></label>
+                                        <select class="form-control" id="level_harga" name="level_harga[]">
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-${cols}">
+                                    <div class="form-group">
+                                        <label for="kas_detail" class="form-control-label">Tipe Kas Jenis Barang<span
+                                                style="color: red">*</span></label>
+                                        <select class="form-control" id="kas_detail" name="kas_detail">
+                                            <option value="1">Ya</option>
+                                            <option value="0">Tidak</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                ${tokoGroup}
+                            </div>
+                            <div class="form-group">
+                                <label for="wilayah" class=" form-control-label">Wilayah<span
+                                        style="color: red">*</span></label>
+                                <input type="text" id="wilayah" name="wilayah" placeholder="Masukkan wilayah"
+                                    class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="alamat" class=" form-control-label">Alamat<span
+                                        style="color: red">*</span></label>
+                                <textarea name="alamat" id="alamat" rows="4"
+                                    placeholder="Masukkan alamat" class="form-control"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            await $('#form-data').html(formContent);
+
+            await selectData(selectOptions);
+
+            if (mode === 'edit') {
+                $('#nama').val(data.nama);
+                $('#singkatan').val(data.singkatan);
+                $('#pin').val(data.pin);
+                $('#wilayah').val(data.wilayah);
+                $('#alamat').val(data.alamat);
+
+                setSelect2Value(
+                    "#kas_detail",
+                    data.kas_detail,
+                    data.kas_detail_status
+                );
+
+                setSelect2MultiValue(
+                    '#level_harga',
+                    data.level_harga,
+                    data.level_harga_text
+                );
+
+                if ($('#form-data input[name="id"]').length === 0) {
+                    $('<input>').attr({
+                        type: 'hidden',
+                        name: 'id',
+                        value: data.id
+                    }).appendTo('#form-data');
+                } else {
+                    $('#form-data input[name="id"]').val(data.id);
+                }
+            }
+        }
+
+        async function saveData() {
+            $(document).on("click", "#save-btn", async function(e) {
+                e.preventDefault();
+
+                const btn = $(this);
+                const saveButton = this;
+                const form = $('#form-data')[0];
+                const formData = new FormData(form);
+
+                const userId = '{{ auth()->user()->id }}';
+                formData.append('user_id', userId);
+
+                if (saveButton.disabled) return;
+
+                swal({
+                    title: "Konfirmasi",
+                    text: `Apakah Anda yakin ingin menyimpan ${title} ini?`,
+                    type: "question",
+                    showCancelButton: true,
+                    confirmButtonColor: '#2ecc71',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Ya, Simpan',
+                    cancelButtonText: 'Batal',
+                    reverseButtons: true,
+                }).then(async (willSave) => {
+                    if (!willSave) return;
+
+                    saveButton.disabled = true;
+                    const originalContent = btn.data('original-content') || btn.html();
+                    btn.data('original-content', originalContent);
+                    btn.html(
+                        `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Menyimpan`
+                    );
+
+                    loadingPage(true);
+
+                    const isEdit = formData.get('id') !== null && formData.get('id') !== '';
+                    const url = isEdit ?
+                        `{{ route('toko.update') }}` : `{{ route('toko.post') }}`;
+
+                    let method = 'POST';
+
+                    if (isEdit) {
+                        formData.append('_method', 'PUT');
+                        formData.append('id', formData.get('id'));
+                    }
+                    formData.append('toko_id', {{ auth()->user()->toko_id }});
+
+                    try {
+                        const response = await renderAPI(method, url, formData);
+                        loadingPage(false);
+
+                        if (response.status >= 200 && response.status < 300) {
+                            notificationAlert('success', 'Pemberitahuan', response.data
+                                .message || 'Data berhasil disimpan.');
+                            isDataSaved = true;
+
+                            setTimeout(async function() {
+                                await getListData(defaultLimitPage, currentPage,
+                                    defaultAscending,
+                                    defaultSearch, customFilter);
+                            }, 500);
+
+                            setTimeout(() => {
+                                $('#modal-form').modal('hide');
+                            }, 500);
+
+                        } else {
+                            notificationAlert('info', 'Pemberitahuan', response.data.message ||
+                                'Terjadi kesalahan saat menyimpan.');
+                            saveButton.disabled = false;
+                            btn.html(btn.data('original-content'));
+                        }
+                    } catch (error) {
+                        loadingPage(false);
+                        notificationAlert('error', 'Kesalahan', error?.response?.data
+                            ?.message || 'Terjadi kesalahan saat menyimpan data.');
+                        saveButton.disabled = false;
+                        btn.html(btn.data('original-content'));
+                    }
+                });
+            });
+        }
+
         async function initPageLoad() {
             await Promise.all([
                 getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter),
                 searchList(),
-                addData(),
                 selectData(selectOptions),
                 deleteData(),
-                submitForm(),
+                saveData(),
             ]);
         }
     </script>

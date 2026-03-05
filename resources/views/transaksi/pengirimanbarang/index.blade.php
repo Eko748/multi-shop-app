@@ -1303,11 +1303,6 @@
             }
         }
 
-        function setSelect2Value(selector, id, text) {
-            let option = new Option(text, id, true, true);
-            $(selector).append(option).trigger('change');
-        }
-
         function addRowEdit(data, maxQty) {
             const tbody = $("#table-detail tbody");
 

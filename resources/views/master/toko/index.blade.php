@@ -178,6 +178,7 @@
                                                 <th class="text-center text-wrap align-top">No</th>
                                                 <th class="text-wrap align-top">Nama Toko</th>
                                                 <th class="text-wrap align-top">Singkatan</th>
+                                                <th class="text-wrap align-top">Group</th>
                                                 <th class="text-wrap align-top">Level Harga</th>
                                                 <th class="text-wrap align-top">Wilayah</th>
                                                 <th class="text-wrap align-top">Alamat</th>
@@ -367,6 +368,7 @@
                 nama_level_harga: data?.nama_level_harga ?? '-',
                 wilayah: data?.wilayah ?? '-',
                 alamat: data?.alamat ?? '-',
+                toko_group: data?.toko_group ?? '-',
                 detail_button,
                 action_buttons,
             };
@@ -387,6 +389,7 @@
                     <td class="${classCol} text-center">${display_from + index}.</td>
                     <td class="${classCol}">${element.nama}</td>
                     <td class="${classCol}">${element.singkatan}</td>
+                    <td class="${classCol}">${element.toko_group}</td>
                     <td class="${classCol}">${element.nama_level_harga}</td>
                     <td class="${classCol}">${element.wilayah}</td>
                     <td class="${classCol}">${element.alamat}</td>
@@ -480,7 +483,7 @@
                 '<i class="fa fa-circle-plus mr-1"></i>Tambah Data Toko';
 
             const tokoGroup = mode !== 'edit' ?
-                `<div class="col-md-4">
+                `<div class="col-md-6">
                     <div class="form-group">
                         <label for="toko_group" class="form-control-label">Grup Toko</label>
                         <select class="form-control" id="toko_group" name="toko_group">
@@ -489,7 +492,7 @@
                     </div>
                 </div>` : '';
 
-            const cols = mode === 'edit' ? '6' : '4';
+            const cols = mode === 'edit' ? '12' : '6';
 
             $('#modalLabel').html(title);
 
@@ -528,7 +531,7 @@
                                 </div>
                             </div>
                             <div class="row">
-                                <div class="col-md-${cols}">
+                                <div class="col-md-4">
                                     <div class="form-group">
                                         <label for="level_harga" class="form-control-label">Level Harga<span
                                                 style="color: red">*</span></label>
@@ -536,7 +539,7 @@
                                         </select>
                                     </div>
                                 </div>
-                                <div class="col-md-${cols}">
+                                <div class="col-md-4">
                                     <div class="form-group">
                                         <label for="kas_detail" class="form-control-label">Tipe Kas Jenis Barang<span
                                                 style="color: red">*</span></label>
@@ -546,13 +549,27 @@
                                         </select>
                                     </div>
                                 </div>
-                                ${tokoGroup}
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="kasbon" class="form-control-label">Terima Kasbon?<span
+                                                style="color: red">*</span></label>
+                                        <select class="form-control" id="kasbon" name="kasbon">
+                                            <option value="1">Ya</option>
+                                            <option value="0">Tidak</option>
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label for="wilayah" class=" form-control-label">Wilayah<span
-                                        style="color: red">*</span></label>
-                                <input type="text" id="wilayah" name="wilayah" placeholder="Masukkan wilayah"
-                                    class="form-control">
+                            <div class="row">
+                                <div class="col-md-${cols}">
+                                    <div class="form-group">
+                                        <label for="wilayah" class=" form-control-label">Wilayah<span
+                                                style="color: red">*</span></label>
+                                        <input type="text" id="wilayah" name="wilayah" placeholder="Masukkan wilayah"
+                                            class="form-control">
+                                    </div>
+                                </div>
+                                ${tokoGroup}
                             </div>
                             <div class="form-group">
                                 <label for="alamat" class=" form-control-label">Alamat<span
@@ -576,11 +593,8 @@
                 $('#wilayah').val(data.wilayah);
                 $('#alamat').val(data.alamat);
 
-                setSelect2Value(
-                    "#kas_detail",
-                    data.kas_detail,
-                    data.kas_detail_status
-                );
+                $('#kas_detail').val(data.kas_detail).trigger('change');
+                $('#kasbon').val(data.kasbon).trigger('change');
 
                 setSelect2MultiValue(
                     '#level_harga',

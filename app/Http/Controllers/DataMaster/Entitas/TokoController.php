@@ -90,24 +90,38 @@ class TokoController extends Controller
 
             $levelHargaNames = $levelHarga->pluck('nama_level_harga')->toArray();
 
+            if (is_null($item->parent_id)) {
+                $tokoGroup = "Semua Group";
+            } else {
+                $groupNames = $item->groups->pluck('nama')->toArray();
+                $tokoGroup = !empty($groupNames)
+                    ? implode(', ', $groupNames)
+                    : 'Tidak Ada Group';
+            }
+
             return [
                 'id' => $item['id'],
                 'nama' => $item['nama'],
                 'singkatan' => $item['singkatan'],
 
-                // untuk tabel
                 'nama_level_harga' => !empty($levelHargaNames)
                     ? implode(', ', $levelHargaNames)
                     : 'Tidak Ada Level',
 
                 'wilayah' => $item->wilayah,
-                'kas_detail' => $item->kas_detail,
+
+                'kas_detail' => (int) $item->kas_detail,
                 'kas_detail_status' => $item->kas_detail == 1 ? 'Ya' : 'Tidak',
+
+                'kasbon' => (int) $item->kasbon,
+                'kasbon_status' => $item->kasbon == 1 ? 'Ya' : 'Tidak',
+
                 'alamat' => $item->alamat,
 
-                // untuk edit form
                 'level_harga' => $idLevelHarga,
                 'level_harga_text' => $levelHargaNames,
+
+                'toko_group' => $tokoGroup,
             ];
         });
 
@@ -157,6 +171,7 @@ class TokoController extends Controller
             'alamat'         => 'required|max:255',
             'pin'            => 'required|numeric',
             'kas_detail'     => 'required',
+            'kasbon'         => 'required',
         ], [
             'nama.required' => 'Nama Toko tidak boleh kosong.',
             'singkatan.required' => 'Singkatan Wajib di Isi.',
@@ -177,6 +192,7 @@ class TokoController extends Controller
                 'level_harga' => json_encode($request->level_harga),
                 'pin'         => $request->filled('pin') ? $request->pin : null,
                 'kas_detail'  => $request->kas_detail,
+                'kasbon'      => $request->kasbon,
             ]);
 
             if ($request->filled('toko_group_id')) {
@@ -346,6 +362,7 @@ class TokoController extends Controller
                 'pin' => 'nullable|numeric',
                 'level_harga'    => 'nullable|array',
                 'kas_detail'     => 'nullable',
+                'kasbon'         => 'nullable',
             ], [
                 'singkatan.unique' => 'Singkatan sudah digunakan.',
             ]);
@@ -360,6 +377,7 @@ class TokoController extends Controller
                 'level_harga' => $request->filled('level_harga') ? json_encode($request->level_harga) : $data->level_harga,
                 'pin' => $request->filled('pin') ? $request->pin : $data->pin,
                 'kas_detail' => $request->filled('kas_detail') ? $request->kas_detail : $data->kas_detail,
+                'kasbon' => $request->filled('kasbon') ? $request->kasbon : $data->kasbon,
             ];
 
             $changedData = [];

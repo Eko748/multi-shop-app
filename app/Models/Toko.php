@@ -22,7 +22,7 @@ class Toko extends Model
     {
         return $this->belongsToMany(
             TokoGroup::class,
-            'toko_group_items',
+            'toko_group_item',
             'toko_id',
             'toko_group_id'
         )->withTimestamps();

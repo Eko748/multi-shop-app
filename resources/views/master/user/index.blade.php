@@ -128,9 +128,9 @@
                             <div class="custom-left">
                                 <div class="custom-btn-tambah-wrap">
                                     @if (hasPermission('GET /user/create'))
-                                        <button class="btn btn-primary text-white add-data w-100" data-container="body"
-                                            data-toggle="tooltip" data-placement="top" title="Tambah User">
-                                            <i class="fa fa-plus-circle"></i> Tambah
+                                        <button type="button" class="btn btn-primary w-100" id="btn-add-data"
+                                            onclick="openAddModal()">
+                                            <i class="fa fa-circle-plus"></i><span> Tambah Data</span>
                                         </button>
                                     @endif
                                 </div>
@@ -190,6 +190,28 @@
         </div>
     </div>
 
+    <div id="modal-form" class="modal fade bd-example-modal-lg" tabindex="-1" role="dialog"
+        aria-labelledby="myLargeModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalLabel">Tambah Data User</h5>
+                    <button type="button" class="btn-close reset-all close" data-bs-dismiss="modal" aria-label="Close"><i
+                            class="fa fa-xmark"></i></button>
+                </div>
+                <div class="modal-body">
+                    <form id="form-data">
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" aria-label="Close"><i
+                            class="fa fa-times mr-1"></i>Tutup</button>
+                    <button type="submit" form="form-data" class="btn btn-success" id="save-btn">Simpan</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="modal fade" id="modal-form" tabindex="-1" role="dialog" aria-labelledby="modal-form-label"
         aria-hidden="true">
         <div class="modal-dialog modal-xl" role="document">
@@ -223,14 +245,14 @@
                                     <label for="nama" class=" form-control-label">Nama<span
                                             style="color: red">*</span></label>
                                     <input required type="text" id="nama" name="nama"
-                                        placeholder="Contoh : User 1" class="form-control">
+                                        placeholder="Masukkan nama" class="form-control">
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label for="username" class=" form-control-label">Username<span
                                             style="color: red">*</span></label>
-                                    <input type="text" id="username" name="username" placeholder="Contoh : user123"
+                                    <input type="text" id="username" name="username" placeholder="Masukkan username"
                                         class="form-control">
                                 </div>
                             </div>
@@ -238,23 +260,16 @@
                                 <div class="form-group">
                                     <label for="password" class=" form-control-label">Password<span
                                             style="color: red">*</span></label>
-                                    <div class="input-group">
-                                        <input type="password" id="password" class="form-control" name="password"
-                                            placeholder="Contoh : ********" aria-label="Recipient's username"
-                                            aria-describedby="basic-addon2">
-                                        <div class="input-group-append">
-                                            <button type="button" id="toggle-password"
-                                                class="btn btn-outline-secondary">👁️</button>
-                                        </div>
-                                    </div>
+                                    <input type="password" id="password" class="form-control" name="password"
+                                        placeholder="Masukkan password" aria-label="Recipient's username"
+                                        aria-describedby="basic-addon2">
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label for="alamat" class=" form-control-label">Alamat<span
                                             style="color: red">*</span></label>
-                                    <textarea name="alamat" id="alamat" rows="4"
-                                        placeholder="Contoh : Jl. Nyimas Gandasari No.18 Plered - Cirebon" class="form-control"></textarea>
+                                    <textarea name="alamat" id="alamat" rows="4" placeholder="Masukkan alamat" class="form-control"></textarea>
                                 </div>
                             </div>
                         </div>
@@ -355,15 +370,12 @@
 
             if (hasPermission('PUT /user/update/{id}')) {
                 edit_button = `
-                <a href='user/edit/${data.id}' class="p-1 btn edit-data action_button"
-                    data-container="body" data-toggle="tooltip" data-placement="top"
-                    title="Edit ${title}: ${data.nama}"
-                    data-id='${data.id}'>
-                    <span class="text-dark">Edit</span>
-                    <div class="icon text-warning">
-                        <i class="fa fa-edit"></i>
-                    </div>
-                </a>`;
+            <button class="p-1 btn edit-data action_button" onClick="openEditModal('${encodeURIComponent(JSON.stringify(data))}')">
+                <span class="text-dark" title="Edit ${title}: ${data.nama}">Edit</span>
+                <div class="icon text-warning" title="Edit ${title}: ${data.nama}">
+                    <i class="fa fa-edit"></i>
+                </div>
+            </button>`;
             }
 
             if (hasPermission('DELETE /user/delete/{id}')) {
@@ -456,7 +468,10 @@
                 }).then(async (result) => {
                     let postDataRest = await renderAPI(
                         'DELETE',
-                        `user/delete/${id}`
+                        '{{ route('user.delete') }}', {
+                            id: id,
+                            user_id: {{ auth()->user()->id }}
+                        }
                     ).then(function(response) {
                         return response;
                     }).catch(function(error) {
@@ -476,64 +491,223 @@
             })
         }
 
-        async function addData() {
-            $(document).on("click", ".add-data", function() {
-                $("#modal-title").html(`<i class="fa fa-circle-plus mr-1"></i>Form Tambah User`);
-                $("#modal-form").modal("show");
-                $("#formTambahData").data("action-url", '{{ route('master.user.store') }}');
+
+        function openAddModal() {
+            renderModalForm('add');
+            $('#save-btn')
+                .removeClass('btn-primary')
+                .addClass('btn-success')
+                .prop('disabled', false)
+                .html('<i class="fa fa-save mr-1"></i>Simpan');
+
+            $('#modal-form').modal('show');
+        }
+
+        function openEditModal(data) {
+            try {
+                let item = JSON.parse(decodeURIComponent(data));
+
+                renderModalForm('edit', item);
+
+                $('#save-btn')
+                    .removeClass('btn-success')
+                    .addClass('btn-primary')
+                    .prop('disabled', false)
+                    .html('<i class="fa fa-edit mr-1"></i>Update');
+
+                $('#modal-form').modal('show');
+            } catch (e) {
+                notificationAlert('info', 'Pemberitahuan', 'Terjadi kesalahan saat memuat data untuk diedit.');
+            }
+        }
+
+        async function renderModalForm(mode = 'add', data = {}) {
+            const title = mode === 'edit' ?
+                '<i class="fa fa-edit mr-1"></i>Edit Data User' :
+                '<i class="fa fa-circle-plus mr-1"></i>Tambah Data User';
+
+            $('#modalLabel').html(title);
+
+            const formContent = `
+                <div class="row">
+                    <div class="col-xl-12">
+                        <div class="card-body">
+                                <div class="row p-0">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="toko_id" class=" form-control-label">Nama Toko<span
+                                                    style="color: red">*</span></label>
+                                            <select name="toko_id" id="toko_id" class="form-control select2" tabindex="1">
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="role_id" class="form-control-label">Role<span
+                                                    style="color: red">*</span></label>
+                                            <select name="role_id" id="role_id" class="form-control" tabindex="2">
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="nama" class=" form-control-label">Nama<span
+                                                    style="color: red">*</span></label>
+                                            <input required type="text" id="nama" name="nama"
+                                                placeholder="Masukkan nama" class="form-control">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="username" class=" form-control-label">Username<span
+                                                    style="color: red">*</span></label>
+                                            <input type="text" id="username" name="username" placeholder="Masukkan username"
+                                                class="form-control">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="password" class=" form-control-label">Password<span
+                                                    style="color: red">*</span></label>
+                                            <input type="password" id="password" class="form-control" name="password"
+                                                placeholder="Masukkan password" aria-label="Recipient's username"
+                                                aria-describedby="basic-addon2">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="alamat" class=" form-control-label">Alamat<span
+                                                    style="color: red">*</span></label>
+                                            <textarea name="alamat" id="alamat" rows="4"
+                                                placeholder="Masukkan alamat" class="form-control"></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            await $('#form-data').html(formContent);
+
+            await selectData(selectOptions);
+
+            if (mode === 'edit') {
+                $('#nama').val(data.nama);
+                $('#username').val(data.username);
+                $('#no_hp').val(data.no_hp);
+                $('#alamat').val(data.alamat);
+
+                setSelect2Value(
+                    "#role_id",
+                    data.role_id,
+                    data.nama_level
+                );
+
+                setSelect2Value(
+                    "#toko_id",
+                    data.toko_id,
+                    data.nama_toko
+                );
+
+                if ($('#form-data input[name="id"]').length === 0) {
+                    $('<input>').attr({
+                        type: 'hidden',
+                        name: 'id',
+                        value: data.id
+                    }).appendTo('#form-data');
+                } else {
+                    $('#form-data input[name="id"]').val(data.id);
+                }
+            }
+        }
+
+        async function saveData() {
+            $(document).on("click", "#save-btn", async function(e) {
+                e.preventDefault();
+
+                const btn = $(this);
+                const saveButton = this;
+                const form = $('#form-data')[0];
+                const formData = new FormData(form);
+
+                const userId = '{{ auth()->user()->id }}';
+                formData.append('user_id', userId);
+
+                if (saveButton.disabled) return;
+
+                swal({
+                    title: "Konfirmasi",
+                    text: `Apakah Anda yakin ingin menyimpan ${title} ini?`,
+                    type: "question",
+                    showCancelButton: true,
+                    confirmButtonColor: '#2ecc71',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Ya, Simpan',
+                    cancelButtonText: 'Batal',
+                    reverseButtons: true,
+                }).then(async (willSave) => {
+                    if (!willSave) return;
+
+                    saveButton.disabled = true;
+                    const originalContent = btn.data('original-content') || btn.html();
+                    btn.data('original-content', originalContent);
+                    btn.html(
+                        `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Menyimpan`
+                    );
+
+                    loadingPage(true);
+
+                    const isEdit = formData.get('id') !== null && formData.get('id') !== '';
+                    const url = isEdit ?
+                        `{{ route('user.update') }}` : `{{ route('user.post') }}`;
+
+                    let method = 'POST';
+
+                    if (isEdit) {
+                        formData.append('_method', 'PUT');
+                        formData.append('id', formData.get('id'));
+                    }
+
+                    try {
+                        const response = await renderAPI(method, url, formData);
+                        loadingPage(false);
+
+                        if (response.status >= 200 && response.status < 300) {
+                            notificationAlert('success', 'Pemberitahuan', response.data
+                                .message || 'Data berhasil disimpan.');
+                            isDataSaved = true;
+
+                            setTimeout(async function() {
+                                await getListData(defaultLimitPage, currentPage,
+                                    defaultAscending,
+                                    defaultSearch, customFilter);
+                            }, 500);
+
+                            setTimeout(() => {
+                                $('#modal-form').modal('hide');
+                            }, 500);
+
+                        } else {
+                            notificationAlert('info', 'Pemberitahuan', response.data.message ||
+                                'Terjadi kesalahan saat menyimpan.');
+                            saveButton.disabled = false;
+                            btn.html(btn.data('original-content'));
+                        }
+                    } catch (error) {
+                        loadingPage(false);
+                        notificationAlert('error', 'Kesalahan', error?.response?.data
+                            ?.message || 'Terjadi kesalahan saat menyimpan data.');
+                        saveButton.disabled = false;
+                        btn.html(btn.data('original-content'));
+                    }
+                });
             });
         }
 
-        async function submitForm() {
-            $(document).off("submit").on("submit", "#formTambahData", async function(e) {
-                e.preventDefault();
-
-                const $submitButton = $("#submit-button");
-                const originalButtonHTML = $submitButton.html();
-
-                $submitButton.prop("disabled", true).html(
-                    `<i class="fas fa-spinner fa-spin"></i> Menyimpan...`);
-
-                loadingPage(true);
-
-                let actionUrl = $("#formTambahData").data("action-url");
-
-                const idToko = '{{ auth()->user()->toko_id }}';
-
-                let formData = {
-                    toko_id: $('#toko_id').val(),
-                    nama: $('#nama').val(),
-                    role_id: $('#role_id').val(),
-                    username: $('#username').val(),
-                    alamat: $('#alamat').val(),
-                    password: $('#password').val(),
-                };
-
-                try {
-                    let postData = await renderAPI("POST", actionUrl, formData);
-
-                    loadingPage(false);
-                    if (postData.status >= 200 && postData.status < 300) {
-                        notificationAlert("success", "Pemberitahuan", postData.data.message || "Berhasil");
-                        setTimeout(async function() {
-                            await getListData(defaultLimitPage, currentPage, defaultAscending,
-                                defaultSearch, customFilter);
-                        }, 500);
-                        setTimeout(() => {
-                            $("#modal-form").modal("hide");
-                        }, 500);
-                    } else {
-                        notificationAlert("info", "Pemberitahuan", postData.data.message ||
-                            "Terjadi kesalahan");
-                    }
-                } catch (error) {
-                    loadingPage(false);
-                    let resp = error.response?.data || {};
-                    notificationAlert("error", "Kesalahan", resp.message || "Terjadi kesalahan");
-                } finally {
-                    $submitButton.prop("disabled", false).html(originalButtonHTML);
-                }
-            });
+        function setSelect2Value(selector, id, text) {
+            let option = new Option(text, id, true, true);
+            $(selector).append(option).trigger('change');
         }
 
         async function initPageLoad() {
@@ -541,9 +715,7 @@
                 getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter),
                 searchList(),
                 deleteData(),
-                addData(),
-                selectData(selectOptions),
-                submitForm(),
+                saveData(),
             ])
         }
     </script>

@@ -12,7 +12,7 @@ class Toko extends Model
 
     protected $table = 'toko';
 
-    protected $guarded = [''];
+    protected $guarded = [];
 
     protected $casts = [
         'kasbon' => 'boolean',

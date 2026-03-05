@@ -2,10 +2,37 @@
 
 namespace App\Repositories\Distribusi;
 
+use App\Models\PengirimanBarang;
 use App\Models\PengirimanBarangDetail;
 
 class PengirimanBarangRepo
 {
+    protected $model;
+
+    public function __construct(PengirimanBarang $model)
+    {
+        $this->model = $model;
+    }
+
+    public function getAll($filter)
+    {
+        $query = $this->model->newQuery();
+
+        if (!empty($filter->search)) {
+            $query->where(function ($q) use ($filter) {
+                $q->where('no_resi', 'like', '%' . $filter->search . '%');
+            });
+        }
+
+        if (!empty($filter->start_date) && !empty($filter->end_date)) {
+            $query->whereBetween('send_at', [$filter->start_date, $filter->end_date]);
+        }
+
+        return !empty($filter->limit)
+            ? $query->orderByDesc('id')->paginate($filter->limit)
+            : $query->orderByDesc('id')->get();
+    }
+
     public function getStokPengirimanBarang(int $month, int $year, int $idToko): array
     {
         $details = PengirimanBarangDetail::where('qty_send', '>', 0)

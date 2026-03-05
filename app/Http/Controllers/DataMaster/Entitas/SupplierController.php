@@ -106,13 +106,6 @@ class SupplierController extends Controller
         return view('master.supplier.index', compact('menu', 'supplier'));
     }
 
-    public function create()
-    {
-        $menu = [$this->title[0], $this->label[0], $this->title[1]];
-
-        return view('master.supplier.create', compact('menu'));
-    }
-
     public function post(Request $request)
     {
         try {
@@ -159,14 +152,6 @@ class SupplierController extends Controller
             return $this->error(500, 'Internal Server Error', $th->getMessage());
         }
     }
-
-    public function edit(string $id)
-    {
-        $menu = [$this->title[0], $this->label[0], $this->title[2]];
-        $supplier = Supplier::findOrFail($id);
-        return view('master.supplier.edit', compact('menu', 'supplier'));
-    }
-
 
     public function update(Request $request)
     {

@@ -629,8 +629,6 @@
                                 <tr>
                                     <th class="toko-col">Nama Toko</th>
                                     <th>Stok</th>
-                                    <th class="level-header">Level Harga</th>
-                                    <th class="level-header">Hpp Akhir</th>
                                 </tr>
                             </thead>
                             <tbody id="modal-stock-table-body"></tbody>
@@ -720,8 +718,6 @@
                 <tr>
                     <td>${toko.nama_toko ?? '-'}</td>
                     <td>${toko.stock ?? 0}</td>
-                    <td>${levelHargaToko}</td>
-                    <td>${toko.hpp_baru}</td>
                 </tr>
             `;
                 });
@@ -743,8 +739,6 @@
                     <tr>
                         <td class="d-none">Toko Utama</td>
                         <td>${stokData?.stock ?? 0}</td>
-                        <td>${levelHargaList}</td>
-                        <td>${stokData?.hpp_baru ? formatRupiah(stokData?.hpp_baru) : 0}</td>
                     </tr>
                 `;
             }

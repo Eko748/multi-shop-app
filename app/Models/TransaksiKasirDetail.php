@@ -14,7 +14,7 @@ class TransaksiKasirDetail extends Model
 
     public function transaksiKasir()
     {
-        return $this->belongsTo(TransaksiKasir::class, 'id_kasir', 'id');
+        return $this->belongsTo(TransaksiKasir::class, 'transaksi_kasir_id', 'id');
     }
 
     public function stockBarangBatch()

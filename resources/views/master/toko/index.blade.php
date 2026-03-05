@@ -181,7 +181,6 @@
                                                 <th class="text-wrap align-top">Level Harga</th>
                                                 <th class="text-wrap align-top">Wilayah</th>
                                                 <th class="text-wrap align-top">Alamat</th>
-                                                <th class="text-wrap align-top">List Barang</th>
                                                 <th class="text-center text-wrap align-top">Action</th>
                                             </tr>
                                         </thead>
@@ -466,7 +465,6 @@
                     <td class="${classCol}">${element.nama_level_harga}</td>
                     <td class="${classCol}">${element.wilayah}</td>
                     <td class="${classCol}">${element.alamat}</td>
-                    <td class="${classCol}">${element.detail_button}</td>
                     <td class="${classCol}">${element.action_buttons}</td>
                 </tr>`;
             });

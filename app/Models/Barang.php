@@ -26,21 +26,7 @@ class Barang extends Model
     }
     public function stockBarang(): HasMany
     {
-        return $this->hasMany(StockBarang::class, 'id_barang', 'id');
-    }
-
-    public function detail_toko(): HasMany
-    {
-        return $this->hasMany(DetailToko::class, 'id_barang', 'id');
-    }
-    public function barang(): HasMany
-    {
-        return $this->hasMany(Barang::class, 'id_barang', 'id');
-    }
-
-    public function detail_pengiriman_barang(): HasMany
-    {
-        return $this->hasMany(DetailPengirimanBarang::class, 'id_barang', 'id');
+        return $this->hasMany(StockBarang::class, 'barang_id', 'id');
     }
 
     public function level_harga()
@@ -51,11 +37,6 @@ class Barang extends Model
     public function promo()
     {
         return $this->hasMany(Promo::class, 'id_barang');
-    }
-
-    public function dt_retur()
-    {
-        return $this->hasMany(DetailRetur::class, 'id_barang');
     }
 
     public function updateHargaLevel(array $data)

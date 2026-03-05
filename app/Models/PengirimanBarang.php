@@ -14,6 +14,16 @@ class PengirimanBarang extends Model
 
     protected $guarded = [];
 
+    protected $casts = [
+        'send_at' => 'datetime',
+        'verified_at' => 'datetime',
+    ];
+
+    public function tokoGroup()
+    {
+        return $this->belongsTo(TokoGroup::class, 'toko_group_id', 'id');
+    }
+
     public function tokoAsal()
     {
         return $this->belongsTo(Toko::class, 'toko_asal_id', 'id');

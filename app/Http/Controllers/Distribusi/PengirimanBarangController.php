@@ -7,15 +7,21 @@ use App\Helpers\QrGenerator;
 use App\Models\{StockBarang, StockBarangBatch, StockBarangBermasalah, Hutang, JenisBarang, Kas, Toko};
 use App\Models\{PengirimanBarang, PengirimanBarangDetail, PengirimanBarangDetailTemp, Piutang};
 use App\Services\KasService;
-use Carbon\Carbon;
+use App\Services\Distribusi\PengirimanBarangService;
+use App\Traits\{ApiResponse, HasFilter};
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class PengirimanBarangController extends Controller
 {
+    use ApiResponse, HasFilter;
     private array $menu = [];
 
-    public function __construct()
+    protected $service;
+
+    public function __construct(PengirimanBarangService $service)
     {
         $this->menu;
         $this->title = [
@@ -25,6 +31,7 @@ class PengirimanBarangController extends Controller
             'Edit Data',
             'Reture Data',
         ];
+        $this->service = $service;
     }
 
     public function index(Request $request)
@@ -135,6 +142,7 @@ class PengirimanBarangController extends Controller
                 'toko_asal_id' => $item->toko_asal_id ?? null,
                 'nama_pengirim' => $item->sender->nama ?? null,
                 'toko_tujuan' => $item->tokoTujuan->nama ?? null,
+                'toko_tujuan_nama' => "{$item->tokoTujuan->singkatan} - {$item->tokoTujuan->wilayah}",
                 'toko_tujuan_id' => $item->toko_tujuan_id ?? null,
                 'status' => match ($item->status) {
                     'success' => 'Sukses',
@@ -143,9 +151,11 @@ class PengirimanBarangController extends Controller
                     'failed' => 'Gagal',
                     default => $item->status,
                 },
-                'tgl_kirim' => \Carbon\Carbon::parse($item->send_at)->format('d-m-Y'),
-                'tgl_terima' => $item->verified_at ? \Carbon\Carbon::parse($item->verified_at)->format('d-m-Y') : null,
+                'tgl_kirim' => $item->send_at ? $item->send_at->format('d-m-Y H:i:s') : null,
+                'tgl_terima' => $item->verified_at ? $item->verified_at->format('d-m-Y H:i:s') : null,
                 'total_item' => $item->qty_total,
+                'toko_group_id' => $item->toko_group_id ?? null,
+                'toko_group_nama' => $item->tokoGroup->nama ?? null,
             ];
         });
 
@@ -156,6 +166,90 @@ class PengirimanBarangController extends Controller
             'message' => 'Sukses',
             'pagination' => $data['meta']
         ], 200);
+    }
+
+    public function detail(Request $request)
+    {
+        try {
+            $filter = $this->makeFilter(
+                $request,
+                30,
+                [
+                    'id' => $request->input('id'),
+                    'toko_id' => $request->input('toko_id'),
+                ]
+            );
+            $data = $this->service->getDetail($filter);
+
+            return $this->success($data['data'], 200, 'Berhasil', $data['pagination']);
+        } catch (Exception $e) {
+            return $this->error(500, "Gagal mengambil data {$this->title[0]}", [
+                'exception' => $e->getMessage()
+            ]);
+        }
+    }
+
+    public function temporary(Request $request)
+    {
+        try {
+            $filter = $this->makeFilter(
+                $request,
+                30,
+                [
+                    'id' => $request->input('id'),
+                    'toko_id' => $request->input('toko_id'),
+                ]
+            );
+            $data = $this->service->getTemporary($filter);
+
+            return $this->success($data['data'], 200, 'Berhasil', $data['pagination']);
+        } catch (Exception $e) {
+            return $this->error(500, "Gagal mengambil data {$this->title[0]}", [
+                'exception' => $e->getMessage()
+            ]);
+        }
+    }
+
+    public function deleteTemporary(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'id' => 'required|integer',
+            ]);
+
+            $deleted = $this->service->deleteTemporary($validated['id']);
+
+            if (!$deleted) {
+                return $this->error(404, 'Data not found');
+            }
+
+            return $this->success(null, 200, 'Data berhasil dihapus');
+        } catch (ValidationException $e) {
+            return $this->error(422, 'Validation Error', $e->errors());
+        } catch (Exception $e) {
+            return $this->error(500, 'Internal Server Error', $e->getMessage());
+        }
+    }
+
+    public function delete(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'id' => 'required|integer',
+            ]);
+
+            $deleted = $this->service->delete($validated['id']);
+
+            if (!$deleted) {
+                return $this->error(404, 'Data not found');
+            }
+
+            return $this->success(null, 200, 'Data berhasil dihapus');
+        } catch (ValidationException $e) {
+            return $this->error(422, 'Validation Error', $e->errors());
+        } catch (Exception $e) {
+            return $this->error(500, 'Internal Server Error', $e->getMessage());
+        }
     }
 
     public function progress(Request $request)
@@ -243,6 +337,7 @@ class PengirimanBarangController extends Controller
             'pengiriman_barang_id' => 'nullable|integer',
             'toko_asal_id'     => 'required|integer',
             'toko_tujuan_id'   => 'required|integer|different:toko_asal_id',
+            'toko_group_id'    => 'required|integer',
             'no_resi'          => 'required|string',
             'ekspedisi'        => 'required|string',
             'send_by'          => 'required|integer',
@@ -256,10 +351,20 @@ class PengirimanBarangController extends Controller
         DB::beginTransaction();
 
         try {
+
+            // ===============================
+            // 🔥 MODE UPDATE
+            // ===============================
             if ($request->pengiriman_barang_id) {
-                $pengiriman = PengirimanBarang::update(['id' => $request->pengiriman_barang_id], [
+
+                $pengiriman = PengirimanBarang::lockForUpdate()
+                    ->findOrFail($request->pengiriman_barang_id);
+
+                // Update header
+                $pengiriman->update([
                     'toko_asal_id'   => $request->toko_asal_id,
                     'toko_tujuan_id' => $request->toko_tujuan_id,
+                    'toko_group_id'  => $request->toko_group_id,
                     'no_resi'        => $request->no_resi,
                     'ekspedisi'      => $request->ekspedisi,
                     'send_by'        => $request->send_by,
@@ -267,11 +372,27 @@ class PengirimanBarangController extends Controller
                     'status'         => 'progress'
                 ]);
 
-                PengirimanBarangDetailTemp::where('pengiriman_barang_id', $pengiriman->id)->delete();
-            } else {
+                // 🔴 Pastikan temporary sudah kosong
+                PengirimanBarangDetailTemp::where(
+                    'pengiriman_barang_id',
+                    $pengiriman->id
+                )->lockForUpdate()->delete();
+
+                // 🔥 Hapus detail lama (karena akan dibuat ulang)
+                PengirimanBarangDetail::where(
+                    'pengiriman_barang_id',
+                    $pengiriman->id
+                )->delete();
+            }
+            // ===============================
+            // 🔥 MODE CREATE
+            // ===============================
+            else {
+
                 $pengiriman = PengirimanBarang::create([
                     'toko_asal_id'   => $request->toko_asal_id,
                     'toko_tujuan_id' => $request->toko_tujuan_id,
+                    'toko_group_id'  => $request->toko_group_id,
                     'no_resi'        => $request->no_resi,
                     'ekspedisi'      => $request->ekspedisi,
                     'send_by'        => $request->send_by,
@@ -280,23 +401,35 @@ class PengirimanBarangController extends Controller
                 ]);
             }
 
+            // ===============================
+            // 🔥 PROCESS DETAIL
+            // ===============================
+
             foreach ($request->details as $row) {
 
-                $batchOrigin = StockBarangBatch::lockForUpdate()->find($row['stock_barang_batch_id']);
+                $batchOrigin = StockBarangBatch::lockForUpdate()
+                    ->where('id', $row['stock_barang_batch_id'])
+                    ->where('toko_id', $request->toko_asal_id)
+                    ->first();
 
-                if (!$batchOrigin || $batchOrigin->qty_sisa < $row['qty_send']) {
+                if (!$batchOrigin) {
+                    throw new \Exception("Batch asal tidak ditemukan");
+                }
+
+                if ($batchOrigin->qty_sisa < $row['qty_send']) {
                     throw new \Exception("Stok batch asal tidak mencukupi");
                 }
 
                 $batchOrigin->qty_sisa -= $row['qty_send'];
                 $batchOrigin->save();
 
-                $stockOrigin = StockBarang::where('barang_id', $row['barang_id'])
-                    ->where('toko_id', $request->toko_asal_id)
-                    ->lockForUpdate()
-                    ->first();
+                $stockOrigin = $batchOrigin->stockBarang;
 
-                if (!$stockOrigin || $stockOrigin->stok < $row['qty_send']) {
+                if (!$stockOrigin) {
+                    throw new \Exception("Data stok toko asal tidak ditemukan");
+                }
+
+                if ($stockOrigin->stok < $row['qty_send']) {
                     throw new \Exception("Stok toko asal tidak mencukupi");
                 }
 
@@ -305,26 +438,21 @@ class PengirimanBarangController extends Controller
 
                 PengirimanBarangDetail::create([
                     'pengiriman_barang_id' => $pengiriman->id,
-                    'barang_id'             => $row['barang_id'],
+                    'barang_id'            => $row['barang_id'],
                     'stock_barang_batch_id' => $row['stock_barang_batch_id'],
-                    'qty_send'              => $row['qty_send'],
-                    'qty_verified'          => 0,
+                    'qty_send'             => $row['qty_send'],
+                    'qty_verified'         => 0,
                 ]);
             }
 
             DB::commit();
 
-            return response()->json([
-                'message' => 'Pengiriman berhasil dibuat',
-                'data'    => $pengiriman
-            ], 201);
+            return $this->success($pengiriman, 200, 'Data berhasil disimpan');
         } catch (\Exception $e) {
 
             DB::rollBack();
 
-            return response()->json([
-                'message' => $e->getMessage()
-            ], 422);
+            return $this->error(500, $e->getMessage());
         }
     }
 
@@ -334,6 +462,7 @@ class PengirimanBarangController extends Controller
             'pengiriman_barang_id' => 'nullable|integer',
             'toko_asal_id'         => 'required|integer',
             'toko_tujuan_id'       => 'required|integer|different:toko_asal_id',
+            'toko_group_id'        => 'required|integer',
             'no_resi'              => 'required|string',
             'ekspedisi'            => 'required|string',
             'send_by'              => 'required|integer',
@@ -347,10 +476,16 @@ class PengirimanBarangController extends Controller
         DB::beginTransaction();
 
         try {
+
+            // ======================
+            // HEADER
+            // ======================
             if (!$request->pengiriman_barang_id) {
+
                 $pengiriman = PengirimanBarang::create([
                     'toko_asal_id'   => $request->toko_asal_id,
                     'toko_tujuan_id' => $request->toko_tujuan_id,
+                    'toko_group_id'  => $request->toko_group_id,
                     'no_resi'        => $request->no_resi,
                     'ekspedisi'      => $request->ekspedisi,
                     'send_by'        => $request->send_by,
@@ -358,28 +493,70 @@ class PengirimanBarangController extends Controller
                     'status'         => 'pending',
                 ]);
             } else {
+
                 $pengiriman = PengirimanBarang::findOrFail($request->pengiriman_barang_id);
 
                 $pengiriman->update([
                     'toko_asal_id'   => $request->toko_asal_id,
                     'toko_tujuan_id' => $request->toko_tujuan_id,
+                    'toko_group_id'  => $request->toko_group_id,
                     'no_resi'        => $request->no_resi,
                     'ekspedisi'      => $request->ekspedisi,
                     'send_by'        => $request->send_by,
                     'send_at'        => $request->send_at,
                 ]);
-
-                PengirimanBarangDetailTemp::where('pengiriman_barang_id', $pengiriman->id)->delete();
             }
 
+            // ======================
+            // SYNC DETAIL TEMP
+            // ======================
+
+            $existingDetails = PengirimanBarangDetailTemp::where(
+                'pengiriman_barang_id',
+                $pengiriman->id
+            )->get();
+
+            $existingMap = [];
+
+            foreach ($existingDetails as $item) {
+                $key = $item->barang_id . '_' . $item->stock_barang_batch_id;
+                $existingMap[$key] = $item;
+            }
+
+            $requestKeys = [];
+
             foreach ($request->details as $row) {
-                PengirimanBarangDetailTemp::create([
-                    'pengiriman_barang_id' => $pengiriman->id,
-                    'barang_id'             => $row['barang_id'],
-                    'stock_barang_batch_id' => $row['stock_barang_batch_id'],
-                    'qty_send'              => $row['qty_send'],
-                    'qty_verified'          => 0,
-                ]);
+
+                $key = $row['barang_id'] . '_' . $row['stock_barang_batch_id'];
+                $requestKeys[] = $key;
+
+                if (isset($existingMap[$key])) {
+
+                    // ✅ Update jika sudah ada
+                    $existingMap[$key]->update([
+                        'qty_send' => $row['qty_send'],
+                    ]);
+                } else {
+
+                    // ✅ Insert jika belum ada
+                    PengirimanBarangDetailTemp::create([
+                        'pengiriman_barang_id' => $pengiriman->id,
+                        'barang_id'            => $row['barang_id'],
+                        'stock_barang_batch_id' => $row['stock_barang_batch_id'],
+                        'qty_send'             => $row['qty_send'],
+                        'qty_verified'         => 0,
+                    ]);
+                }
+            }
+
+            // ======================
+            // HAPUS YANG TIDAK ADA DI REQUEST
+            // ======================
+
+            foreach ($existingMap as $key => $item) {
+                if (!in_array($key, $requestKeys)) {
+                    $item->delete();
+                }
             }
 
             DB::commit();
@@ -388,7 +565,7 @@ class PengirimanBarangController extends Controller
                 'message' => 'Draft pengiriman tersimpan',
                 'pengiriman_barang_id' => $pengiriman->id,
                 'status'  => 'pending'
-            ], 201);
+            ], 200);
         } catch (\Exception $e) {
 
             DB::rollBack();
@@ -433,6 +610,7 @@ class PengirimanBarangController extends Controller
         DB::beginTransaction();
 
         try {
+
             $pb = PengirimanBarang::where('id', $request->id)
                 ->lockForUpdate()
                 ->first();
@@ -442,6 +620,10 @@ class PengirimanBarangController extends Controller
                     'success' => false,
                     'message' => 'Data tidak ditemukan'
                 ], 404);
+            }
+
+            if ($pb->status === 'success') {
+                throw new \Exception("Pengiriman sudah diverifikasi");
             }
 
             $hutangGrouped = [];
@@ -456,57 +638,57 @@ class PengirimanBarangController extends Controller
                 if (!$detail) continue;
 
                 $qtyVerified = $row['qty_verified'];
-
                 $detail->qty_verified = $qtyVerified;
                 $detail->save();
 
                 if ($qtyVerified > 0) {
 
-                    $stockOrigin = StockBarang::where('toko_id', $pb->toko_asal_id)
-                        ->where('barang_id', $detail->barang_id)
+                    $batchOrigin = StockBarangBatch::lockForUpdate()
+                        ->where('id', $detail->stock_barang_batch_id)
+                        ->where('toko_id', $pb->toko_asal_id)
                         ->first();
 
-                    $stockTarget = StockBarang::firstOrCreate(
-                        [
-                            'toko_id'   => $pb->toko_tujuan_id,
-                            'barang_id' => $detail->barang_id
-                        ],
-                        [
-                            'hpp_awal' => $stockOrigin->hpp_awal,
-                            'hpp_baru' => $stockOrigin->hpp_baru,
-                            'level_harga' => $stockOrigin->level_harga,
-                            'stok' => 0
-                        ]
-                    );
+                    if (!$batchOrigin) {
+                        throw new \Exception("Batch asal tidak ditemukan");
+                    }
 
-                    $stockTarget->stok += $qtyVerified;
-                    $stockTarget->save();
+                    $stockOrigin = $batchOrigin->stockBarang;
 
-                    $batchOrigin = StockBarangBatch::find($detail->stock_barang_batch_id);
+                    if (!$stockOrigin) {
+                        throw new \Exception("Stok asal tidak ditemukan");
+                    }
+
+                    $stockOrigin->increment('stok', $qtyVerified);
 
                     $batchNew = StockBarangBatch::create([
-                        'stock_barang_id' => $stockTarget->id,
+                        'stock_barang_id' => $stockOrigin->id,
                         'parent_id'       => $batchOrigin->id,
+                        'supplier_id'     => $batchOrigin->supplier_id,
+                        'toko_id'         => $pb->toko_tujuan_id,
                         'qrcode'          => QrGenerator::generate()['value'],
                         'qty_masuk'       => $qtyVerified,
                         'qty_sisa'        => $qtyVerified,
                         'harga_beli'      => $batchOrigin->harga_beli,
                         'hpp_awal'        => $batchOrigin->hpp_awal,
                         'hpp_baru'        => $batchOrigin->hpp_baru,
+                        'sumber_type'     => PengirimanBarangDetail::class,
+                        'sumber_id'       => $detail->id,
                     ]);
 
-                    $totalBiaya = $qtyVerified * $batchOrigin->harga_beli;
-                    $jenisBarangId = $detail->barang->jenis_barang_id;
-                    $tipeKas = $request->tipe_kas ?? 'besar';
+                    $totalBiaya     = $qtyVerified * $batchOrigin->harga_beli;
+                    $jenisBarangId  = $detail->barang->jenis_barang_id;
+                    $tipeKas        = $request->tipe_kas ?? 'kecil';
+
                     $kas = Kas::firstOrCreate(
                         [
-                            'toko_id' => $pb->toko_tujuan_id,
+                            'toko_id'         => $pb->toko_tujuan_id,
                             'jenis_barang_id' => $jenisBarangId,
-                            'tipe_kas' => $tipeKas,
+                            'tipe_kas'        => $tipeKas,
                         ],
                         [
+                            'tanggal'    => now(),
                             'saldo_awal' => 0,
-                            'saldo' => 0
+                            'saldo'      => 0,
                         ]
                     );
 
@@ -532,38 +714,38 @@ class PengirimanBarangController extends Controller
                         : "Penerimaan pembayaran PB #{$pb->id}";
 
                     if ($kasMampu > 0) {
+
                         KasService::out(
                             toko_id: $pb->toko_tujuan_id,
                             jenis_barang_id: $jenisBarangId,
                             tipe_kas: $tipeKas,
-                            qty: 1,
-                            nominal: $kasMampu,
                             total_nominal: $kasMampu,
-                            item: 'besar',
+                            item: 'kecil',
                             kategori: 'Pengiriman Barang',
-                            keterangan: $keteranganKeluar,
-                            sumber: $pb
+                            keterangan: "Verifikasi",
+                            sumber: $pb,
+                            tanggal: $pb->verified_at
                         );
 
                         KasService::in(
                             toko_id: $pb->toko_asal_id,
                             jenis_barang_id: $jenisBarangId,
                             tipe_kas: 'kecil',
-                            qty: 1,
-                            nominal: $kasMampu,
                             total_nominal: $kasMampu,
                             item: 'kecil',
                             kategori: 'Pengiriman Barang',
-                            keterangan: $keteranganMasuk,
-                            sumber: $pb
+                            keterangan: "Verifikasi",
+                            sumber: $pb,
+                            tanggal: $pb->verified_at
                         );
                     }
 
-                    $this->recalcHPPGlobal($stockTarget);
+                    $this->recalcHPPGlobal($stockOrigin);
 
-                    $batchNew->hpp_awal = $stockTarget->hpp_awal;
-                    $batchNew->hpp_baru = $stockTarget->hpp_baru;
-                    $batchNew->save();
+                    $batchNew->update([
+                        'hpp_awal' => $stockOrigin->hpp_awal,
+                        'hpp_baru' => $stockOrigin->hpp_baru,
+                    ]);
                 }
 
                 if ($row['qty_problem'] > 0) {
@@ -579,7 +761,7 @@ class PengirimanBarangController extends Controller
                 $tokoAsal   = Toko::find($pb->toko_asal_id);
                 $tokoTujuan = Toko::find($pb->toko_tujuan_id);
                 $jb         = JenisBarang::find($jenisBarangId);
-                $tipeKas    = $request->tipe_kas ?? 'besar';
+                $tipeKas    = $request->tipe_kas ?? 'kecil';
                 $kasAsal    = Kas::where('toko_id', $pb->toko_asal_id)->where('jenis_barang_id', $jenisBarangId)->where('tipe_kas', $tipeKas)->first();
                 $kasTujuan  = Kas::where('toko_id', $pb->toko_tujuan_id)->where('jenis_barang_id', $jenisBarangId)->where('tipe_kas', $tipeKas)->first();
 
@@ -588,73 +770,68 @@ class PengirimanBarangController extends Controller
                     'toko_id'         => $pb->toko_tujuan_id,
                     'hutang_tipe_id'  => 2,
                     'nominal'         => $totalHutang,
+                    'sisa'            => $totalHutang,
                     'tanggal'         => now(),
-                    'keterangan'      => "Hutang barang {$jb->nama_jenis_barang} ke {$tokoAsal->nama}",
+                    'keterangan'      => "Hutang barang {$jb->nama_jenis_barang} dari {$tokoAsal->nama}",
                     'status'          => '0',
                     'jangka'          => 'pendek',
                     'sumber_id'       => $pb->id,
                     'sumber_type'     => PengirimanBarang::class,
+                    'created_by'      => $request->verified_by
                 ]);
 
                 $piutangModel = Piutang::create([
                     'kas_id'          => $kasAsal->id,
                     'toko_id'         => $pb->toko_asal_id,
-                    'piutang_tipe_id' => 2,
+                    'piutang_tipe_id' => 1,
                     'nominal'         => $totalHutang,
+                    'sisa'            => $totalHutang,
                     'tanggal'         => now(),
-                    'keterangan'      => "Piutang barang {$jb->nama_jenis_barang} dari {$tokoTujuan->nama}",
+                    'keterangan'      => "Piutang barang {$jb->nama_jenis_barang} ke {$tokoTujuan->nama}",
                     'status'          => '0',
                     'jangka'          => 'pendek',
                     'sumber_id'       => $pb->id,
                     'sumber_type'     => PengirimanBarang::class,
+                    'created_by'      => $pb->send_by
                 ]);
 
                 KasService::neutralIN(
                     toko_id: $pb->toko_tujuan_id,
                     jenis_barang_id: $jenisBarangId,
                     tipe_kas: $tipeKas,
-                    qty: 1,
-                    nominal: $totalHutang,
                     total_nominal: $totalHutang,
                     item: 'hutang',
                     kategori: 'Hutang',
                     keterangan: "Hutang ke {$tokoAsal->nama}",
-                    sumber: $hutangModel
+                    sumber: $hutangModel,
+                    laba: false
                 );
 
                 KasService::neutralIN(
                     toko_id: $pb->toko_asal_id,
                     jenis_barang_id: $jenisBarangId,
                     tipe_kas: 'kecil',
-                    qty: 1,
-                    nominal: $totalHutang,
                     total_nominal: $totalHutang,
                     item: 'piutang',
                     kategori: 'Piutang',
                     keterangan: "Piutang dari {$tokoTujuan->nama}",
-                    sumber: $piutangModel
+                    sumber: $piutangModel,
+                    laba: false
                 );
             }
 
             $pb->update([
-                'status' => 'success',
+                'status'      => 'success',
                 'verified_by' => $request->verified_by,
                 'verified_at' => now()
             ]);
 
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Verifikasi Pengiriman Barang Berhasil'
-            ]);
-        } catch (\Throwable $th) {
+            return $this->success(null, 201, 'Verifikasi Pengiriman Barang Berhasil');
+        } catch (\Exception $e) {
             DB::rollBack();
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Terjadi kesalahan: ' . $th->getMessage()
-            ], 500);
+            return $this->error(500, $e->getMessage());
         }
     }
 

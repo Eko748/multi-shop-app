@@ -11,7 +11,7 @@ class Hutang extends Model
 {
     use HasFactory, SoftDeletes;
     protected $table = 'hutang';
-    protected $guarded = [''];
+    protected $guarded = [];
     protected $casts = [
         'tanggal' => 'datetime',
     ];

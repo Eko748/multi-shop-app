@@ -90,6 +90,12 @@ Route::get('/get/total-kas-hirarki', [KasController::class, 'getTotalKasHirarki'
 Route::get('/get/total-kas-besar', [KasController::class, 'getTotalKasBesar'])->name('total.kas-besar');
 Route::get('/get/total-kas-kecil', [KasController::class, 'getTotalKasKecil'])->name('total.kas-kecil');
 
+Route::prefix('user')->as('user.')->group(function () {
+    Route::post('post', [UserController::class, 'post'])->name('post');
+    Route::put('put', [UserController::class, 'update'])->name('update');
+    Route::delete('delete', [UserController::class, 'delete'])->name('delete');
+});
+
 Route::prefix('member')->as('member.')->group(function () {
     Route::post('post', [MemberController::class, 'post'])->name('post');
     Route::put('put', [MemberController::class, 'update'])->name('update');
@@ -227,10 +233,14 @@ Route::prefix('stock-barang')->as('sb.')->group(function () {
 Route::prefix('distribusi')->as('distribusi.')->group(function () {
     Route::prefix('pengiriman')->as('pengiriman.')->group(function () {
         Route::get('get', [PengirimanBarangController::class, 'get'])->name('get');
+        Route::get('detail', [PengirimanBarangController::class, 'detail'])->name('detail');
+        Route::get('temporary', [PengirimanBarangController::class, 'temporary'])->name('temporary');
         Route::get('progress', [PengirimanBarangController::class, 'progress'])->name('progress');
         Route::post('post', [PengirimanBarangController::class, 'post'])->name('post');
         Route::post('draft', [PengirimanBarangController::class, 'draft'])->name('draft');
         Route::post('verify', [PengirimanBarangController::class, 'verify'])->name('verify');
+        Route::delete('delete-temporary', [PengirimanBarangController::class, 'deleteTemporary'])->name('deleteTemporary');
+        Route::delete('delete', [PengirimanBarangController::class, 'delete'])->name('delete');
     });
 });
 

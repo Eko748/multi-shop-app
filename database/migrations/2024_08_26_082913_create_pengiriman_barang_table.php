@@ -13,6 +13,7 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('toko_asal_id');
             $table->unsignedBigInteger('toko_tujuan_id');
+            $table->unsignedBigInteger('toko_group_id');
             $table->enum('status', ['pending', 'progress', 'success', 'canceled'])->default('pending');
             $table->string('no_resi');
             $table->string('ekspedisi');
@@ -20,9 +21,9 @@ return new class extends Migration
             $table->timestamp('send_at');
             $table->unsignedBigInteger('verified_by')->nullable();
             $table->timestamp('verified_at')->nullable();
+            $table->unsignedBigInteger('deleted_by')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });
     }
-
 };

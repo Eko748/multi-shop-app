@@ -7,8 +7,11 @@ use App\Models\Barang;
 use App\Models\DetailKasir;
 use App\Models\DetailPengirimanBarang;
 use App\Models\DetailToko;
+use App\Models\PengirimanBarangDetail;
 use App\Models\StockBarang;
+use App\Models\StockBarangBatch;
 use App\Models\Toko;
+use App\Models\TransaksiKasirDetail;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -32,31 +35,25 @@ class PlanOrderController extends Controller
         $meta['orderBy'] = $request->ascending ? 'asc' : 'desc';
         $meta['limit'] = $request->has('limit') && $request->limit <= 30 ? $request->limit : 30;
 
-        // Ambil id_toko dari request
-        $selectedTokoIds = $request->input('id_toko', []);
+        $selectedTokoIds = $request->input('toko_id', []);
 
-        // Ambil semua toko jika tidak ada yang dipilih
         if (empty($selectedTokoIds)) {
             $selectedTokoIds = Toko::pluck('id')->toArray();
         }
 
-        // Query barang
-        $query = Barang::select('barang.id', 'barang.nama_barang')
+        // ===============================
+        // QUERY BARANG
+        // ===============================
+        $query = Barang::select('id', 'nama')
             ->orderBy('id', $meta['orderBy']);
 
-        // Pencarian
         if (!empty($request['search'])) {
             $searchTerm = trim(strtolower($request['search']));
-
-            $query->where(function ($query) use ($searchTerm) {
-                $query->orWhereRaw("LOWER(nama_barang) LIKE ?", ["%$searchTerm%"]);
-            });
+            $query->whereRaw("LOWER(nama) LIKE ?", ["%$searchTerm%"]);
         }
 
-        // Paginate data barang
         $data = $query->paginate($meta['limit']);
 
-        // Metadata pagination
         $paginationMeta = [
             'total' => $data->total(),
             'per_page' => $data->perPage(),
@@ -64,48 +61,78 @@ class PlanOrderController extends Controller
             'total_pages' => $data->lastPage(),
         ];
 
-        // Format data barang, stok, otw, dan lo
-        $mappedData = collect($data->items())->map(function ($item) use ($selectedTokoIds) {
-            $stokPerToko = Toko::whereIn('id', $selectedTokoIds)->get()->mapWithKeys(function ($tk) use ($item) {
-                // Ambil stok
-                if ($tk->id == 1) {
-                    $stock = StockBarang::where('id_barang', $item->id)->first()?->stock ?? 0;
-                } else {
-                    $stock = DetailToko::where('id_barang', $item->id)->where('id_toko', $tk->id)->first()?->qty ?? 0;
-                }
+        $tokoList = Toko::whereIn('id', $selectedTokoIds)
+            ->select('id', 'singkatan')
+            ->get();
 
-                // Ambil jumlah otw
-                $otw = DetailPengirimanBarang::where('id_barang', $item->id)
-                    ->whereHas('pengiriman', function ($query) use ($tk) {
-                        $query->where('toko_penerima', $tk->id)
-                            ->where('status', '!=', 'success');
-                    })
-                    ->sum('qty');
+        // ===============================
+        // MAP DATA
+        // ===============================
+        $mappedData = collect($data->items())->map(function ($item) use ($selectedTokoIds, $tokoList) {
 
-                // Ambil last order (lo)
-                $lastOrder = DetailKasir::where('id_barang', $item->id)
-                    ->whereHas('kasir', function ($query) use ($tk) {
-                        $query->where('id_toko', $tk->id);
-                    })
-                    ->orderBy('created_at', 'desc')
-                    ->first();
+            // ===============================
+            // 🔥 STOCK GROUPED
+            // ===============================
+            $stockGrouped = StockBarangBatch::selectRaw('toko_id, SUM(qty_sisa) as total_stock')
+                ->whereHas('stockBarang', function ($query) use ($item) {
+                    $query->where('barang_id', $item->id);
+                })
+                ->whereIn('toko_id', $selectedTokoIds)
+                ->groupBy('toko_id')
+                ->pluck('total_stock', 'toko_id');
 
-                $lo = $lastOrder && $lastOrder->created_at
-                    ? abs(now()->startOfDay()->diffInDays(Carbon::parse($lastOrder->created_at)->startOfDay()))
+            // ===============================
+            // 🔥 OTW GROUPED
+            // ===============================
+            $otwGrouped = PengirimanBarangDetail::selectRaw('pengiriman_barang.toko_asal_id as toko_id, SUM(qty_send) as total_otw')
+                ->join('pengiriman_barang', 'pengiriman_barang.id', '=', 'pengiriman_barang_detail.pengiriman_barang_id')
+                ->where('pengiriman_barang_detail.barang_id', $item->id)
+                ->where('pengiriman_barang.status', '!=', 'success')
+                ->whereIn('pengiriman_barang.toko_asal_id', $selectedTokoIds)
+                ->groupBy('pengiriman_barang.toko_asal_id')
+                ->pluck('total_otw', 'toko_id');
+
+            // ===============================
+            // 🔥 LAST ORDER GROUPED
+            // ===============================
+            $lastOrders = TransaksiKasirDetail::selectRaw('transaksi_kasir.toko_id, MAX(transaksi_kasir_detail.created_at) as last_date')
+                ->join('transaksi_kasir', 'transaksi_kasir.id', '=', 'transaksi_kasir_detail.transaksi_kasir_id')
+                ->join('stock_barang_batch', 'stock_barang_batch.id', '=', 'transaksi_kasir_detail.stock_barang_batch_id')
+                ->join('stock_barang', 'stock_barang.id', '=', 'stock_barang_batch.stock_barang_id')
+                ->where('stock_barang.barang_id', $item->id)
+                ->whereIn('transaksi_kasir.toko_id', $selectedTokoIds)
+                ->groupBy('transaksi_kasir.toko_id')
+                ->pluck('last_date', 'toko_id');
+
+            // ===============================
+            // BUILD RESPONSE PER TOKO
+            // ===============================
+            $stokPerToko = $tokoList->mapWithKeys(function ($tk) use ($stockGrouped, $otwGrouped, $lastOrders) {
+
+                $stock = $stockGrouped[$tk->id] ?? 0;
+                $otw   = $otwGrouped[$tk->id] ?? 0;
+
+                $lo = isset($lastOrders[$tk->id])
+                    ? abs(now()->startOfDay()->diffInDays(
+                        \Carbon\Carbon::parse($lastOrders[$tk->id])->startOfDay()
+                    ))
                     : null;
 
-
-                return [$tk->singkatan => ['stock' => $stock, 'otw' => $otw, 'lo' => $lo]];
+                return [
+                    $tk->singkatan => [
+                        'stock' => $stock,
+                        'otw'   => $otw,
+                        'lo'    => $lo,
+                    ]
+                ];
             });
 
             return [
                 'id' => $item->id,
-                'nama_barang' => $item->nama_barang,
+                'nama_barang' => $item->nama,
                 'stok_per_toko' => $stokPerToko,
             ];
         });
-
-        $dataToko = Toko::select('nama_toko', 'singkatan')->get();
 
         return response()->json([
             "error" => false,
@@ -113,29 +140,14 @@ class PlanOrderController extends Controller
             "status_code" => 200,
             "pagination" => $paginationMeta,
             "data" => $mappedData,
-            "data_toko" => $dataToko,
+            "data_toko" => $tokoList,
         ]);
     }
 
     public function index()
     {
         $menu = [$this->title[0], $this->label[6]];
-        $user = Auth::user(); // Mendapatkan user yang sedang login
 
-        // Mengambil stock barang beserta relasi ke barang dan toko
-        $stock = StockBarang::with('barang', 'toko')
-            ->orderBy('id', 'desc')
-            ->get();
-
-        // Ambil stok barang dari tabel 'detail_toko' untuk semua toko kecuali id = 1
-        $stokTokoLain = DetailToko::with('barang', 'toko')
-            ->where('id_toko', '!=', 1)
-            ->get();
-
-        // Ambil semua toko
-        $toko = Toko::all();
-        $barang = Barang::all();
-
-        return view('master.planorder.index', compact('menu', 'stock', 'stokTokoLain', 'toko', 'barang'));
+        return view('master.planorder.index', compact('menu'));
     }
 }

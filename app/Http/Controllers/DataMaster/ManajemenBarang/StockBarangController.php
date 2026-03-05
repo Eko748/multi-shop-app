@@ -412,52 +412,59 @@ class StockBarangController extends Controller
             }
         }
 
-        // ================================
-        // DATA PER TOKO
-        // ================================
-        $tokoList = Toko::all()->sortByDesc(fn($tk) => $tk->id == $request->toko_id ? 1 : 0);
+        $tokoList = Toko::all()
+            ->sortByDesc(fn($tk) => $tk->id == $request->toko_id ? 1 : 0);
 
-        // $dataPerToko = $tokoList->map(function ($tk) use ($stockBarang, $levelHargaMaster, $hargaMapping) {
+        // ===============================
+        // 🔥 Ambil stock per toko
+        // ===============================
+        $stockGrouped = StockBarangBatch::selectRaw('toko_id, SUM(qty_sisa) as total_stock')
+            ->whereHas('stockBarang', function ($q) use ($stockBarang) {
+                $q->where('barang_id', $stockBarang->barang_id);
+            })
+            ->groupBy('toko_id')
+            ->pluck('total_stock', 'toko_id');
 
-        //     $stock = $tk->id == 1 ? ($stockBarang->stok ?? 0) : 0;
+        $dataPerToko = $tokoList->map(function ($tk) use ($stockGrouped, $levelHargaMaster) {
 
-        //     // Decode level harga toko (aman)
-        //     $raw = $tk->level_harga;
-        //     $array = json_decode($raw, true);
+            $stock = $stockGrouped[$tk->id] ?? 0;
 
-        //     if (!is_array($array)) {
-        //         if (is_string($raw) && str_contains($raw, ',')) {
-        //             $array = array_map('intval', explode(',', $raw));
-        //         } elseif (is_numeric($raw)) {
-        //             $array = [(int) $raw];
-        //         } else {
-        //             $array = [];
-        //         }
-        //     }
+            // Decode level harga toko (aman)
+            $raw = $tk->level_harga;
+            $array = json_decode($raw, true);
 
-        //     // Bangun output string
-        //     $output = [];
+            if (!is_array($array)) {
+                if (is_string($raw) && str_contains($raw, ',')) {
+                    $array = array_map('intval', explode(',', $raw));
+                } elseif (is_numeric($raw)) {
+                    $array = [(int) $raw];
+                } else {
+                    $array = [];
+                }
+            }
 
-        //     foreach ($array as $id) {
+            $output = [];
 
-        //         $namaLevel = $levelHargaMaster
-        //             ->firstWhere('id', $id)
-        //             ->nama_level_harga ?? 'N/A';
+            foreach ($array as $id) {
 
-        //         $harga = $hargaMapping[$id] ?? null;
+                $namaLevel = $levelHargaMaster
+                    ->firstWhere('id', $id)
+                    ->nama_level_harga ?? 'N/A';
 
-        //         if ($harga !== null) {
-        //             $formatted = 'Rp ' . number_format($harga, 0, ',', '.');
-        //             $output[] = "{$namaLevel} ({$formatted})";
-        //         }
-        //     }
+                $harga = $hargaMapping[$id] ?? null;
 
-        //     return [
-        //         'nama_toko'   => $tk->nama,
-        //         'stock'       => $stock,
-        //         'level_harga' => implode(', ', $output),
-        //     ];
-        // });
+                if ($harga !== null) {
+                    $formatted = 'Rp ' . number_format($harga, 0, ',', '.');
+                    $output[] = "{$namaLevel} ({$formatted})";
+                }
+            }
+
+            return [
+                'nama_toko'   => $tk->nama,
+                'stock'       => $stock,
+                'level_harga' => implode(', ', $output),
+            ];
+        });
 
         // ================================
         // RESPONSE
@@ -470,6 +477,7 @@ class StockBarangController extends Controller
             'total_harga_success' => $totalHargaSuccess,
             'total_qty_success'   => $totalQtySuccess,
             'level_harga'         => $levelHargaKeyValue, // ✅ KEY VALUE
+            'per_toko'            => $dataPerToko,
         ];
 
         return $this->success($data, 200, 'Data berhasil diambil!');

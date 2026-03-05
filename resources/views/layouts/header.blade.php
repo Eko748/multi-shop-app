@@ -94,7 +94,7 @@
                         </button>
 
                         <!-- Profile button -->
-                        <a href="{{ route('master.user.edit', Auth::id()) }}" class="neu-btn" title="Profile">
+                        <a href="" class="neu-btn" title="Profile">
                             <i class="feather icon-user"></i>
                         </a>
 
@@ -122,7 +122,7 @@
                         </button>
 
                         <!-- Profile button -->
-                        <a href="{{ route('master.user.edit', Auth::id()) }}" class="neu-btn" title="Profile">
+                        <a href="" class="neu-btn" title="Profile">
                             <i class="feather icon-user"></i>
                         </a>
 

@@ -234,8 +234,8 @@
 
             let filterParams = {};
 
-            if (customFilter['id_toko']) {
-                filterParams.id_toko = customFilter['id_toko'];
+            if (customFilter['toko_id']) {
+                filterParams.toko_id = customFilter['toko_id'];
             }
 
             let getDataRest = await renderAPI(
@@ -403,7 +403,7 @@
                 let selectedTokoIds = $('#f_toko').val();
 
                 if (selectedTokoIds && selectedTokoIds.length > 0) {
-                    customFilter['id_toko'] = selectedTokoIds;
+                    customFilter['toko_id'] = selectedTokoIds;
                 }
 
                 defaultSearch = $('.tb-search').val();

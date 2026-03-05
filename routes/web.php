@@ -27,11 +27,6 @@ Route::middleware(['auth'])->group(function () {
 
     // User Controller
     Route::get('/user', [UserController::class, 'index'])->name('master.user.index')->middleware('permission:GET /user');
-    Route::get('/user/create', [UserController::class, 'create'])->name('master.user.create')->middleware('permission:GET /user/create');
-    Route::post('/user/store', [UserController::class, 'store'])->name('master.user.store')->middleware('permission:POST /user/store');
-    Route::get('/user/edit/{id}', [UserController::class, 'edit'])->name('master.user.edit')->middleware('permission:GET /user/edit/{id}');
-    Route::put('/user/update/{id}', [UserController::class, 'update'])->name('master.user.update')->middleware('permission:PUT /user/update/{id}');
-    Route::delete('/user/delete/{id}', [UserController::class, 'delete'])->name('master.user.delete')->middleware('permission:DELETE /user/delete/{id}');
     Route::post('/import-user', [UserController::class, 'import'])->name('master.user.import')->middleware('permission:POST /import-user');
 
     // Toko Controller

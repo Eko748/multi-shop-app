@@ -18,15 +18,7 @@ class User extends Authenticatable
 
     use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
-    protected $guarded = [''];
-
-    public $incrementing = false;
-
-    public $timestamps = false;
-
-    protected $keyType = "string";
-
-    public $primaryKey = "id";
+    protected $guarded = [];
 
     protected $hidden = [
         'password',

@@ -65,7 +65,6 @@
                             </div>
                         </div>
                         <div class="content">
-                            <x-alerts-array />
                             <div class="collapse mt-2 pl-4" id="filter-collapse">
                                 <form id="custom-filter" class="d-flex justify-content-start align-items-center">
                                     <input class="form-control w-25 mb-2" type="text" id="daterange" name="daterange"

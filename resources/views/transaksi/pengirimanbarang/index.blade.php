@@ -85,11 +85,10 @@
                                                 <th class="text-wrap align-top">Tgl Kirim</th>
                                                 <th class="text-wrap align-top">Tgl Terima</th>
                                                 <th class="text-wrap align-top">No. Resi</th>
-                                                <th class="text-wrap align-top">Toko Pengirim</th>
-                                                <th class="text-wrap align-top">Nama Pengirim</th>
-                                                <th class="text-wrap align-top">Ekspedisi</th>
-                                                <th class="text-wrap align-top">Total Qty</th>
-                                                <th class="text-wrap align-top">Toko Penerima</th>
+                                                <th class="text-wrap align-top">Qty</th>
+                                                <th class="text-wrap align-top">Toko Tujuan</th>
+                                                <th class="text-wrap align-top">Toko Asal</th>
+                                                <th class="text-wrap align-top">Pengirim</th>
                                                 <th class="text-wrap align-top">Action</th>
                                             </tr>
                                         </thead>
@@ -130,7 +129,7 @@
                 <div class="modal-body">
                     <form id="formTambahData">
                         <div class="row">
-                            <div class="col-md-6">
+                            <div class="col-md-3">
                                 <div class="form-group">
                                     <label>Toko Asal<sup class="text-danger">*</sup></label>
                                     <input type="text" class="form-control" value="{{ auth()->user()->toko->nama }}"
@@ -138,11 +137,19 @@
                                     <input type="hidden" id="toko_asal_id" value="{{ auth()->user()->toko_id }}">
                                 </div>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-3">
                                 <div class="form-group">
                                     <label for="toko_tujuan_id">Toko Tujuan<sup class="text-danger">*</sup></label>
                                     <select id="toko_tujuan_id" class="form-control select2" required>
                                         <option value="">Pilih Toko Tujuan</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="toko_group_id">Group Toko<sup class="text-danger">*</sup></label>
+                                    <select id="toko_group_id" class="form-control select2" required>
+                                        <option value="">Pilih Group Toko</option>
                                     </select>
                                 </div>
                             </div>
@@ -299,28 +306,75 @@
             </div>
         </div>
     </div>
+
+    <div class="modal fade" id="modal-detail" tabindex="-1" role="dialog" aria-labelledby="modal-form-label"
+        aria-hidden="true">
+        <div class="modal-dialog modal-xl" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalDetail">Detail Pengiriman Barang</h5>
+                    <button type="button" class="btn-close reset-all close" data-bs-dismiss="modal"
+                        aria-label="Close"><i class="fa fa-xmark"></i></button>
+                </div>
+                <div class="modal-body card-body" id="modal-data">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" aria-label="Close"><i
+                            class="fa fa-times mr-1"></i>Tutup</button>
+                </div>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @section('asset_js')
     <script src="{{ asset('js/moment.js') }}"></script>
     <script src="{{ asset('js/daterange-picker.js') }}"></script>
     <script src="{{ asset('js/daterange-custom.js') }}"></script>
-    <script src="{{ asset('js/pagination.js') }}"></script>
+    <script src="{{ asset('js/pagination-multi.js') }}"></script>
     <script src="{{ asset('js/flatpickr.js') }}"></script>
 @endsection
 
 @section('js')
     <script>
-        let defaultLimitPage = 10;
+        let title = 'Pengiriman Barang';
+        let defaultLimitPage = 30;
         let currentPage = 1;
         let totalPage = 1;
         let defaultAscending = 0;
         let defaultSearch = '';
         let customFilter = {};
+
+        let defaultLimitPage2 = 10;
+        let currentPage2 = 1;
+        let totalPage2 = 1;
+        let defaultAscending2 = 0;
+        let defaultSearch2 = '';
+        let customFilter2 = {};
+
+        const fetchConfigMap = {
+            getListData: {
+                fn: getListData,
+                getConfig: () => ({
+                    limit: defaultLimitPage,
+                    page: currentPage,
+                    asc: defaultAscending,
+                    search: defaultSearch,
+                    filter: customFilter
+                }),
+                setPage: (val) => currentPage = val,
+                getTotalPage: () => totalPage,
+                setSearch: (val) => defaultSearch = val,
+                setLimit: (val) => {
+                    defaultLimitPage = val;
+                }
+            },
+        };
+
         let selectOptions = [{
                 id: '#toko_tujuan_id',
                 isUrl: '{{ route('master.toko') }}',
-                placeholder: 'Pilih Kas',
+                placeholder: 'Pilih Toko',
                 isModal: '#modal-form',
                 isFilter: {
                     not_self: {{ auth()->user()->toko_id }},
@@ -338,6 +392,8 @@
                 isImage: true
             },
         ];
+
+        let detailID = null;
 
         async function getListData(limit = 10, page = 1, ascending = 0, search = '', customFilter = {}) {
             $('#listData').html(loadingData());
@@ -405,30 +461,9 @@
             let delete_button = '';
             let detail_button = '';
 
-            if (id_toko == data?.id_toko_pengirim) {
-                detail_button = (data?.status === 'Pending') ? `
-                <a href="pengirimanbarang/detail/${data.id}" class="p-1 btn detail-data action_button"
-                    data-container="body" data-toggle="tooltip" data-placement="top"
-                    title="Edit Data Nomor Resi: ${data.no_resi}"
-                    data-id='${data.id}'>
-                    <span class="text-dark">Edit</span>
-                    <div class="icon text-warning">
-                        <i class="fa fa-edit"></i>
-                    </div>
-                </a>` :
-                    (data?.status === 'Progress' || data?.status === 'Sukses') ? `
-                <a href="pengirimanbarang/detail/${data.id}" class="p-1 btn detail-data action_button"
-                    data-container="body" data-toggle="tooltip" data-placement="top"
-                    title="Detail Data Nomor Resi: ${data.no_resi}"
-                    data-id='${data.id}'>
-                    <span class="text-dark">Detail</span>
-                    <div class="icon text-info">
-                        <i class="fa fa-book"></i>
-                    </div>
-                </a>` : '';
-
+            if (id_toko == data?.toko_asal_id) {
                 delete_button = (data?.status === 'Progress' || data?.status === 'Pending') ? `
-                <a class="p-1 btn hapus-data action_button"
+                <button class="p-1 btn hapus-data action_button"
                     data-container="body" data-toggle="tooltip" data-placement="top"
                     title="Hapus Data Nomor Resi: ${data.no_resi}"
                     data-id='${data.id}' data-name='${data.no_resi}'>
@@ -436,7 +471,7 @@
                     <div class="icon text-danger">
                         <i class="fa fa-trash-alt"></i>
                     </div>
-                </a>` : '';
+                </button>` : '';
             }
 
             let edit_button = '';
@@ -450,19 +485,27 @@
                         <i class="fa fa-circle-check"></i>
                     </div>
                 </button>`;
+            } else if (id_toko == data?.toko_asal_id && data?.status == 'Pending') {
+                edit_button = `
+                <button class="p-1 btn action_button" onClick="openEditModal('${encodeURIComponent(JSON.stringify(data))}')"
+                    data-id="${data.id}"
+                    title="Edit Nomor Resi: ${data.no_resi}">
+                    <span class="text-dark">Edit</span>
+                    <div class="icon text-warning">
+                        <i class="fa fa-edit"></i>
+                    </div>
+                </button>`;
             }
 
-            if (id_toko == data?.toko_tujuan_id && data?.status == 'Sukses') {
+            if ((id_toko == data?.toko_tujuan_id || id_toko == data?.toko_asal_id) && (data?.status == 'Progress' ||
+                    data?.status == 'Sukses')) {
                 detail_button = `
-                <a href="pengirimanbarang/detail/${data.id}" class="p-1 btn detail-data action_button"
-                    data-container="body" data-toggle="tooltip" data-placement="top"
-                    title="Detail Data Nomor Resi: ${data.no_resi}"
-                    data-id='${data.id}'>
-                    <span class="text-dark">Detail</span>
-                    <div class="icon text-info">
-                        <i class="fa fa-book"></i>
+                <button class="p-1 btn detail-data action_button" onClick="openDetailModal('${encodeURIComponent(JSON.stringify(data))}')">
+                    <span class="text-dark" title="Detail ${title}: ${data.no_resi}">Detail</span>
+                    <div class="icon text-info" title="Detail ${title}: ${data.no_resi}">
+                        <i class="fa fa-folder mb-1"></i>
                     </div>
-                </a>`;
+                </button>`;
             }
 
             let action_buttons = '';
@@ -509,11 +552,10 @@
                     <td class="${classCol}">${element.tgl_kirim}</td>
                     <td class="${classCol}">${element.tgl_terima}</td>
                     <td class="${classCol}">${element.no_resi}</td>
-                    <td class="${classCol}">${element.toko_asal}</td>
-                    <td class="${classCol}">${element.nama_pengirim}</td>
-                    <td class="${classCol}">${element.ekspedisi}</td>
                     <td class="${classCol}">${element.total_item}</td>
                     <td class="${classCol}">${element.toko_tujuan}</td>
+                    <td class="${classCol}">${element.toko_asal}</td>
+                    <td class="${classCol}">${element.nama_pengirim}</td>
                     <td class="${classCol}">${element.action_buttons}</td>
                 </tr>`;
             });
@@ -585,7 +627,10 @@
                 }).then(async (result) => {
                     let postDataRest = await renderAPI(
                         'DELETE',
-                        `pengirimanbarang/${id}/delete`
+                        '{{ route('distribusi.pengiriman.delete') }}', {
+                            id: id,
+                            user_id: {{ auth()->user()->id }}
+                        }
                     ).then(function(response) {
                         return response;
                     }).catch(function(error) {
@@ -608,25 +653,67 @@
 
         async function addData() {
             $(document).on("click", ".add-data", function() {
+
                 $("#formTambahData")[0].reset();
                 $("#toko_tujuan_id").val("").trigger("change");
                 $("#select_batch_manual").val("").trigger("change");
                 $("#table-detail tbody").html("");
+
                 if ($("#table-detail tbody tr").length === 0) {
                     showEmptyMessage();
                 }
+
                 $("#scan_batch_input").val("");
                 $("#scan-info").hide().text("");
+
                 $("#modal-title").html(
                     `<i class="fa fa-circle-plus mr-1"></i>Form Tambah Pengiriman Barang`
                 );
-                $("#formTambahData").data("action-url", '{{ route('distribusi.pengiriman.post') }}');
+
+                $("#formTambahData").data(
+                    "action-url",
+                    '{{ route('distribusi.pengiriman.post') }}'
+                );
+
                 $("#modal-form").modal("show");
-                if (window.tglPengiriman) {
-                    tglPengiriman.setDate(new Date());
-                }
 
                 draftForm();
+                setDatePicker('send_at');
+
+                // 🔴 default disabled saat modal dibuka
+                $("#toko_group_id").prop("disabled", true);
+
+                // 🟢 event ketika toko tujuan berubah
+                $("#toko_tujuan_id").off("change").on("change", async function() {
+
+                    let tokoTujuan = $(this).val();
+
+                    if (tokoTujuan) {
+
+                        // aktifkan select
+                        $("#toko_group_id").prop("disabled", false);
+
+                        let selectOptions = [{
+                            id: `#toko_group_id`,
+                            isUrl: `{{ route('dm.toko.group.select') }}`,
+                            isFilter: {
+                                toko_id: tokoTujuan
+                            },
+                            placeholder: 'Pilih Group Toko',
+                            isModal: '#modal-form',
+                        }];
+
+                        await selectData(selectOptions);
+
+                    } else {
+
+                        // jika dikosongkan → reset & disable lagi
+                        $("#toko_group_id")
+                            .val(null)
+                            .trigger("change")
+                            .prop("disabled", true);
+                    }
+                });
             });
         }
 
@@ -657,6 +744,7 @@
                 let formData = {
                     toko_asal_id: {{ auth()->user()->toko_id }},
                     toko_tujuan_id: $("#toko_tujuan_id").val(),
+                    toko_group_id: $("#toko_group_id").val(),
                     no_resi: $("#no_resi").val(),
                     ekspedisi: $("#ekspedisi").val(),
                     send_by: {{ auth()->user()->id }},
@@ -664,12 +752,17 @@
                     details: details
                 };
 
+                if (detailID) {
+                    formData.pengiriman_barang_id = detailID;
+                }
+
                 try {
                     let postData = await renderAPI("POST", actionUrl, formData);
 
                     loadingPage(false);
                     if (postData.status >= 200 && postData.status < 300) {
                         notificationAlert("success", "Pemberitahuan", postData.data.message || "Berhasil");
+                        detailID = null;
                         setTimeout(async function() {
                             await getListData(defaultLimitPage, currentPage, defaultAscending,
                                 defaultSearch, customFilter);
@@ -716,9 +809,9 @@
                 });
 
                 let formData = {
-                    pengiriman_barang_id: id,
                     toko_asal_id: {{ auth()->user()->toko_id }},
                     toko_tujuan_id: $("#toko_tujuan_id").val(),
+                    toko_group_id: $("#toko_group_id").val(),
                     no_resi: $("#no_resi").val(),
                     ekspedisi: $("#ekspedisi").val(),
                     send_by: {{ auth()->user()->id }},
@@ -726,12 +819,18 @@
                     details: details
                 };
 
+                if (detailID) {
+                    formData.pengiriman_barang_id = detailID;
+                }
+
                 try {
-                    let postData = await renderAPI("POST", '{{ route('distribusi.pengiriman.draft') }}', formData);
+                    let postData = await renderAPI("POST", '{{ route('distribusi.pengiriman.draft') }}',
+                        formData);
 
                     loadingPage(false);
                     if (postData.status >= 200 && postData.status < 300) {
                         notificationAlert("success", "Pemberitahuan", postData.data.message || "Berhasil");
+                        detailID = null;
 
                         setTimeout(async function() {
                             await getListData(defaultLimitPage, currentPage, defaultAscending,
@@ -798,8 +897,32 @@
                 $(this).val("").trigger("change.select2");
             });
 
-            $(document).on("click", ".remove-item", function() {
-                $(this).closest("tr").remove();
+            $(document).on("click", ".remove-item", async function() {
+
+                let row = $(this).closest("tr");
+                let detailId = row.find(".detail_id").val();
+
+                if (detailId) {
+
+                    let postDataRest = await renderAPI(
+                        'DELETE',
+                        '{{ route('distribusi.pengiriman.deleteTemporary') }}', {
+                            id: detailId,
+                            user_id: {{ auth()->user()->id }}
+                        }
+                    ).then(function(response) {
+                        return response;
+                    }).catch(function(error) {
+                        return error.response;
+                    });
+
+                    if (!postDataRest || postDataRest.status !== 200) {
+                        notificationAlert('error', 'Pemberitahuan', "Gagal menghapus data dari server");
+                        return;
+                    }
+                }
+
+                row.remove();
 
                 if ($("#table-detail tbody tr").length === 0) {
                     showEmptyMessage();
@@ -989,13 +1112,14 @@
                 let pengirimanId = $(".verify-data").data("id");
 
                 try {
-                    let postDataRest = await renderAPI("POST", '{{ route('distribusi.pengiriman.verify') }}', {
-                        id: pengirimanId,
-                        verified_by: {{ auth()->user()->id }},
-                        details: payload
-                    });
+                    let postDataRest = await renderAPI("POST",
+                        '{{ route('distribusi.pengiriman.verify') }}', {
+                            id: pengirimanId,
+                            verified_by: {{ auth()->user()->id }},
+                            details: payload
+                        });
 
-                    if (postDataRest.status == 200) {
+                    if (postDataRest.status == 201) {
 
                         $("#modal-verifikasi").modal("hide");
 
@@ -1026,6 +1150,196 @@
 
         }
 
+        async function openDetailModal(encodedData) {
+            let data = JSON.parse(decodeURIComponent(encodedData));
+            await renderModalDetail();
+
+            await $('#save-btn')
+                .removeClass('btn-success')
+                .addClass('btn-primary d-none')
+                .prop('disabled', true)
+                .html('<i class="fa fa-edit mr-1"></i>Update');
+
+            await $('#modal-detail').modal('show');
+
+            fetchConfigMap.getListData2 = {
+                fn: getListData2,
+                getConfig: () => ({
+                    limit: defaultLimitPage2,
+                    page: currentPage2,
+                    asc: defaultAscending2,
+                    search: defaultSearch2,
+                    filter: customFilter2,
+                    id: data.id
+                }),
+                setPage: (val) => currentPage2 = val,
+                getTotalPage: () => totalPage3,
+                setSearch: (val) => defaultSearch2 = val,
+                setLimit: (val) => {
+                    defaultLimitPage2 = val;
+                }
+            };
+            await setDetailData2(encodedData);
+
+            await Promise.all([
+                getListData2(
+                    defaultLimitPage2,
+                    currentPage2,
+                    defaultAscending2,
+                    defaultSearch2,
+                    customFilter2 = {
+                        id: data.id
+                    }
+                ),
+                searchList('getListData2', '#limitPage3', '.tb-search3'),
+            ]);
+        }
+
+        async function openEditModal(encodedData) {
+            try {
+
+                let data = JSON.parse(decodeURIComponent(encodedData));
+                detailID = data.id;
+                draftForm();
+                setDatePicker('send_at');
+
+                // Reset form
+                $("#formTambahData")[0].reset();
+                $("#table-detail tbody").html("");
+                $("#scan_batch_input").val("");
+                $("#scan-info").hide().text("");
+
+                $("#modal-title").html(
+                    `<i class="fa fa-pen-to-square mr-1"></i>Form Edit Pengiriman Barang`
+                );
+
+                // 🔥 Set action update
+                $("#formTambahData").data(
+                    "action-url",
+                    '{{ route('distribusi.pengiriman.post') }}'
+                );
+
+                // ===============================
+                // 🟢 HEADER (dari encodedData)
+                // ===============================
+
+                $("#id").val(data.id);
+                $("#no_resi").val(data.no_resi);
+                $("#ekspedisi").val(data.ekspedisi);
+
+                setSelect2Value(
+                    "#toko_tujuan_id",
+                    data.toko_tujuan_id,
+                    data.toko_tujuan_nama
+                );
+
+                // Format tgl_kirim → datetime-local
+                if (data.tgl_kirim) {
+                    $("#send_at").val(data.tgl_kirim);
+                }
+
+                // ===============================
+                // 🟢 LOAD GROUP TOKO
+                // ===============================
+
+                $("#toko_group_id").prop("disabled", false);
+
+                let selectOptions = [{
+                    id: `#toko_group_id`,
+                    isUrl: `{{ route('dm.toko.group.select') }}`,
+                    isFilter: {
+                        toko_id: data.toko_tujuan_id
+                    },
+                    placeholder: 'Pilih Group Toko',
+                    isModal: '#modal-form',
+                }];
+
+                await selectData(selectOptions);
+
+                setSelect2Value(
+                    "#toko_group_id",
+                    data.toko_group_id,
+                    data.toko_group_nama
+                );
+
+                // ===============================
+                // 🟢 DETAIL (dari API)
+                // ===============================
+
+                let getDataRest = await renderAPI(
+                    'GET',
+                    '{{ route('distribusi.pengiriman.temporary') }}', {
+                        toko_id: {{ auth()->user()->toko_id }},
+                        id: data.id
+                    }
+                );
+
+                if (
+                    getDataRest &&
+                    getDataRest.data &&
+                    getDataRest.data.data &&
+                    getDataRest.data.data.item &&
+                    getDataRest.data.data.item.length > 0
+                ) {
+
+                    $("#table-detail tbody").html("");
+
+                    getDataRest.data.data.item.forEach(function(item) {
+
+                        let maxQty = item.qty_sisa + item.qty_send;
+
+                        addRowEdit(item, maxQty);
+                    });
+
+                } else {
+                    showEmptyMessage();
+                }
+
+                $("#modal-form").modal("show");
+
+            } catch (error) {
+                console.error(error);
+                alert("Terjadi kesalahan saat membuka data edit");
+            }
+        }
+
+        function setSelect2Value(selector, id, text) {
+            let option = new Option(text, id, true, true);
+            $(selector).append(option).trigger('change');
+        }
+
+        function addRowEdit(data, maxQty) {
+            const tbody = $("#table-detail tbody");
+
+            tbody.find(".empty-row").remove();
+
+            let row = `
+                <tr>
+                    <td>${data.text}</td>
+                    <td class="text-right">${data.harga_beli}</td>
+                    <td>
+                        <input type="number"
+                            class="form-control qty_send"
+                            min="1"
+                            max="${maxQty}"
+                            value="${data.qty_send}"
+                            required>
+                    </td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-danger btn-sm remove-item">
+                            <i class="fa fa-trash"></i>
+                        </button>
+                    </td>
+
+                    <input type="hidden" class="barang_id" value="${data.barang_id}">
+                    <input type="hidden" class="stock_batch_id" value="${data.stock_barang_batch_id}">
+                    <input type="hidden" class="detail_id" value="${data.id}">
+                </tr>
+            `;
+
+            tbody.append(row);
+        }
+
         async function initPageLoad() {
             await Promise.all([
                 setDynamicButton(),
@@ -1043,4 +1357,5 @@
             ]);
         }
     </script>
+    @include('transaksi.pengirimanbarang.itemDetail')
 @endsection

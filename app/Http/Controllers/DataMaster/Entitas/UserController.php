@@ -9,6 +9,7 @@ use App\Models\Toko;
 use App\Models\User;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -89,10 +90,11 @@ class UserController extends Controller
             return [
                 'id' => $item['id'],
                 'nama_toko' => optional($item['toko'])->nama ?? 'Tidak ada',
+                'toko_id' => optional($item['toko'])->id,
                 'nama_level' => optional($item['role'])->name ?? 'Tidak ada',
+                'role_id' => optional($item['role'])->id,
                 'nama' => $item->nama,
                 'username' => $item->username,
-                'email' => $item->email,
                 'alamat' => $item->alamat,
                 'no_hp' => $item->no_hp,
             ];
@@ -114,18 +116,7 @@ class UserController extends Controller
         return view('master.user.index', compact('menu'));
     }
 
-    public function create()
-    {
-        $menu = [$this->title[0], $this->label[0], $this->title[1]];
-        $toko = Toko::all();
-        $leveluser = LevelUser::all();
-        return view('master.user.create', compact('menu', 'toko', 'leveluser'), [
-            'leveluser' => LevelUser::all()->pluck('nama_level', 'id'),
-            'toko' => Toko::all()->pluck('nama_toko', 'id'),
-        ]);
-    }
-
-    public function store(Request $request)
+    public function post(Request $request)
     {
         $request->validate(
             [
@@ -151,7 +142,7 @@ class UserController extends Controller
         try {
             DB::beginTransaction();
 
-            User::create([
+            $data = User::create([
                 'toko_id' => $request->toko_id,
                 'role_id' => $request->role_id,
                 'nama' => $request->nama,
@@ -159,6 +150,21 @@ class UserController extends Controller
                 'password' => bcrypt($request->password),
                 'alamat' => $request->alamat,
             ]);
+
+            $this->saveLogAktivitas(
+                logName: $this->title[0],
+                subjectType: User::class,
+                subjectId: $data->id,
+                event: 'Tambah Data',
+                properties: [
+                    'changes' => [
+                        'new' => Arr::except($data->toArray(), ['id', 'created_at', 'updated_at', 'deleted_at']),
+                    ],
+                ],
+                description: "User {$data->nama} (ID {$data->id}) ditambahkan.",
+                userId: $request->user_id ?? null,
+                message: $request->message ?? '(Sistem) Penambahan user baru.'
+            );
 
             DB::commit();
             return $this->success(null, 200, 'Data berhasil disimpan!');
@@ -168,62 +174,114 @@ class UserController extends Controller
         }
     }
 
-    public function edit(string $id)
+    public function update(Request $request)
     {
-        $menu = [$this->title[0], $this->label[0], $this->title[2]];
-        $user = User::with(['leveluser', 'toko'])->findOrFail($id);
-
-        // dd($user);
-        $toko = Toko::all();
-        $leveluser = LevelUser::all();
-        return view('master.user.edit', compact('menu', 'user', 'toko', 'leveluser'));
-    }
-
-    public function update(Request $request, string $id)
-    {
-        $user = User::findOrFail($id);
-
         try {
-            $data = [
-                'id_toko' => $request->id_toko,
-                'id_level' => $request->id_level,
+            $request->validate(
+                [
+                    'toko_id' => 'required',
+                    'role_id' => 'required',
+                    'nama' => 'required|max:255',
+                    'username' => 'required|max:255',
+                    'password' => 'nullable|min:8|regex:/([0-9])/',
+                    'alamat' => 'required|max:255',
+                ],
+                [
+                    'toko_id.required' => 'Nama Toko tidak boleh kosong.',
+                    'role_id.required' => 'Nama Level tidak boleh kosong.',
+                    'nama.required' => 'Nama tidak boleh kosong.',
+                    'username.required' => 'Username tidak boleh kosong.',
+                    'password.min' => 'Password minimal 8 karakter.',
+                    'password.regex' => 'Password harus mengandung minimal satu angka.',
+                    'alamat.required' => 'Alamat tidak boleh kosong.',
+                ]
+            );
+
+            DB::beginTransaction();
+
+            $data = User::findOrFail($request->id);
+
+            $updateData = [
+                'toko_id' => $request->toko_id,
+                'role_id' => $request->role_id,
                 'nama' => $request->nama,
                 'username' => $request->username,
-                'email' => $request->email,
                 'alamat' => $request->alamat,
-                'no_hp' => $request->no_hp,
             ];
 
-            // Hanya tambahkan password jika field password tidak kosong
-            if (!empty($request->password)) {
-                $data['password'] = bcrypt($request->password);
+            $changedData = [];
+            foreach ($updateData as $key => $value) {
+                $oldValue = $originalData[$key] ?? null;
+                if ((string)$oldValue !== (string)$value) {
+                    $changedData['old'][$key] = $oldValue;
+                    $changedData['new'][$key] = $value;
+                }
             }
 
-            $user->update($data);
-        } catch (\Throwable $th) {
-            return redirect()->back()->with('error', $th->getMessage())->withInput();
-        }
+            if (!empty($request->password)) {
+                $updateData['password'] = bcrypt($request->password);
+            }
 
-        return redirect()->route('master.user.index')->with('success', 'Sukses Mengubah Data User');
+            $updated = $data->update($updateData);
+
+            if (!$updated) {
+                throw new \Exception('Gagal memperbarui data user');
+            }
+
+            if (!empty($changedData)) {
+                $this->saveLogAktivitas(
+                    logName: $this->title[0],
+                    subjectType: User::class,
+                    subjectId: $data->id,
+                    event: 'Edit Data',
+                    properties: ['changes' => $changedData],
+                    description: "User {$data->nama} (ID {$data->id}) diperbarui.",
+                    userId: $request->user_id ?? null,
+                    message: $request->message ?? '(Sistem) Perubahan data user.'
+                );
+            }
+
+            DB::commit();
+
+            return $this->success($updateData, 201, 'Data berhasil diperbarui');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return $this->error(500, 'Internal Server Error', $e->getMessage());
+        }
     }
 
-    public function delete(string $id)
+    public function delete(Request $request)
     {
-        DB::beginTransaction();
-        $user = User::findOrFail($id);
+        $data = User::findOrFail($request->id);
+
         try {
-            $user->delete();
+            DB::beginTransaction();
+
+            $originalData = Arr::except($data->toArray(), ['id', 'created_at', 'updated_at', 'deleted_at']);
+
+            $this->saveLogAktivitas(
+                logName: $this->title[0],
+                subjectType: User::class,
+                subjectId: $data->id,
+                event: 'Hapus Data',
+                properties: [
+                    'changes' => [
+                        'old' => $originalData,
+                    ],
+                ],
+                description: "User {$data->nama} (ID {$data->id}) dihapus.",
+                userId: $request->user_id ?? null,
+                message: '(Sistem) Penghapusan data user.'
+            );
+
+            $data->delete();
+
             DB::commit();
-            return response()->json([
-                'success' => true,
-                'message' => 'Sukses menghapus Data User'
-            ]);
-        } catch (\Throwable $th) {
+
+            return $this->success(null, 200, 'Data berhasil dihapus');
+        } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Gagal menghapus Data User: ' . $th->getMessage()
-            ], 500);
+            return $this->error(500, 'Internal Server Error', $e->getMessage());
         }
     }
 

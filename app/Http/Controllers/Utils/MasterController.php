@@ -369,7 +369,7 @@ class MasterController extends Controller
 
         $toko_id = $request->toko_id;
 
-        $query = ($toko_id == 1) ? Member::query() : Member::where('toko_id', $toko_id);
+        $query = Member::where('toko_id', $toko_id);
 
         if (!empty($request['search'])) {
             $searchTerm = trim(strtolower($request['search']));

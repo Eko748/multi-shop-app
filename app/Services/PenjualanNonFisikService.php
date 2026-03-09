@@ -176,6 +176,7 @@ class PenjualanNonFisikService
                 'total_harga_jual'   => $data['total_harga_jual'],
                 'created_by'         => $data['created_by'],
                 'nota'               => $nota,
+                'toko_id'            => $data['toko_id'],
             ]);
 
             // =========================
@@ -188,6 +189,7 @@ class PenjualanNonFisikService
                     'qty'                   => $item['qty'],
                     'hpp'                   => $item['hpp'],
                     'harga_jual'            => $item['harga_jual'],
+                    'toko_id'               => $data['toko_id'],
                 ]);
             }
 

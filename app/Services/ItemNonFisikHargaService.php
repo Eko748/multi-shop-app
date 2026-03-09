@@ -15,9 +15,9 @@ class ItemNonFisikHargaService
         $this->repository = $repository;
     }
 
-    public function getItemHarga($limit = 10, $search = null)
+    public function getItemHarga($limit = 10, $search = null, $tokoId = null)
     {
-        $query = $this->repository->getItemHarga($limit, $search);
+        $query = $this->repository->getItemHarga($limit, $search, $tokoId);
 
         $data = collect($query->items())->map(function ($item) {
             return [

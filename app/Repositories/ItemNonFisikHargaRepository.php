@@ -36,12 +36,13 @@ class ItemNonFisikHargaRepository
             : $query->get();
     }
 
-    public function getItemHarga($limit = 10, $search = null)
+    public function getItemHarga($limit = 10, $search = null, $tokoId)
     {
         $query = $this->model::with(['item', 'dompetKategori'])
-            ->select('id', 'public_id', 'item_nonfisik_id', 'dompet_kategori_id', 'hpp', 'harga_jual', 'created_at')
+            ->select('id', 'toko_id', 'public_id', 'item_nonfisik_id', 'dompet_kategori_id', 'hpp', 'harga_jual', 'created_at')
             ->where('hpp', '>', 0)
             ->where('harga_jual', '>', 0)
+            ->where('toko_id', $tokoId)
             ->orderByDesc('created_at');
 
         if ($search) {

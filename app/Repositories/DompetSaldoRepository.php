@@ -73,6 +73,7 @@ class DompetSaldoRepository
     public function getTotalPerKategori($filter)
     {
         $query = $this->model::with('dompetKategori')
+            ->where('toko_id', $filter->toko_id)
             ->selectRaw('dompet_kategori_id, SUM(saldo) as total_saldo, SUM(harga_beli) as total_harga_beli')
             ->groupBy('dompet_kategori_id');
 

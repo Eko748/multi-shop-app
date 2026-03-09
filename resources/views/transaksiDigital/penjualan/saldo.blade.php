@@ -10,7 +10,9 @@
 
         let getDataRest = await renderAPI(
             'GET',
-            '{{ route('td.dompetSaldo.getSisaSaldo') }}', {}
+            '{{ route('td.dompetSaldo.getSisaSaldo') }}', {
+                toko_id: {{ auth()->user()->toko_id }},
+            }
         ).then(function(response) {
             return response;
         }).catch(function(error) {
@@ -63,6 +65,7 @@
                 limit: limit,
                 ascending: ascending,
                 search: search,
+                toko_id: {{ auth()->user()->toko_id }},
                 ...filterParams
             }
         ).then(function(response) {

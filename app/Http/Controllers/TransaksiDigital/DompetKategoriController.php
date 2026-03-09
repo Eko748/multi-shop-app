@@ -32,6 +32,7 @@ class DompetKategoriController extends Controller
                 'limit' => $request->input('limit', 10),
                 'search' => $request->input('search'),
                 'nama' => $request->input('nama'),
+                'toko_id' => $request->input('toko_id'),
             ];
 
             $data = $this->service->getAll($filter);
@@ -66,6 +67,7 @@ class DompetKategoriController extends Controller
             $validated = $request->validate([
                 'nama' => 'required|string|max:25',
                 'created_by' => 'required|integer|exists:users,id',
+                'toko_id' => 'required|integer|exists:toko,id',
             ]);
 
             $data = $this->service->create($validated);
@@ -85,6 +87,7 @@ class DompetKategoriController extends Controller
                 'public_id' => 'required|string|exists:td_dompet_kategori,public_id',
                 'nama' => 'required|string|max:25',
                 'updated_by' => 'required|integer|exists:users,id',
+                'toko_id' => 'required|integer|exists:toko,id',
             ]);
 
             $data = $this->service->update($validated['public_id'], $validated);
@@ -107,6 +110,7 @@ class DompetKategoriController extends Controller
             $validated = $request->validate([
                 'public_id' => 'required|string|exists:td_dompet_kategori,public_id',
                 'deleted_by' => 'required|integer|exists:users,id',
+                'toko_id' => 'required|integer|exists:toko,id',
             ]);
 
             $deleted = $this->service->delete($validated['public_id'], $validated);

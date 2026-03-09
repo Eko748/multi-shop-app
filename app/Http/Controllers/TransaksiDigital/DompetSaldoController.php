@@ -32,6 +32,7 @@ class DompetSaldoController extends Controller
                 'limit' => $request->input('limit', 10),
                 'search' => $request->input('search'),
                 'saldo' => $request->input('saldo'),
+                'toko_id' => $request->input('toko_id'),
             ];
 
             $data = $this->service->getAll($filter);
@@ -44,10 +45,10 @@ class DompetSaldoController extends Controller
         }
     }
 
-    public function getSisaSaldo()
+    public function getSisaSaldo(Request $request)
     {
         try {
-            $data = $this->service->sumSisaSaldo();
+            $data = $this->service->sumSisaSaldo(null, null, $request->toko_id);
 
             return $this->success($data, 200, 'Berhasil');
         } catch (\Exception $e) {
@@ -64,6 +65,7 @@ class DompetSaldoController extends Controller
                 'limit' => $request->input('limit', 10),
                 'search' => $request->input('search'),
                 'dompet_kategori' => $request->input('dompet_kategori'),
+                'toko_id' => $request->input('toko_id'),
             ];
 
             $data = $this->service->getTotalPerKategori($filter);
@@ -148,6 +150,7 @@ class DompetSaldoController extends Controller
                 'harga_beli'         => ['required', 'numeric', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
                 'updated_by'         => 'required|integer|exists:users,id',
                 'kas'                => 'required|string',
+                'toko_id' => 'required|integer|exists:toko,id',
             ]);
 
             $data = $this->service->update($validated['public_id'], $validated);
@@ -170,6 +173,7 @@ class DompetSaldoController extends Controller
             $validated = $request->validate([
                 'public_id' => 'required|string|exists:td_dompet_saldo,public_id',
                 'deleted_by' => 'required|integer|exists:users,id',
+                'toko_id' => 'required|integer|exists:toko,id',
             ]);
 
             $deleted = $this->service->delete($validated['public_id'], $validated);

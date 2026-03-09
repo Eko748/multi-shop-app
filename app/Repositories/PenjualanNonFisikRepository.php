@@ -51,7 +51,7 @@ class PenjualanNonFisikRepository
 
     public function getAll($filter)
     {
-        $query = $this->baseQuery();
+        $query = $this->baseQuery()->where('toko_id', $filter->toko_id);
 
         if (!empty($filter->start_date) && !empty($filter->end_date)) {
             $query->whereBetween('td_penjualan_nonfisik.created_at', [$filter->start_date, $filter->end_date]);

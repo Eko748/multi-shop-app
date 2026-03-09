@@ -23,6 +23,7 @@
                 limit: limit,
                 ascending: ascending,
                 search: search,
+                toko_id: {{ auth()->user()->toko_id }},
                 ...filterParams
             }
         ).then(function(response) {
@@ -158,6 +159,7 @@
 
             let formData = {
                 nama: $('#nama_tipe_item').val(),
+                toko_id: {{ auth()->user()->toko_id }},
             };
 
             if (mode === 'edit') {
@@ -263,6 +265,7 @@
                 'DELETE',
                 `{{ route('td.itemNonfisikTipe.delete') }}`, {
                     public_id: data.id,
+                    toko_id: {{ auth()->user()->toko_id }},
                     deleted_by: '{{ auth()->user()->id }}'
                 }
             ).then(function(response) {

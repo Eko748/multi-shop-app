@@ -31,7 +31,9 @@ class ItemNonFisikController extends Controller
     public function get(Request $request)
     {
         try {
-            $filter = $this->makeFilter($request, 30);
+            $filter = $this->makeFilter($request, 30, [
+                'toko_id' => $request->input('toko_id'),
+            ]);
 
             $data = $this->service->getAll($filter);
 
@@ -66,6 +68,7 @@ class ItemNonFisikController extends Controller
                 'nama' => 'required|string|max:25',
                 'item_nonfisik_tipe_id' => 'required|string|exists:td_item_nonfisik_tipe,id',
                 'created_by' => 'required|integer|exists:users,id',
+                'toko_id' => 'required|integer|exists:toko,id',
             ]);
 
             $data = $this->service->create($validated);
@@ -86,6 +89,7 @@ class ItemNonFisikController extends Controller
                 'nama' => 'required|string|max:25',
                 'item_nonfisik_tipe_id' => 'required|string|exists:td_item_nonfisik_tipe,id',
                 'updated_by' => 'required|integer|exists:users,id',
+                'toko_id' => 'required|integer|exists:toko,id',
             ]);
 
             $data = $this->service->update($validated['public_id'], $validated);
@@ -108,6 +112,7 @@ class ItemNonFisikController extends Controller
             $validated = $request->validate([
                 'public_id' => 'required|string|exists:td_item_nonfisik,public_id',
                 'deleted_by' => 'required|integer|exists:users,id',
+                'toko_id' => 'required|integer|exists:toko,id',
             ]);
 
             $deleted = $this->service->delete($validated['public_id'], $validated);

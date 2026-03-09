@@ -15,7 +15,7 @@ class PenjualanNonFisikDetailRepository
 
     public function sumTotalHarga($filter)
     {
-        $query = $this->model->newQuery();
+        $query = $this->model->newQuery()->where('toko_id', $filter->toko_id);
 
         if (!empty($filter->start_date) && !empty($filter->end_date)) {
             $query->whereBetween('created_at', [$filter->start_date, $filter->end_date]);

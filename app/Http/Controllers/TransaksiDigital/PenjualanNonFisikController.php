@@ -30,7 +30,9 @@ class PenjualanNonFisikController extends Controller
     public function getSisaSaldo(Request $request)
     {
         try {
-            $filter = $this->makeFilter($request, 30);
+            $filter = $this->makeFilter($request, 30, [
+                'toko_id' => $request->input('toko_id'),
+            ]);
             $data = $this->service->getTotalHarga($filter);
 
             return $this->success($data, 200, 'Berhasil');
@@ -44,8 +46,9 @@ class PenjualanNonFisikController extends Controller
     public function get(Request $request)
     {
         try {
-            $filter = $this->makeFilter($request, 30);
-
+            $filter = $this->makeFilter($request, 30, [
+                'toko_id' => $request->input('toko_id'),
+            ]);
             $data = $this->service->getAll($filter);
 
             return $this->success($data['data'], 200, 'Berhasil', $data['pagination']);
@@ -129,6 +132,7 @@ class PenjualanNonFisikController extends Controller
                 'saldo'              => ['required', 'numeric', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
                 'harga_beli'         => ['required', 'numeric', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
                 'updated_by'         => 'required|integer|exists:users,id',
+                'toko_id' => 'required|integer|exists:toko,id',
             ]);
 
             $data = $this->service->update($validated['public_id'], $validated);
@@ -151,6 +155,7 @@ class PenjualanNonFisikController extends Controller
             $validated = $request->validate([
                 'public_id' => 'required|string|exists:td_penjualan_nonfisik,public_id',
                 'deleted_by' => 'required|integer|exists:users,id',
+                'toko_id' => 'required|integer|exists:toko,id',
             ]);
 
             $deleted = $this->service->delete($validated['public_id'], $validated);

@@ -27,6 +27,10 @@ class ItemNonFisikTipeRepository
             $query->where('nama', $filter->nama);
         }
 
+        if (!empty($filter->toko_id)) {
+            $query->where('toko_id', $filter->toko_id);
+        }
+
         return $query->paginate($filter->limit ?? 10);
     }
 

@@ -30,8 +30,9 @@ class ItemNonFisikHargaController extends Controller
         try {
             $limit = $request->input('limit', 30);
             $search = $request->input('search');
+            $tokoId = $request->input('toko_id');
 
-            $data = $this->service->getItemHarga($limit, $search);
+            $data = $this->service->getItemHarga($limit, $search, $tokoId);
 
             return $this->success($data['data'], 200, 'Berhasil', $data['pagination']);
         } catch (\Exception $e) {
@@ -47,6 +48,7 @@ class ItemNonFisikHargaController extends Controller
             $validated = $request->validate([
                 'nama' => 'required|string|max:25',
                 'user_id' => 'required|integer|exists:users,id',
+                'toko_id' => 'required|integer|exists:toko,id',
             ]);
 
             $data = $this->service->create($validated);
@@ -66,6 +68,7 @@ class ItemNonFisikHargaController extends Controller
                 'id' => 'required|string|exists:td_item_nonfisik_tipe,public_id',
                 'nama' => 'required|string|max:25',
                 'user_id' => 'required|integer|exists:users,id',
+                'toko_id' => 'required|integer|exists:toko,id',
             ]);
 
             $data = $this->service->update($validated['id'], $validated);
@@ -87,6 +90,7 @@ class ItemNonFisikHargaController extends Controller
         try {
             $validated = $request->validate([
                 'id' => 'required|string|exists:td_item_nonfisik_tipe,public_id',
+                'toko_id' => 'required|integer|exists:toko,id',
             ]);
 
             $deleted = $this->service->delete($validated['id']);

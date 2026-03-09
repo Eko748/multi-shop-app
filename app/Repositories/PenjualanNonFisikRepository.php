@@ -51,7 +51,7 @@ class PenjualanNonFisikRepository
 
     public function getAll($filter)
     {
-        $query = $this->baseQuery()->where('toko_id', $filter->toko_id);
+        $query = $this->baseQuery();
 
         if (!empty($filter->start_date) && !empty($filter->end_date)) {
             $query->whereBetween('td_penjualan_nonfisik.created_at', [$filter->start_date, $filter->end_date]);
@@ -70,6 +70,10 @@ class PenjualanNonFisikRepository
 
         if (!empty($filter->total_hpp)) {
             $query->having('total_hpp', $filter->total_hpp);
+        }
+
+        if (!empty($filter->toko_id)) {
+            $query->where('td_penjualan_nonfisik.toko_id', $filter->toko_id);
         }
 
         if (!empty($filter->month)) {

@@ -92,7 +92,7 @@
             const response = await renderAPI('GET', '{{ route('rekapitulasi.laporan-penjualan') }}', {
                 start_date: filter.start_date,
                 end_date: filter.end_date,
-                toko_id: '{{ auth()->user()->toko_id }}'
+                toko_id: {{ auth()->user()->toko_id }}
             }).then(res => res).catch(err => err.response);
 
             if (response && response.status === 200 && response.data?.data) {
@@ -109,10 +109,10 @@
             <thead class="thead-light">
                 <tr>
                     <th style="width: 30%">Area Toko</th>
-                    <th style="width: 15%">Jml Trx</th>
-                    <th style="width: 15%">Nilai Trx</th>
-                    <th style="width: 15%">Nilai HPP</th>
-                    <th style="width: 15%">Sub Laba</th>
+                    <th style="width: 15%" class="text-center">Jml Trx</th>
+                    <th style="width: 15%" class="text-right">Nilai Trx</th>
+                    <th style="width: 15%" class="text-right">Nilai HPP</th>
+                    <th style="width: 15%" class="text-right">Sub Laba</th>
                 </tr>
             </thead>
             <tbody>`;
@@ -122,10 +122,10 @@
                     html += `
             <tr>
                 <td>${toko.area_toko}</td>
-                <td>${toko.jml_trx}</td>
-                <td>${formatRupiah(toko.nilai_trx)}</td>
-                <td>${formatRupiah(toko.nilai_hpp)}</td>
-                <td>${formatRupiah(toko.sub_laba)}</td>
+                <td class="text-center">${toko.jml_trx}</td>
+                <td class="text-right">${formatRupiah(toko.nilai_trx)}</td>
+                <td class="text-right">${formatRupiah(toko.nilai_hpp)}</td>
+                <td class="text-right">${formatRupiah(toko.sub_laba)}</td>
             </tr>`;
                 });
             } else {
@@ -137,10 +137,10 @@
             <tfoot class="thead-light">
                 <tr>
                     <th>TOTAL</th>
-                    <th>${data.total.jml_trx}</th>
-                    <th>${formatRupiah(data.total.nilai_trx)}</th>
-                    <th>${formatRupiah(data.total.nilai_hpp)}</th>
-                    <th>${formatRupiah(data.total.sub_laba)}</th>
+                    <th class="text-center">${data.total.jml_trx}</th>
+                    <th class="text-right">${formatRupiah(data.total.nilai_trx)}</th>
+                    <th class="text-right">${formatRupiah(data.total.nilai_hpp)}</th>
+                    <th class="text-right">${formatRupiah(data.total.sub_laba)}</th>
                 </tr>
             </tfoot>
         </table>
@@ -154,11 +154,11 @@
                 <thead class="thead-light">
                     <tr>
                         <th style="width: 30%">Type Item</th>
-                        <th style="width: 8%">Jml Item</th>
-                        <th style="width: 7%">Jml Qty</th>
-                        <th style="width: 15%">Nilai Trx</th>
-                        <th style="width: 15%">Nilai HPP</th>
-                        <th style="width: 15%">Laba</th>
+                        <th style="width: 8%" class="text-center">Jml Trx</th>
+                        <th style="width: 7%" class="text-center">Jml Qty</th>
+                        <th style="width: 15%" class="text-right">Nilai Trx</th>
+                        <th style="width: 15%" class="text-right">Nilai HPP</th>
+                        <th style="width: 15%" class="text-right">Laba</th>
                     </tr>
                 </thead>
                 <tbody>`;
@@ -167,11 +167,11 @@
                     html += `
             <tr>
                 <td>${barang.nama}</td>
-                <td>${barang.jml_trx}</td>
-                <td>${barang.item_qty}</td>
-                <td>${formatRupiah(barang.nilai_trx)}</td>
-                <td>${formatRupiah(barang.nilai_hpp)}</td>
-                <td>${formatRupiah(barang.laba)}</td>
+                <td class="text-center">${barang.jml_trx}</td>
+                <td class="text-center">${barang.item_qty}</td>
+                <td class="text-right">${formatRupiah(barang.nilai_trx)}</td>
+                <td class="text-right">${formatRupiah(barang.nilai_hpp)}</td>
+                <td class="text-right">${formatRupiah(barang.laba)}</td>
             </tr>`;
                 });
 

@@ -27,6 +27,10 @@ class DompetKategoriRepository
             $query->where('nama', $filter->nama);
         }
 
+        if (!empty($filter->toko_id)) {
+            $query->where('toko_id', $filter->toko_id);
+        }
+
         return !empty($filter->limit)
             ? $query->orderByDesc('id')->paginate($filter->limit)
             : $query->orderByDesc('id')->get();

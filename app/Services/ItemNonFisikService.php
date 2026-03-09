@@ -65,12 +65,14 @@ class ItemNonFisikService
                 'nama' => $data['nama'],
                 'item_nonfisik_tipe_id' => $data['item_nonfisik_tipe_id'],
                 'created_by' => $data['created_by'],
+                'toko_id' => $data['toko_id'],
             ];
 
             $itemNonfisik = $this->repository->create($mainData);
 
             $kategoriList = $this->repository2->getAll((object) [
                 'limit' => null,
+                'toko_id' => $data['toko_id'],
             ]);
 
             return $itemNonfisik;

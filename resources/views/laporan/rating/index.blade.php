@@ -191,7 +191,7 @@
                         limit: limit,
                         ascending: ascending,
                         search: search,
-                        id_user: '{{ auth()->user()->id }}',
+                        toko_id: {{ auth()->user()->toko_id }},
                         ...filterParams
                     }
                 ).then(response => response)

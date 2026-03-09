@@ -40,10 +40,9 @@ class RatingBarangController extends Controller
             $endDate = $request->input('endDate');
             $jenisBarang = $request->input('jenis_barang');
 
-            $idUser = $request->input('id_user');
-            $user = User::find($idUser);
-            $userToko = $user?->id_toko;
-            $userTokoName = $user?->toko->nama_toko ?? 'Toko User';
+            $toko = Toko::find($request->toko_id);
+            $userToko = $toko->id;
+            $userTokoName = $toko->nama ?? 'Toko User';
 
             $selectedTokoIds = $request->input('toko_select', []);
             if (in_array(1, $selectedTokoIds)) {
@@ -65,18 +64,18 @@ class RatingBarangController extends Controller
             $query = TransaksiKasirDetail::select(
                 'barang.nama',
                 'transaksi_kasir.toko_id',
-                DB::raw('SUM(transaksi_kasir.total_qty) as total_item'),
-                DB::raw('SUM(transaksi_kasir_detail.qty - COALESCE(retur_member_detail.qty_request, 0)) as net_terjual'),
-                DB::raw('MAX(transaksi_kasir_detail.subtotal) as hpp_jual')
+                DB::raw('SUM(transaksi_kasir_detail.qty) as total_item'),
+                DB::raw('SUM(transaksi_kasir_detail.qty - COALESCE(retur_member_detail.qty_request,0)) as net_terjual'),
+                DB::raw('SUM(transaksi_kasir_detail.subtotal) as hpp_jual')
             )
                 ->join('transaksi_kasir', 'transaksi_kasir_detail.transaksi_kasir_id', '=', 'transaksi_kasir.id')
-                ->join('stock_barang', 'transaksi_kasir_detail.stock_barang_batch_id', '=', 'stock_barang.id')
+                ->join('stock_barang_batch', 'transaksi_kasir_detail.stock_barang_batch_id', '=', 'stock_barang_batch.id')
+                ->join('stock_barang', 'stock_barang_batch.stock_barang_id', '=', 'stock_barang.id')
                 ->join('barang', 'stock_barang.barang_id', '=', 'barang.id')
                 ->join('jenis_barang', 'barang.jenis_barang_id', '=', 'jenis_barang.id')
                 ->leftJoin('retur_member_detail', function ($join) {
-                    $join->on('transaksi_kasir_detail.transaksi_kasir_id', '=', 'retur_member_detail.transaksi_kasir_detail_id')
+                    $join->on('transaksi_kasir_detail.id', '=', 'retur_member_detail.transaksi_kasir_detail_id')
                         ->on('barang.id', '=', 'retur_member_detail.barang_id');
-                        // ->where('detail_retur.status', 'success');
                 })
                 ->where('transaksi_kasir.total_qty', '>', 0)
                 ->whereIn('transaksi_kasir.toko_id', $selectedTokoIds)
@@ -98,7 +97,6 @@ class RatingBarangController extends Controller
 
             $rawData = $query->get();
 
-            // Ambil daftar barang tergantung kondisi
             if ($allowShowEmptyItems) {
                 $barangQuery = Barang::with('stockBarang', 'jenis');
                 if (!empty($search)) {
@@ -119,7 +117,7 @@ class RatingBarangController extends Controller
 
             foreach ($barangList as $barang) {
                 $barangId = $barang->id;
-                $barangName = $barang->nama_barang;
+                $barangName = $barang->nama;
                 $stockNow = $barang->stockBarang->sum('stok');
                 $dataPerToko = array_fill_keys(array_values($tokoMap), ['terjual' => 0]);
 
@@ -129,7 +127,7 @@ class RatingBarangController extends Controller
 
                 if ($matchedData->isNotEmpty()) {
                     foreach ($matchedData as $item) {
-                        $tokoId = $item->toko_id;
+                        $tokoId = $request->toko_id;
                         $tokoNama = $tokoMap[$tokoId] ?? 'Unknown Toko';
                         $netTerjual = (int) $item->net_terjual;
                         $dataPerToko[$tokoNama]['terjual'] = $netTerjual;

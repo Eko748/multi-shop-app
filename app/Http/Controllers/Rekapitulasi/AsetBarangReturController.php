@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Rekapitulasi;
 
 use App\Http\Controllers\Controller;
+use App\Models\Toko;
 use Illuminate\Http\Request;
 use App\Services\DompetKategoriService;
 use App\Services\DompetSaldoService;
@@ -32,44 +33,62 @@ class AsetBarangReturController extends Controller
         $startDate = $request->input('startDate');
         $endDate = $request->input('endDate');
         $idTokoLogin = (int) $request->input('toko_id', 0);
-        $searchTerm = trim(strtolower($request->input('search', '')));
 
         try {
-            if ($idTokoLogin == 1) {
-                $stockQuery = DB::table('retur_member_detail as ds')
-                    ->join('barang as b', 'ds.barang_id', '=', 'b.id')
-                    ->join('jenis_barang as jb', 'b.jenis_barang_id', '=', 'jb.id')
-                    ->join('toko as t', 't.id', '=', DB::raw('1'))
-                    ->selectRaw('
-                        1 as toko_id,
-                        t.nama,
-                        t.wilayah,
-                        b.jenis_barang_id,
-                        jb.nama_jenis_barang,
-                        SUM(ds.qty_request - COALESCE(ds.qty_ke_supplier, 0)) as total_qty,
-                        SUM((ds.qty_request - COALESCE(ds.qty_ke_supplier, 0)) * ds.hpp) as total_harga
-                    ')
-                    ->whereNull('b.deleted_at')
-                    ->groupBy(
-                        'b.jenis_barang_id',
-                        'jb.nama_jenis_barang',
-                        't.nama',
-                        't.wilayah'
-                    );
 
-                if (!empty($startDate) && !empty($endDate)) {
-                    $stockQuery->whereBetween('ds.created_at', [$startDate, $endDate]);
-                }
+            $toko = Toko::find($idTokoLogin);
 
-                $stockData = $stockQuery->get();
-
-                $combined = $stockData;
+            if (!$toko) {
+                return response()->json([
+                    'error' => true,
+                    'message' => 'Toko tidak ditemukan',
+                ], 404);
             }
 
-            // Grouping berdasarkan jenis_barang
+            // cek toko pusat / cabang
+            if ($toko->parent_id === null) {
+
+                $tokoIds = Toko::where('parent_id', $toko->id)
+                    ->orWhere('id', $toko->id)
+                    ->pluck('id')
+                    ->toArray();
+            } else {
+
+                $tokoIds = [$toko->id];
+            }
+
+            $stockQuery = DB::table('retur_member_detail as ds')
+                ->join('barang as b', 'ds.barang_id', '=', 'b.id')
+                ->join('retur_member as rb', 'rb.id', '=', 'ds.retur_id')
+                ->join('jenis_barang as jb', 'b.jenis_barang_id', '=', 'jb.id')
+                ->join('toko as t', 't.id', '=', 'rb.toko_id')
+                ->selectRaw('
+                rb.toko_id,
+                t.nama,
+                t.wilayah,
+                b.jenis_barang_id,
+                jb.nama_jenis_barang,
+                SUM(ds.qty_request - COALESCE(ds.qty_ke_supplier,0)) as total_qty,
+                SUM((ds.qty_request - COALESCE(ds.qty_ke_supplier,0)) * ds.hpp) as total_harga
+            ')
+                ->whereNull('b.deleted_at')
+                ->whereIn('rb.toko_id', $tokoIds)
+                ->groupBy(
+                    'rb.toko_id',
+                    't.nama',
+                    't.wilayah',
+                    'b.jenis_barang_id',
+                    'jb.nama_jenis_barang'
+                );
+
+            if (!empty($startDate) && !empty($endDate)) {
+                $stockQuery->whereBetween('ds.created_at', [$startDate, $endDate]);
+            }
+
+            $combined = $stockQuery->get();
+
             $grouped = $combined->groupBy('nama_jenis_barang');
 
-            // Hitung total global
             $totalQty = $combined->sum('total_qty');
             $totalHarga = $combined->sum('total_harga');
 
@@ -107,6 +126,7 @@ class AsetBarangReturController extends Controller
                 ],
             ], 200);
         } catch (\Throwable $th) {
+
             return response()->json([
                 'error' => true,
                 'message' => 'Error retrieving data',
@@ -115,7 +135,6 @@ class AsetBarangReturController extends Controller
             ], 500);
         }
     }
-
 
     public function index(Request $request)
     {

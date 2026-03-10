@@ -70,8 +70,8 @@ class DompetKategoriService
         return $this->repository->delete($existing->id, $data);
     }
 
-    public function count()
+    public function count($tokoId)
     {
-        return $this->repository->count();
+        return $this->repository->count($tokoId);
     }
 }

@@ -78,8 +78,8 @@ class DompetKategoriRepository
         return $item ? $item->delete() : false;
     }
 
-    public function count()
+    public function count($tokoId)
     {
-        return $this->model::count();
+        return $this->model::where('toko_id', $tokoId)->count();
     }
 }

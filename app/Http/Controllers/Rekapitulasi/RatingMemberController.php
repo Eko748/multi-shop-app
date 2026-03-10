@@ -33,31 +33,33 @@ class RatingMemberController extends Controller
             // Query utama untuk data member
             $query = Member::select(
                 'member.id',
-                'member.nama_member',
-                'kasir.id_toko',
-                'toko.nama_toko',
-                DB::raw('COUNT(detail_kasir.id_barang) as total_trx'),
-                DB::raw('SUM(detail_kasir.qty) as total_barang_dibeli'),
-                DB::raw('SUM(detail_kasir.qty * detail_kasir.harga - detail_kasir.diskon) as total_pembayaran'),
-                DB::raw('SUM(detail_kasir.qty * detail_kasir.hpp_jual) as total_hpp'),
-                DB::raw('SUM(detail_kasir.qty * detail_kasir.harga - detail_kasir.diskon - detail_kasir.qty * detail_kasir.hpp_jual) as laba')
+                'member.nama as nama_member',
+                'transaksi_kasir.toko_id',
+                'toko.nama as nama_toko',
+                DB::raw('COUNT(stock_barang.barang_id) as total_trx'),
+                DB::raw('SUM(transaksi_kasir_detail.qty) as total_barang_dibeli'),
+                DB::raw('SUM(transaksi_kasir_detail.subtotal - COALESCE(transaksi_kasir_detail.diskon,0)) as total_pembayaran'),
+                DB::raw('SUM(transaksi_kasir_detail.qty * stock_barang_batch.harga_beli) as total_hpp'),
+                DB::raw('SUM(transaksi_kasir_detail.subtotal - COALESCE(transaksi_kasir_detail.diskon,0) - transaksi_kasir_detail.qty * stock_barang_batch.harga_beli) as laba')
             )
-                ->join('kasir', 'member.id', '=', 'kasir.id_member')
-                ->join('detail_kasir', 'kasir.id', '=', 'detail_kasir.id_kasir')
-                ->join('toko', 'kasir.id_toko', '=', 'toko.id');
+                ->join('transaksi_kasir', 'member.id', '=', 'transaksi_kasir.member_id')
+                ->join('transaksi_kasir_detail', 'transaksi_kasir.id', '=', 'transaksi_kasir_detail.transaksi_kasir_id')
+                ->join('stock_barang_batch', 'transaksi_kasir_detail.stock_barang_batch_id', '=', 'stock_barang_batch.id')
+                ->join('stock_barang', 'stock_barang_batch.stock_barang_id', '=', 'stock_barang.id')
+                ->join('toko', 'transaksi_kasir.toko_id', '=', 'toko.id');
 
             // Tambahkan filter toko jika diperlukan
             if (!empty($selectedTokoIds) && $selectedTokoIds !== 'all') {
-                $query->where('kasir.id_toko', $selectedTokoIds);
+                $query->where('transaksi_kasir.toko_id', $selectedTokoIds);
             }
 
             // Tambahkan filter berdasarkan tanggal
             if (!empty($startDate) && !empty($endDate)) {
-                $query->whereBetween('kasir.created_at', [$startDate, $endDate]);
+                $query->whereBetween('transaksi_kasir.created_at', [$startDate, $endDate]);
             }
 
             // Tambahkan grouping
-            $query->groupBy('kasir.id_toko', 'toko.nama_toko', 'member.id', 'member.nama_member');
+            $query->groupBy('transaksi_kasir.toko_id', 'toko.nama', 'member.id', 'member.nama');
 
             // Tambahkan sorting
             $query->orderBy('total_pembayaran', $meta['orderBy']);
@@ -67,8 +69,8 @@ class RatingMemberController extends Controller
 
                 $query->where(function ($query) use ($searchTerm) {
                     // Pencarian pada kolom langsung
-                    $query->orWhereRaw("LOWER(nama_member) LIKE ?", ["%$searchTerm%"]);
-                    $query->orWhereRaw("LOWER(nama_toko) LIKE ?", ["%$searchTerm%"]);
+                    $query->orWhereRaw("LOWER(nama) LIKE ?", ["%$searchTerm%"]);
+                    $query->orWhereRaw("LOWER(nama) LIKE ?", ["%$searchTerm%"]);
                 });
             }
 
@@ -79,13 +81,13 @@ class RatingMemberController extends Controller
             $mappedData = collect($dataMember->items())->map(function ($item) {
                 return [
                     'nama_member' => $item->nama_member,
-                    'id_toko' => $item->id_toko,
+                    'id_toko' => $item->toko_id,
                     'nama_toko' => $item->nama_toko,
                     'total_trx' => $item->total_trx,
                     'total_barang_dibeli' => $item->total_barang_dibeli,
                     'total_pembayaran' => $item->total_pembayaran,
                     'total_hpp' => $item->total_hpp,
-                    'laba' => $item->laba, // Tambahkan laba ke data yang dikembalikan
+                    'laba' => $item->laba,
                 ];
             });
 

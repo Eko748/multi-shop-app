@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Rekapitulasi;
 use App\Http\Controllers\Controller;
 use App\Models\Barang;
 use App\Models\DetailKasir;
+use App\Models\StockBarang;
 use App\Models\Toko;
 use App\Models\TransaksiKasirDetail;
 use App\Models\User;
@@ -62,11 +63,12 @@ class RatingBarangController extends Controller
             $allowShowEmptyItems = $hasSearch;
 
             $query = TransaksiKasirDetail::select(
+                'barang.id as barang_id',
                 'barang.nama',
                 'transaksi_kasir.toko_id',
                 DB::raw('SUM(transaksi_kasir_detail.qty) as total_item'),
                 DB::raw('SUM(transaksi_kasir_detail.qty - COALESCE(retur_member_detail.qty_request,0)) as net_terjual'),
-                DB::raw('SUM(transaksi_kasir_detail.subtotal) as hpp_jual')
+                DB::raw('MAX(stock_barang.hpp_baru) as hpp_jual')
             )
                 ->join('transaksi_kasir', 'transaksi_kasir_detail.transaksi_kasir_id', '=', 'transaksi_kasir.id')
                 ->join('stock_barang_batch', 'transaksi_kasir_detail.stock_barang_batch_id', '=', 'stock_barang_batch.id')
@@ -98,27 +100,29 @@ class RatingBarangController extends Controller
             $rawData = $query->get();
 
             if ($allowShowEmptyItems) {
-                $barangQuery = Barang::with('stockBarang', 'jenis');
+                $barangQuery = StockBarang::with(['barang.jenis', 'stockBarangBatch']);
                 if (!empty($search)) {
                     $barangQuery->where(DB::raw('LOWER(nama)'), 'like', '%' . strtolower($search) . '%');
                 }
                 if (!empty($jenisBarang)) {
-                    $barangQuery->where('jenis_barang_id', $jenisBarang);
+                    $barangQuery->whereHas('barang', function ($q) use ($jenisBarang) {
+                        $q->where('jenis_barang_id', $jenisBarang);
+                    });
                 }
                 $barangList = $barangQuery->get();
             } else {
                 $barangIds = $rawData->pluck('barang_id')->unique();
-                $barangList = Barang::with('stockBarang', 'jenis')
-                    ->whereIn('id', $barangIds)
+                $barangList = StockBarang::with(['barang.jenis', 'stockBarangBatch'])
+                    ->whereIn('barang_id', $barangIds)
                     ->get();
             }
 
             $grouped = [];
 
             foreach ($barangList as $barang) {
-                $barangId = $barang->id;
-                $barangName = $barang->nama;
-                $stockNow = $barang->stockBarang->sum('stok');
+                $barangId = $barang->barang_id;
+                $barangName = $barang->barang->nama;
+                $stockNow = $barang->stockBarangBatch->sum('qty_sisa');
                 $dataPerToko = array_fill_keys(array_values($tokoMap), ['terjual' => 0]);
 
                 $matchedData = $rawData->where('barang_id', $barangId);
@@ -138,7 +142,7 @@ class RatingBarangController extends Controller
                         }
                     }
                 } else {
-                    $stockInfo = $barang->stockBarang->first();
+                    $stockInfo = $barang->first();
                     $hppJual = $stockInfo ? $stockInfo->hpp_baru : 0;
                 }
 
@@ -181,7 +185,7 @@ class RatingBarangController extends Controller
                     $finalData[$barang] = [
                         'Jumlah Item Terjual' => $firstData['terjual'],
                         'HPP Jual' => $hppJual,
-                        'Stock Sekarang' => $stockNow
+                        'Stok Sekarang' => $stockNow
                     ];
                 } else {
                     $formattedPerToko = [];
@@ -191,7 +195,7 @@ class RatingBarangController extends Controller
                     $finalData[$barang] = [
                         'Jumlah Item Terjual Per Toko' => $formattedPerToko,
                         'HPP Jual' => $hppJual,
-                        'Stock Sekarang' => $stockNow
+                        'Stok Sekarang' => $stockNow
                     ];
                 }
             }

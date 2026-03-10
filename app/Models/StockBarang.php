@@ -27,4 +27,9 @@ class StockBarang extends Model
     {
         return $this->belongsTo(TokoGroup::class, 'toko_group_id', 'id');
     }
+
+    public function stockBarangBatch()
+    {
+        return $this->hasMany(StockBarangBatch::class, 'stock_barang_id');
+    }
 }

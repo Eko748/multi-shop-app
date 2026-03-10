@@ -22,34 +22,34 @@
         <div class="pcoded-content pt-1 mt-1">
             @include('components.breadcrumbs')
             <div class="row">
-                <div class="col-md-7">
+                <div class="col-md-12">
                     <div class="card">
                         <div class="card-header">
                             <div class="row">
                                 <div class="col-12 col-sm-12 col-md-8 col-lg-8 col-xl-6">
                                     <div class="row align-items-center">
-                                        <div class="col-12 col-sm-12 col-md-4 col-lg-3 col-xl-3 col-xxl-2 mb-2">
+                                        <div class="col-12 col-sm-12 col-md-4 col-lg-2 col-xl-2 col-xxl-2 mb-2">
                                             <button class="btn-dynamic btn btn-outline-primary w-100" type="button"
                                                 data-toggle="collapse" data-target="#filter-collapse" aria-expanded="false"
                                                 aria-controls="filter-collapse">
                                                 <i class="fa fa-filter"></i> Filter
                                             </button>
                                         </div>
-                                        <div class="col-12 col-sm-12 col-md-8 col-lg-9 col-xl-9 col-xxl-10 mb-2">
+                                        <div class="col-12 col-sm-12 col-md-8 col-lg-10 col-xl-10 col-xxl-10 mb-2">
                                             <span id="time-report" class="font-weight-bold"></span>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="col-12 col-sm12 col-md-4 col-lg-4 col-xl-6">
                                     <div class="row justify-content-end">
-                                        <div class="col-4 col-sm-4 col-md-4 col-lg-4 col-xl-3 col-xxl-2">
+                                        <div class="col-4 col-sm-4 col-md-4 col-lg-2 col-xl-2 col-xxl-2">
                                             <select name="limitPage" id="limitPage" class="form-control mr-2 mb-2 mb-lg-0">
                                                 <option value="100">100</option>
                                                 <option value="150">150</option>
                                                 <option value="200">200</option>
                                             </select>
                                         </div>
-                                        <div class="col-8 col-sm-8 col-md-8 col-lg-8 col-xl-5 col-xxl-4">
+                                        <div class="col-8 col-sm-8 col-md-8 col-lg-4 col-xl-4 col-xxl-4">
                                             <input id="tb-search" class="tb-search form-control mb-2 mb-lg-0" type="search"
                                                 name="search" placeholder="Cari Data" aria-label="search">
                                         </div>
@@ -68,12 +68,12 @@
                                         <select class="form-control select2" id="jenis_barang" name="jenis_barang"
                                             style="width: 100%;"></select>
                                     </div>
-                                    <div class="col-auto">
+                                    <div class="col-md-2">
                                         <button class="btn btn-info w-100" id="tb-filter" type="submit">
                                             <i class="fa fa-magnifying-glass mr-2"></i> Cari
                                         </button>
                                     </div>
-                                    <div class="col-auto">
+                                    <div class="col-md-2">
                                         <button type="button" class="btn btn-secondary w-100" id="tb-reset">
                                             <i class="fa fa-rotate mr-2"></i> Reset
                                         </button>
@@ -104,7 +104,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-5">
+                <div class="col-md-12">
                     <div class="card shadow-sm">
                         <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                             <span><i class="fa fa-cart-plus mr-2"></i>Plan Order</span>
@@ -261,7 +261,7 @@
                     }
 
                     tableHead += `
-                <th class="${classCol} text-center" rowspan="${isMultiToko ? 2 : 1}">Stock Sekarang</th>
+                <th class="${classCol} text-center" rowspan="${isMultiToko ? 2 : 1}">Stok Sekarang</th>
                 <th class="${classCol} text-center" rowspan="${isMultiToko ? 2 : 1}">HPP</th>
                 <th class="${classCol} text-center" rowspan="${isMultiToko ? 2 : 1}">Action</th>
             </tr>`;
@@ -293,7 +293,7 @@
                     });
                 }
 
-                const stockNow = tokoData['Stock Sekarang'] ?? 0;
+                const stockNow = tokoData['Stok Sekarang'] ?? 0;
                 row += `<td class="${classCol} text-center">${stockNow}</td>`;
 
                 const hppJual = tokoData['HPP Jual'] ?? 0;

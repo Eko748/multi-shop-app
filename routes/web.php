@@ -31,7 +31,7 @@ Route::middleware(['auth'])->group(function () {
 
     // Toko Controller
     Route::get('/toko', [TokoController::class, 'index'])->name('master.toko.index')->middleware('permission:GET /toko');
-    
+
     Route::get('/toko/detail/{id}', [TokoController::class, 'detail'])->name('master.toko.detail')->middleware('permission:GET /toko/detail/{id}');
     Route::get('/toko/detail/create/{id}', [TokoController::class, 'create_detail'])->name('master.toko.create_detail')->middleware('permission:GET /toko/detail/create/{id}');
     Route::post('/toko/store_detail', [TokoController::class, 'store_detail'])->name('master.toko.store_detail')->middleware('permission:POST /toko/store_detail');
@@ -121,21 +121,16 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/kasbon/detail/{id}', [KasbonController::class, 'detail'])->name('transaksi.detail')->middleware('permission:GET /kasbon/detail/{id}');
     Route::post('/kasbon/bayar', [KasbonController::class, 'bayar'])->name('transaksi.bayar')->middleware('permission:POST /kasbon/bayar');
 
-    Route::get('/rekapitulasi/laporan-penjualan', [LaporanPenjualanController::class, 'index'])->name('laporan.penjualan.index')->middleware('permission:GET /rekapitulasi/laporan-penjualan');
-    Route::get('/rekapitulasi/laporan-kasir', [LaporanKasirController::class, 'index'])->name('laporan.kasir.index')->middleware('permission:GET /rekapitulasi/laporan-kasir');
-    Route::get('/rekapitulasi/laporan-pembelian', [LaporanPembelianBarangController::class, 'index'])->name('laporan.pembelian.index')->middleware('permission:GET /lappembelian');
-
-    Route::get('/rekapitulasi/laporan-pengiriman', [LaporanPengirimanBarangController::class, 'index'])->name('laporan.pengiriman.index')->middleware('permission:GET /lappengiriman');
-
-    Route::get('/laprating', [RatingBarangController::class, 'index'])->name('laporan.rating.index')->middleware('permission:GET /laprating');
-    Route::post('/get-barang-jual', [RatingBarangController::class, 'getBarangJual'])->name('get-barang-jual')->middleware('permission:POST /get-barang-jual');
-    Route::get('/get-barang-jual', [RatingBarangController::class, 'getBarangJual'])->middleware('permission:GET /get-barang-jual');
-
-    Route::get('/ratingmember', [RatingMemberController::class, 'index'])->name('laporan.ratingmember.index')->middleware('permission:GET /ratingmember');
-
-    Route::get('/asetbarang', [AsetBarangJualanController::class, 'index'])->name('laporan.asetbarang.index')->middleware('permission:GET /asetbarang');
-
-    Route::get('/asetbarang-reture', [AsetBarangReturController::class, 'index'])->name('laporan.asetbarangreture.index')->middleware('permission:GET /asetbarang-reture');
+    Route::prefix('rekapitulasi')->group(function () {
+        Route::get('laporan-penjualan', [LaporanPenjualanController::class, 'index'])->name('laporan.penjualan.index')->middleware('permission:GET /rekapitulasi/laporan-penjualan');
+        Route::get('laporan-kasir', [LaporanKasirController::class, 'index'])->name('laporan.kasir.index')->middleware('permission:GET /rekapitulasi/laporan-kasir');
+        Route::get('laporan-pembelian', [LaporanPembelianBarangController::class, 'index'])->name('laporan.pembelian.index')->middleware('permission:GET /lappembelian');
+        Route::get('laporan-pengiriman', [LaporanPengirimanBarangController::class, 'index'])->name('laporan.pengiriman.index')->middleware('permission:GET /lappengiriman');
+        Route::get('rating-barang', [RatingBarangController::class, 'index'])->name('laporan.rating.index')->middleware('permission:GET /laprating');
+        Route::get('rating-member', [RatingMemberController::class, 'index'])->name('laporan.ratingmember.index')->middleware('permission:GET /ratingmember');
+        Route::get('aset-barang-jualan', [AsetBarangJualanController::class, 'index'])->name('laporan.asetbarang.index')->middleware('permission:GET /asetbarang');
+        Route::get('aset-barang-retur', [AsetBarangReturController::class, 'index'])->name('laporan.asetbarangreture.index')->middleware('permission:GET /asetbarang-reture');
+    });
 
     // Laporan Keuangan
     Route::get('/laporan-keuangan/arus-kas', [ArusKasController::class, 'index'])->name('laporankeuangan.aruskas.index')->middleware('permission:GET /laporan-keuangan/arus-kas');

@@ -102,84 +102,190 @@
             }
         }
 
-        function setListData(data) {
+                function setListData(data) {
+
             let html = `
     <div class="table-responsive mb-4">
         <table class="table table-bordered w-100">
             <thead class="thead-light">
                 <tr>
                     <th style="width: 30%">Area Toko</th>
-                    <th style="width: 15%">Jml Trx</th>
-                    <th style="width: 15%">Nilai Trx</th>
+                    <th class="text-center">Jml Trx</th>
+                    <th class="text-right">Nilai Trx</th>
                 </tr>
             </thead>
-            <tbody>`;
+            <tbody>
+    `;
 
-            if (data.summary_per_toko?.length > 0) {
-                data.summary_per_toko.forEach(toko => {
+            if (data.list_toko?.length > 0) {
+
+                data.list_toko.forEach(toko => {
+
+                    let jml_trx = 0;
+                    let nilai_trx = 0;
+                    let nilai_hpp = 0;
+                    let laba = 0;
+
+                    if (toko.type_barang?.length > 0) {
+
+                        toko.type_barang.forEach(item => {
+
+                            jml_trx += Number(item.jml_trx);
+                            nilai_trx += Number(item.nilai_trx);
+                            nilai_hpp += Number(item.nilai_hpp);
+                            laba += Number(item.laba);
+
+                        });
+
+                    }
+
                     html += `
-            <tr>
-                <td>${toko.area_toko}</td>
-                <td>${toko.jml_trx}</td>
-                <td>${formatRupiah(toko.nilai_trx)}</td>
-            </tr>`;
+                <tr>
+                    <td>${toko.nama_toko}</td>
+                    <td class="text-center">${jml_trx}</td>
+                    <td class="text-right">${formatRupiah(nilai_trx)}</td>
+                </tr>
+            `;
                 });
+
             } else {
+
                 html += `<tr><td colspan="5" class="text-center">Tidak ada data toko.</td></tr>`;
+
             }
 
             html += `
-            </tbody>
-            <tfoot class="thead-light">
-                <tr>
-                    <th>TOTAL</th>
-                    <th>${data.total.jml_trx}</th>
-                    <th>${formatRupiah(data.total.nilai_trx)}</th>
-                </tr>
-            </tfoot>
-        </table>
-    </div>`;
-
-            // TYPE ITEM (JIKA ADA)
-            if (data.type_barang?.length > 0) {
-                html += `
-        <div class="table-responsive mb-4">
-            <table class="table table-bordered w-100">
-                <thead class="thead-light">
-                    <tr>
-                        <th style="width: 30%">Type Item</th>
-                        <th style="width: 8%">Jml Trx</th>
-                        <th style="width: 7%">Jml Qty</th>
-                        <th style="width: 15%">Nilai Trx</th>
-                    </tr>
-                </thead>
-                <tbody>`;
-
-                data.type_barang.forEach(barang => {
-                    html += `
+        </tbody>
+        <tfoot class="thead-light">
             <tr>
-                <td>${barang.nama}</td>
-                <td>${barang.jml_trx}</td>
-                <td>${barang.item_qty}</td>
-                <td>${formatRupiah(barang.nilai_trx)}</td>
-            </tr>`;
+                <th>TOTAL</th>
+                <th class="text-center">${data.total.jml_trx}</th>
+                <th class="text-right">${formatRupiah(data.total.nilai_trx)}</th>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+`;
+
+            /**
+             * ======================
+             * TYPE BARANG PER TOKO
+             * ======================
+             */
+
+            if (data.list_toko?.length > 0) {
+
+                data.list_toko.forEach(toko => {
+
+                    if (toko.type_barang?.length > 0) {
+
+                        html += `
+                <div class="table-responsive mb-4">
+                    <div class="font-weight-bold mb-2">${toko.nama_toko}</div>
+                    <table class="table table-bordered w-100">
+                        <thead class="thead-light">
+                            <tr>
+                                <th style="width:30%">Type Item</th>
+                                <th class="text-center">Jml Trx</th>
+                                <th class="text-center">Jml Qty</th>
+                                <th class="text-right">Nilai Trx</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                        toko.type_barang.forEach(barang => {
+
+                            html += `
+                    <tr>
+                        <td>${barang.nama}</td>
+                        <td class="text-center">${barang.jml_trx}</td>
+                        <td class="text-center">${barang.item_qty}</td>
+                        <td class="text-right">${formatRupiah(barang.nilai_trx)}</td>
+                    </tr>
+                    `;
+
+                        });
+
+                        html += `
+                        </tbody>
+                    </table>
+                </div>
+                `;
+                    }
+
                 });
 
-                html += `
-                </tbody>
-            </table>
-        </div>`;
             }
 
-            // SET PERIODE LAPORAN
+            /**
+             * ======================
+             * DETAIL LAPORAN
+             * ======================
+             */
+
+            if (data.detail_laporan) {
+
+                html += `
+        <div class="thead-light">
+            <strong class="mb-2">Detail Laporan:</strong>
+            <div class="row">
+
+                <div class="col-md-6">
+                    <div class="glass mb-3">
+                        <div class="font-weight-bold mb-2 bg-light p-1 rounded">Transaksi Member</div>
+                        <div class="d-flex gap-3">
+
+                            <div class="bg-light flex-fill text-dark p-3 rounded">
+                                <div class="font-weight-bold">Jml Trx</div>
+                                <div class="fs-4 font-weight-bold">
+                                    ${data.detail_laporan.transaksi_member.jumlah}
+                                </div>
+                            </div>
+
+                            <div class="bg-light flex-fill text-dark p-3 rounded">
+                                <div class="font-weight-bold">Nilai Trx</div>
+                                <div class="fs-4 font-weight-bold">
+                                    ${formatRupiah(data.detail_laporan.transaksi_member.nilai)}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="glass mb-3">
+                        <div class="font-weight-bold mb-2 bg-light p-1 rounded">Transaksi Non Member</div>
+                        <div class="d-flex gap-3">
+
+                            <div class="bg-light flex-fill text-dark p-3 rounded">
+                                <div class="font-weight-bold">Jml Trx</div>
+                                <div class="fs-4 font-weight-bold">
+                                    ${data.detail_laporan.transaksi_non_member.jumlah}
+                                </div>
+                            </div>
+
+                            <div class="bg-light flex-fill text-dark p-3 rounded">
+                                <div class="font-weight-bold">Nilai Trx</div>
+                                <div class="fs-4 font-weight-bold">
+                                    ${formatRupiah(data.detail_laporan.transaksi_non_member.nilai)}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+        `;
+            }
             if (data.laporan_penjualan_periode?.trim() === 's/d' || data.laporan_penjualan_periode?.trim() === ' s/d ') {
                 setTimeReport();
             } else {
                 $('#time-report').html(data.laporan_penjualan_periode);
             }
-
             $('#laporan-content').html(html);
-        }
+        }y
 
 
         async function filterList() {

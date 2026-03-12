@@ -272,11 +272,13 @@
         }
 
         async function initPageLoad() {
-            await setTimeReport();
-            await setDynamicButton();
-            await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter);
-            await searchList();
-            await filterList();
+            await Promise.all([
+                setTimeReport(),
+                setDynamicButton(),
+                getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter),
+                searchList(),
+                filterList(),
+            ]);
         }
     </script>
 @endsection

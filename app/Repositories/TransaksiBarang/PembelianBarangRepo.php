@@ -83,7 +83,6 @@ class PembelianBarangRepo
             : $query->orderByDesc('id')->get();
     }
 
-
     public function getDetail($filter)
     {
         return $this->model->with([
@@ -135,5 +134,27 @@ class PembelianBarangRepo
     public function count()
     {
         return $this->model::count();
+    }
+
+    public function getLaporan($filter)
+    {
+        $query = $this->model->newQuery()
+            ->with('supplier')
+            ->selectRaw('supplier_id, SUM(qty) as total_qty, SUM(total) as total_nominal, COUNT(*) as total_transaksi')
+            ->groupBy('supplier_id');
+
+        if (!empty($filter->search)) {
+            $query->whereHas('supplier', function ($q) use ($filter) {
+                $q->where('nama', 'like', '%' . $filter->search . '%');
+            });
+        }
+
+        if (!empty($filter->start_date) && !empty($filter->end_date)) {
+            $query->whereBetween('tanggal', [$filter->start_date, $filter->end_date]);
+        }
+
+        return !empty($filter->limit)
+            ? $query->orderByDesc('supplier_id')->paginate($filter->limit)
+            : $query->orderByDesc('supplier_id')->get();
     }
 }

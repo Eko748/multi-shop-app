@@ -234,4 +234,25 @@ class PengirimanBarangService
             throw $e;
         }
     }
+
+    public function getLaporan($filter)
+    {
+        $query = $this->repository->getLaporan($filter);
+
+        $data = collect(method_exists($query, 'items') ? $query->items() : $query)->map(function ($item) {
+            return [
+                'total_qty' => $item->total_qty,
+                'total_nominal' => RupiahGenerate::build($item->total_nominal),
+                'toko_asal' => optional($item->tokoAsal)->nama ?? 'Tidak Ada',
+                'toko_tujuan' => optional($item->tokoTujuan)->nama ?? 'Tidak Ada',
+            ];
+        });
+
+        return [
+            'data' => [
+                'item' => $data,
+            ],
+            'pagination' => $this->setPaginate($query)
+        ];
+    }
 }

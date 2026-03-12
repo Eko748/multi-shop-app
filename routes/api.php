@@ -90,6 +90,11 @@ Route::get('/get/total-kas-hirarki', [KasController::class, 'getTotalKasHirarki'
 Route::get('/get/total-kas-besar', [KasController::class, 'getTotalKasBesar'])->name('total.kas-besar');
 Route::get('/get/total-kas-kecil', [KasController::class, 'getTotalKasKecil'])->name('total.kas-kecil');
 
+Route::prefix('rekapitulasi')->as('rekapitulasi.')->group(function () {
+    Route::get('laporan-pembelian-barang', [LaporanPembelianBarangController::class, 'get'])->name('laporanPembelian');
+    Route::get('laporan-pengiriman-barang', [LaporanPengirimanBarangController::class, 'get'])->name('laporanPengiriman');
+});
+
 Route::prefix('user')->as('user.')->group(function () {
     Route::post('post', [UserController::class, 'post'])->name('post');
     Route::put('put', [UserController::class, 'update'])->name('update');

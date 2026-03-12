@@ -1,28 +1,14 @@
 @extends('layouts.main')
 
 @section('title')
-    Rekapitulasi Pembelian
+    {{ $menu[0] }}
 @endsection
 
 @section('css')
+    <link rel="stylesheet" href="{{ asset('css/button-action.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/table.css') }}">
     <link rel="stylesheet" href="{{ asset('css/daterange-picker.css') }}">
     <style>
-        #jsTables thead th {
-            font-weight: bold;
-            text-transform: uppercase;
-            padding: 5px;
-            vertical-align: middle;
-            line-height: 3;
-            font-size: 15px;
-        }
-
-        #jsTables tbody td {
-            padding: 5px;
-            line-height: 1;
-            vertical-align: middle;
-            font-size: 14px;
-        }
-
         #daterange[readonly] {
             background-color: white !important;
             cursor: pointer !important;
@@ -40,94 +26,78 @@
                     <div class="card">
                         <div class="card-header">
                             <div class="row">
-                                <div class="col-12 col-md-4 align-items-center mb-2 mb-md-0">
-                                    <form id="custom-filter" class="row align-items-center">
-                                        <div class="col-12 col-md-6 mb-2">
-                                            <input class="form-control" type="text" id="daterange" name="daterange"
-                                                placeholder="Pilih rentang tanggal">
-                                        </div>
-                                        <div class="col-6 col-md-3 mb-2">
-                                            <button class="btn btn-warning w-100" id="tb-filter" type="submit"
-                                                data-container="body" data-toggle="tooltip" data-placement="top"
-                                                title="Filter Pembelian Barang">
-                                                <i class="fa fa-filter mr-1"></i>Filter
+                                <div class="col-12 col-sm-12 col-md-8 col-lg-8 col-xl-6">
+                                    <div class="row align-items-center">
+                                        <div class="col-12 col-sm-12 col-md-4 col-lg-3 col-xl-3 col-xxl-2 mb-2">
+                                            <button class="btn-dynamic btn btn-outline-primary w-100" type="button"
+                                                data-toggle="collapse" data-target="#filter-collapse" aria-expanded="false"
+                                                aria-controls="filter-collapse">
+                                                <i class="fa fa-filter"></i> Filter
                                             </button>
                                         </div>
-                                        <div class="col-6 col-md-3 mb-2">
-                                            <a href="{{ route('laporan.pembelian.index') }}" class="btn btn-secondary w-100"
-                                                onclick="resetFilter()">
-                                                <i class="fa fa-rotate mr-1"></i>Reset
-                                            </a>
+                                        <div class="col-12 col-sm-12 col-md-8 col-lg-9 col-xl-9 col-xxl-10 mb-2">
+                                            <span id="time-report" class="font-weight-bold"></span>
                                         </div>
-                                    </form>
+                                    </div>
                                 </div>
-                                <div class="col-12 col-md-8 text-md-right">
-                                    @if (request('startDate') && request('endDate'))
-                                        <p class="text-muted mb-0 font-weight-bold">
-                                            Data dimuat dalam periode dari tanggal
-                                            <span class="text-primary">
-                                                {{ \Carbon\Carbon::parse(request('startDate'))->locale('id')->translatedFormat('d F Y') }}
-                                                s/d
-                                                {{ \Carbon\Carbon::parse(request('endDate'))->locale('id')->translatedFormat('d F Y') }}.
-                                            </span>
-                                        </p>
-                                    @else
-                                        <p class="text-muted mb-0 font-weight-bold">
-                                            Data dimuat default pada Bulan ini, silahkan filter untuk kustomisasi periode
-                                        </p>
-                                    @endif
+                                <div class="col-12 col-sm12 col-md-4 col-lg-4 col-xl-6">
+                                    <div class="row justify-content-end">
+                                        <div class="col-4 col-sm-4 col-md-4 col-lg-4 col-xl-3 col-xxl-2">
+                                            <select name="limitPage" id="limitPage" class="form-control mr-2 mb-2 mb-lg-0">
+                                                <option value="10">10</option>
+                                                <option value="20">20</option>
+                                                <option value="30">30</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-8 col-sm-8 col-md-8 col-lg-8 col-xl-5 col-xxl-4">
+                                            <input id="tb-search" class="tb-search form-control mb-2 mb-lg-0" type="search"
+                                                name="search" placeholder="Cari Data" aria-label="search">
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                         <div class="content">
-                            <x-adminlte-alerts />
-                            <div class="card-body table-border-style">
-                                <div class="table-responsive">
-                                    <table class="table table-striped" id="jsTables">
+                            <div class="collapse mt-2 pl-4" id="filter-collapse">
+                                <form id="custom-filter" class="d-flex justify-content-start align-items-center">
+                                    <input class="form-control w-25 mb-2" type="text" id="daterange" name="daterange"
+                                        placeholder="Pilih rentang tanggal">
+                                    <button class="btn btn-info mr-2 h-100 mb-2 mx-2" id="tb-filter" type="submit">
+                                        <i class="fa fa-magnifying-glass mr-2"></i>Cari
+                                    </button>
+                                    <button type="button" class="btn btn-secondary mr-2 h-100 mb-2" id="tb-reset">
+                                        <i class="fa fa-rotate mr-2"></i>Reset
+                                    </button>
+                                </form>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive table-scroll-wrapper">
+                                    <table class="table table-striped m-0">
                                         <thead>
-                                            <tr>
-                                                <th>No</th>
-                                                <th>Supplier</th>
-                                                <th>Jml Trx</th>
-                                                <th>Jml Item</th>
-                                                <th>Total Nilai</th>
+                                            <tr class="tb-head">
+                                                <th class="text-center text-wrap align-top">No</th>
+                                                <th class="text-wrap align-top">Suplier</th>
+                                                <th class="text-center text-wrap align-top"><span class="mr-4">Total Transaksi</span></th>
+                                                <th class="text-center text-wrap align-top"><span class="mr-4">Total Qty</span></th>
+                                                <th class="text-right text-wrap align-top"><span class="mr-4">Total Nominal</span></th>
                                             </tr>
                                         </thead>
-                                        <tbody>
-                                            @if ($pembelian_dt->isNotEmpty())
-                                                @foreach ($suppliers as $spl)
-                                                    <tr>
-                                                        <td>{{ $loop->iteration }}</td>
-                                                        <td>{{ $spl->nama }}</td>
-                                                        <td>{{ $pembelian_dt->where('id_supplier', $spl->id)->count() }}
-                                                        </td>
-                                                        <td>{{ $pembelian_dt->where('id_supplier', $spl->id)->sum('total_item') }}
-                                                        </td>
-                                                        <td>Rp.
-                                                            {{ number_format($pembelian_dt->where('id_supplier', $spl->id)->sum('total_nilai')) }}
-                                                        </td>
-                                                    </tr>
-                                                @endforeach
-                                            @else
-                                                <tr>
-                                                    <td colspan="5" class="text-center">
-                                                        {{ $message ?? 'Silahkan Filter periode untuk menampilkan data.' }}
-                                                    </td>
-                                                </tr>
-                                            @endif
+                                        <tbody id="listData">
                                         </tbody>
                                     </table>
-
-                                    <div class="d-flex justify-content-between align-items-center mb-3">
-                                        <div>
-                                            Menampilkan <span id="current-count">0</span> data dari <span
-                                                id="total-count">0</span> total data.
+                                </div>
+                                <div class="d-flex flex-column flex-md-row justify-content-between align-items-center p-3">
+                                    <div class="text-center text-md-start mb-2 mb-md-0">
+                                        <div class="pagination">
+                                            <div>Menampilkan <span id="countPage">0</span> dari <span
+                                                    id="totalPage">0</span> data</div>
                                         </div>
-                                        <nav aria-label="Page navigation example">
-                                            <ul class="pagination justify-content-end" id="pagination">
-                                            </ul>
-                                        </nav>
                                     </div>
+                                    <nav class="text-center text-md-end">
+                                        <ul class="pagination justify-content-center justify-content-md-end"
+                                            id="pagination-js">
+                                        </ul>
+                                    </nav>
                                 </div>
                             </div>
                         </div>
@@ -142,27 +112,105 @@
     <script src="{{ asset('js/moment.js') }}"></script>
     <script src="{{ asset('js/daterange-picker.js') }}"></script>
     <script src="{{ asset('js/daterange-custom.js') }}"></script>
+    <script src="{{ asset('js/pagination.js') }}"></script>
 @endsection
 
 @section('js')
     <script>
-        function resetFilter() {
-            const url = new URL(window.location.href);
-            url.searchParams.delete('startDate');
-            url.searchParams.delete('endDate');
-            window.location.href = url.toString();
+        let title = '{{ $menu[0] }}';
+        let defaultLimitPage = 10;
+        let currentPage = 1;
+        let totalPage = 1;
+        let defaultAscending = 0;
+        let defaultSearch = '';
+        let customFilter = {};
+
+        async function getListData(limit = 10, page = 1, ascending = 0, search = '', customFilter = {}) {
+            $('#listData').html(loadingData());
+
+            let filterParams = {};
+
+            if (customFilter['startDate'] && customFilter['endDate']) {
+                filterParams.startDate = customFilter['startDate'];
+                filterParams.endDate = customFilter['endDate'];
+            }
+
+            let getDataRest = await renderAPI(
+                'GET',
+                '{{ route('rekapitulasi.laporanPembelian') }}', {
+                    page: page,
+                    limit: limit,
+                    ascending: ascending,
+                    search: search,
+                    toko_id: {{ auth()->user()->toko_id }},
+                    ...filterParams
+                }
+            ).then(function(response) {
+                return response;
+            }).catch(function(error) {
+                let resp = error.response;
+                return resp;
+            });
+
+            if (getDataRest && getDataRest.status == 200 && Array.isArray(getDataRest.data.data.item) && getDataRest
+                .data.data.item.length > 0) {
+                let handleDataArray = await Promise.all(
+                    getDataRest.data.data.item.map(async item => await handleData(item))
+                );
+                await setListData(handleDataArray, getDataRest.data.pagination);
+            } else {
+                errorMessage = 'Tidak ada data';
+                let errorRow = `
+                            <tr class="text-dark">
+                                <th class="text-center" colspan="${$('.tb-head th').length}"> ${errorMessage} </th>
+                            </tr>`;
+                $('#listData').html(errorRow);
+                $('#countPage').text("0 - 0");
+                $('#totalPage').text("0");
+            }
+        }
+
+        async function handleData(data) {
+            return {
+                suplier: data?.suplier ?? '-',
+                total_qty: data?.total_qty ?? '-',
+                total_nominal: data?.total_nominal ?? 0,
+                total_transaksi: data?.total_transaksi ?? 0,
+            };
+        }
+
+        async function setListData(dataList, pagination) {
+            totalPage = pagination.total_pages;
+            currentPage = pagination.current_page;
+            let display_from = ((defaultLimitPage * (currentPage - 1)) + 1);
+            let display_to = Math.min(display_from + dataList.length - 1, pagination.total);
+
+            let getDataTable = '';
+            let classCol = 'align-center text-dark text-wrap';
+
+            dataList.forEach((element, index) => {
+                getDataTable += `
+                <tr class="text-dark">
+                    <td class="${classCol} text-center">${display_from + index}.</td>
+                    <td class="${classCol}">${element.suplier}</td>
+                    <td class="${classCol} text-center"><span class="mr-4">${element.total_transaksi}</span></td>
+                    <td class="${classCol} text-center"><span class="mr-4">${element.total_qty}</span></td>
+                    <td class="${classCol} text-right"><span class="mr-4">${element.total_nominal}</span></td>
+                </tr>`;
+            });
+
+            $('#listData').html(getDataTable);
+            $('#totalPage').text(pagination.total);
+            $('#countPage').text(`${display_from} - ${display_to}`);
+            $('[data-toggle="tooltip"]').tooltip();
+            renderPagination();
         }
 
         async function filterList() {
             let dateRangePickerList = initializeDateRangePicker();
 
-            const form = document.getElementById('custom-filter');
-            form.action = "{{ route('laporan.pembelian.index') }}";
-            form.method = "GET";
-
-            form.addEventListener('submit', async function(e) {
+            document.getElementById('custom-filter').addEventListener('submit', async function(e) {
                 e.preventDefault();
-
                 let startDate = dateRangePickerList.data('daterangepicker').startDate;
                 let endDate = dateRangePickerList.data('daterangepicker').endDate;
 
@@ -170,22 +218,58 @@
                     startDate = null;
                     endDate = null;
                 } else {
-                    // Format tanggal menjadi 'YYYY-MM-DD' tanpa waktu
-                    startDate = startDate.format('YYYY-MM-DD');
-                    endDate = endDate.format('YYYY-MM-DD');
+                    startDate = startDate.startOf('day').format('YYYY-MM-DD HH:mm:ss');
+                    endDate = endDate.endOf('day').format('YYYY-MM-DD HH:mm:ss');
                 }
 
-                const params = new URLSearchParams({
-                    startDate: $("#daterange").val() !== '' ? startDate : '',
-                    endDate: $("#daterange").val() !== '' ? endDate : ''
-                });
+                customFilter = {
+                    'start_date': $("#daterange").val() != '' ? startDate : '',
+                    'end_date': $("#daterange").val() != '' ? endDate : ''
+                };
 
-                window.location.href = `${form.action}?${params.toString()}`;
+                defaultSearch = $('.tb-search').val();
+                defaultLimitPage = $("#limitPage").val();
+                currentPage = 1;
+
+                $('#time-report').html(
+                    `<i class="fa fa-file-text mr-1"></i><b>${title}</b> (<b class="text-primary">${startDate}</b> s/d <b class="text-primary">${endDate}</b>)`
+                );
+
+                await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
+                    customFilter);
+            });
+
+
+            document.getElementById('tb-reset').addEventListener('click', async function() {
+                $('#daterange').val('');
+                customFilter = {};
+                defaultSearch = $('.tb-search').val();
+                defaultLimitPage = $("#limitPage").val();
+                currentPage = 1;
+                await setTimeReport();
+                await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
+                    customFilter);
             });
         }
 
+        function setTimeReport() {
+            const now = new Date();
+            const formattedNow =
+                `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+
+            $('#time-report').html(
+                `<i class="fa fa-file-text mr-1"></i><b>${title}</b> saat ini (<b class="text-primary">${formattedNow}</b>)`
+            );
+        }
+
         async function initPageLoad() {
-            await filterList();
+            await Promise.all([
+                setTimeReport(),
+                setDynamicButton(),
+                getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter),
+                searchList(),
+                filterList(),
+            ]);
         }
     </script>
 @endsection

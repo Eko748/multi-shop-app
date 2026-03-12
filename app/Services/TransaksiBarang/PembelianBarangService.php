@@ -291,4 +291,25 @@ class PembelianBarangService
     {
         return $this->repository->count();
     }
+
+    public function getLaporan($filter)
+    {
+        $query = $this->repository->getLaporan($filter);
+
+        $data = collect(method_exists($query, 'items') ? $query->items() : $query)->map(function ($item) {
+            return [
+                'total_qty' => $item->total_qty,
+                'total_transaksi' => $item->total_transaksi,
+                'total_nominal' => RupiahGenerate::build($item->total_nominal),
+                'suplier' => optional($item->supplier)->nama ?? 'Tidak Ada',
+            ];
+        });
+
+        return [
+            'data' => [
+                'item' => $data,
+            ],
+            'pagination' => $this->setPaginate($query)
+        ];
+    }
 }

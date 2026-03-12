@@ -1,33 +1,14 @@
 @extends('layouts.main')
 
 @section('title')
-    Rekapitulasi Pengiriman
+    {{ $menu[0] }}
 @endsection
 
 @section('css')
+    <link rel="stylesheet" href="{{ asset('css/button-action.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/table.css') }}">
     <link rel="stylesheet" href="{{ asset('css/daterange-picker.css') }}">
     <style>
-        #jsTables thead th {
-            font-weight: bold;
-            /* Font tebal untuk penekanan */
-            text-transform: uppercase;
-            /* (Opsional) Semua huruf kapital */
-            padding: 5px;
-            /* Sedikit padding untuk thead */
-            vertical-align: middle;
-            line-height: 3;
-            font-size: 15px;
-        }
-
-        #jsTables tbody td {
-            padding: 5px;
-            /* Sesuaikan padding untuk jarak antar sel */
-            line-height: 1, 4;
-            /* Sesuaikan tinggi baris */
-            vertical-align: middle;
-            font-size: 14px;
-        }
-
         #daterange[readonly] {
             background-color: white !important;
             cursor: pointer !important;
@@ -37,7 +18,6 @@
 @endsection
 
 @section('content')
-
     <div class="pcoded-main-container">
         <div class="pcoded-content pt-1 mt-1">
             @include('components.breadcrumbs')
@@ -46,223 +26,252 @@
                     <div class="card">
                         <div class="card-header">
                             <div class="row">
-                                <div class="col-12 col-md-4 align-items-center mb-2 mb-md-0">
-                                    <form id="custom-filter" class="row align-items-center">
-                                        <div class="col-12 col-md-6 mb-2">
-                                            <input class="form-control" type="text" id="daterange" name="daterange"
-                                                placeholder="Pilih rentang tanggal">
-                                        </div>
-                                        <div class="col-6 col-md-3 mb-2">
-                                            <button class="btn btn-warning w-100" id="tb-filter" type="submit"
-                                                data-container="body" data-toggle="tooltip" data-placement="top"
-                                                title="Filter Pembelian Barang">
-                                                <i class="fa fa-filter mr-1"></i>Filter
+                                <div class="col-12 col-sm-12 col-md-8 col-lg-8 col-xl-6">
+                                    <div class="row align-items-center">
+                                        <div class="col-12 col-sm-12 col-md-4 col-lg-3 col-xl-3 col-xxl-2 mb-2">
+                                            <button class="btn-dynamic btn btn-outline-primary w-100" type="button"
+                                                data-toggle="collapse" data-target="#filter-collapse" aria-expanded="false"
+                                                aria-controls="filter-collapse">
+                                                <i class="fa fa-filter"></i> Filter
                                             </button>
                                         </div>
-                                        <div class="col-6 col-md-3 mb-2">
-                                            <a href="{{ route('laporan.pembelian.index') }}" class="btn btn-secondary w-100"
-                                                onclick="resetFilter()">
-                                                <i class="fa fa-rotate mr-1"></i>Reset
-                                            </a>
+                                        <div class="col-12 col-sm-12 col-md-8 col-lg-9 col-xl-9 col-xxl-10 mb-2">
+                                            <span id="time-report" class="font-weight-bold"></span>
                                         </div>
-                                    </form>
+                                    </div>
                                 </div>
-                                <div class="col-12 col-md-8 text-md-right">
-                                    @if (request('startDate') && request('endDate'))
-                                        <p class="text-muted mb-0 font-weight-bold">
-                                            Data dimuat dalam periode dari tanggal
-                                            <span class="text-primary">
-                                                {{ \Carbon\Carbon::parse(request('startDate'))->locale('id')->translatedFormat('d F Y') }}
-                                                s/d
-                                                {{ \Carbon\Carbon::parse(request('endDate'))->locale('id')->translatedFormat('d F Y') }}.
-                                            </span>
-                                        </p>
-                                    @else
-                                        <p class="text-muted mb-0 font-weight-bold">
-                                            Data dimuat default pada Bulan ini, silahkan filter untuk kustomisasi periode
-                                        </p>
-                                    @endif
+                                <div class="col-12 col-sm12 col-md-4 col-lg-4 col-xl-6">
+                                    <div class="row justify-content-end">
+                                        <div class="col-4 col-sm-4 col-md-4 col-lg-4 col-xl-3 col-xxl-2">
+                                            <select name="limitPage" id="limitPage" class="form-control mr-2 mb-2 mb-lg-0">
+                                                <option value="10">10</option>
+                                                <option value="20">20</option>
+                                                <option value="30">30</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-8 col-sm-8 col-md-8 col-lg-8 col-xl-5 col-xxl-4">
+                                            <input id="tb-search" class="tb-search form-control mb-2 mb-lg-0" type="search"
+                                                name="search" placeholder="Cari Data" aria-label="search">
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-
                         <div class="content">
-                            <x-adminlte-alerts />
-                            <div class="card-body table-border-style">
-                                <div class="table-responsive">
-                                    <table class="table table-striped" id="jsTables">
-                                        <thead>
-                                            <tr>
-                                                <th>No</th>
-                                                <th>Pengirim</th>
-                                                <th>Penerima</th>
-                                                <th>Jml Barang</th>
-                                                <th>Total Nilai</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @if ($toko->isEmpty())
-                                                <tr>
-                                                    <td colspan="5" class="text-center">
-                                                        {{ $message ?? 'Silahkan Filter periode untuk menampilkan data.' }}
-                                                    </td>
-                                                </tr>
-                                            @else
-                                                @foreach ($toko as $tk)
-                                                    {{-- Filter hanya untuk user dengan toko_id selain 1 --}}
-                                                    @if (auth()->user()->toko_id == 1 || $tk->id == auth()->user()->toko_id)
-                                                        <tr>
-                                                            <td>{{ $loop->iteration }}</td>
-                                                            <td>{{ $tk->toko }}</td>
-                                                            <td>
-                                                                @if ($tk->pengirimanSebagaiPengirim->isNotEmpty())
-                                                                    @foreach ($tk->pengirimanSebagaiPengirim->unique('toko_penerima') as $pengiriman)
-                                                                        @if (auth()->user()->toko_id == 1 || $pengiriman->toko_penerima == auth()->user()->toko_id)
-                                                                            <div style="margin-bottom: 10px;">
-                                                                                {{ $pengiriman->tokos->nama_toko ?? '-' }}
-                                                                            </div>
-                                                                        @endif
-                                                                    @endforeach
-                                                                @else
-                                                                    <div>-</div>
-                                                                @endif
-                                                            </td>
-                                                            <td>
-                                                                @if ($tk->pengirimanSebagaiPengirim->isNotEmpty())
-                                                                    @foreach ($tk->pengirimanSebagaiPengirim->groupBy('toko_penerima') as $tokoPenerimaId => $pengirimanGroup)
-                                                                        @if (auth()->user()->toko_id == 1 || $tokoPenerimaId == auth()->user()->toko_id)
-                                                                            <div style="margin-bottom: 10px;">
-                                                                                {{ $pengirimanGroup->sum('total_item') }}
-                                                                            </div>
-                                                                        @endif
-                                                                    @endforeach
-                                                                @else
-                                                                    <div>0</div>
-                                                                @endif
-                                                            </td>
-                                                            <td>
-                                                                @if ($tk->pengirimanSebagaiPengirim->isNotEmpty())
-                                                                    @foreach ($tk->pengirimanSebagaiPengirim->groupBy('toko_penerima') as $tokoPenerimaId => $pengirimanGroup)
-                                                                        @if (auth()->user()->toko_id == 1 || $tokoPenerimaId == auth()->user()->toko_id)
-                                                                            <div style="margin-bottom: 10px;">
-                                                                                {{ number_format($pengirimanGroup->sum('total_nominal'), 0, '.', '.') }}
-                                                                            </div>
-                                                                        @endif
-                                                                    @endforeach
-                                                                @else
-                                                                    <div>0</div>
-                                                                @endif
-                                                            </td>
-                                                        </tr>
-                                                        <tr class="table-success">
-                                                            <td></td>
-                                                            <td><strong>Total</strong></td>
-                                                            <td></td>
-                                                            <td><strong>{{ $tk->pengirimanSebagaiPengirim->sum('total_item') }}</strong>
-                                                            </td>
-                                                            <td><strong>{{ number_format($tk->pengirimanSebagaiPengirim->sum('total_nominal'), 0, '.', '.') }}</strong>
-                                                            </td>
-                                                        </tr>
-                                                    @endif
-                                                @endforeach
-                                            @endif
-                                        </tbody>
-                                    </table>
-
-
-                                    <div class="d-flex justify-content-between align-items-center mb-3">
-
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Modal untuk Filter Tanggal -->
-                <div class="modal fade" id="filterModal" tabindex="-1" aria-labelledby="filterModalLabel"
-                    aria-hidden="true">
-                    <div class="modal-dialog">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title" id="filterModalLabel">Filter Tanggal</h5>
-                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                                    <span aria-hidden="true">&times;</span>
-                                </button>
-                            </div>
-                            <div class="modal-body">
-                                <form action="{{ route('laporan.pengiriman.index') }}" method="GET">
-                                    <div class="form-group">
-                                        <label for="startDate">Tanggal Mulai</label>
-                                        <input type="date" name="startDate" id="startDate" class="form-control"
-                                            value="{{ request('startDate') }}">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="endDate">Tanggal Selesai</label>
-                                        <input type="date" name="endDate" id="endDate" class="form-control"
-                                            value="{{ request('endDate') }}">
-                                    </div>
-                                    <button type="submit" class="btn btn-primary">Filter</button>
-                                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
+                            <div class="collapse mt-2 pl-4" id="filter-collapse">
+                                <form id="custom-filter" class="d-flex justify-content-start align-items-center">
+                                    <input class="form-control w-25 mb-2" type="text" id="daterange" name="daterange"
+                                        placeholder="Pilih rentang tanggal">
+                                    <button class="btn btn-info mr-2 h-100 mb-2 mx-2" id="tb-filter" type="submit">
+                                        <i class="fa fa-magnifying-glass mr-2"></i>Cari
+                                    </button>
+                                    <button type="button" class="btn btn-secondary mr-2 h-100 mb-2" id="tb-reset">
+                                        <i class="fa fa-rotate mr-2"></i>Reset
+                                    </button>
                                 </form>
                             </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive table-scroll-wrapper">
+                                    <table class="table table-striped m-0">
+                                        <thead>
+                                            <tr class="tb-head">
+                                                <th class="text-center text-wrap align-top">No</th>
+                                                <th class="text-wrap align-top">Toko Asal</th>
+                                                <th class="text-wrap align-top">Toko Tujuan</th>
+                                                <th class="text-center text-wrap align-top"><span class="mr-4">Total
+                                                        Qty</span></th>
+                                                <th class="text-right text-wrap align-top"><span class="mr-4">Total
+                                                        Nominal</span></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="listData">
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="d-flex flex-column flex-md-row justify-content-between align-items-center p-3">
+                                    <div class="text-center text-md-start mb-2 mb-md-0">
+                                        <div class="pagination">
+                                            <div>Menampilkan <span id="countPage">0</span> dari <span
+                                                    id="totalPage">0</span> data</div>
+                                        </div>
+                                    </div>
+                                    <nav class="text-center text-md-end">
+                                        <ul class="pagination justify-content-center justify-content-md-end"
+                                            id="pagination-js">
+                                        </ul>
+                                    </nav>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-
-                <!-- [ Main Content ] end -->
             </div>
         </div>
-    @endsection
+    </div>
+@endsection
 
-    @section('asset_js')
-        <script src="{{ asset('js/moment.js') }}"></script>
-        <script src="{{ asset('js/daterange-picker.js') }}"></script>
-        <script src="{{ asset('js/daterange-custom.js') }}"></script>
-    @endsection
+@section('asset_js')
+    <script src="{{ asset('js/moment.js') }}"></script>
+    <script src="{{ asset('js/daterange-picker.js') }}"></script>
+    <script src="{{ asset('js/daterange-custom.js') }}"></script>
+    <script src="{{ asset('js/pagination.js') }}"></script>
+@endsection
 
-    @section('js')
-        <script>
-            function resetFilter() {
-                const url = new URL(window.location.href);
-                url.searchParams.delete('startDate');
-                url.searchParams.delete('endDate');
-                window.location.href = url.toString();
+@section('js')
+    <script>
+        let title = '{{ $menu[0] }}';
+        let defaultLimitPage = 10;
+        let currentPage = 1;
+        let totalPage = 1;
+        let defaultAscending = 0;
+        let defaultSearch = '';
+        let customFilter = {};
+
+        async function getListData(limit = 10, page = 1, ascending = 0, search = '', customFilter = {}) {
+            $('#listData').html(loadingData());
+
+            let filterParams = {};
+
+            if (customFilter['startDate'] && customFilter['endDate']) {
+                filterParams.startDate = customFilter['startDate'];
+                filterParams.endDate = customFilter['endDate'];
             }
 
-            async function filterList() {
-                let dateRangePickerList = initializeDateRangePicker();
+            let getDataRest = await renderAPI(
+                'GET',
+                '{{ route('rekapitulasi.laporanPengiriman') }}', {
+                    page: page,
+                    limit: limit,
+                    ascending: ascending,
+                    search: search,
+                    toko_id: {{ auth()->user()->toko_id }},
+                    ...filterParams
+                }
+            ).then(function(response) {
+                return response;
+            }).catch(function(error) {
+                let resp = error.response;
+                return resp;
+            });
 
-                const form = document.getElementById('custom-filter');
-                form.action = "{{ route('laporan.pengiriman.index') }}";
-                form.method = "GET";
-
-                form.addEventListener('submit', async function(e) {
-                    e.preventDefault();
-
-                    let startDate = dateRangePickerList.data('daterangepicker').startDate;
-                    let endDate = dateRangePickerList.data('daterangepicker').endDate;
-
-                    if (!startDate || !endDate) {
-                        startDate = null;
-                        endDate = null;
-                    } else {
-                        // Format tanggal menjadi 'YYYY-MM-DD' tanpa waktu
-                        startDate = startDate.format('YYYY-MM-DD');
-                        endDate = endDate.format('YYYY-MM-DD');
-                    }
-
-                    const params = new URLSearchParams({
-                        startDate: $("#daterange").val() !== '' ? startDate : '',
-                        endDate: $("#daterange").val() !== '' ? endDate : ''
-                    });
-
-                    window.location.href = `${form.action}?${params.toString()}`;
-                });
+            if (getDataRest && getDataRest.status == 200 && Array.isArray(getDataRest.data.data.item) && getDataRest
+                .data.data.item.length > 0) {
+                let handleDataArray = await Promise.all(
+                    getDataRest.data.data.item.map(async item => await handleData(item))
+                );
+                await setListData(handleDataArray, getDataRest.data.pagination);
+            } else {
+                errorMessage = 'Tidak ada data';
+                let errorRow = `
+                            <tr class="text-dark">
+                                <th class="text-center" colspan="${$('.tb-head th').length}"> ${errorMessage} </th>
+                            </tr>`;
+                $('#listData').html(errorRow);
+                $('#countPage').text("0 - 0");
+                $('#totalPage').text("0");
             }
+        }
 
-            async function initPageLoad() {
-                await filterList();
-            }
-        </script>
-    @endsection
+        async function handleData(data) {
+            return {
+                toko_asal: data?.toko_asal ?? '-',
+                toko_tujuan: data?.toko_tujuan ?? '-',
+                total_qty: data?.total_qty ?? '-',
+                total_nominal: data?.total_nominal ?? 0,
+            };
+        }
+
+        async function setListData(dataList, pagination) {
+            totalPage = pagination.total_pages;
+            currentPage = pagination.current_page;
+            let display_from = ((defaultLimitPage * (currentPage - 1)) + 1);
+            let display_to = Math.min(display_from + dataList.length - 1, pagination.total);
+
+            let getDataTable = '';
+            let classCol = 'align-center text-dark text-wrap';
+
+            dataList.forEach((element, index) => {
+                getDataTable += `
+                <tr class="text-dark">
+                    <td class="${classCol} text-center">${display_from + index}.</td>
+                    <td class="${classCol}">${element.toko_asal}</td>
+                    <td class="${classCol}">${element.toko_tujuan}</td>
+                    <td class="${classCol} text-center"><span class="mr-4">${element.total_qty}</span></td>
+                    <td class="${classCol} text-right"><span class="mr-4">${element.total_nominal}</span></td>
+                </tr>`;
+            });
+
+            $('#listData').html(getDataTable);
+            $('#totalPage').text(pagination.total);
+            $('#countPage').text(`${display_from} - ${display_to}`);
+            $('[data-toggle="tooltip"]').tooltip();
+            renderPagination();
+        }
+
+        async function filterList() {
+            let dateRangePickerList = initializeDateRangePicker();
+
+            document.getElementById('custom-filter').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                let startDate = dateRangePickerList.data('daterangepicker').startDate;
+                let endDate = dateRangePickerList.data('daterangepicker').endDate;
+
+                if (!startDate || !endDate) {
+                    startDate = null;
+                    endDate = null;
+                } else {
+                    startDate = startDate.startOf('day').format('YYYY-MM-DD HH:mm:ss');
+                    endDate = endDate.endOf('day').format('YYYY-MM-DD HH:mm:ss');
+                }
+
+                customFilter = {
+                    'start_date': $("#daterange").val() != '' ? startDate : '',
+                    'end_date': $("#daterange").val() != '' ? endDate : ''
+                };
+
+                defaultSearch = $('.tb-search').val();
+                defaultLimitPage = $("#limitPage").val();
+                currentPage = 1;
+
+                $('#time-report').html(
+                    `<i class="fa fa-file-text mr-1"></i><b>${title}</b> (<b class="text-primary">${startDate}</b> s/d <b class="text-primary">${endDate}</b>)`
+                );
+
+                await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
+                    customFilter);
+            });
+
+
+            document.getElementById('tb-reset').addEventListener('click', async function() {
+                $('#daterange').val('');
+                customFilter = {};
+                defaultSearch = $('.tb-search').val();
+                defaultLimitPage = $("#limitPage").val();
+                currentPage = 1;
+                await setTimeReport();
+                await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
+                    customFilter);
+            });
+        }
+
+        function setTimeReport() {
+            const now = new Date();
+            const formattedNow =
+                `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+
+            $('#time-report').html(
+                `<i class="fa fa-file-text mr-1"></i><b>${title}</b> saat ini (<b class="text-primary">${formattedNow}</b>)`
+            );
+        }
+
+        async function initPageLoad() {
+            await Promise.all([
+                setTimeReport(),
+                setDynamicButton(),
+                getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter),
+                searchList(),
+                filterList(),
+            ]);
+        }
+    </script>
+@endsection

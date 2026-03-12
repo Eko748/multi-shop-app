@@ -3,60 +3,49 @@
 namespace App\Http\Controllers\Rekapitulasi;
 
 use App\Http\Controllers\Controller;
-use App\Models\Barang;
-use App\Models\LevelHarga;
-use App\Models\PembelianBarang;
-use App\Models\Supplier;
+use App\Services\TransaksiBarang\PembelianBarangService;
+use App\Traits\{ApiResponse, HasFilter};
+use Exception;
 use Illuminate\Http\Request;
 
 class LaporanPembelianBarangController extends Controller
 {
+    use ApiResponse, HasFilter;
     private array $menu = [];
+    protected $service;
 
-    public function __construct()
+    public function __construct(PembelianBarangService $service)
     {
         $this->menu;
         $this->title = [
             'Rekap Pembelian Barang',
         ];
+        $this->service = $service;
     }
 
     public function index(Request $request)
     {
         $menu = [$this->title[0], $this->label[2]];
-        $suppliers = Supplier::all();
-        $barang = Barang::all();
-        $LevelHarga = LevelHarga::all();
+        return view('laporan.pembelian.index', compact('menu'));
+    }
 
-        // Default tanggal awal dan akhir untuk bulan ini
-        $startDate = now()->startOfMonth()->toDateString();
-        $endDate = now()->endOfMonth()->toDateString();
+    public function get(Request $request)
+    {
+        try {
+            $filter = $this->makeFilter(
+                $request,
+                30,
+                [
+                    'toko_id' => $request->input('toko_id'),
+                ]
+            );
+            $data = $this->service->getLaporan($filter);
 
-        // Jika parameter tanggal dikirimkan, gunakan tanggal dari request
-        if ($request->has('startDate') && $request->has('endDate')) {
-            $startDate = $request->input('startDate');
-            $endDate = $request->input('endDate');
+            return $this->success($data['data'], 200, 'Berhasil', $data['pagination']);
+        } catch (Exception $e) {
+            return $this->error(500, "Gagal mengambil data {$this->title[0]}", [
+                'exception' => $e->getMessage()
+            ]);
         }
-
-        // Ambil data pembelian berdasarkan tanggal
-        $pembelian_dt = PembelianBarang::where('status', 'success')
-            ->whereBetween('nota', [$startDate, $endDate])
-            ->orderBy('id', 'desc')
-            ->get();
-
-        // Jika tidak ada data pembelian di bulan ini dan tidak ada filter, tampilkan pesan
-        if ($pembelian_dt->isEmpty() && !$request->has('startDate') && !$request->has('endDate')) {
-            return view('laporan.pembelian.index', compact('menu', 'suppliers', 'barang', 'LevelHarga'))
-                ->with('pembelian_dt', collect()) // Kirim koleksi kosong
-                ->with('startDate', $startDate)
-                ->with('endDate', $endDate)
-                ->with('message', 'Tidak ada data di bulan ini.');
-        }
-
-        // Kirim data ke view
-        return view('laporan.pembelian.index', compact('menu', 'pembelian_dt', 'suppliers', 'barang', 'LevelHarga'))
-            ->with('startDate', $startDate)
-            ->with('endDate', $endDate)
-            ->with('message', null); // Tidak ada pesan jika ada data
     }
 }

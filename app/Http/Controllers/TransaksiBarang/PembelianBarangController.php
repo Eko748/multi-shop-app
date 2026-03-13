@@ -668,6 +668,8 @@ class PembelianBarangController extends Controller
             $request->validate([
                 'id_pembelian' => 'nullable|exists:pembelian_barang,id',
                 'id_barang'    => 'required|exists:barang,id',
+                'toko_id' => 'required|integer|exists:toko,id',
+
                 'qty'          => 'required|numeric|min:1',
                 'harga_barang' => 'required|numeric|min:1',
 
@@ -690,6 +692,7 @@ class PembelianBarangController extends Controller
 
             if ($idPembelian === null) {
                 $pembelian = PembelianBarang::create([
+                    'toko_id'       => $request->toko_id,
                     'toko_group_id' => $request->toko_group_id,
                     'supplier_id'   => $request->supplier_id,
                     'kas_id'        => $request->kas_id,
@@ -743,6 +746,7 @@ class PembelianBarangController extends Controller
                 'id_pembelian' => 'required|exists:pembelian_barang_detail_temp,pembelian_barang_id',
                 'id_barang'    => 'required|exists:pembelian_barang_detail_temp,barang_id',
                 'toko_group_id' => 'required|exists:toko_group,id',
+                'toko_id' => 'required|integer|exists:toko,id',
             ]);
 
             DB::beginTransaction();

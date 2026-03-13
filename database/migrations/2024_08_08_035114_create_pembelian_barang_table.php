@@ -12,6 +12,7 @@ return new class extends Migration
             $table->id();
             $table->uuid('public_id')->unique();
             $table->unsignedBigInteger('kas_id');
+            $table->unsignedBigInteger('toko_id');
             $table->unsignedBigInteger('toko_group_id');
             $table->unsignedBigInteger('supplier_id');
             $table->enum('status', ['progress', 'success', 'completed_debt', 'success_debt'])->default('progress');

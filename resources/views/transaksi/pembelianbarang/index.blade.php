@@ -471,6 +471,7 @@
                     limit: limit,
                     ascending: ascending,
                     search: search,
+                    toko_id: {{ auth()->user()->toko_id }},
                     ...filterParams
                 }
             ).then(function(response) {
@@ -844,6 +845,7 @@
                 id_pembelian: PBState.pembelianId,
                 id_barang: idBarang,
                 toko_group_id: PBState.header.tokoGroup,
+                toko_id: {{ auth()->user()->toko_id }},
             });
 
             PBState.items = PBState.items.filter(i => i.id_barang !== idBarang);
@@ -886,6 +888,7 @@
 
             const payload = {
                 id: PBState.pembelianId,
+                toko_id: {{ auth()->user()->toko_id }},
                 ...PBState.header,
                 items: PBState.items
             };
@@ -1003,7 +1006,8 @@
                 nota: PBState.header.nota,
                 tanggal: PBState.header.tgl,
                 tipe: $('#tipe').val(),
-                created_by: "{{ auth()->id() }}"
+                created_by: {{ auth()->id() }},
+                toko_id: {{ auth()->user()->toko_id }},
             };
 
             const res = await renderAPI('POST', "{{ route('tb.pb.temp.post') }}", payload);

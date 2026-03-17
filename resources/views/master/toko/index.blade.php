@@ -253,7 +253,7 @@
             isModal: '#modal-form',
             multiple: true
         }, {
-            id: '#toko_group',
+            id: '#toko_group_id',
             isFilter: {
                 toko_id: {{ auth()->user()->toko_id }},
             },
@@ -485,8 +485,8 @@
             const tokoGroup = mode !== 'edit' ?
                 `<div class="col-md-6">
                     <div class="form-group">
-                        <label for="toko_group" class="form-control-label">Grup Toko</label>
-                        <select class="form-control" id="toko_group" name="toko_group">
+                        <label for="toko_group_id" class="form-control-label">Grup Toko</label>
+                        <select class="form-control" id="toko_group_id" name="toko_group_id">
                         </select>
                         <small class="text-muted"><i>**kosongkan jika ingin membuat grup toko baru</i></small>
                     </div>

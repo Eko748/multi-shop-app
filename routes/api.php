@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auth\CatatanController;
 use App\Http\Controllers\Auth\DashboardController;
 use App\Http\Controllers\LaporanKeuangan\{ArusKasController, LabaRugiController, NeracaController, NeracaPenyesuaianController};
 use App\Http\Controllers\Retur\{ReturMemberController, ReturSupplierController};
@@ -321,4 +322,12 @@ Route::prefix('data-master')->as('dm.')->group(function () {
             Route::get('select', [TokoGroupController::class, 'select'])->name('select');
         });
     });
+});
+
+Route::prefix('catatan')->as('catatan.')->group(function () {
+    Route::get('get', [CatatanController::class, 'get'])->name('get');
+    Route::post('post', [CatatanController::class, 'post'])->name('post');
+    Route::put('put', [CatatanController::class, 'put'])->name('put');
+    Route::put('read', [CatatanController::class, 'read'])->name('read');
+    Route::delete('delete', [CatatanController::class, 'delete'])->name('delete');
 });

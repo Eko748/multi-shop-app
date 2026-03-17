@@ -25,6 +25,12 @@ class User extends Authenticatable
         'remember_token',
     ];
 
+    public function catatanBelumDibaca()
+    {
+        return $this->hasMany(Catatan::class, 'toko_tujuan_id', 'toko_id')
+            ->where('is_read', 0);
+    }
+
     public function leveluser(): BelongsTo
     {
         return $this->belongsTo(Role::class, 'role_id');

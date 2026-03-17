@@ -30,7 +30,7 @@
                     <div class="dropdown drp-user">
                         <a href="#" class="dropdown-toggle" role="button" tabindex="0">{{ Auth::user()->nama }}
                             <i class="fa fa-chevron-down m-l-5"></i></a>
-                        <div class="dropdown-menu dropdown-menu-right profile-notification">
+                        <div class="dropdown-menu dropdown-menu-right profile-bell">
                             <div class="pro-head">
                                 @if (Auth::check())
                                     <h5 style="color: white">
@@ -73,7 +73,8 @@
 <header class="site-header navbar pcoded-header navbar-expand-lg" id="siteHeader" role="banner" aria-label="Site header">
     <div class="container-fluid p-0">
         <div class="m-header p-2 d-flex align-items-center">
-            <a class="neu-btn d-md-none text-success mr-3" id="mobile-collapse" href="#!" style="border: 2px solid #2ecd7bdc;">
+            <a class="neu-btn d-md-none text-success mr-3" id="mobile-collapse" href="#!"
+                style="border: 2px solid #2ecd7bdc;">
                 <i class="fa fa-bars"></i>
             </a>
             <div class="brand">
@@ -89,10 +90,12 @@
                 <li class="d-block p-0">
                     <div class="d-flex align-items-center">
                         <!-- Fullscreen button -->
+                        <a href="{{ route('catatan.index') }}" class="neu-btn" title="Profile">
+                            <i class="feather icon-bell"></i>
+                        </a>
                         <button class="neu-btn" id="fullscreenBtnMobile" title="Perluas layar">
                             <i class="feather icon-maximize"></i>
                         </button>
-
                         <!-- Profile button -->
                         <a href="" class="neu-btn" title="Profile">
                             <i class="feather icon-user"></i>
@@ -117,6 +120,20 @@
                 <li class="d-none d-lg-block p-0">
                     <div class="d-flex align-items-end">
                         <!-- Fullscreen button -->
+                        @php
+                            $count = auth()->user()->catatanBelumDibaca()->count();
+                        @endphp
+
+                        <a href="{{ route('catatan.index') }}" class="neu-btn position-relative {{ request()->routeIs('catatan.*') ? 'active' : '' }}" title="Catatan">
+                            <i class="feather icon-bell"></i>
+
+                            @if ($count > 0)
+                                <span class="badge badge-danger position-absolute"
+                                    style="top:-5px; right:-5px; font-size:10px;">
+                                    {{ $count }}
+                                </span>
+                            @endif
+                        </a>
                         <button class="neu-btn" id="fullscreenBtn" title="Perluas layar">
                             <i class="feather icon-maximize"></i>
                         </button>

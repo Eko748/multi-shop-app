@@ -2,6 +2,24 @@
     <link rel="stylesheet" href="{{ asset('flat-able-lite/dist/assets/css/style.css') }}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css">
     <style>
+        .neu-btn.active {
+            background: #e9f5ff;
+            border: 1px solid #47c339;
+            color: #47c339;
+            font-weight: 600;
+        }
+
+        .neu-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: #47c339;
+            border-radius: 2px;
+        }
+
         .form-check-input {
             width: 50px;
             height: 25px;

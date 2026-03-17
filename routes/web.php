@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Auth\CatatanController;
 use App\Http\Controllers\LaporanKeuangan\{ArusKasController, LabaRugiController, NeracaController, NeracaPenyesuaianController};
 use App\Http\Controllers\Retur\{ReturMemberController, ReturSupplierController};
 use App\Http\Controllers\TransaksiDigital\{DompetController, TransaksiNonFisikController};
@@ -24,6 +25,8 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [AuthController::class, 'dashboard'])->name('dashboard.index')->middleware('permission:GET /dashboard');
     Route::get('/dashboard', [AuthController::class, 'index'])->name('dashboard.index')->middleware('permission:GET /dashboard');
+
+    Route::get('catatan', [CatatanController::class, 'index'])->name('catatan.index');
 
     // User Controller
     Route::get('/user', [UserController::class, 'index'])->name('master.user.index')->middleware('permission:GET /user');

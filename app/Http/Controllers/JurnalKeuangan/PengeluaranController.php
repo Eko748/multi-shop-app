@@ -165,6 +165,11 @@ class PengeluaranController extends Controller
                     : "(Sistem) {$this->title[0]} dibuat."
             );
 
+            $laba = true;
+            if ($pengeluaran->pengeluaran_tipe_id == 11) {
+                $laba = false;
+            }
+
             KasService::out(
                 toko_id: $validatedData['toko_id'],
                 jenis_barang_id: $pengeluaran->kas->jenis_barang_id,
@@ -175,6 +180,7 @@ class PengeluaranController extends Controller
                 keterangan: $pengeluaran->pengeluaranTipe->tipe ?? 'Pengeluaran Harian Lainnya',
                 sumber: $pengeluaran,
                 tanggal: $validatedData['tanggal'],
+                laba: $laba
             );
 
             DB::commit();
@@ -191,7 +197,12 @@ class PengeluaranController extends Controller
         try {
             $data = Pengeluaran::findOrFail($request->id);
 
-            KasService::delete($data->kas_id, $data->id, Pengeluaran::class, $data->tanggal);
+            $laba = true;
+            if ($data->pengeluaran_tipe_id == 11) {
+                $laba = false;
+            }
+
+            KasService::delete($data->kas_id, $data->id, Pengeluaran::class, $data->tanggal, $laba);
 
             $kas = KasJenisBarangGenerate::labelForKas($data);
             $nominal = RupiahGenerate::build($data->nominal);

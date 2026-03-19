@@ -144,7 +144,7 @@ class PiutangController extends Controller
             'nominal' => 'required|numeric',
             'tanggal' => 'required|date',
             'piutang_tipe_id' => 'nullable|exists:piutang_tipe,id',
-            'jangka' => 'nullable|in:panjang,pendek',
+            'jangka' => 'required|in:panjang,pendek',
             'jenis_barang_id' => 'required|integer',
             'tipe_kas' => 'required',
         ];
@@ -214,6 +214,7 @@ class PiutangController extends Controller
                 keterangan: $data->piutangTipe->tipe ?? 'Piutang Lainnya',
                 sumber: $data,
                 tanggal: $validatedData['tanggal'],
+                laba: false
             );
 
             DB::commit();
@@ -333,7 +334,7 @@ class PiutangController extends Controller
         try {
             $data = Piutang::findOrFail($request->id);
 
-            KasService::delete($data->kas_id, $data->id, Piutang::class, $data->tanggal);
+            KasService::delete($data->kas_id, $data->id, Piutang::class, $data->tanggal, false);
 
             $kas = KasJenisBarangGenerate::labelForKas($data);
             $nominal = RupiahGenerate::build($data->nominal);

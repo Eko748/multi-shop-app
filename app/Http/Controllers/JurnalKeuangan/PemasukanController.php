@@ -192,7 +192,12 @@ class PemasukanController extends Controller
         try {
             $data  = Pemasukan::findOrFail($request->id);
 
-            KasService::delete($data->kas_id, $data->id, Pemasukan::class, $data->tanggal);
+            $laba = false;
+            if ($data->pemasukan_tipe_id == 3) {
+                $laba = true;
+            }
+
+            KasService::delete($data->kas_id, $data->id, Pemasukan::class, $data->tanggal, $laba);
 
             $kas = KasJenisBarangGenerate::labelForKas($data);
             $nominal = RupiahGenerate::build($data->nominal);

@@ -143,7 +143,7 @@ class HutangController extends Controller
             'nominal' => 'required|numeric',
             'tanggal' => 'required|date',
             'hutang_tipe_id' => 'nullable|exists:hutang_tipe,id',
-            'jangka' => 'nullable|in:panjang,pendek',
+            'jangka' => 'required|in:panjang,pendek',
             'jenis_barang_id' => 'required|integer',
             'tipe_kas' => 'required',
         ];
@@ -222,6 +222,7 @@ class HutangController extends Controller
                 keterangan: $data->hutangTipe->tipe ?? 'Hutang Lainnya',
                 sumber: $data,
                 tanggal: $validatedData['tanggal'],
+                laba: false
             );
 
             DB::commit();
@@ -399,7 +400,7 @@ class HutangController extends Controller
         try {
             $data = Hutang::findOrFail($request->id);
 
-            KasService::delete($data->kas_id, $data->id, Hutang::class, $data->tanggal);
+            KasService::delete($data->kas_id, $data->id, Hutang::class, $data->tanggal, false);
 
             $kas = KasJenisBarangGenerate::labelForKas($data);
             $nominal = RupiahGenerate::build($data->nominal);

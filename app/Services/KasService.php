@@ -617,9 +617,9 @@ class KasService
         $labaRugiTahunan->save();
     }
 
-    public static function delete($kasId, $id, $sumber, $tanggal)
+    public static function delete($kasId, $id, $sumber, $tanggal, $laba = true)
     {
-        return DB::transaction(function () use ($kasId, $id, $sumber, $tanggal) {
+        return DB::transaction(function () use ($kasId, $id, $sumber, $tanggal, $laba) {
 
             $trx = KasTransaksi::where('kas_id', $kasId)
                 ->where('sumber_type', $sumber)
@@ -693,36 +693,57 @@ class KasService
             }
 
             // =========================
-            // 4. UPDATE LABA RUGI BULANAN
+            // 4 & 5. UPDATE LABA RUGI (OPTIONAL)
             // =========================
-            $lr = LabaRugi::firstOrCreate(
-                ['toko_id' => $tokoId, 'tahun' => $year, 'bulan' => $month],
-                ['pendapatan' => 0, 'beban' => 0, 'laba_bersih' => 0]
-            );
+            if ($laba) {
 
-            $lr->pendapatan += $deltaIn;
-            $lr->beban      += abs($deltaOut);
-            $lr->laba_bersih = $lr->pendapatan - $lr->beban;
-            $lr->save();
+                // BULANAN
+                $lr = LabaRugi::firstOrCreate(
+                    ['toko_id' => $tokoId, 'tahun' => $year, 'bulan' => $month],
+                    ['pendapatan' => 0, 'beban' => 0, 'laba_bersih' => 0]
+                );
 
-            // =========================
-            // 5. UPDATE LABA RUGI TAHUNAN
-            // =========================
-            $lrt = LabaRugiTahunan::firstOrCreate(
-                ['toko_id' => $tokoId, 'tahun' => $year],
-                ['pendapatan' => 0, 'beban' => 0, 'laba_bersih' => 0]
-            );
+                if (str_contains($trx->tipe, 'in')) {
+                    $lr->pendapatan -= $nominal; // kebalikan dari insert
+                } else {
+                    $lr->beban -= $nominal; // kebalikan dari insert
+                }
 
-            $lrt->pendapatan += $deltaIn;
-            $lrt->beban      += abs($deltaOut);
-            $lrt->laba_bersih = $lrt->pendapatan - $lrt->beban;
-            $lrt->save();
+                $lr->laba_bersih = $lr->pendapatan - $lr->beban;
+                $lr->save();
+
+                // TAHUNAN
+                $lrt = LabaRugiTahunan::firstOrCreate(
+                    ['toko_id' => $tokoId, 'tahun' => $year],
+                    ['pendapatan' => 0, 'beban' => 0, 'laba_bersih' => 0]
+                );
+
+                if (str_contains($trx->tipe, 'in')) {
+                    $lrt->pendapatan -= $nominal;
+                } else {
+                    $lrt->beban -= $nominal;
+                }
+
+                $lrt->laba_bersih = $lrt->pendapatan - $lrt->beban;
+                $lrt->save();
+            }
 
             // =========================
             // 6. DELETE TRANSAKSI
             // =========================
             $trx->delete();
 
+            $exists = KasTransaksi::where('kas_id', $kasId)
+                ->where('sumber_type', $sumber)
+                ->where('sumber_id', $id)
+                ->exists();
+
+            if ($exists) {
+                KasTransaksi::where('kas_id', $kasId)
+                    ->where('sumber_type', $sumber)
+                    ->where('sumber_id', $id)
+                    ->delete();
+            }
             return true;
         });
     }

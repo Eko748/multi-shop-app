@@ -21,7 +21,7 @@ return new class extends Migration
             $table->datetime('tanggal');
             $table->string('keterangan');
             $table->boolean('status')->default(false);
-            $table->enum('jangka', (['pendek', 'panjang']))->nullable();
+            $table->enum('jangka', (['pendek', 'panjang']));
             $table->nullableMorphs('sumber');
             $table->unsignedBigInteger('created_by')->nullable();
             $table->timestamps();

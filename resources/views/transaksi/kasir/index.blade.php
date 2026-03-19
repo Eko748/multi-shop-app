@@ -1,7 +1,7 @@
 @extends('layouts.main')
 
 @section('title')
-    Data Transaksi Kasir
+    Transaksi Kasir
 @endsection
 
 @section('css')
@@ -436,10 +436,10 @@
                     <div class="d-flex justify-content-center flex-column flex-sm-row align-items-center align-items-sm-start mx-3" style="gap: 0.5rem;">
                         ${hasButtons
                             ? `
-                                ${element.print_button || ''}
-                                ${element.detail_button || ''}
-                                ${element.delete_button || ''}
-                               `
+                                    ${element.print_button || ''}
+                                    ${element.detail_button || ''}
+                                    ${element.delete_button || ''}
+                                   `
                             : `<i class="text-muted">Tidak ada aksi</span>`
                         }
                     </div>
@@ -797,7 +797,7 @@
                         <tr class="bg-light"><td colspan="3"><b>Total</b></td><td class="text-right"><b>${total}</b></td></tr>
                         <tr class="bg-success text-white"><td colspan="3">Dibayar</td><td class="text-right">${jmlBayar}</td></tr>
                         ${kembalian != 0 ? `
-                                                                        <tr class="bg-info text-white"><td colspan="3">Kembalian</td><td class="text-right">${kembalian}</td></tr>` : ''}
+                                                                            <tr class="bg-info text-white"><td colspan="3">Kembalian</td><td class="text-right">${kembalian}</td></tr>` : ''}
                     </tfoot>
                 </table>
 
@@ -1167,7 +1167,7 @@
                 let data = res.data.data;
                 let maxQty = parseInt(data.qty);
 
-                let existingRow = $(`#table-detail tbody tr`)
+                let existingRow = $(`#tableItems tbody tr`)
                     .filter(function() {
                         return $(this).find(".stock_batch_id").val() == data.id;
                     });
@@ -1182,6 +1182,9 @@
                     }
 
                     qtyInput.val(currentQty + 1);
+
+                    // 🔥 INI YANG KEMARIN KURANG
+                    hitungTotalRow(existingRow);
 
                     showScanInfo(`✅ Qty ditambah (${currentQty + 1}/${maxQty})`, "text-success");
                     return;
@@ -1237,6 +1240,7 @@
 
             let row = `
                 <tr class="glossy-tr" data-id="${data.id}">
+                    <input type="hidden" class="stock_batch_id" value="${data.id}">
                     <td class="text-center no-urut"></td>
                     <td>${data.text}</td>
                     <td class="text-center">

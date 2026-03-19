@@ -46,7 +46,7 @@
                                 @endif
                                 @if (hasMenu(5))
                                     <li><a class="dropdown-item" href="{{ route('master.supplier.index') }}"><i
-                                                class="fa fa-download"></i> Data Supplier</a></li>
+                                                class="fa fa-download"></i> Data Suplier</a></li>
                                 @endif
                             @endif
                             @if (hasAnyMenu([6, 7, 8, 9]))

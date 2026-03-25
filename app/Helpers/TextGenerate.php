@@ -74,4 +74,17 @@ class TextGenerate
 
         return $result;
     }
+
+    public static function numeric($number)
+    {
+        if (!is_numeric($number)) {
+            return $number;
+        }
+
+        if (fmod($number, 1) == 0) {
+            return number_format($number, 0, ',', '.');
+        }
+
+        return number_format($number, 2, ',', '.');
+    }
 }

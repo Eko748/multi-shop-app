@@ -263,7 +263,8 @@ class LabaRugiService
                 [
                     ['1.1 Penjualan Umum', RupiahGenerate::build($penjualanUmum)],
                     ['1.2 Pendapatan Retur Pembelian', RupiahGenerate::build(0)],
-                    ['1.3 Pendapatan Lainnya', RupiahGenerate::build($pendapatanLainnya)],
+                    ['1.3 Pendapatan Top-Up', RupiahGenerate::build($pendapatanNonTransaksi)],
+                    ['1.4 Pendapatan Lainnya', RupiahGenerate::build($pendapatanLainnya)],
                     ['Total Pendapatan', RupiahGenerate::build($totalPendapatan)]
                 ]
             ],
@@ -271,7 +272,6 @@ class LabaRugiService
                 'II. HPP',
                 [
                     ['2.1 HPP Penjualan', RupiahGenerate::build($hppPenjualan)],
-                    ['2.2 HPP Top Up', RupiahGenerate::build(0)],
                     ['Total HPP', RupiahGenerate::build($total_hpp)]
                 ]
             ],

@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Helpers\RupiahGenerate;
+use App\Helpers\TextGenerate;
+use App\Models\DompetSaldo;
 use App\Models\Kas;
 use App\Repositories\DompetSaldoRepository;
 use App\Repositories\PenjualanNonFisikDetailRepository;
@@ -48,10 +50,11 @@ class DompetSaldoService
         $data = collect($query->items())->map(function ($item) {
             return [
                 'id' => $item->public_id,
-                'saldo' => $item->saldo,
-                'format_saldo' => 'Rp ' . number_format($item->saldo, 0, ',', '.'),
-                'harga_beli' => $item->harga_beli,
-                'format_harga_beli' => 'Rp ' . number_format($item->harga_beli, 0, ',', '.'),
+                'kas_id' => $item->kas_id,
+                'saldo' => TextGenerate::numeric($item->saldo),
+                'format_saldo' => RupiahGenerate::build($item->saldo),
+                'harga_beli' => TextGenerate::numeric($item->harga_beli),
+                'format_harga_beli' => RupiahGenerate::build($item->harga_beli),
                 'id_kategori' => $item->dompetKategori->id ?? null,
                 'kategori' => $item->dompetKategori->nama ?? 'Tidak ada kategori',
                 'created_at' => $item->created_at ?? null,
@@ -203,13 +206,13 @@ class DompetSaldoService
     }
 
 
-    public function update($id, array $data)
+    public function update($id, array $data, $kas)
     {
         $item = $this->repository->find($id);
 
         $hargaLama = (float) $item->harga_beli;
         $hargaBaru = (float) ($data['harga_beli'] ?? $hargaLama);
-        $saldoKas  = (float) ($data['saldo_kas'] ?? 0);
+        $saldoKas  = (float) ($kas['saldo_kas'] ?? 0);
 
         if ($saldoKas < $hargaBaru) {
             throw ValidationException::withMessages([
@@ -238,6 +241,16 @@ class DompetSaldoService
 
     public function delete($id, array $data)
     {
-        return $this->repository->delete($id, $data);
+        return DB::transaction(function () use ($id, $data) {
+            $repo  = $this->repository->find($id);
+
+            KasService::deleteTopup(
+                $repo->kas_id,
+                $repo->id,
+                DompetSaldo::class,
+                $repo->created_at
+            );
+            return $this->repository->delete($id, $data);
+        });
     }
 }

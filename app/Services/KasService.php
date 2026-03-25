@@ -560,12 +560,10 @@ class KasService
         int $tokoId,
         int $tahun,
         int $bulan,
-        string $tipe,   // 'in' | 'out'
+        string $tipe,
         float|int $nominal
     ): void {
-        /* =========================
-    | LABA RUGI BULANAN
-    ==========================*/
+
         $labaRugi = LabaRugi::firstOrCreate(
             [
                 'toko_id' => $tokoId,
@@ -590,9 +588,6 @@ class KasService
 
         $labaRugi->save();
 
-        /* =========================
-    | LABA RUGI TAHUNAN
-    ==========================*/
         $labaRugiTahunan = LabaRugiTahunan::firstOrCreate(
             [
                 'toko_id' => $tokoId,
@@ -744,6 +739,129 @@ class KasService
                     ->where('sumber_id', $id)
                     ->delete();
             }
+            return true;
+        });
+    }
+
+    public static function deleteTopup($kasId, $id, $sumber, $tanggal)
+    {
+        return DB::transaction(function () use ($kasId, $id, $sumber, $tanggal) {
+
+            $kas = Kas::findOrFail($kasId);
+
+            $fTanggal = Carbon::parse($tanggal);
+            $tahun = $fTanggal->year;
+            $bulan = $fTanggal->month;
+
+            // Ambil semua transaksi terkait
+            $transaksiList = KasTransaksi::where('kas_id', $kasId)
+                ->where('sumber_type', $sumber)
+                ->where('sumber_id', $id)
+                ->get();
+
+            foreach ($transaksiList as $trx) {
+
+                // 🔁 BALIK SALDO KAS
+                if ($trx->tipe === 'out') {
+                    $kas->saldo += $trx->total_nominal;
+                } else {
+                    $kas->saldo -= $trx->total_nominal;
+                }
+
+                // 🔁 ROLLBACK LABA RUGI (hanya untuk selisih)
+                if ($trx->keterangan === 'Selisih Top-up') {
+
+                    $labaRugi = LabaRugi::where('toko_id', $kas->toko_id)
+                        ->where('tahun', $tahun)
+                        ->where('bulan', $bulan)
+                        ->first();
+
+                    $labaRugiTahunan = LabaRugiTahunan::where('toko_id', $kas->toko_id)
+                        ->where('tahun', $tahun)
+                        ->first();
+
+                    if ($trx->tipe === 'out') {
+                        // sebelumnya beban → rollback
+                        if ($labaRugi) {
+                            $labaRugi->beban -= $trx->total_nominal;
+                            $labaRugi->laba_bersih = $labaRugi->pendapatan - $labaRugi->beban;
+                            $labaRugi->save();
+                        }
+
+                        if ($labaRugiTahunan) {
+                            $labaRugiTahunan->beban -= $trx->total_nominal;
+                            $labaRugiTahunan->laba_bersih = $labaRugiTahunan->pendapatan - $labaRugiTahunan->beban;
+                            $labaRugiTahunan->save();
+                        }
+                    } else {
+                        // sebelumnya pendapatan → rollback
+                        if ($labaRugi) {
+                            $labaRugi->pendapatan -= $trx->total_nominal;
+                            $labaRugi->laba_bersih = $labaRugi->pendapatan - $labaRugi->beban;
+                            $labaRugi->save();
+                        }
+
+                        if ($labaRugiTahunan) {
+                            $labaRugiTahunan->pendapatan -= $trx->total_nominal;
+                            $labaRugiTahunan->laba_bersih = $labaRugiTahunan->pendapatan - $labaRugiTahunan->beban;
+                            $labaRugiTahunan->save();
+                        }
+                    }
+                }
+
+                // ======================================
+                // 🔁 ROLLBACK UNTUNG (tidak ada transaksi selisih)
+                // ======================================
+                if (
+                    $trx->keterangan === 'Top-up Saldo' &&
+                    $trx->sumber_type === \App\Models\DompetSaldo::class
+                ) {
+                    $dompet = \App\Models\DompetSaldo::find($trx->sumber_id);
+
+                    if ($dompet && $dompet->saldo > $dompet->harga_beli) {
+
+                        $keuntungan = round($dompet->saldo - $dompet->harga_beli, 2);
+
+                        $tanggalTrx = Carbon::parse($trx->tanggal ?? $trx->created_at);
+                        $tahunTrx = $tanggalTrx->year;
+                        $bulanTrx = $tanggalTrx->month;
+
+                        $labaRugi = LabaRugi::where('toko_id', $kas->toko_id)
+                            ->where('tahun', $tahunTrx)
+                            ->where('bulan', $bulanTrx)
+                            ->first();
+
+                        $labaRugiTahunan = LabaRugiTahunan::where('toko_id', $kas->toko_id)
+                            ->where('tahun', $tahunTrx)
+                            ->first();
+
+                        if ($labaRugi) {
+                            $labaRugi->pendapatan -= $keuntungan;
+                            $labaRugi->laba_bersih = $labaRugi->pendapatan - $labaRugi->beban;
+                            $labaRugi->save();
+                        }
+
+                        if ($labaRugiTahunan) {
+                            $labaRugiTahunan->pendapatan -= $keuntungan;
+                            $labaRugiTahunan->laba_bersih = $labaRugiTahunan->pendapatan - $labaRugiTahunan->beban;
+                            $labaRugiTahunan->save();
+                        }
+                    }
+                }
+
+                // 🗑️ hapus transaksi
+                $trx->delete();
+            }
+
+            // 💾 simpan saldo kas
+            $kas->save();
+
+            // 🔄 update history
+            KasSaldoHistory::where('kas_id', $kas->id)
+                ->where('tahun', $tahun)
+                ->where('bulan', $bulan)
+                ->update(['saldo_akhir' => $kas->saldo]);
+
             return true;
         });
     }

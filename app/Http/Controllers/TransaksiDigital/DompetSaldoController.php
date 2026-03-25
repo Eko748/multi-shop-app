@@ -147,16 +147,18 @@ class DompetSaldoController extends Controller
         try {
             $validated = $request->validate([
                 'public_id'          => 'required|string|exists:td_dompet_saldo,public_id',
-                'kas_jenis_barang'   => 'nullable|integer',
+                'toko_id'            => 'required|exists:toko,id',
                 'dompet_kategori_id' => 'required|integer|exists:td_dompet_kategori,id',
                 'saldo'              => ['required', 'numeric', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
                 'harga_beli'         => ['required', 'numeric', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
-                'updated_by'         => 'required|integer|exists:users,id',
-                'kas'                => 'required|string',
-                'toko_id' => 'required|integer|exists:toko,id',
+                'created_by'         => 'required|integer|exists:users,id',
             ]);
 
-            $data = $this->service->update($validated['public_id'], $validated);
+            $kas = $request->validate([
+                'saldo_kas' => 'required|numeric',
+            ]);
+
+            $data = $this->service->update($validated['public_id'], $validated, $kas);
 
             if (!$data) {
                 return $this->error(404, 'Data not found');

@@ -116,20 +116,22 @@
         let getDataCard = '';
         dataList.forEach((element, index) => {
             getDataCard += `
-                    <div class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-6">
+                    <div class="col-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
                         <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
                             <div class="card-body d-flex flex-column justify-content-between">
-                                <div>
-                                    <h6 class="text-uppercase text-secondary fw-semibold mb-1">
-                                        <i class="fa fa-wallet mr-1 text-primary"></i> Saldo ${element.kategori}
-                                    </h6>
-                                    <p style="color: #212529; font-weight: bold; font-size: 2.25rem;">${element.format_saldo}</p>
-                                </div>
                                 <div class="d-flex flex-column flex-md-row justify-content-md-between align-items-md-center">
-                                    <div class="d-flex align-items-center mb-2 mb-md-0">
+                                    <div>
+                                        <h6 class="text-uppercase text-secondary fw-semibold mb-1">
+                                            <i class="fa fa-wallet mr-1 text-primary"></i> Saldo ${element.kategori}
+                                        </h6>
+                                        <p style="color: #212529; font-weight: bold; font-size: 1.50rem;">${element.format_saldo}</p>
+                                    </div>
+                                    <div class="d-flex align-items-start mb-2 mb-md-0">
                                         <i class="fa fa-coins text-muted mr-2" style="font-size: 1.25rem;"></i>
-                                        <div>
-                                            <small class="text-muted">Harga: </small><small class="text-bold">${element.format_harga_beli || '-'}</small>
+                                        <div class="d-flex align-items-center mb-2 mb-md-0">
+                                            <div>
+                                                <small class="text-muted">Harga: </small><small class="text-bold">${element.format_harga_beli || '-'}</small>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -139,7 +141,6 @@
                                         ${element.info}
                                     </div>
                                     <div class="d-flex justify-content-end" style="gap: 0.5rem;">
-                                        ${element.edit_button}
                                         ${element.delete_button}
                                     </div>
                                 </div>
@@ -171,8 +172,8 @@
                 jenis_barang_id: $("#kas_id").select2('data')[0].jenis_id,
                 tipe_kas: $("#kas_id").select2('data')[0].tipe_kas,
                 saldo_kas: $("#kas_id").select2('data')[0].saldo_kas,
-                harga_beli: $('#harga_beli').val(),
-                saldo: $('#saldo').val(),
+                harga_beli: $('#harga_beli').val().replace(/\./g, ''),
+                saldo: $('#saldo').val().replace(/\./g, ''),
             };
 
             if (mode === 'edit') {
@@ -295,7 +296,7 @@
                 `{{ route('td.dompetSaldo.delete') }}`, {
                     public_id: data.id,
                     toko_id: {{ auth()->user()->toko_id }},
-                    deleted_by: '{{ auth()->user()->id }}'
+                    deleted_by: {{ auth()->user()->id }}
                 }
             ).then(function(response) {
                 return response;
@@ -362,30 +363,35 @@
         const formContent = `
         <form id="form-data">
             <div class="row">
-                <div class="col-6">
+                <div class="${mode === 'add' ? 'col-6' : 'col-12'}">
                     <div class="form-group">
                         <label for="dompet_kategori">${title2}</label>
                         <select class="form-control select2" id="dompet_kategori" name="dompet_kategori" required></select>
                     </div>
                 </div>
+
+                ${mode === 'add' ? `
                 <div class="col-6">
                     <div class="form-group">
                         <label for="kas_id">Sumber Dana</label>
                         <select id="kas_id" name="kas_id" class="form-control select2 w-100"></select>
                     </div>
                 </div>
+                ` : ''}
+
             </div>
+
             <div class="row">
                 <div class="col-6">
                     <div class="form-group">
                         <label for="saldo">Saldo</label>
-                        <input type="number" class="form-control" id="saldo" name="saldo" step="0.01" placeholder="Masukkan nominal saldo" required>
+                        <input type="text" class="form-control rupiah" id="saldo" name="saldo" step="0.01" placeholder="Masukkan nominal saldo" required>
                     </div>
                 </div>
                 <div class="col-6">
                     <div class="form-group">
                         <label for="harga_beli">Harga Beli</label>
-                        <input type="number" class="form-control" id="harga_beli" name="harga_beli" step="0.01" placeholder="Masukkan nominal harga beli" required>
+                        <input type="text" class="form-control rupiah" id="harga_beli" name="harga_beli" step="0.01" placeholder="Masukkan nominal harga beli" required>
                     </div>
                 </div>
             </div>

@@ -121,15 +121,18 @@ class DompetSaldoController extends Controller
                 'toko_id' => 'required|exists:toko,id',
                 'dompet_kategori_id' => 'required|integer|exists:td_dompet_kategori,id',
                 'kas_id' => 'required',
-                'saldo_kas' => 'required|numeric',
                 'saldo'              => ['required', 'numeric', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
-                'tipe_kas' => 'required',
-                'jenis_barang_id' => 'required|integer',
                 'harga_beli'         => ['required', 'numeric', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
                 'created_by'         => 'required|integer|exists:users,id',
             ]);
 
-            $data = $this->service->create($validated);
+            $kas = $request->validate([
+                'jenis_barang_id' => 'required|integer',
+                'saldo_kas' => 'required|numeric',
+                'tipe_kas' => 'required',
+            ]);
+
+            $data = $this->service->create($validated, $kas);
 
             return $this->success($data, 201, 'Data berhasil ditambahkan');
         } catch (ValidationException $e) {

@@ -167,9 +167,9 @@ class DompetSaldoService
         ];
     }
 
-    public function create(array $data)
+    public function create(array $data, $kas)
     {
-        $saldoKas   = (float) ($data['saldo_kas'] ?? 0);
+        $saldoKas   = (float) ($kas['saldo_kas'] ?? 0);
         $hargaBeli = (float) $data['harga_beli'];
 
         if ($saldoKas < $hargaBeli) {
@@ -182,16 +182,16 @@ class DompetSaldoService
             ]);
         }
 
-        return DB::transaction(function () use ($data, $hargaBeli) {
+        return DB::transaction(function () use ($data, $kas) {
             $item = $this->repository->create($data);
 
             KasService::topup(
                 toko_id: $data['toko_id'],
-                jenis_barang_id: $data['jenis_barang_id'],
-                tipe_kas: $data['tipe_kas'],
+                jenis_barang_id: $kas['jenis_barang_id'],
+                tipe_kas: $kas['tipe_kas'],
                 saldo: $data['saldo'],
                 hargaBeli: $data['harga_beli'],
-                item: $data['tipe_kas'],
+                item: $kas['tipe_kas'],
                 kategori: 'Saldo Digital',
                 keterangan: 'Top-up Saldo',
                 sumber: $item,

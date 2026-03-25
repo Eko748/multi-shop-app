@@ -12,7 +12,7 @@ class DompetSaldo extends Model
 
     protected $table = 'td_dompet_saldo';
 
-    protected $guarded = ['id'];
+    protected $guarded = [];
 
     public function dompetKategori()
     {

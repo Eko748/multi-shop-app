@@ -307,18 +307,10 @@ class NeracaKeuanganService
             "format" => RupiahGenerate::build($totalStokJenis)
         ];
 
-        /* ===============================
-     * PIUTANG
-     * =============================== */
-
         $piutangKasbon = 0;
 
-        // total piutang jangka pendek + panjang
         $piutangJangkaTotal = array_sum(array_column($piutangData, 'nilai'));
 
-        // total piutang pengiriman
-
-        // TOTAL PIUTANG (INI YANG TADI SALAH)
         $piutangTotal =
             (float) $piutangKasbon +
             (float) $piutangJangkaTotal;
@@ -338,13 +330,9 @@ class NeracaKeuanganService
             "sub"    => "I.3",
         ];
 
-        /* ===============================
-     * SUSUN ITEM PIUTANG (URUTAN FIX)
-     * =============================== */
         $piutangItems = [];
         $idx = 1;
 
-        // 1️⃣ Piutang Jangka Pendek & Panjang (lebih dulu)
         foreach ($piutangData as $item) {
             $piutangItems[] = [
                 "kode"   => "I.3." . $idx++,
@@ -355,18 +343,12 @@ class NeracaKeuanganService
             ];
         }
 
-        // 2️⃣ Kasbon (PALING AKHIR)
         $piutangKasbonItem['kode'] = "I.3." . $idx++;
         $piutangItems[] = $piutangKasbonItem;
 
-
-        /* ===============================
-     * DATA TAMBAHAN
-     * =============================== */
-        $hppDompetSaldo = $this->dompetSaldoService->sumHPP($month, $year);
-        $sisaDompetSaldo = $this->dompetSaldoService->sumSisaSaldo($month, $year);
+        $sisaDompetSaldo = $this->dompetSaldoService->sumSisaSaldo($month, $year, $tokoId);
         $hppDompetSaldoNilai = (float) ($sisaDompetSaldo['saldo'] ?? 0);
-
+    
         $returTotal = (float) ($returData['total_retur'] ?? 0);
         $pengirimanTotal = (float) ($pengirimanData['total_harga'] ?? 0);
         $penyesuaian = (float) $penyesuaianNeraca;
@@ -374,9 +356,6 @@ class NeracaKeuanganService
         $totalKasBesarParent = (float) ($kasData['kasBesar']['parent']['nilai'] ?? 0);
         $totalKasKecilParent = (float) ($kasData['kasKecil']['parent']['nilai'] ?? 0);
 
-        /* ===============================
-     * TOTAL ASET
-     * =============================== */
         $asetLancarTotal =
             $totalKasBesarParent +
             $totalKasKecilParent +
@@ -390,16 +369,10 @@ class NeracaKeuanganService
         $asetTetapTotal = (float) $asetPeralatanBesar['nilai'] + (float) $asetPeralatanKecil['nilai'];
         $totalAktiva = $asetLancarTotal + $asetTetapTotal;
 
-        /* ===============================
-     * PASIVA
-     * =============================== */
         $totalHutang  = array_sum(array_column($hutangItems, 'nilai'));
         $totalEkuitas = array_sum(array_column($ekuitasItems, 'nilai'));
         $totalPasiva  = $totalHutang + $totalEkuitas;
 
-        /* ===============================
-     * ASET LANCAR
-     * =============================== */
         $asetLancarItems = array_merge(
             [$kasData['kasBesar']['parent']],
             $kasData['kasBesar']['items'],
@@ -438,9 +411,7 @@ class NeracaKeuanganService
         );
 
         $asetTetapItems = array_merge([$asetPeralatanBesar, $asetPeralatanKecil]);
-        /* ===============================
-     * RETURN
-     * =============================== */
+
         return [
             [
                 'kategori' => 'AKTIVA',

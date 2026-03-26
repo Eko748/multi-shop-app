@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class PenjualanNonFisikDetail extends Model
 {
-    use HasAuditTrail;
+    use SoftDeletes, HasAuditTrail;
 
     protected $table = 'td_penjualan_nonfisik_detail';
 

@@ -155,7 +155,8 @@ class LaporanPenjualanService
                     'jml_trx' => 0,
                     'item_qty' => 0,
                     'nilai_trx' => 0,
-                    'nilai_hpp' => 0
+                    'nilai_hpp' => 0,
+                    'laba' => 0
                 ];
             }
 
@@ -163,6 +164,7 @@ class LaporanPenjualanService
             $pnfGrouped[$tokoId]['item_qty'] += $row->detail_sum_qty ?? 0;
             $pnfGrouped[$tokoId]['nilai_trx'] += $row->total_harga_jual ?? 0;
             $pnfGrouped[$tokoId]['nilai_hpp'] += $row->total_hpp ?? 0;
+            $pnfGrouped[$tokoId]['laba'] += ($row->total_harga_jual - $row->total_hpp) ?? 0;
         }
 
         foreach ($pnfGrouped as $pnfData) {
@@ -194,6 +196,7 @@ class LaporanPenjualanService
             $nonMember['jumlah'] += $pnfData['jml_trx'];
             $nonMember['nilai'] += $pnfData['nilai_trx'];
             $nonMember['hpp'] += $pnfData['nilai_hpp'];
+            $nonMember['laba'] += $pnfData['laba'];
 
             /**
              * TOTAL GLOBAL

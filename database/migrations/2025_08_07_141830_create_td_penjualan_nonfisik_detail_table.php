@@ -23,6 +23,11 @@ return new class extends Migration
             $table->decimal('harga_jual', 15, 2);
             $table->unsignedInteger('qty')->default(1);
             $table->timestamps();
+            $table->softDeletes();
+            $table->foreignId('created_by')->nullable()
+                ->constrained('users')->onDelete('set null')->nullable();
+            $table->foreignId('deleted_by')->nullable()
+                ->constrained('users')->onDelete('set null')->nullable();
         });
     }
 

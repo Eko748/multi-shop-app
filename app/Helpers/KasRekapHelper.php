@@ -68,16 +68,33 @@ class KasRekapHelper
 
 
         // History Bulanan
-        $historyNow = KasSaldoHistory::firstOrCreate([
+        $historyNow = KasSaldoHistory::where([
             'kas_id' => $kas->id,
             'tahun'  => $tahunNow,
             'bulan'  => $bulanNow,
-        ], [
-            'saldo_awal'  => $kas->saldo,
-            'saldo_akhir' => $kas->saldo,
-        ]);
-        $historyNow->saldo_akhir = $kas->saldo;
-        $historyNow->save();
+        ])->first();
+
+        if (!$historyNow) {
+            // Cari saldo akhir bulan sebelumnya
+            $lastHistory = KasSaldoHistory::where('kas_id', $kas->id)
+                ->orderByDesc('tahun')
+                ->orderByDesc('bulan')
+                ->first();
+
+            $saldoAwal = $lastHistory ? $lastHistory->saldo_akhir : 0;
+
+            $historyNow = KasSaldoHistory::create([
+                'kas_id'      => $kas->id,
+                'tahun'       => $tahunNow,
+                'bulan'       => $bulanNow,
+                'saldo_awal'  => $saldoAwal,
+                'saldo_akhir' => $kas->saldo,
+            ]);
+        } else {
+            // hanya update saldo akhir
+            $historyNow->saldo_akhir = $kas->saldo;
+            $historyNow->save();
+        }
 
         // Laba Rugi tetap aman karena pendapatan & beban dari TransaksiKasirHarian
         $labaRugi = LabaRugi::firstOrCreate([

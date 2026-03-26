@@ -14,6 +14,10 @@ class PenjualanNonFisik extends Model
 
     protected $guarded = ['id'];
 
+    protected $casts = [
+        'tanggal' => 'datetime',
+    ];
+
     public function detail()
     {
         return $this->hasMany(PenjualanNonFisikDetail::class, 'penjualan_nonfisik_id')

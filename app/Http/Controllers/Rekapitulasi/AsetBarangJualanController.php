@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Rekapitulasi;
 
+use App\Helpers\RupiahGenerate;
 use App\Http\Controllers\Controller;
 use App\Models\Toko;
 use App\Services\DompetKategoriService;
@@ -123,7 +124,7 @@ class AsetBarangJualanController extends Controller
                             'id_jenis_barang' => $item->id_jenis_barang,
                             'nama_jenis_barang' => $item->nama_jenis_barang,
                             'total_qty' => $item->total_qty,
-                            'total_harga' => 'Rp ' . number_format($item->total_harga, 0, ',', '.'),
+                            'total_harga' => RupiahGenerate::build($item->total_harga),
                             'keterangan' => '-'
                         ];
                     })->values()
@@ -148,7 +149,7 @@ class AsetBarangJualanController extends Controller
                 'data' => $finalData,
                 'total_summary' => [
                     'total_qty' => $totalQty + $dompetKategori,
-                    'total_harga' => 'Rp ' . number_format($totalHarga + $hppDompetSaldo['saldo'], 0, ',', '.'),
+                    'total_harga' => RupiahGenerate::build($totalHarga + $dompetSaldo['format']),
                 ],
                 'status_code' => 200,
                 'errors' => false,

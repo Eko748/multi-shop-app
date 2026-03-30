@@ -423,7 +423,7 @@
                                 </thead>
                                 <thead>
                                     <tr>
-                                        <th colspan="4" class="${tdClass} text-right"></th>
+                                        <th colspan="5" class="${tdClass} text-right"></th>
                                         <th class="${tdClass} text-center"><span class="badge badge-primary">${total.qty || 0}</span></th>
                                         <th class="${tdClass} text-right"><span class="badge badge-primary">${total.nominal || 0}</span></th>
                                         <th></th>

@@ -60,7 +60,7 @@
                                                 <th class="text-wrap align-top">Area/Nama Toko</th>
                                                 <th class="text-wrap align-top text-right">Jumlah Item</th>
                                                 <th class="text-wrap align-top text-right"><span class="mr-3">Total
-                                                        Nilai</span></th>
+                                                        Nominal</span></th>
                                             </tr>
                                         </thead>
                                         <tbody id="listData">

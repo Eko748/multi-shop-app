@@ -385,6 +385,7 @@
             return {
                 id: data?.id ?? '-',
                 nota: data?.nota ?? '-',
+                member: data?.member ?? '-',
                 tanggal: data?.tanggal ?? '-',
                 qty: data?.qty ?? '-',
                 nominal: data?.nominal ?? '-',
@@ -413,7 +414,8 @@
                                         <th scope="col" class="${tdClass} text-center" style="width:5%">No</th>
                                         <th scope="col" class="${tdClass}" style="width:15%">Tanggal</th>
                                         <th scope="col" class="${tdClass}" style="width:15%">Informasi</th>
-                                        <th scope="col" class="${tdClass}" style="width:25%">Nota</th>
+                                        <th scope="col" class="${tdClass}" style="width:15%">Nota</th>
+                                        <th scope="col" class="${tdClass}" style="width:10%">Member</th>
                                         <th scope="col" class="${tdClass} text-center" style="width:5%">Qty</th>
                                         <th scope="col" class="${tdClass} text-right" style="width:10%">Nominal</th>
                                         <th scope="col" class="${tdClass} text-center" style="width:25%">Aksi</th>
@@ -451,6 +453,7 @@
                         <td class="${tdClass}">${element.tanggal}</td>
                         <td class="${tdClass}">${element.info}</td>
                         <td class="${tdClass}">${element.nota}</td>
+                        <td class="${tdClass}">${element.member}</td>
                         <td class="${tdClass} text-center">${element.qty}</td>
                         <td class="${tdClass} text-right">${element.nominal}</td>
                         <td class="${tdClass}">${actionHTML}</td>

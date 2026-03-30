@@ -42,7 +42,10 @@ class TransaksiKasirRepo
 
         if (!empty($filter->search)) {
             $query->where(function ($q) use ($filter) {
-                $q->where('nota', 'like', '%' . $filter->search . '%');
+                $q->where('nota', 'like', '%' . $filter->search . '%')
+                    ->orWhereHas('member', function ($q2) use ($filter) {
+                        $q2->where('nama', 'like', '%' . $filter->search . '%');
+                    });
             });
         }
 

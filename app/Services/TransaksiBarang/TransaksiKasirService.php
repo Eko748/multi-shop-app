@@ -40,6 +40,7 @@ class TransaksiKasirService
             return [
                 'id' => $item->public_id,
                 'nota' => $item->nota,
+                'member' => $item->member ? $item->member->nama : 'Guest',
                 'qty' => $item->total_qty,
                 'nominal' => RupiahGenerate::build($item->total_nominal),
                 'tanggal' => $item->tanggal->format('d-m-Y H:i:s'),

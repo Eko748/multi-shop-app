@@ -127,7 +127,7 @@ class TransaksiKasirRepo
                 'total'           => RupiahGenerate::build(($kasir->total_nominal - $kasir->total_diskon) ?? 0),
 
                 'users'  => $kasir->createdBy ?? null,
-                'member' => $kasir->member ?? 'Guest',
+                'member' => $kasir->member ? $kasir->member->nama : 'Guest',
                 'toko'   => $kasir->toko ?? null,
                 'kasbon' => $kasir->kasbon ?? null,
             ],

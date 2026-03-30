@@ -582,7 +582,6 @@ class DashboardController extends Controller
                     ->where('transaksi_kasir.total_qty', '>', 0)
                     ->whereBetween('transaksi_kasir.tanggal', [$startDate, $endDate]);
             })
-                ->where('toko.id', '!=', 1)
                 ->selectRaw('toko.id, toko.singkatan, COUNT(transaksi_kasir.id) as jumlah_transaksi, SUM(transaksi_kasir.total_nominal - transaksi_kasir.total_diskon) as total_transaksi')
                 ->groupBy('toko.id', 'toko.singkatan');
 
@@ -594,26 +593,6 @@ class DashboardController extends Controller
             ];
 
             foreach ($tokoData as $data) {
-                // Hitung assetRetur hanya untuk toko ini berdasarkan id_toko di data_retur
-                // $assetRetur = DB::table('retur_member_detail')
-                //     ->join('retur_member', 'retur_member_detail.retur_id', '=', 'retur_member.id')
-                //     ->leftJoin('barang', 'retur_member_detail.barang_id', '=', 'barang.id')
-                //     ->leftJoin('barang', 'retur_member_detail.barang_id', '=', 'barang.id')
-                //     ->where('retur_member.id_toko', $data->id)
-                //     ->whereBetween('retur_member.tgl_retur', [$startDate, $endDate])
-                //     ->select(DB::raw('SUM(CASE WHEN retur_member_detail.metode = "Cash" THEN retur_member_detail.harga ELSE barang.hpp_baru END) as total_retur'))
-                //     ->value('total_retur') ?? 0;
-
-                // $assetRetur = -1 * $assetRetur;
-
-                // // Get total kasbon for this toko
-                // $totalKasbon = DB::table('kasbon')
-                //     ->join('kasir', 'kasbon.id_kasir', '=', 'kasir.id')
-                //     ->where('kasbon.utang_sisa', '>', 0)
-                //     ->where('kasir.id_toko', $data->id)
-                //     ->select(DB::raw('SUM(kasbon.utang_sisa) as total_kasbon'))
-                //     ->value('total_kasbon') ?? 0;
-
                 $result['singkatan'][] = [
                     $data->singkatan => [
                         'jumlah_transaksi' => (int) $data->jumlah_transaksi,

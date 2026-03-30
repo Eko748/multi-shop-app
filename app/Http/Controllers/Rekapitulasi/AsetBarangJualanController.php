@@ -139,8 +139,8 @@ class AsetBarangJualanController extends Controller
                     'id_jenis_barang' => 'dompet-saldo',
                     'nama_jenis_barang' => 'Dompet Saldo Digital',
                     'total_qty' => $dompetKategori,
-                    'total_harga' => $hppDompetSaldo['format'],
-                    'keterangan' => 'Sisa Saldo: ' . $dompetSaldo['format']
+                    'total_harga' =>  $dompetSaldo['format'],
+                    'keterangan' => '-'
                 ]]
             ]);
 

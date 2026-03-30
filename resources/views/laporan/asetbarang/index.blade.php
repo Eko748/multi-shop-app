@@ -61,7 +61,6 @@
                                                 <th class="text-wrap align-top text-right">Jumlah Item</th>
                                                 <th class="text-wrap align-top text-right"><span class="mr-3">Total
                                                         Nilai</span></th>
-                                                <th class="text-wrap align-top text-right"><span class="mr-3">Keterangan</span></th>
                                             </tr>
                                         </thead>
                                         <tbody id="listData">
@@ -116,7 +115,7 @@
                     limit: limit,
                     ascending: ascending,
                     search: search,
-                    toko_id: '{{ auth()->user()->toko_id }}',
+                    toko_id: {{ auth()->user()->toko_id }},
                     ...filterParams
                 }
             ).then(function(response) {
@@ -152,7 +151,6 @@
                     nama_toko: item?.nama_toko ?? '-',
                     total_qty: item?.total_qty ?? 0,
                     total_harga: item?.total_harga ?? 0,
-                    keterangan: item?.keterangan ?? '-',
                 })) ?? []
             };
         }
@@ -187,7 +185,6 @@
                             <td class="${classCol}" style="width: 35%"><span>${item.nama_toko}</span></td>
                             <td class="${classCol} text-right" style="width: 10%"><span>${item.total_qty}</span></td>
                             <td class="${classCol} text-right" style="width: 20%"><span class="mr-3">${item.total_harga}</span></td>
-                            <td class="${classCol} text-right" style="width: 30%"><span class="mr-3">${item.keterangan}</span></td>
                         </tr>`;
                     } else {
                         getDataTable += `
@@ -196,7 +193,6 @@
                             <td class="${classCol}" style="width: 35%">${item.nama_toko}</td>
                             <td class="${classCol} text-right" style="width: 10%">${item.total_qty}</td>
                             <td class="${classCol} text-right" style="width: 20%"><span class="mr-3">${item.total_harga}</span></td>
-                            <td class="${classCol} text-right" style="width: 30%"><span class="mr-3">${item.keterangan}</span></td>
                         </tr>`;
                         totalCount++;
                     }
@@ -207,7 +203,6 @@
                 <td colspan="2" class="${classCol}">Total Keseluruhan:</td>
                 <td class="${classCol} text-right">${totalSummary.total_qty}</td>
                 <td class="${classCol} text-right"><span class="mr-3">${totalSummary.total_harga}</span></td>
-                <td></td>
             </tr>`;
 
             getDataTable += globalSummary;

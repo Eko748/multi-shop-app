@@ -149,7 +149,7 @@ class AsetBarangJualanController extends Controller
                 'data' => $finalData,
                 'total_summary' => [
                     'total_qty' => $totalQty + $dompetKategori,
-                    'total_harga' => RupiahGenerate::build($totalHarga + $dompetSaldo['format']),
+                    'total_harga' => RupiahGenerate::build($totalHarga + $dompetSaldo['saldo']),
                 ],
                 'status_code' => 200,
                 'errors' => false,

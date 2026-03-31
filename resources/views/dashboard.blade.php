@@ -108,316 +108,321 @@
         <div class="pcoded-content pt-1 mt-1">
             @include('components.breadcrumbs')
             <div class="row">
-                <div class="{{ $layout1 ? 'col-sm-12 col-md-4 col-lg-4' : 'col-12' }}">
+                {{-- <div class="{{ $layout1 ? 'col-sm-12 col-md-4 col-lg-4' : 'col-12' }}"> --}}
+                <div class="col-sm-12 col-md-4 col-lg-4">
                     <div class="row">
-                        @if ($layout1A)
-                            <div class="{{ $layout1A ? 'col-sm-12 col-md-12 col-lg-12' : 'col-12 col-lg-12' }}">
-                                <div class="row px-3 pb-3">
-                                    <div class="col-12 glass bg-primary text-white">
-                                        <img src="{{ asset('images/dash-1.svg') }}" alt="img" class="img-fluid"
-                                            style="position: absolute; top: 0; right: 0; width: 65px; height: auto; z-index: 1;">
-                                        <div class="row justify-content-between align-items-center">
-                                            <div class="col-8 col-xl-9 col-lg-12">
-                                                <h5 class="mb-2 text-light font-weight-bold">Total Omset</h5>
-                                                <div class="d-flex align-items-center mb-2">
-                                                    <div class="avatar bg-primary text-white mx-2">
-                                                        <i class="fa fa-dollar-sign fa-2x"></i>
-                                                    </div>
-                                                    <div>
-                                                        <h3 class="text-light mb-0" id="total-pendapatan">Rp 0
-                                                        </h3>
-                                                        <hr class="p-0 m-1">
-                                                        <small><i class="fa fa-circle-info mr-1"></i><b
-                                                                id="info-omset">Omset
-                                                                per hari
-                                                                ini</b></small>
+                        {{-- @if ($layout1A) --}}
+                        {{-- <div class="{{ $layout1A ? 'col-sm-12 col-md-12 col-lg-12' : 'col-12 col-lg-12' }}"> --}}
+                        <div class="col-sm-12 col-md-12 col-lg-12">
+                            <div class="row px-3 pb-3">
+                                <div class="col-12 glass bg-primary text-white">
+                                    <img src="{{ asset('images/dash-1.svg') }}" alt="img" class="img-fluid"
+                                        style="position: absolute; top: 0; right: 0; width: 65px; height: auto; z-index: 1;">
+                                    <div class="row justify-content-between align-items-center">
+                                        <div class="col-8 col-xl-9 col-lg-12">
+                                            <h5 class="mb-2 text-light font-weight-bold">Total Omset</h5>
+                                            <div class="d-flex align-items-center mb-2">
+                                                <div class="avatar bg-primary text-white mx-2">
+                                                    <i class="fa fa-dollar-sign fa-2x"></i>
+                                                </div>
+                                                <div>
+                                                    <h3 class="text-light mb-0" id="total-pendapatan">Rp 0
+                                                    </h3>
+                                                    <hr class="p-0 m-1">
+                                                    <small><i class="fa fa-circle-info mr-1"></i><b id="info-omset">Omset
+                                                            per hari
+                                                            ini</b></small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-4 col-xl-3 col-lg-12 text-right">
+                                            <button class="btn-dynamic btn btn-outline-light w-100" type="button"
+                                                data-toggle="collapse" data-target="#filter-collapse3" title="Filter"
+                                                aria-expanded="false" aria-controls="filter-collapse3">
+                                                <i class="fa fa-filter"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="collapse" id="filter-collapse3">
+                                        <hr>
+                                        <form id="custom-filter-omset">
+                                            <div class="row">
+                                                <div class="col-12 col-xl-12 col-lg-12 mb-2">
+                                                    <input class="form-control" type="text" id="daterange-omset"
+                                                        name="daterange" placeholder="Pilih rentang tanggal">
+                                                </div>
+                                                <div class="col-12 col-xl-12 col-lg-12">
+                                                    <div class="row justify-content-end text-right">
+                                                        <div class="col-6 col-xl-6 col-lg-12 mb-2 text-right">
+                                                            <button
+                                                                class="btn btn-light w-100 h-100 d-flex align-items-center justify-content-center"
+                                                                id="tb-filter" type="submit">
+                                                                <i class="fa fa-magnifying-glass mr-1"></i>Submit
+                                                            </button>
+                                                        </div>
+                                                        <div class="col-6 col-xl-6 col-lg-12 mb-2 text-right">
+                                                            <button type="button"
+                                                                class="btn btn-secondary w-100 h-100 d-flex align-items-center justify-content-center"
+                                                                id="reset-omset">
+                                                                <i class="fa fa-rotate mr-1"></i>Reset
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div class="col-4 col-xl-3 col-lg-12 text-right">
-                                                <button class="btn-dynamic btn btn-outline-light w-100" type="button"
-                                                    data-toggle="collapse" data-target="#filter-collapse3" title="Filter"
-                                                    aria-expanded="false" aria-controls="filter-collapse3">
-                                                    <i class="fa fa-filter"></i>
+                                        </form>
+                                    </div>
+                                    {{-- @if ($hasTransaksi || $hasLabaKotor) --}}
+                                    <hr>
+                                    <div class="row">
+                                        {{-- @if ($hasTransaksi) --}}
+                                        {{-- <div
+                                                class="{{ $hasLabaKotor ? 'col-sm-12 col-md-12 col-lg-6' : 'col-sm-12 col-md-12 col-lg-12' }} px-3 pb-2"> --}}
+                                        <div class="col-sm-12 col-md-12 col-lg-6 px-3 pb-2">
+                                            <div class="glass flex-fill text-dark">
+                                                <i class="fa fa-shopping-cart fa-lg mb-2 text-primary"></i>
+                                                <div class="font-weight-bold">Jumlah Transaksi</div>
+                                                <div id="total-transaksi" class="fs-4 font-weight-bold">0</div>
+                                            </div>
+                                        </div>
+                                        {{-- @endif --}}
+
+                                        {{-- @if ($hasLabaKotor) --}}
+                                        {{-- <div
+                                                class="{{ $hasTransaksi ? 'col-sm-12 col-md-12 col-lg-6' : 'col-sm-12 col-md-12 col-lg-12' }} px-3 pb-2"> --}}
+                                        <div class="col-sm-12 col-md-12 col-lg-6 px-3 pb-2">
+                                            <div class="glass flex-fill text-dark">
+                                                <i class="fa fa-wallet fa-lg mb-2 text-primary"></i>
+                                                <div class="font-weight-bold">Laba Kotor</div>
+                                                <div id="laba-kotor" class="fs-4 font-weight-bold">Rp 0</div>
+                                            </div>
+                                        </div>
+                                        {{-- @endif --}}
+                                    </div>
+                                    {{-- @endif --}}
+
+                                </div>
+                            </div>
+                        </div>
+                        {{-- @endif --}}
+                        {{-- @if ($layout1B) --}}
+                        {{-- <div class="{{ $hasPenjualan ? 'col-sm-12 col-md-12 col-lg-12' : 'col-12 col-lg-12' }}"> --}}
+                        <div class="col-sm-12 col-md-12 col-lg-12">
+                            <div class="card table-card">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h5>Top 10 Penjualan</h5>
+                                    {{-- @if (hasAnyPermission(['POST /dashboard-filter-toko'])) --}}
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div style="width: 200px;">
+                                            <select id="f-barang-toko"
+                                                class="filter-option form-select form-select-sm w-auto">
+                                                <option value="all">Semua Toko</option>
+                                                @foreach ($toko as $tokoData)
+                                                    <option value="{{ $tokoData->id }}">{{ $tokoData->nama_toko }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
+                                    {{-- @endif --}}
+                                </div>
+                                <div class="performance-scroll overflow-auto" style="position: relative;">
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-striped m-b-0 without-header">
+                                                <tbody id="listData"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {{-- <div class="{{ $hasMember ? 'col-sm-12 col-md-12 col-lg-12' : 'col-12 col-lg-12' }}"> --}}
+                        <div class="col-sm-12 col-md-12 col-lg-12">
+                            <div class="card table-card">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h5>Top 10 Member</h5>
+                                    {{-- @if (hasAnyPermission(['POST /dashboard-filter-toko'])) --}}
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div style="width: 200px;">
+                                            <select id="f-member-toko"
+                                                class="filter-option form-select form-select-sm w-auto">
+                                                <option value="all">Semua Toko</option>
+                                                @foreach ($toko as $tokoData)
+                                                    <option value="{{ $tokoData->id }}">{{ $tokoData->nama_toko }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
+                                    {{-- @endif --}}
+                                </div>
+                                <div class="performance-scroll overflow-auto" style="position: relative;">
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-striped m-b-0 without-header">
+                                                <tbody id="listData2"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {{-- @endif --}}
+                    </div>
+                </div>
+                {{-- <div class="{{ $layout2 ? 'col-sm-12 col-md-8 col-lg-8' : 'd-none' }}"> --}}
+                <div class="col-sm-12 col-md-8 col-lg-8">
+                    <div class="row">
+                        {{-- @if ($hasKomparasi) --}}
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h5 class="mb-2">Komparasi Penjualan Antar Toko</h5>
+                                        <div class="row align-items-center">
+                                            <div class="col-auto ms-auto">
+                                                <small class="me-1">
+                                                    <i class="fa fa-circle-info mr-1"></i> <b id="info-komparasi">Data
+                                                        per
+                                                        hari ini</b>
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button class="btn-dynamic btn btn-outline-primary" type="button"
+                                        data-toggle="collapse" data-target="#filter-collapse2" aria-expanded="false"
+                                        aria-controls="filter-collapse2">
+                                        <i class="fa fa-filter"></i> Filter
+                                    </button>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row pb-2 align-items-center justify-content-between">
+                                        <div class="mb-2 col-12 col-md-auto">
+                                            <h4 class="mb-1" id="total-penjualan2">Rp. 0</h4>
+                                            <span>Data Penjualan</span>
+                                        </div>
+                                        <div class="mb-2 col-12 col-md-auto ms-auto justify-content-end text-end">
+                                            <div class="collapse" id="filter-collapse2">
+                                                <div class="d-flex flex-column flex-md-row align-items-md-start gap-2">
+                                                    <form id="custom-filter"
+                                                        class="d-flex justify-content-between align-items-center w-100">
+                                                        <i class="fa fa-filter"></i>
+                                                        <input class="form-control w-75 mx-2 mb-lg-0" type="text"
+                                                            id="daterange" name="daterange"
+                                                            placeholder="Pilih rentang tanggal">
+                                                        <button
+                                                            class="btn btn-success w-25 h-100 d-flex align-items-center justify-content-center mr-2"
+                                                            id="tb-filter" type="submit">
+                                                            <i class="fa fa-magnifying-glass mr-2"></i>Submit
+                                                        </button>
+                                                        <button type="button"
+                                                            class="btn btn-secondary w-25 h-100 d-flex align-items-center justify-content-center"
+                                                            id="reset-komparasi">
+                                                            <i class="fa fa-rotate mr-2"></i>Reset
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="komparasi-chart"></div>
+                                </div>
+                            </div>
+                        </div>
+                        {{-- @endif --}}
+                        {{-- @if ($hasRekap) --}}
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h5 class="mb-2">Rekapitulasi Penjualan</h5>
+                                        <div class="row align-items-center">
+                                            <div class="col-auto ms-auto">
+                                                <span class="text-muted me-1">
+                                                    <i class="fa fa-cogs mr-1"></i>Atur Grafik :
+                                                </span>
+                                                <button class="btn btn-outline-primary btn-sm" id="chart-area"
+                                                    title="Area Grafik">
+                                                    <i class="fa fa-chart-area"></i>
+                                                </button>
+                                                <button class="btn btn-outline-primary btn-sm" id="chart-bar"
+                                                    title="Bar Grafik">
+                                                    <i class="fa fa-chart-bar"></i>
+                                                </button>
+                                                <button class="btn btn-outline-primary btn-sm" id="chart-line"
+                                                    title="Line Grafik">
+                                                    <i class="fa fa-chart-line"></i>
                                                 </button>
                                             </div>
                                         </div>
-                                        <div class="collapse" id="filter-collapse3">
-                                            <hr>
-                                            <form id="custom-filter-omset">
-                                                <div class="row">
-                                                    <div class="col-12 col-xl-12 col-lg-12 mb-2">
-                                                        <input class="form-control" type="text" id="daterange-omset"
-                                                            name="daterange" placeholder="Pilih rentang tanggal">
-                                                    </div>
-                                                    <div class="col-12 col-xl-12 col-lg-12">
-                                                        <div class="row justify-content-end text-right">
-                                                            <div class="col-6 col-xl-6 col-lg-12 mb-2 text-right">
-                                                                <button
-                                                                    class="btn btn-light w-100 h-100 d-flex align-items-center justify-content-center"
-                                                                    id="tb-filter" type="submit">
-                                                                    <i class="fa fa-magnifying-glass mr-1"></i>Submit
-                                                                </button>
-                                                            </div>
-                                                            <div class="col-6 col-xl-6 col-lg-12 mb-2 text-right">
-                                                                <button type="button"
-                                                                    class="btn btn-secondary w-100 h-100 d-flex align-items-center justify-content-center"
-                                                                    id="reset-omset">
-                                                                    <i class="fa fa-rotate mr-1"></i>Reset
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </form>
-                                        </div>
-                                        @if ($hasTransaksi || $hasLabaKotor)
-                                            <hr>
-                                            <div class="row">
-                                                @if ($hasTransaksi)
-                                                    <div
-                                                        class="{{ $hasLabaKotor ? 'col-sm-12 col-md-12 col-lg-6' : 'col-sm-12 col-md-12 col-lg-12' }} px-3 pb-2">
-                                                        <div class="glass flex-fill text-dark">
-                                                            <i class="fa fa-shopping-cart fa-lg mb-2 text-primary"></i>
-                                                            <div class="font-weight-bold">Jumlah Transaksi</div>
-                                                            <div id="total-transaksi" class="fs-4 font-weight-bold">0</div>
-                                                        </div>
-                                                    </div>
-                                                @endif
-
-                                                @if ($hasLabaKotor)
-                                                    <div
-                                                        class="{{ $hasTransaksi ? 'col-sm-12 col-md-12 col-lg-6' : 'col-sm-12 col-md-12 col-lg-12' }} px-3 pb-2">
-                                                        <div class="glass flex-fill text-dark">
-                                                            <i class="fa fa-wallet fa-lg mb-2 text-primary"></i>
-                                                            <div class="font-weight-bold">Laba Kotor</div>
-                                                            <div id="laba-kotor" class="fs-4 font-weight-bold">Rp 0</div>
-                                                        </div>
-                                                    </div>
-                                                @endif
-                                            </div>
-                                        @endif
-
                                     </div>
+                                    <button class="btn-dynamic btn btn-outline-primary" type="button"
+                                        data-toggle="collapse" data-target="#filter-collapse" aria-expanded="false"
+                                        aria-controls="filter-collapse">
+                                        <i class="fa fa-filter"></i> Filter
+                                    </button>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row pb-2 align-items-center justify-content-between">
+                                        <div class="mb-2 col-12 col-md-auto">
+                                            <h4 class="mb-1" id="total-penjualan">Rp. 0</h4>
+                                            <span>Data Penjualan</span>
+                                        </div>
+                                        <div class="mb-2 col-12 col-md-auto ms-auto justify-content-end text-end">
+                                            <div class="collapse" id="filter-collapse">
+                                                <div class="d-flex flex-column flex-md-row align-items-md-start gap-2">
+                                                    <div style="width: 200px; display: none;" id="filter-month-container">
+                                                        <select id="filter-month" name="month"
+                                                            class="filter-option form-select form-select-sm w-100">
+                                                            <option value="1">Januari</option>
+                                                            <option value="2">Februari</option>
+                                                            <option value="3">Maret</option>
+                                                            <option value="4">April</option>
+                                                            <option value="5">Mei</option>
+                                                            <option value="6">Juni</option>
+                                                            <option value="7">Juli</option>
+                                                            <option value="8">Agustus</option>
+                                                            <option value="9">September</option>
+                                                            <option value="10">Oktober</option>
+                                                            <option value="11">November</option>
+                                                            <option value="12">Desember</option>
+                                                        </select>
+                                                    </div>
+                                                    <div style="width: 200px;" id="filter-year-container">
+                                                        <select id="filter-year" name="year"
+                                                            class="filter-option form-select form-select-sm w-100"></select>
+                                                    </div>
+                                                    <div style="width: 200px;">
+                                                        <select id="filter-period" name="period"
+                                                            class="filter-option form-select form-select-sm w-100">
+                                                            <option value="daily">Harian</option>
+                                                            <option value="monthly" selected>Bulanan</option>
+                                                            <option value="yearly">Tahunan</option>
+                                                        </select>
+                                                    </div>
+                                                    {{-- @if (hasAnyPermission(['POST /dashboard-filter-toko'])) --}}
+                                                    <div style="width: 200px;">
+                                                        <select id="f-penjualan-toko" name="nama_toko"
+                                                            class="filter-option form-select form-select-sm w-100">
+                                                            <option value="all">Semua Toko</option>
+                                                            @foreach ($toko as $tokoData)
+                                                                <option value="{{ $tokoData->id }}">
+                                                                    {{ $tokoData->nama_toko }}
+                                                                </option>
+                                                            @endforeach
+                                                        </select>
+                                                    </div>
+                                                    {{-- @endif --}}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="laporan-chart"></div>
                                 </div>
                             </div>
-                        @endif
-                        @if ($layout1B)
-                            <div class="{{ $hasPenjualan ? 'col-sm-12 col-md-12 col-lg-12' : 'col-12 col-lg-12' }}">
-                                <div class="card table-card">
-                                    <div class="card-header d-flex justify-content-between align-items-center">
-                                        <h5>Top 10 Penjualan</h5>
-                                        @if (hasAnyPermission(['POST /dashboard-filter-toko']))
-                                            <div class="d-flex align-items-center gap-2">
-                                                <div style="width: 200px;">
-                                                    <select id="f-barang-toko"
-                                                        class="filter-option form-select form-select-sm w-auto">
-                                                        <option value="all">Semua Toko</option>
-                                                        @foreach ($toko as $tokoData)
-                                                            <option value="{{ $tokoData->id }}">{{ $tokoData->nama_toko }}
-                                                            </option>
-                                                        @endforeach
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        @endif
-                                    </div>
-                                    <div class="performance-scroll overflow-auto" style="position: relative;">
-                                        <div class="card-body p-0">
-                                            <div class="table-responsive">
-                                                <table class="table table-striped m-b-0 without-header">
-                                                    <tbody id="listData"></tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="{{ $hasMember ? 'col-sm-12 col-md-12 col-lg-12' : 'col-12 col-lg-12' }}">
-                                <div class="card table-card">
-                                    <div class="card-header d-flex justify-content-between align-items-center">
-                                        <h5>Top 10 Member</h5>
-                                        @if (hasAnyPermission(['POST /dashboard-filter-toko']))
-                                            <div class="d-flex align-items-center gap-2">
-                                                <div style="width: 200px;">
-                                                    <select id="f-member-toko"
-                                                        class="filter-option form-select form-select-sm w-auto">
-                                                        <option value="all">Semua Toko</option>
-                                                        @foreach ($toko as $tokoData)
-                                                            <option value="{{ $tokoData->id }}">{{ $tokoData->nama_toko }}
-                                                            </option>
-                                                        @endforeach
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        @endif
-                                    </div>
-                                    <div class="performance-scroll overflow-auto" style="position: relative;">
-                                        <div class="card-body p-0">
-                                            <div class="table-responsive">
-                                                <table class="table table-striped m-b-0 without-header">
-                                                    <tbody id="listData2"></tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        @endif
-                    </div>
-                </div>
-                <div class="{{ $layout2 ? 'col-sm-12 col-md-8 col-lg-8' : 'd-none' }}">
-                    <div class="row">
-                        @if ($hasKomparasi)
-                            <div class="col-12">
-                                <div class="card">
-                                    <div class="card-header d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <h5 class="mb-2">Komparasi Penjualan Antar Toko</h5>
-                                            <div class="row align-items-center">
-                                                <div class="col-auto ms-auto">
-                                                    <small class="me-1">
-                                                        <i class="fa fa-circle-info mr-1"></i> <b id="info-komparasi">Data
-                                                            per
-                                                            hari ini</b>
-                                                    </small>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <button class="btn-dynamic btn btn-outline-primary" type="button"
-                                            data-toggle="collapse" data-target="#filter-collapse2" aria-expanded="false"
-                                            aria-controls="filter-collapse2">
-                                            <i class="fa fa-filter"></i> Filter
-                                        </button>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="row pb-2 align-items-center justify-content-between">
-                                            <div class="mb-2 col-12 col-md-auto">
-                                                <h4 class="mb-1" id="total-penjualan2">Rp. 0</h4>
-                                                <span>Data Penjualan</span>
-                                            </div>
-                                            <div class="mb-2 col-12 col-md-auto ms-auto justify-content-end text-end">
-                                                <div class="collapse" id="filter-collapse2">
-                                                    <div class="d-flex flex-column flex-md-row align-items-md-start gap-2">
-                                                        <form id="custom-filter"
-                                                            class="d-flex justify-content-between align-items-center w-100">
-                                                            <i class="fa fa-filter"></i>
-                                                            <input class="form-control w-75 mx-2 mb-lg-0" type="text"
-                                                                id="daterange" name="daterange"
-                                                                placeholder="Pilih rentang tanggal">
-                                                            <button
-                                                                class="btn btn-success w-25 h-100 d-flex align-items-center justify-content-center mr-2"
-                                                                id="tb-filter" type="submit">
-                                                                <i class="fa fa-magnifying-glass mr-2"></i>Submit
-                                                            </button>
-                                                            <button type="button"
-                                                                class="btn btn-secondary w-25 h-100 d-flex align-items-center justify-content-center"
-                                                                id="reset-komparasi">
-                                                                <i class="fa fa-rotate mr-2"></i>Reset
-                                                            </button>
-                                                        </form>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div id="komparasi-chart"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        @endif
-                        @if ($hasRekap)
-                            <div class="col-12">
-                                <div class="card">
-                                    <div class="card-header d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <h5 class="mb-2">Rekapitulasi Penjualan</h5>
-                                            <div class="row align-items-center">
-                                                <div class="col-auto ms-auto">
-                                                    <span class="text-muted me-1">
-                                                        <i class="fa fa-cogs mr-1"></i>Atur Grafik :
-                                                    </span>
-                                                    <button class="btn btn-outline-primary btn-sm" id="chart-area"
-                                                        title="Area Grafik">
-                                                        <i class="fa fa-chart-area"></i>
-                                                    </button>
-                                                    <button class="btn btn-outline-primary btn-sm" id="chart-bar"
-                                                        title="Bar Grafik">
-                                                        <i class="fa fa-chart-bar"></i>
-                                                    </button>
-                                                    <button class="btn btn-outline-primary btn-sm" id="chart-line"
-                                                        title="Line Grafik">
-                                                        <i class="fa fa-chart-line"></i>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <button class="btn-dynamic btn btn-outline-primary" type="button"
-                                            data-toggle="collapse" data-target="#filter-collapse" aria-expanded="false"
-                                            aria-controls="filter-collapse">
-                                            <i class="fa fa-filter"></i> Filter
-                                        </button>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="row pb-2 align-items-center justify-content-between">
-                                            <div class="mb-2 col-12 col-md-auto">
-                                                <h4 class="mb-1" id="total-penjualan">Rp. 0</h4>
-                                                <span>Data Penjualan</span>
-                                            </div>
-                                            <div class="mb-2 col-12 col-md-auto ms-auto justify-content-end text-end">
-                                                <div class="collapse" id="filter-collapse">
-                                                    <div class="d-flex flex-column flex-md-row align-items-md-start gap-2">
-                                                        <div style="width: 200px; display: none;"
-                                                            id="filter-month-container">
-                                                            <select id="filter-month" name="month"
-                                                                class="filter-option form-select form-select-sm w-100">
-                                                                <option value="1">Januari</option>
-                                                                <option value="2">Februari</option>
-                                                                <option value="3">Maret</option>
-                                                                <option value="4">April</option>
-                                                                <option value="5">Mei</option>
-                                                                <option value="6">Juni</option>
-                                                                <option value="7">Juli</option>
-                                                                <option value="8">Agustus</option>
-                                                                <option value="9">September</option>
-                                                                <option value="10">Oktober</option>
-                                                                <option value="11">November</option>
-                                                                <option value="12">Desember</option>
-                                                            </select>
-                                                        </div>
-                                                        <div style="width: 200px;" id="filter-year-container">
-                                                            <select id="filter-year" name="year"
-                                                                class="filter-option form-select form-select-sm w-100"></select>
-                                                        </div>
-                                                        <div style="width: 200px;">
-                                                            <select id="filter-period" name="period"
-                                                                class="filter-option form-select form-select-sm w-100">
-                                                                <option value="daily">Harian</option>
-                                                                <option value="monthly" selected>Bulanan</option>
-                                                                <option value="yearly">Tahunan</option>
-                                                            </select>
-                                                        </div>
-                                                        @if (hasAnyPermission(['POST /dashboard-filter-toko']))
-                                                            <div style="width: 200px;">
-                                                                <select id="f-penjualan-toko" name="nama_toko"
-                                                                    class="filter-option form-select form-select-sm w-100">
-                                                                    <option value="all">Semua Toko</option>
-                                                                    @foreach ($toko as $tokoData)
-                                                                        <option value="{{ $tokoData->id }}">
-                                                                            {{ $tokoData->nama_toko }}
-                                                                        </option>
-                                                                    @endforeach
-                                                                </select>
-                                                            </div>
-                                                        @endif
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div id="laporan-chart"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        @endif
+                        </div>
+                        {{-- @endif --}}
                     </div>
                 </div>
             </div>
@@ -1203,48 +1208,48 @@
         }
 
         async function initPageLoad() {
-            if (hasPermission(['GET /get-omset', 'GET /get-laba-kotor', 'GET /get-jumlah-transaksi'])) {
-                if (hasPermission(['GET /get-omset'])) {
+            // if (hasPermission(['GET /get-omset', 'GET /get-laba-kotor', 'GET /get-jumlah-transaksi'])) {
+            //     if (hasPermission(['GET /get-omset'])) {
                     await getOmset({});
-                }
-                if (hasPermission(['GET /get-laba-kotor'])) {
+                // }
+                // if (hasPermission(['GET /get-laba-kotor'])) {
                     await getLabaKotor({});
-                }
-                if (hasPermission(['GET /get-jumlah-transaksi'])) {
+                // }
+                // if (hasPermission(['GET /get-jumlah-transaksi'])) {
                     await getJumlahTransaksi({});
-                }
+                // }
                 await filterOmset();
-            }
+            // }
 
             await setDynamicButton();
 
-            if (hasPermission(['GET /get-komparasi-toko'])) {
+            // if (hasPermission(['GET /get-komparasi-toko'])) {
                 await getKomparasiToko(customFilter);
                 await filterKomparasiToko();
-            }
+            // }
 
-            if (hasPermission(['GET /get-rekapitulasi-penjualan'])) {
+            // if (hasPermission(['GET /get-rekapitulasi-penjualan'])) {
                 await populateYearOptions();
                 await getLaporanPenjualan();
                 await filterLaporanPenjualan();
-            }
+            // }
 
-            if (hasPermission(['GET /get-top-penjualan', 'GET /get-top-member'])) {
-                if (hasPermission(['GET /get-top-penjualan'])) {
+            // if (hasPermission(['GET /get-top-penjualan', 'GET /get-top-member'])) {
+            //     if (hasPermission(['GET /get-top-penjualan'])) {
                     await getTopPenjualan();
-                }
-                if (hasPermission(['GET /get-top-member'])) {
+                // }
+                // if (hasPermission(['GET /get-top-member'])) {
                     await getTopMember();
-                }
-            }
+            //     }
+            // }
 
-            if (hasPermission(['POST /dashboard-filter-toko'])) {
+            // if (hasPermission(['POST /dashboard-filter-toko'])) {
                 await selectList(['f-penjualan-toko', 'f-barang-toko', 'f-member-toko', 'filter-period', 'filter-month',
                     'filter-year'
                 ]);
-            } else {
-                await selectList(['filter-period', 'filter-month', 'filter-year']);
-            }
+            // } else {
+            //     await selectList(['filter-period', 'filter-month', 'filter-year']);
+            // }
 
             await filterSelect();
         }

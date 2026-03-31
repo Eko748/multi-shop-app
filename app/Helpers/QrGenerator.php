@@ -12,12 +12,16 @@ class QrGenerator
     /**
      * Generate QR + simpan ke storage
      */
-    public static function generate(string $prefix = 'QR-')
+    public static function generate(string $prefix = 'QR-', $directory = null)
     {
         $qrValue = self::generateValue($prefix);
 
         $fileName = "{$qrValue}.png";
-        $path = "qrcodes/pembelian/{$fileName}";
+        if ($directory) {
+            $path = $directory . $fileName;
+        } else {
+            $path = "qrcodes/pembelian/{$fileName}";
+        }
 
         if (!Storage::disk('public')->exists($path)) {
             $qrCode = QrCode::create($qrValue)

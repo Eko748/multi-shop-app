@@ -126,27 +126,14 @@
                     <div class="card">
                         <div class="card-header custom-header">
                             <div class="custom-left">
-                                @if (hasAnyPermission(['POST /barang/store', 'POST /import-barang']))
-                                    @if (hasAnyPermission(['POST /barang/store']))
-                                        <div class="custom-btn-tambah-wrap">
-                                            <button type="button" class="btn btn-primary w-100" id="btn-add-data"
-                                                onclick="openAddModal()">
-                                                <i class="fa fa-circle-plus"></i><span> Tambah Data</span>
-                                            </button>
-                                        </div>
-                                    @endif
-                                    @if (hasAnyPermission(['POST /import-barang']))
-                                        <form action="{{ route('master.barang.import') }}" method="POST"
-                                            enctype="multipart/form-data" class="custom-form-import">
-                                            @csrf
-                                            <input type="file" name="file" class="custom-input-file" accept=".xlsx"
-                                                required>
-                                            <button type="submit" class="btn btn-success custom-btn-import">
-                                                <i class="fa fa-file-import"></i> Import
-                                            </button>
-                                        </form>
-                                    @endif
-                                @endif
+                                {{-- @if (hasAnyPermission(['POST /barang/store'])) --}}
+                                    <div class="custom-btn-tambah-wrap">
+                                        <button type="button" class="btn btn-primary w-100" id="btn-add-data"
+                                            onclick="openAddModal()">
+                                            <i class="fa fa-circle-plus"></i><span> Tambah Data</span>
+                                        </button>
+                                    </div>
+                                {{-- @endif --}}
                                 <div class="custom-btn-tambah-wrap">
                                     <button class="btn-dynamic btn btn-outline-primary custom-btn-tambah" type="button"
                                         data-toggle="collapse" data-target="#filter-collapse" aria-expanded="false"
@@ -206,6 +193,7 @@
                                                 <th class="text-wrap align-top">ID</th>
                                                 <th class="text-wrap align-top">Kode</th>
                                                 <th class="text-wrap align-top">Barcode</th>
+                                                <th class="text-wrap align-top">QR code</th>
                                                 <th class="text-wrap align-top">Barang</th>
                                                 <th class="text-wrap align-top">Jenis</th>
                                                 <th class="text-wrap align-top">Brand</th>
@@ -300,7 +288,6 @@
         ">
         </div>
     </div>
-
 @endsection
 
 @section('asset_js')
@@ -387,9 +374,11 @@
                 ${data.barcode}
                 </a>` : ``;
 
-            // Lokal
             let gambar_barcode = data?.barcode_path && data.barcode_path !== "" ?
                 `<img src="${data.barcode_path}" width="100" class="barcode-img" alt="Barcode">` :
+                `<span class="badge badge-danger">Tidak Ada Gambar</span>`;
+            let gambar_qrcode = data?.qrcode_path && data.qrcode_path !== "" ?
+                `<img src="${data.qrcode_path}" width="50" class="qrcode-img" alt="QR code">` :
                 `<span class="badge badge-danger">Tidak Ada Gambar</span>`;
 
             let edit_button = `
@@ -450,6 +439,7 @@
                 garansi: data?.garansi && data.garansi !== "" ? data.garansi :
                     '<span class="badge badge-danger">Tidak Ada Data</span>',
                 gambar_barcode,
+                gambar_qrcode,
                 action_buttons,
             };
         }
@@ -469,6 +459,7 @@
                         <td class="${classCol} text-primary">${element.id}</td>
                         <td class="${classCol}">${element.barcode}</td>
                         <td class="${classCol}">${element.gambar_barcode}</td>
+                        <td class="${classCol}">${element.gambar_qrcode}</td>
                         <td class="${classCol}">${element.nama_barang}</td>
                         <td class="${classCol}">${element.nama_jenis_barang}</td>
                         <td class="${classCol}">${element.nama_brand}</td>

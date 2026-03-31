@@ -19,27 +19,14 @@
                     <div class="card">
                         <div class="card-header custom-header">
                             <div class="custom-left">
-                                @if (hasAnyPermission(['POST /member/store', 'POST /import-member']))
-                                    @if (hasAnyPermission(['POST /member/store']))
-                                        <div class="custom-btn-tambah-wrap">
-                                            <button type="button" class="btn btn-primary w-100" id="btn-add-data"
-                                                onclick="openAddModal()">
-                                                <i class="fa fa-circle-plus"></i><span> Tambah Data</span>
-                                            </button>
-                                        </div>
-                                    @endif
-                                    @if (hasAnyPermission(['POST /import-member']))
-                                        <form action="{{ route('master.member.import') }}" method="POST"
-                                            enctype="multipart/form-data" class="custom-form-import">
-                                            @csrf
-                                            <input type="file" name="file" class="custom-input-file" accept=".xlsx"
-                                                required>
-                                            <button type="submit" class="btn btn-success custom-btn-import">
-                                                <i class="fa fa-file-import"></i> Import
-                                            </button>
-                                        </form>
-                                    @endif
-                                @endif
+                                {{-- @if (hasAnyPermission(['POST /member/store'])) --}}
+                                    <div class="custom-btn-tambah-wrap">
+                                        <button type="button" class="btn btn-primary w-100" id="btn-add-data"
+                                            onclick="openAddModal()">
+                                            <i class="fa fa-circle-plus"></i><span> Tambah Data</span>
+                                        </button>
+                                    </div>
+                                {{-- @endif --}}
                             </div>
                             <div class="custom-right">
                                 <div class="custom-limit-page">
@@ -56,7 +43,6 @@
                             </div>
                         </div>
                         <div class="content">
-                            <x-adminlte-alerts />
                             <div class="card-body p-0">
                                 <div class="table-responsive table-scroll-wrapper">
                                     <table class="table table-striped m-0">
@@ -358,12 +344,12 @@
                                     <label for="jenis_barang" class="form-control-label">Jenis Barang</label>
                                     <ul class="list-group list-group-flush">
                                         ${jenisBarangList.map(jb => `
-                                                                    <li class="list-group-item">
-                                                                        <h6>${jb.nama_jenis_barang}
-                                                                            <select name="level_harga[${jb.id}]" id="level_harga_${jb.id}" class="form-control select2"></select>
-                                                                        </h6>
-                                                                    </li>
-                                                                `).join('')}
+                                                                        <li class="list-group-item">
+                                                                            <h6>${jb.nama_jenis_barang}
+                                                                                <select name="level_harga[${jb.id}]" id="level_harga_${jb.id}" class="form-control select2"></select>
+                                                                            </h6>
+                                                                        </li>
+                                                                    `).join('')}
                                     </ul>
                                 </div>
                                 <div class="form-group">

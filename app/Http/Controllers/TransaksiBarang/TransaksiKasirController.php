@@ -91,7 +91,7 @@ class TransaksiKasirController extends Controller
                 'total_nominal' => 'required|numeric|min:0',
                 'total_bayar' => 'required|numeric|min:0',
                 'details' => 'required|array|min:1',
-                'details.*.stock_barang_batch_id' => 'required|exists:stock_barang_batch,id',
+                'details.*.barang_id' => 'required|exists:barang,id',
                 'details.*.qty' => 'required|integer|min:1',
                 'details.*.nominal' => 'required|numeric|min:0',
             ]);

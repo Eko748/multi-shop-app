@@ -152,7 +152,7 @@ class PembelianBarangController extends Controller
         }
     }
 
-    public function detail($id)
+    public function detail()
     {
         $menu = [$this->title[0], $this->label[1], $this->title[1]];
 
@@ -187,8 +187,8 @@ class PembelianBarangController extends Controller
         }
 
         $detailQuery = PembelianBarangDetail::with([
-            'barang:id,nama',
-            'stockBarangBatch:id,qty_masuk,qty_sisa,qrcode'
+            'barang:id,nama,qrcode',
+            'stockBarangBatch:id,qty_masuk,qty_sisa'
         ])
             ->where('pembelian_barang_id', $id);
 
@@ -204,10 +204,10 @@ class PembelianBarangController extends Controller
         $detailItems = $paginated->items();
 
         $mappedDetails = collect($detailItems)->map(function ($item) {
-            $img     = AssetGenerate::build("qrcodes/pembelian/{$item->stockBarangBatch->qrcode}.png");
+            $img     = AssetGenerate::build("qrcodes/barang/{$item->barang->qrcode}.png");
             return [
                 'id' => $item->id,
-                'qrcode' => $item->stockBarangBatch->qrcode,
+                'qrcode' => $item->barang->qrcode,
                 'qrcode_path' => $img,
                 'nama_barang' => TextGenerate::smartTail($item->barang->nama, 10, 30, 5),
                 'qty' => $item->qty,
@@ -216,6 +216,9 @@ class PembelianBarangController extends Controller
                 'total_harga' => RupiahGenerate::build($item->subtotal),
                 'qty_out' => ($item->stockBarangBatch->qty_masuk - $item->stockBarangBatch->qty_sisa) ?? 0,
                 'qty_now' => $item->stockBarangBatch->qty_sisa ?? 0,
+                'tanggal' => $item->created_at
+                    ? $item->created_at->format('d/m/Y')
+                    : null,
             ];
         });
 
@@ -368,7 +371,7 @@ class PembelianBarangController extends Controller
 
                 $batch = StockBarangBatch::create([
                     'toko_id' => $request->toko_id,
-                    'qrcode' => QrGenerator::generate('QR-PB-')['value'],
+                    // 'qrcode' => QrGenerator::generate('QR-PB-')['value'],
                     'stock_barang_id' => $stockBarang->id,
                     'qty_masuk' => $qty,
                     'qty_sisa' => $qty,

@@ -602,7 +602,7 @@ class StockBarangController extends Controller
         $detail = StockBarangBatch::whereHas('stockBarang', function ($q) use ($request, $userTokoId) {
             $q->where('barang_id', $request->barang_id)
                 ->where('toko_id', $userTokoId)->where('stok', '>', 0);
-        })->orderByDesc('created_at')->get();
+        })->where('qty_sisa', '>', 0)->orderByDesc('created_at')->get();
 
         if ($detail->isEmpty()) {
             return response()->json([

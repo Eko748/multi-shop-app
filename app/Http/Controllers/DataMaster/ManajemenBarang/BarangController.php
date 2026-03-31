@@ -5,6 +5,7 @@ namespace App\Http\Controllers\DataMaster\ManajemenBarang;
 use App\Http\Controllers\Controller;
 use App\Helpers\ActivityLogger;
 use App\Helpers\AssetGenerate;
+use App\Helpers\QrGenerator;
 use App\Helpers\TextGenerate;
 use App\Imports\BarangImport;
 use App\Models\Barang;
@@ -93,6 +94,7 @@ class BarangController extends Controller
                 'status_garansi' => $item->garansi,
                 'barcode' => $item->barcode,
                 'barcode_path' => AssetGenerate::build("barcodes/{$item->barcode}.png"),
+                'qrcode_path' => AssetGenerate::build("qrcodes/barang/{$item->qrcode}.png"),
                 'gambar' => $item->gambar,
                 'nama_barang' => TextGenerate::smartTail($item->nama),
                 'nama_barang_long' => $item->nama,
@@ -178,6 +180,7 @@ class BarangController extends Controller
                 'jenis_barang_id' => $request->jenis_barang_id,
                 'gambar' => $gambarPath,
                 'barcode' => $barcodeValue,
+                'qrcode' => QrGenerator::generate('QR-', 'qrcodes/barang/')['value'],
                 'brand_id' => $request->brand_id,
                 'garansi' => $request->garansi ?? 0,
             ]);

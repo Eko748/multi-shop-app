@@ -44,13 +44,13 @@
                         <div class="card-header">
                             <div class="row">
                                 <div class="col-sm-12 col-md-3 col-lg-3 col-xl-2 mb-2">
-                                    @if (hasPermission('GET /pembelianbarang'))
+                                    {{-- @if (hasPermission('GET /pembelianbarang')) --}}
                                         <a href="{{ route('transaksi.pembelianbarang.index') }}"
                                             class="mr-2 btn btn-primary w-100" data-container="body" data-toggle="tooltip"
                                             data-placement="top" title="Tambah Data Stok Barang">
                                             <i class="fa fa-circle-plus"></i> Tambah
                                         </a>
-                                    @endif
+                                    {{-- @endif --}}
                                 </div>
                                 <div class="col-sm-12 col-md-9 col-lg-9 col-xl-10 mb-2">
                                     <div class="row justify-content-end">
@@ -152,11 +152,10 @@
                                     <thead class="thead-light">
                                         <tr class="tb-head">
                                             <th class="text-center">No.</th>
-                                            <th>QR Code</th>
+                                            <th class="text-center">Tanggal Masuk</th>
                                             <th class="text-center">Stok</th>
                                             <th class="text-right">Harga Beli</th>
                                             <th class="text-right">Riwayat Hpp</th>
-                                            <th class="text-center">Tanggal Masuk</th>
                                             <th>Input Stok Bermasalah</th>
                                         </tr>
                                     </thead>
@@ -418,8 +417,8 @@
 
                 const payload = {
                     stock_barang_id: data.id,
-                    user_id: '{{ auth()->user()->id }}',
-                    toko_id: '{{ auth()->user()->toko_id }}',
+                    user_id: {{ auth()->user()->id }},
+                    toko_id: {{ auth()->user()->toko_id }},
                     message: message,
                     reductions: stockReductions
                 };
@@ -489,8 +488,10 @@
             const modalId = '#dynamicModal';
             const modalTitle = `${nama_barang} : ${hpp_baru}`;
 
-            const canAturHarga = hasPermission('POST /update-level-harga');
-            const canDetailBarang = hasPermission('GET /get-detail-barang/{id_barang}');
+            // const canAturHarga = hasPermission('POST /update-level-harga');
+            // const canDetailBarang = hasPermission('GET /get-detail-barang/{id_barang}');
+            const canAturHarga = true;
+            const canDetailBarang = true;
 
             if (!document.querySelector(modalId)) {
                 createModalSkeleton(canAturHarga, canDetailBarang);
@@ -512,13 +513,13 @@
 
             await renderTabStokBarang(stokData);
 
-            if (canAturHarga) {
+            // if (canAturHarga) {
                 await renderTabAturHarga(id_barang, stokData);
-            }
+            // }
 
-            if (canDetailBarang) {
+            // if (canDetailBarang) {
                 await renderTabDetailBarang(id_barang);
-            }
+            // }
 
             $(modalId).modal('show');
         }
@@ -606,11 +607,10 @@
                             <thead class="thead-light">
                                 <tr class="tb-head">
                                     <th class="text-center">No.</th>
-                                    <th>QR Code</th>
+                                    <th>Tanggal Masuk</th>
                                     <th class="text-center">Stok</th>
                                     <th class="text-right">Harga Beli</th>
                                     <th class="text-right">Riwayat Hpp</th>
-                                    <th>Tanggal Masuk</th>
                                 </tr>
                             </thead>
                             <tbody id="modal-detail-barang-body"></tbody>
@@ -890,19 +890,10 @@
                 const rows = detailResp.data.data.map((el, idx) => `
             <tr class="text-dark">
                 <td class="text-center">${idx + 1}.</td>
-                <td>
-                    <div class="d-flex flex-wrap align-items-center justify-content-between">
-                        <span class="mr-1 mb-1 text-break" id="qrcode-text-${idx}">${el.qrcode}</span>
-                        <button type="button" class="btn btn-sm btn-outline-primary copy-btn"
-                            data-toggle="tooltip" title="Salin: ${el.qrcode}" data-target="qrcode-text-${idx}">
-                            <i class="fas fa-copy"></i>
-                        </button>
-                    </div>
-                </td>
+                <td>${el.created_at}</td>
                 <td class="text-center">${el.qty}</td>
                 <td class="text-right">${el.harga}</td>
                 <td class="text-right">${el.hpp_baru}</td>
-                <td>${el.created_at}</td>
             </tr>`).join('');
                 $(target).html(rows);
 
@@ -932,24 +923,10 @@
                 const rows = detailResp.data.data.map((el, idx) => `
             <tr>
                 <td class="text-center">${idx + 1}</td>
-
-                <td>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span id="qrcode-text-${idx}">${el.qrcode}</span>
-                        <button type="button"
-                            class="btn btn-sm btn-outline-primary copy-btn"
-                            data-target="qrcode-text-${idx}">
-                            <i class="fas fa-copy"></i>
-                        </button>
-                    </div>
-                </td>
-
+                <td class="text-center">${el.created_at}</td>
                 <td class="text-center">${el.qty}</td>
                 <td class="text-right">${el.harga}</td>
                 <td class="text-right">${el.hpp_baru}</td>
-                <td class="text-center">${el.created_at}</td>
-
-                <!-- INPUT PENGURANGAN PER ROW -->
                 <td class="text-left">
                     <input type="number"
                         class="form-control form-control-sm reduce-stock"

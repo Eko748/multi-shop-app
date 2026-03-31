@@ -22,33 +22,22 @@
                     <div class="card">
                         <div class="card-header custom-header">
                             <div class="custom-left">
-                                @if (hasAnyPermission(['POST /pembelianbarang/store', 'POST /import-pembelianbarang']))
-                                    @if (hasAnyPermission(['POST /pembelianbarang/store']))
+                                {{-- @if (hasAnyPermission(['POST /pembelianbarang/store', 'POST /import-pembelianbarang']))
+                                    @if (hasAnyPermission(['POST /pembelianbarang/store'])) --}}
                                         <button onclick="openAddModal()"
                                             class="btn btn-primary mb-2 mb-lg-0 text-white add-data custom-btn-tambah"
                                             data-container="body" data-toggle="tooltip" data-placement="top"
                                             title="Tambah Data Pembelian Barang">
                                             <i class="fa fa-plus-circle"></i> Tambah
                                         </button>
-                                    @endif
+                                    {{-- @endif --}}
                                     <button class="btn-dynamic btn btn-outline-primary custom-btn-tambah" type="button"
                                         data-toggle="collapse" data-target="#filter-collapse" aria-expanded="false"
                                         aria-controls="filter-collapse" data-container="body" data-toggle="tooltip"
                                         data-placement="top" title="Filter Pembelian Barang">
                                         <i class="fa fa-filter"></i> Filter
                                     </button>
-                                    @if (hasAnyPermission(['POST /import-pembelianbarang']))
-                                        <form action="{{ route('master.pembelianbarang.import') }}" method="POST"
-                                            enctype="multipart/form-data" class="custom-form-import">
-                                            @csrf
-                                            <input type="file" name="file" class="custom-input-file" accept=".xlsx"
-                                                required>
-                                            <button type="submit" class="btn btn-success custom-btn-import">
-                                                <i class="fa fa-file-import"></i> Import
-                                            </button>
-                                        </form>
-                                    @endif
-                                @endif
+                                {{-- @endif --}}
                             </div>
                             <div class="custom-right">
                                 <div class="custom-limit-page">
@@ -225,7 +214,7 @@
                                                         <div
                                                             class="list-group-item d-flex justify-content-between align-items-center border rounded p-3">
                                                             <h5 class="mb-0"><i class="fa fa-user-tie"></i> Nama
-                                                                Supplier</h5>
+                                                                Suplier</h5>
                                                             <span id="nama-supplier" class="badge badge-secondary"></span>
                                                         </div>
                                                     </div>
@@ -421,7 +410,7 @@
                 placeholder: 'Pilih Kas',
                 isModal: '#modal-form',
                 isFilter: {
-                    toko_id: '{{ auth()->user()->toko_id }}',
+                    toko_id: {{ auth()->user()->toko_id }},
                     tipe: 'kecil',
                     dompet: false
                 },
@@ -435,7 +424,7 @@
             {
                 id: '#id_supplier',
                 isFilter: {
-                    id_toko: '{{ auth()->user()->toko_id }}',
+                    id_toko: {{ auth()->user()->toko_id }},
                 },
                 isUrl: '{{ route('master.suplier') }}',
                 placeholder: 'Pilih Suplier',
@@ -511,7 +500,7 @@
                 status =
                     `<span class="badge badge-success custom-badge"><i class="mx-1 fa fa-circle-check"></i>${data.status}</span>`;
                 detail_button = `
-                    <a href="pembelianbarang/${data.id}/detail?r=${data.id}" class="p-1 btn detail-data action_button"
+                    <a href="pembelian-barang/detail?r=${data.id}" class="p-1 btn detail-data action_button"
                         data-container="body" data-toggle="tooltip" data-placement="top"
                         title="Detail Data Nomor Nota: ${data.nota}"
                         data-id='${data.id}'>
@@ -524,7 +513,7 @@
                 status =
                     `<span class="badge badge-warning custom-badge"><i class="mx-1 fa fa-circle-info"></i>${data.status}</span>`;
                 detail_button = `
-                    <a href="pembelianbarang/${data.id}/detail?r=${data.id}" class="p-1 btn detail-data action_button"
+                    <a href="pembelian-barang/detail?r=${data.id}" class="p-1 btn detail-data action_button"
                         data-container="body" data-toggle="tooltip" data-placement="top"
                         title="Detail Data Nomor Nota: ${data.nota}"
                         data-id='${data.id}'>

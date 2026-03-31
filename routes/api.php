@@ -140,16 +140,21 @@ Route::prefix('brand')->as('brand.')->group(function () {
     Route::delete('delete', [BrandController::class, 'delete'])->name('delete');
 });
 
-Route::prefix('neraca')->as('neraca.')->group(function () {
-    Route::get('get', [NeracaPenyesuaianController::class, 'get'])->name('get');
-    Route::post('post', [NeracaPenyesuaianController::class, 'post'])->name('post');
-    Route::put('put', [NeracaPenyesuaianController::class, 'put'])->name('put');
-    Route::delete('delete', [NeracaPenyesuaianController::class, 'delete'])->name('delete');
+Route::prefix('permission')->group(function () {
+    Route::get('get', [PermissionController::class, 'getData'])->name('master.permission.get');
+    Route::post('update', [PermissionController::class, 'update'])->name('master.permission.update');
 });
 
 Route::prefix('log-aktivitas')->as('log.')->group(function () {
     Route::get('get', [LogAktivitasController::class, 'get'])->name('get');
     Route::get('get/log-event', [LogAktivitasController::class, 'getLogEvent'])->name('get.log-event');
+});
+
+Route::prefix('neraca')->as('neraca.')->group(function () {
+    Route::get('get', [NeracaPenyesuaianController::class, 'get'])->name('get');
+    Route::post('post', [NeracaPenyesuaianController::class, 'post'])->name('post');
+    Route::put('put', [NeracaPenyesuaianController::class, 'put'])->name('put');
+    Route::delete('delete', [NeracaPenyesuaianController::class, 'delete'])->name('delete');
 });
 
 Route::prefix('td')->as('td.')->group(function () {

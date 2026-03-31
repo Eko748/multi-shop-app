@@ -126,27 +126,14 @@
                     <div class="card">
                         <div class="card-header custom-header">
                             <div class="custom-left">
-                                @if (hasAnyPermission(['POST /supplier/store', 'POST /import-supplier']))
-                                    @if (hasAnyPermission(['POST /supplier/store']))
-                                        <div class="custom-btn-tambah-wrap">
-                                            <button type="button" class="btn btn-primary w-100" id="btn-add-data"
-                                                onclick="openAddModal()">
-                                                <i class="fa fa-circle-plus"></i><span> Tambah Data</span>
-                                            </button>
-                                        </div>
-                                    @endif
-                                    @if (hasAnyPermission(['POST /import-supplier']))
-                                        <form action="{{ route('master.supplier.import') }}" method="POST"
-                                            enctype="multipart/form-data" class="custom-form-import">
-                                            @csrf
-                                            <input type="file" name="file" class="custom-input-file" accept=".xlsx"
-                                                required>
-                                            <button type="submit" class="btn btn-success custom-btn-import">
-                                                <i class="fa fa-file-import"></i> Import
-                                            </button>
-                                        </form>
-                                    @endif
-                                @endif
+                                {{-- @if (hasAnyPermission(['POST /supplier/store'])) --}}
+                                    <div class="custom-btn-tambah-wrap">
+                                        <button type="button" class="btn btn-primary w-100" id="btn-add-data"
+                                            onclick="openAddModal()">
+                                            <i class="fa fa-circle-plus"></i><span> Tambah Data</span>
+                                        </button>
+                                    </div>
+                                {{-- @endif --}}
                             </div>
 
                             <div class="custom-right">

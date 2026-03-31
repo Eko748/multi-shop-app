@@ -127,12 +127,12 @@
                         <div class="card-header custom-header">
                             <div class="custom-left">
                                 <div class="custom-btn-tambah-wrap">
-                                    @if (hasPermission('GET /user/create'))
+                                    {{-- @if (hasPermission('GET /user/create')) --}}
                                         <button type="button" class="btn btn-primary w-100" id="btn-add-data"
                                             onclick="openAddModal()">
                                             <i class="fa fa-circle-plus"></i><span> Tambah Data</span>
                                         </button>
-                                    @endif
+                                    {{-- @endif --}}
                                 </div>
                             </div>
                             <div class="custom-right">
@@ -150,7 +150,6 @@
                             </div>
                         </div>
                         <div class="content">
-                            <x-adminlte-alerts />
                             <div class="card-body p-0">
                                 <div class="table-responsive table-scroll-wrapper">
                                     <table class="table table-striped m-0">

@@ -102,15 +102,18 @@ class TransaksiKasirRepo
 
         /** grouping untuk struk */
         $groupedDetails = $detailKasir
-            ->groupBy('stock_barang_batch_id')
+            ->groupBy(fn($item) => $item->stockBarangBatch->stockBarang->barang_id)
             ->map(function ($items) {
                 $first = $items->first();
 
+                $barangModel = $first->stockBarangBatch->stockBarang->barang ?? null;
+
                 return [
-                    'nama_barang' => TextGenerate::smartTail($first->stockBarangBatch->stockBarang->barang->nama) ?? '-',
+                    'barang_id'   => $barangModel->id ?? null,
+                    'nama_barang' => TextGenerate::smartTail($barangModel->nama ?? '-') ?? '-',
                     'qty'         => $items->sum('qty'),
                     'harga'       => RupiahGenerate::build($first->nominal),
-                    'diskon'      => RupiahGenerate::build($first->diskon ?? 0),
+                    'diskon'      => RupiahGenerate::build($items->sum('diskon') ?? 0),
                     'total_harga' => RupiahGenerate::build($items->sum('subtotal')),
                 ];
             })
@@ -186,18 +189,30 @@ class TransaksiKasirRepo
          * GROUPING DETAIL STRUK
          * ========================= */
         $groupedDetails = $detailKasir
-            ->groupBy('stock_barang_batch_id')
+            ->groupBy(fn($item) => $item->stockBarangBatch->stockBarang->barang_id)
             ->map(function ($items) {
                 $first = $items->first();
 
+                $barang = $first->stockBarangBatch->stockBarang->barang ?? null;
+
+                $totalQty   = $items->sum('qty');
+                $totalHarga = $items->sum('subtotal');
+                $totalDiskon = $items->sum('diskon');
+
                 return [
-                    'nama_barang' => TextGenerate::smartTail(
-                        $first->stockBarangBatch->stockBarang->barang->nama ?? '-'
+                    'barang_id'   => $barang->id ?? null,
+                    'nama_barang' => TextGenerate::smartTail($barang->nama ?? '-'),
+
+                    'qty'         => $totalQty,
+
+                    // 🔥 lebih akurat (kalau beda batch beda harga)
+                    'harga'       => RupiahGenerate::build(
+                        $totalQty > 0 ? $totalHarga / $totalQty : 0
                     ),
-                    'qty'         => $items->sum('qty'),
-                    'harga'       => RupiahGenerate::build($first->nominal ?? 0),
-                    'diskon'      => RupiahGenerate::build($first->diskon ?? 0),
-                    'total_harga' => RupiahGenerate::build($items->sum('subtotal')),
+
+                    'diskon'      => RupiahGenerate::build($totalDiskon ?? 0),
+
+                    'total_harga' => RupiahGenerate::build($totalHarga),
                 ];
             })
             ->values();

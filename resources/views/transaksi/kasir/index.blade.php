@@ -69,7 +69,7 @@
                                             style="flex: 0 0 45px; max-width: 45px;" title="Filter Data">
                                             <i class="fa fa-filter my-1"></i>
                                         </button>
-                                        @if (hasAnyPermission(['POST /kasir/store']))
+                                        {{-- @if (hasAnyPermission(['POST /kasir/store'])) --}}
                                             <button type="button"
                                                 class="btn btn-md btn-outline-primary d-flex align-items-center justify-content-center"
                                                 id="btn-add-data" onclick="openAddModal()" data-container="body"
@@ -79,7 +79,7 @@
                                                 <i class="fa fa-circle-plus my-1"></i>
                                                 <span class="d-none d-sm-inline ml-1">Tambah Data</span>
                                             </button>
-                                        @endif
+                                        {{-- @endif --}}
                                     </div>
                                 </div>
                                 <hr class="m-0">
@@ -831,7 +831,7 @@
             }).then(async (result) => {
                 let postDataRest = await renderAPI(
                     'DELETE',
-                    `{{ route('pengembalian.delete') }}`, {
+                    `/s}`, {
                         id: id,
                         id_toko: {{ auth()->user()->toko_id }}
                     }
@@ -1527,7 +1527,7 @@
                         totalNominal += nominal;
 
                         details.push({
-                            stock_barang_batch_id: row.data("id"),
+                            barang_id: row.data("id"),
                             qty: qty,
                             nominal: harga,
                         });

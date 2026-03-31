@@ -237,6 +237,8 @@
                 const maxQty = parseInt($(this).data("max"));
                 const qrCodePath = $(this).data("qrcode");
                 const namaBarang = $(this).data("barang");
+                const tanggal = $(this).data("tanggal");
+                const text = $(this).data("text");
 
                 if (isNaN(qty) || qty < 1 || qty > maxQty) {
                     notificationAlert('error', 'Error',
@@ -267,11 +269,18 @@
 
 
                     imagesHtml += `
-                        <div class="label">
-                            <img src="${qrCodePath}" alt="QR Code">
-                            <div class="label-text">${displayName}</div>
-                        </div>
-                    `;
+                            <div class="label">
+                                <div class="label-left">
+                                    <img src="${qrCodePath}" alt="QR Code">
+                                    <div class="qr-text">${text ?? ''}</div>
+                                </div>
+
+                                <div class="label-text">
+                                    <div class="label-name">${displayName}</div>
+                                    <div class="label-date">${tanggal ?? ''}</div>
+                                </div>
+                            </div>
+                        `;
 
                     if (i === qty - 1) {
                         imagesHtml += `</div></div>`;
@@ -281,33 +290,31 @@
                 printWindow.document.write(`
                     <html>
                         <head>
-                            <title>Print QR Code Pembelian ${namaBarang}</title>
+                            <title>Print QR Code Pembelian</title>
                             <style>
-                            @media print {
-                                @page {
-                                    size: 110mm 17mm;
-                                    margin: 0; /* Hapus semua margin halaman */
-                                }
+                                @media print {
+                                    @page {
+                                        size: 110mm 17mm;
+                                        margin: 0;
+                                    }
 
-                                body, html {
-                                    margin: 0;
-                                    padding: 0;
-                                }
+                                    body, html {
+                                        margin: 0;
+                                        padding: 0;
+                                    }
 
-                                .page {
-                                    page-break-after: always;
-                                    width: 110mm;
-                                    height: 17mm;
-                                    margin: 0;   /* Pastikan tidak ada margin */
-                                    padding: 0;  /* Pastikan tidak ada padding */
-                                    box-sizing: border-box;
+                                    .page {
+                                        page-break-after: always;
+                                        width: 110mm;
+                                        height: 17mm;
+                                        margin: 0;
+                                        padding: 0;
+                                        box-sizing: border-box;
+                                    }
                                 }
-                            }
 
                                 body {
                                     font-family: Arial, sans-serif;
-                                    margin: 0;
-                                    padding: 0;
                                 }
 
                                 .label-container {
@@ -315,8 +322,6 @@
                                     flex-wrap: nowrap;
                                     justify-content: flex-start;
                                     column-gap: 2mm;
-                                    padding: 0;
-                                    margin: 0;
                                 }
 
                                 .label {
@@ -331,23 +336,53 @@
                                     margin-left: 2mm;
                                 }
 
+                                .label-left {
+                                    display: flex;
+                                    flex-direction: column;
+                                    align-items: center;
+                                    
+                                }
+
+                                .qr-text {
+                                    font-size: 4px;
+                                    max-width: 16mm;
+                                    white-space: nowrap;
+                                    overflow: hidden;
+                                    text-overflow: ellipsis;
+                                }
+
                                 .label img {
-                                    width: 16mm;
-                                    height: 16mm;
+                                    width: 14mm;
+                                    height: 14mm;
                                     object-fit: contain;
                                     margin-right: 1mm;
                                 }
 
                                 .label-text {
-                                    font-size: 10px;
+                                    display: flex;
+                                    flex-direction: column;
+                                    justify-content: space-between;
+                                    height: 100%;
+                                    margin-top: 1mm;
+                                }
+
+                                .label-name {
+                                    font-size: 6px;
                                     line-height: 1.2;
-                                    flex: 1;
+                                }
+
+                                .label-date {
+                                    font-size: 4px;
+                                    max-width: 16mm;
+                                    white-space: nowrap;
+                                    overflow: hidden;
+                                    text-overflow: ellipsis;
+                                    text-align: left;
+                                    margin-bottom: 0.5mm;
                                 }
                             </style>
                         </head>
-                        <body>
-                            ${imagesHtml}
-                        </body>
+                        <body>${imagesHtml}</body>
                     </html>
                 `);
 
@@ -407,6 +442,8 @@
             const maxQty = $(this).data("qty");
             const qrCodePath = $(this).data("qrcode");
             const namaBarang = $(this).data("barang");
+            const tanggal = $(this).data("tanggal");
+            const text = $(this).data("text");
 
             $("#modal-form .modal-body").html("");
             $("#modal-title").html(`Form Print QR Code Pembelian Barang`);
@@ -420,7 +457,7 @@
                 </div>
                 <div class="justify-content-end">
                     <button type="button" class="btn btn-primary w-100" id="confirm-print"
-                        data-qrcode="${qrCodePath}" data-barang="${namaBarang}" data-max="${maxQty}">
+                        data-text="${text}" data-tanggal="${tanggal}" data-qrcode="${qrCodePath}" data-barang="${namaBarang}" data-max="${maxQty}">
                         <i class="fa fa-print mr-1"></i>Konfirmasi Print
                     </button>
                 </div>
@@ -452,7 +489,9 @@
                             min="0" max="${item.qty}"
                             value="${item.qty}"
                             data-qrcode="${item.qrcode_path}"
-                            data-nama="${item.nama_barang}">
+                            data-nama="${item.nama_barang}"
+                            data-text="${item.qrcode}"
+                            data-tanggal="${item.tanggal}">
                         <small class="form-text text-danger">Maksimum: ${item.qty}</small>
                     </div>
                 `;
@@ -491,6 +530,8 @@
                 const max = parseInt($(this).attr("max"));
                 const qrCodePath = $(this).data("qrcode");
                 const namaBarang = $(this).data("nama");
+                const tanggal = $(this).data("tanggal");
+                const text = $(this).data("text");
 
                 if (!isNaN(qty) && qty > 0 && qty <= max) {
                     for (let i = 0; i < qty; i++) {
@@ -503,8 +544,15 @@
 
                         imagesHtml += `
                             <div class="label">
-                                <img src="${qrCodePath}" alt="QR Code">
-                                <div class="label-text">${displayName}</div>
+                                <div class="label-left">
+                                    <img src="${qrCodePath}" alt="QR Code">
+                                    <div class="qr-text">${text ?? ''}</div>
+                                </div>
+
+                                <div class="label-text">
+                                    <div class="label-name">${displayName}</div>
+                                    <div class="label-date">${tanggal ?? ''}</div>
+                                </div>
                             </div>
                         `;
                         count++;
@@ -564,17 +612,49 @@
                                     margin-left: 2mm;
                                 }
 
-                                .label img {
-                                    width: 16mm;
-                                    height: 16mm;
-                                    object-fit: contain;
+                                .label-left {
+                                    display: flex;
+                                    flex-direction: column;
+                                    align-items: center;
                                     margin-right: 1mm;
                                 }
 
+                                .qr-text {
+                                    font-size: 4px;
+                                    max-width: 16mm;
+                                    white-space: nowrap;
+                                    overflow: hidden;
+                                    text-overflow: ellipsis;
+                                }
+
+                                .label img {
+                                    width: 14mm;
+                                    height: 14mm;
+                                    object-fit: contain;
+                                    
+                                }
+
                                 .label-text {
-                                    font-size: 10px;
+                                    display: flex;
+                                    flex-direction: column;
+                                    justify-content: space-between;
+                                    height: 100%;
+                                    margin-top: 1mm;
+                                }
+
+                                .label-name {
+                                    font-size: 6px;
                                     line-height: 1.2;
-                                    flex: 1;
+                                }
+
+                                .label-date {
+                                    font-size: 4px;
+                                    max-width: 16mm;
+                                    white-space: nowrap;
+                                    overflow: hidden;
+                                    text-overflow: ellipsis;
+                                    text-align: left;
+                                    margin-bottom: 0.5mm;
                                 }
                             </style>
                         </head>
@@ -687,7 +767,7 @@
                         buttons.push(`
                     <button type="button" class="btn btn-outline-info btn-sm open-modal-print" style="min-width: 120px;" data-container="body" data-toggle="tooltip" data-placement="top"
                         title="Atur print QR Code Pembelian Barang"
-                        data-qty="${item.qty}" data-barang="${item.nama_barang}" data-qrcode="${item.qrcode_path}">
+                        data-text="${item.qrcode}" data-tanggal="${item.tanggal}" data-qty="${item.qty}" data-barang="${item.nama_barang}" data-qrcode="${item.qrcode_path}">
                         <i class="fa fa-print"></i>
                         <span class="d-none d-md-inline"> Print</span>
                     </button>

@@ -16,155 +16,130 @@ use App\Http\Controllers\TransaksiBarang\{KasbonController, TransaksiKasirContro
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['tamu'])->group(function () {
-    Route::get('/', [AuthController::class, 'showLoginForm'])->name('login');
-    Route::post('/login', [AuthController::class, 'login'])->name('post_login');
+    Route::get('', [AuthController::class, 'showLoginForm'])->name('login');
+    Route::post('login', [AuthController::class, 'login'])->name('post_login');
 });
 
-Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+Route::post('logout', [AuthController::class, 'logout'])->name('logout');
 
 Route::middleware(['auth'])->group(function () {
-    Route::get('/dashboard', [AuthController::class, 'dashboard'])->name('dashboard.index')->middleware('permission:GET /dashboard');
-    Route::get('/dashboard', [AuthController::class, 'index'])->name('dashboard.index')->middleware('permission:GET /dashboard');
-
-    Route::get('catatan', [CatatanController::class, 'index'])->name('catatan.index');
+    Route::get('dashboard', [AuthController::class, 'dashboard'])->name('dashboard.index')->middleware('permission:GET /dashboard');
+    Route::get('dashboard', [AuthController::class, 'index'])->name('dashboard.index')->middleware('permission:GET /dashboard');
 
     // User Controller
-    Route::get('/user', [UserController::class, 'index'])->name('master.user.index')->middleware('permission:GET /user');
-    Route::post('/import-user', [UserController::class, 'import'])->name('master.user.import')->middleware('permission:POST /import-user');
+    Route::get('user', [UserController::class, 'index'])->name('master.user.index')->middleware('permission:GET /user');
 
     // Toko Controller
-    Route::get('/toko', [TokoController::class, 'index'])->name('master.toko.index')->middleware('permission:GET /toko');
-
-    Route::get('/toko/detail/{id}', [TokoController::class, 'detail'])->name('master.toko.detail')->middleware('permission:GET /toko/detail/{id}');
-    Route::get('/toko/detail/create/{id}', [TokoController::class, 'create_detail'])->name('master.toko.create_detail')->middleware('permission:GET /toko/detail/create/{id}');
-    Route::post('/toko/store_detail', [TokoController::class, 'store_detail'])->name('master.toko.store_detail')->middleware('permission:POST /toko/store_detail');
-    Route::get('/toko/{id_toko}/detail/{id_barang}/edit/{id}', [TokoController::class, 'edit_detail'])->name('master.toko.edit_detail')->middleware('permission:GET /toko/{id_toko}/detail/{id_barang}/edit/{id}');
-    Route::put('/toko/{id_toko}/detail/{id_barang}/update', [TokoController::class, 'update_detail'])->name('master.toko.update_detail')->middleware('permission:PUT /toko/{id_toko}/detail/{id_barang}/update');
-    Route::delete('/toko/{id_toko}/detail/{id_barang}/delete', [TokoController::class, 'delete_detail'])->name('master.toko.delete_detail')->middleware('permission:DELETE /toko/{id_toko}/detail/{id_barang}/delete');
-    Route::get('/master/toko/search', [TokoController::class, 'search'])->name('master.toko.search')->middleware('permission:GET /master/toko/search');
-    Route::get('/master/stock/searchs', [TokoController::class, 'searchs'])->name('master.stock.searchs')->middleware('permission:GET /master/stock/searchs');
-    Route::post('/import-toko', [TokoController::class, 'import'])->name('master.toko.import')->middleware('permission:POST /import-toko');
+    Route::get('toko', [TokoController::class, 'index'])->name('master.toko.index')->middleware('permission:GET /toko');
 
     // Member Controller
-    Route::get('/member', [MemberController::class, 'index'])->name('master.member.index')->middleware('permission:GET /member');
-    Route::post('/import-member', [MemberController::class, 'import'])->name('master.member.import');
+    Route::get('member', [MemberController::class, 'index'])->name('master.member.index')->middleware('permission:GET /member');
 
     // Supplier Controller
-    Route::get('/supplier', [SupplierController::class, 'index'])->name('master.supplier.index')->middleware('permission:GET /supplier');
-    Route::post('/import-supplier', [SupplierController::class, 'import'])->name('master.supplier.import')->middleware('permission:POST /import-supplier');
+    Route::get('suplier', [SupplierController::class, 'index'])->name('master.supplier.index')->middleware('permission:GET /suplier');
 
     // Jenis Barang Controller
-    Route::get('/jenis_barang', [JenisBarangController::class, 'index'])->name('master.jenisbarang.index')->middleware('permission:GET /jenis_barang');
+    Route::get('jenis-barang', [JenisBarangController::class, 'index'])->name('master.jenisbarang.index')->middleware('permission:GET /jenis-barang');
 
     // Brand Controller
-    Route::get('/brand', [BrandController::class, 'index'])->name('master.brand.index')->middleware('permission:GET /brand');
+    Route::get('brand', [BrandController::class, 'index'])->name('master.brand.index')->middleware('permission:GET /brand');
 
     // Barang Controller
-    Route::get('/barang', [BarangController::class, 'index'])->name('master.barang.index')->middleware('permission:GET /barang');
-    Route::post('/import-barang', [BarangController::class, 'import'])->name('master.barang.import')->middleware('permission:POST /import-barang');
+    Route::get('barang', [BarangController::class, 'index'])->name('master.barang.index')->middleware('permission:GET /barang');
 
     // Stock Barang Controller
-    Route::get('/stockbarang', [StockBarangController::class, 'index'])->name('master.stockbarang.index')->middleware('permission:GET /stockbarang');
+    Route::get('stok-barang', [StockBarangController::class, 'index'])->name('master.stockbarang.index')->middleware('permission:GET /stok-barang');
 
     // Permission Controller
-    Route::get('/permission', [PermissionController::class, 'index'])->name('master.permission.index')->middleware('permission:GET /permission');
-    Route::get('/permission/get', [PermissionController::class, 'getData'])->name('master.permission.get')->middleware('permission:GET /permission/get');
-    Route::post('/permission/update', [PermissionController::class, 'update'])->name('master.permission.update')->middleware('permission:POST /permission/update');
+    Route::get('permission', [PermissionController::class, 'index'])->name('master.permission.index')->middleware('permission:GET /permission');
 
     // Level User Controller
-    Route::get('/leveluser', [LevelUserController::class, 'index'])->name('master.leveluser.index')->middleware('permission:GET /leveluser');
-    Route::get('/leveluser/create', [LevelUserController::class, 'create'])->name('master.leveluser.create')->middleware('permission:GET /leveluser/create');
-    Route::post('/leveluser/store', [LevelUserController::class, 'store'])->name('master.leveluser.store')->middleware('permission:POST /leveluser/store');
-    Route::get('/leveluser/edit/{id}', [LevelUserController::class, 'edit'])->name('master.leveluser.edit')->middleware('permission:GET /leveluser/edit/{id}');
-    Route::put('/leveluser/update/{id}', [LevelUserController::class, 'update'])->name('master.leveluser.update')->middleware('permission:PUT /leveluser/update/{id}');
-    Route::delete('/leveluser/delete/{id}', [LevelUserController::class, 'delete'])->name('master.leveluser.delete')->middleware('permission:DELETE /leveluser/delete/{id}');
-    Route::get('/leveluser/permission/{id}', [LevelUserController::class, 'hakAksesUser'])->name('master.leveluser.permission')->middleware('permission:GET /leveluser/permission/{id}');
-    Route::get('/leveluser/permission/get/{id}', [LevelUserController::class, 'getHakAksesUser'])->name('master.leveluser.permission.get')->middleware('permission:GET /leveluser/permission/get/{id}');
-    Route::post('/leveluser/permission/store/{id}', [LevelUserController::class, 'createHakAksesUser'])->name('master.leveluser.permission.store')->middleware('permission:POST /leveluser/permission/store/{id}');
+    Route::get('level-user', [LevelUserController::class, 'index'])->name('master.leveluser.index')->middleware('permission:GET /level-user');
 
     // Level Harga Controller
-    Route::get('/levelharga', [LevelHargaController::class, 'index'])->name('master.levelharga.index')->middleware('permission:GET /levelharga');
-    Route::get('/levelharga/create', [LevelHargaController::class, 'create'])->name('master.levelharga.create')->middleware('permission:GET /levelharga/create');
-    Route::post('/levelharga/store', [LevelHargaController::class, 'store'])->name('master.levelharga.store')->middleware('permission:POST /levelharga/store');
-    Route::get('/levelharga/edit/{id}', [LevelHargaController::class, 'edit'])->name('master.levelharga.edit')->middleware('permission:GET /levelharga/edit/{id}');
-    Route::put('/levelharga/update/{id}', [LevelHargaController::class, 'update'])->name('master.levelharga.update')->middleware('permission:PUT /levelharga/update/{id}');
-    Route::delete('/levelharga/delete/{id}', [LevelHargaController::class, 'delete'])->name('master.levelharga.delete')->middleware('permission:DELETE /levelharga/delete/{id}');
+    Route::get('level-harga', [LevelHargaController::class, 'index'])->name('master.levelharga.index')->middleware('permission:GET /level-harga');
 
     // Promo Controller
-    Route::get('/promo', [PromoController::class, 'index'])->name('master.promo.index')->middleware('permission:GET /promo');
-    Route::post('/promo/store', [PromoController::class, 'store'])->name('master.promo.store')->middleware('permission:POST /promo/store');
-    Route::put('/promo/update', [PromoController::class, 'update'])->name('master.promo.update')->middleware('permission:PUT /promo/update');
-    Route::put('/promo/update-status', [PromoController::class, 'updateStatus'])->name('master.promo.update-status')->middleware('permission:PUT /promo/update-status');
+    Route::get('promo', [PromoController::class, 'index'])->name('master.promo.index')->middleware('permission:GET /promo');
 
-    // Pengiriman Barang
-    Route::get('/pengirimanbarang', [PengirimanBarangController::class, 'index'])->name('distribusi.pengirimanbarang.index')->middleware('permission:GET /pengirimanbarang');
-    // Plan Order Controller
-    Route::get('/planorder', [PlanOrderController::class, 'index'])->name('distribusi.planorder.index')->middleware('permission:GET /planorder');
+    Route::get('log-aktivitas', [LogAktivitasController::class, 'index'])->name('master.logAktivitas.index')->middleware('permission:GET /log-aktivitas');
 
-    // Pembelian Barang
-    Route::get('/pembelianbarang', [PembelianBarangController::class, 'index'])->name('transaksi.pembelianbarang.index')->middleware('permission:GET /pembelianbarang');
-    Route::get('/pembelianbarang/create', [PembelianBarangController::class, 'create'])->name('transaksi.pembelianbarang.create')->middleware('permission:GET /pembelianbarang/create');
-    Route::post('/pembelianbarang/store', [PembelianBarangController::class, 'store'])->name('transaksi.pembelianbarang.store')->middleware('permission:POST /pembelianbarang/store');
-    Route::post('/pembelianbarang/additem', [PembelianBarangController::class, 'addItem'])->name('transaksi.pembelianbarang.additem')->middleware('permission:POST /pembelianbarang/additem');
-    Route::delete('/pembelianbarang/remove-item/{id}', [PembelianBarangController::class, 'removeItem'])->middleware('permission:DELETE /pembelianbarang/remove-item/{id}');
-    Route::get('/pembelianbarang/{id}/detail', [PembelianBarangController::class, 'detail'])->name('transaksi.pembelianbarang.detail')->middleware('permission:GET /pembelianbarang/{id}/detail');
-    Route::get('/pembelianbarang/Getdetail', [PembelianBarangController::class, 'getDetailPembelian'])->name('transaksi.pembelianbarang.Getdetail')->middleware('permission:GET /pembelianbarang/Getdetail');
-    Route::delete('/pembelianbarang/{id}/delete', [PembelianBarangController::class, 'delete'])->name('transaksi.pembelianbarang.delete')->middleware('permission:DELETE /pembelianbarang/{id}/delete');
-    Route::get('/get-stock/{id_barang}', [PembelianBarangController::class, 'getStock'])->name('transaksi.pembelian.getstock')->middleware('permission:GET /get-stock/{id_barang}');
-    Route::post('/pembelianbarang/update_status/{id}', [PembelianBarangController::class, 'updateStatus'])->name('transaksi.pembelianbarang.update_status')->middleware('permission:POST /pembelianbarang/update_status/{id}');
-    Route::get('/pembelian-barang/level-harga/{barangId}', [PembelianBarangController::class, 'getLevelHarga'])->middleware('permission:GET /pembelian-barang/level-harga/{barangId}');
-    Route::post('/import-pembelianbarang', [PembelianBarangController::class, 'import'])->name('master.pembelianbarang.import')->middleware('permission:POST /import-pembelianbarang');
-    Route::put('/pembelianbarang/edit/detail-pembelian-barang', [PembelianBarangController::class, 'editDetailPembelianBarang'])->name('transaksi.pembelianbarang.update-detail')->middleware('permission:PUT /pembelianbarang/edit/detail-pembelian-barang');
+    Route::prefix('distribusi')->group(function () {
+        // Pengiriman Barang
+        Route::get('pengiriman-barang', [PengirimanBarangController::class, 'index'])->name('distribusi.pengirimanbarang.index')->middleware('permission:GET /pengiriman-barang');
+        // Plan Order Controller
+        Route::get('lokasi-riwayat-barang', [PlanOrderController::class, 'index'])->name('distribusi.planorder.index')->middleware('permission:GET /lokasi-riwayat-barang');
+    });
 
-    // Kasir Controller
-    Route::get('/kasir', [TransaksiKasirController::class, 'index'])->name('transaksi.kasir.index')->middleware('permission:GET /kasir');
-
-    // Kasbon Controller
-    Route::get('/kasbon', [KasbonController::class, 'index'])->name('transaksi.index')->middleware('permission:GET /kasbon');
-    Route::get('/kasbon/detail/{id}', [KasbonController::class, 'detail'])->name('transaksi.detail')->middleware('permission:GET /kasbon/detail/{id}');
-    Route::post('/kasbon/bayar', [KasbonController::class, 'bayar'])->name('transaksi.bayar')->middleware('permission:POST /kasbon/bayar');
+    Route::prefix('transaksi-barang')->group(function () {
+        // Pembelian Barang
+        Route::get('pembelian-barang', [PembelianBarangController::class, 'index'])->name('transaksi.pembelianbarang.index')->middleware('permission:GET /pembelian-barang');
+        Route::get('pembelian-barang/detail', [PembelianBarangController::class, 'detail'])->name('transaksi.pembelianbarang.detail')->middleware('permission:GET /pembelian-barang/detail');
+        // Kasir Controller
+        Route::get('kasir', [TransaksiKasirController::class, 'index'])->name('transaksi.kasir.index')->middleware('permission:GET /kasir');
+        // Kasbon Controller
+        Route::get('kasbon', [KasbonController::class, 'index'])->name('transaksi.index')->middleware('permission:GET /kasbon');
+    });
 
     Route::prefix('rekapitulasi')->group(function () {
-        Route::get('laporan-penjualan', [LaporanPenjualanController::class, 'index'])->name('laporan.penjualan.index')->middleware('permission:GET /rekapitulasi/laporan-penjualan');
-        Route::get('laporan-kasir', [LaporanKasirController::class, 'index'])->name('laporan.kasir.index')->middleware('permission:GET /rekapitulasi/laporan-kasir');
-        Route::get('laporan-pembelian', [LaporanPembelianBarangController::class, 'index'])->name('laporan.pembelian.index')->middleware('permission:GET /lappembelian');
-        Route::get('laporan-pengiriman', [LaporanPengirimanBarangController::class, 'index'])->name('laporan.pengiriman.index')->middleware('permission:GET /lappengiriman');
-        Route::get('rating-barang', [RatingBarangController::class, 'index'])->name('laporan.rating.index')->middleware('permission:GET /laprating');
-        Route::get('rating-member', [RatingMemberController::class, 'index'])->name('laporan.ratingmember.index')->middleware('permission:GET /ratingmember');
-        Route::get('aset-barang-jualan', [AsetBarangJualanController::class, 'index'])->name('laporan.asetbarang.index')->middleware('permission:GET /asetbarang');
-        Route::get('aset-barang-retur', [AsetBarangReturController::class, 'index'])->name('laporan.asetbarangreture.index')->middleware('permission:GET /asetbarang-reture');
+        Route::get('laporan-penjualan', [LaporanPenjualanController::class, 'index'])->name('laporan.penjualan.index')->middleware('permission:GET /laporan-penjualan');
+        Route::get('laporan-kasir', [LaporanKasirController::class, 'index'])->name('laporan.kasir.index')->middleware('permission:GET /laporan-kasir');
+        Route::get('laporan-pembelian', [LaporanPembelianBarangController::class, 'index'])->name('laporan.pembelian.index')->middleware('permission:GET /laporan-pembelian');
+        Route::get('laporan-pengiriman', [LaporanPengirimanBarangController::class, 'index'])->name('laporan.pengiriman.index')->middleware('permission:GET /laporan-pengiriman');
+        Route::get('rating-barang', [RatingBarangController::class, 'index'])->name('laporan.rating.index')->middleware('permission:GET /rating-barang');
+        Route::get('rating-member', [RatingMemberController::class, 'index'])->name('laporan.ratingmember.index')->middleware('permission:GET /rating-member');
+        Route::get('aset-barang-jualan', [AsetBarangJualanController::class, 'index'])->name('laporan.asetbarang.index')->middleware('permission:GET /aset-barang-jualan');
+        Route::get('aset-barang-retur', [AsetBarangReturController::class, 'index'])->name('laporan.asetbarangreture.index')->middleware('permission:GET /aset-barang-retur');
     });
 
-    // Laporan Keuangan
-    Route::get('/laporan-keuangan/arus-kas', [ArusKasController::class, 'index'])->name('laporankeuangan.aruskas.index')->middleware('permission:GET /laporan-keuangan/arus-kas');
-    Route::get('/laporan-keuangan/laba-rugi', [LabaRugiController::class, 'index'])->name('laporankeuangan.labarugi.index')->middleware('permission:GET /laporan-keuangan/laba-rugi');
-    Route::get('/laporan-keuangan/neraca', [NeracaController::class, 'index'])->name('laporankeuangan.neraca.index')->middleware('permission:GET /laporan-keuangan/neraca');
-    Route::get('/laporan-keuangan/neraca-penyesuaian', [NeracaPenyesuaianController::class, 'index'])->name('laporankeuangan.neraca.penyesuaian.index')->middleware('permission:GET /laporan-keuangan/neraca-penyesuaian');
+    Route::prefix('laporan-keuangan')->group(function () {
+        // Laporan Keuangan
+        Route::get('arus-kas', [ArusKasController::class, 'index'])->name('laporankeuangan.aruskas.index')->middleware('permission:GET /arus-kas');
+        Route::get('laba-rugi', [LabaRugiController::class, 'index'])->name('laporankeuangan.labarugi.index')->middleware('permission:GET /laba-rugi');
+        Route::get('neraca', [NeracaController::class, 'index'])->name('laporankeuangan.neraca.index')->middleware('permission:GET /neraca');
+        Route::get('neraca-penyesuaian', [NeracaPenyesuaianController::class, 'index'])->name('laporankeuangan.neraca.penyesuaian.index')->middleware('permission:GET /neraca-penyesuaian');
+    });
 
-    // Pemasukan Controller
-    Route::get('/pemasukan', [PemasukanController::class, 'index'])->name('keuangan.pemasukan.index')->middleware('permission:GET /pemasukan');
+    Route::prefix('jurnal-keuangan')->group(function () {
+        // Pemasukan Controller
+        Route::get('pemasukan', [PemasukanController::class, 'index'])->name('keuangan.pemasukan.index')->middleware('permission:GET /pemasukan');
+        // Pengeluaran Controller
+        Route::get('pengeluaran', [PengeluaranController::class, 'index'])->name('keuangan.pengeluaran.index')->middleware('permission:GET /pengeluaran');
+        // Piutang Controller
+        Route::get('piutang', [PiutangController::class, 'index'])->name('keuangan.piutang.index')->middleware('permission:GET /piutang');
+        // Hutang Controller
+        Route::get('hutang', [HutangController::class, 'index'])->name('keuangan.hutang.index')->middleware('permission:GET /hutang');
+        // Mutasi Controller
+        Route::get('mutasi', [MutasiController::class, 'index'])->name('keuangan.mutasi.index')->middleware('permission:GET /mutasi');
+    });
 
-    // Pengeluaran Controller
-    Route::get('/pengeluaran', [PengeluaranController::class, 'index'])->name('keuangan.pengeluaran.index')->middleware('permission:GET /pengeluaran');
-
-    // Piutang Controller
-    Route::get('/piutang', [PiutangController::class, 'index'])->name('keuangan.piutang.index')->middleware('permission:GET /piutang');
-
-    // Hutang Controller
-    Route::get('/hutang', [HutangController::class, 'index'])->name('keuangan.hutang.index')->middleware('permission:GET /hutang');
-
-    // Mutasi Controller
-    Route::get('/mutasi', [MutasiController::class, 'index'])->name('keuangan.mutasi.index')->middleware('permission:GET /mutasi');
-
-    // Pengembalian Barang Controller (sudah benar)
-    Route::delete('/pengembalian/delete', [PengembalianController::class, 'delete'])->name('pengembalian.delete')->middleware('permission:DELETE /pengembalian/delete');
-
-    Route::get('/log-aktivitas', [LogAktivitasController::class, 'index'])->name('master.logAktivitas.index')->middleware('permission:GET /log-aktivitas');
-    Route::get('/dompet-digital', [DompetController::class, 'index'])->name('td.dompetDigital.index')->middleware('permission:GET /dompet-digital');
-    Route::get('/transaksi-nonfisik', [TransaksiNonFisikController::class, 'index'])->name('td.penjualanNonfisik.index')->middleware('permission:GET /transaksi-nonfisik');
+    Route::prefix('transaksi-digital')->group(function () {
+        Route::get('dompet-digital', [DompetController::class, 'index'])->name('td.dompetDigital.index')->middleware('permission:GET /dompet-digital');
+        Route::get('transaksi-nonfisik', [TransaksiNonFisikController::class, 'index'])->name('td.penjualanNonfisik.index')->middleware('permission:GET /transaksi-nonfisik');
+    });
 
     Route::prefix('retur')->as('retur.')->group(function () {
-        Route::get('/member', [ReturMemberController::class, 'index'])->name('member.index')->middleware('permission:GET /reture');
-        Route::get('/supplier', [ReturSupplierController::class, 'index'])->name('supplier.index')->middleware('permission:GET /reture/suplier');
+        Route::get('member', [ReturMemberController::class, 'index'])->name('member.index')->middleware('permission:GET /retur-member');
+        Route::get('suplier', [ReturSupplierController::class, 'index'])->name('supplier.index')->middleware('permission:GET /retur-suplier');
     });
+
+    Route::get('catatan', [CatatanController::class, 'index'])->name('catatan.index')->middleware('permission:GET /catatan');
 });
+
+Route::get('levelharga/create', [LevelHargaController::class, 'create'])->name('master.levelharga.create');
+Route::post('levelharga/store', [LevelHargaController::class, 'store'])->name('master.levelharga.store');
+Route::get('levelharga/edit/{id}', [LevelHargaController::class, 'edit'])->name('master.levelharga.edit');
+Route::put('levelharga/update/{id}', [LevelHargaController::class, 'update'])->name('master.levelharga.update');
+Route::delete('levelharga/delete/{id}', [LevelHargaController::class, 'delete'])->name('master.levelharga.delete');
+Route::get('leveluser/create', [LevelUserController::class, 'create'])->name('master.leveluser.create');
+Route::post('leveluser/store', [LevelUserController::class, 'store'])->name('master.leveluser.store');
+Route::get('leveluser/edit/{id}', [LevelUserController::class, 'edit'])->name('master.leveluser.edit');
+Route::put('leveluser/update/{id}', [LevelUserController::class, 'update'])->name('master.leveluser.update');
+Route::delete('leveluser/delete/{id}', [LevelUserController::class, 'delete'])->name('master.leveluser.delete');
+Route::get('leveluser/permission/{id}', [LevelUserController::class, 'hakAksesUser'])->name('master.leveluser.permission');
+Route::get('leveluser/permission/get/{id}', [LevelUserController::class, 'getHakAksesUser'])->name('master.leveluser.permission.get');
+Route::post('leveluser/permission/store/{id}', [LevelUserController::class, 'createHakAksesUser'])->name('master.leveluser.permission.store');
+
+Route::post('promo/store', [PromoController::class, 'store'])->name('master.promo.store')->middleware('permission:POST /promo/store');
+Route::put('promo/update', [PromoController::class, 'update'])->name('master.promo.update')->middleware('permission:PUT /promo/update');
+Route::put('promo/update-status', [PromoController::class, 'updateStatus'])->name('master.promo.update-status')->middleware('permission:PUT /promo/update-status');

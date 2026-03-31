@@ -11,6 +11,7 @@ use App\Models\KasSaldoHistory;
 use App\Models\KasTransaksi;
 use App\Models\LabaRugi;
 use App\Models\LabaRugiTahunan;
+use App\Models\StockBarangBatch;
 use App\Models\TransaksiKasir;
 use App\Models\TransaksiKasirDetail;
 use App\Models\TransaksiKasirHarian;
@@ -101,47 +102,84 @@ class TransaksiKasirService
                 'created_by'    => $data['created_by'],
             ]);
 
-            $savedDetails = collect($data['details'])->map(function ($detail) use ($header) {
-                $child = $this->repo2->create([
-                    'qrcode'                 => QrGenerator::build('QR-TRX-'),
-                    'transaksi_kasir_id'     => $header->id,
-                    'stock_barang_batch_id'  => $detail['stock_barang_batch_id'],
-                    'qty'                    => $detail['qty'],
-                    'nominal'                => $detail['nominal'],
-                    'subtotal'               => $detail['qty'] * $detail['nominal'],
-                ]);
+            $savedDetails = collect($data['details'])->flatMap(function ($detail) use ($header, $data) {
 
-                $child->load('stockBarangBatch.stockBarang.barang');
-                $child->jenis_barang_id = $child->stockBarangBatch->stockBarang->barang->jenis_barang_id;
+                $barangId = $detail['barang_id'];
+                $qtyNeed  = $detail['qty'];
 
-                if (!$child->jenis_barang_id) {
-                    throw new \Exception("Jenis barang tidak ditemukan untuk stock_barang_batch_id {$detail['stock_barang_batch_id']}");
+                // =========================
+                // AMBIL SEMUA BATCH (FIFO)
+                // =========================
+                $batches = StockBarangBatch::whereHas('stockBarang', function ($q) use ($barangId) {
+                    $q->where('barang_id', $barangId);
+                })
+                    ->where('qty_sisa', '>', 0)
+                    ->where('toko_id', $data['toko_id'])
+                    ->orderBy('created_at') // FIFO
+                    ->get();
+
+                $totalAvailable = $batches->sum('qty_sisa');
+
+                if ($totalAvailable < $qtyNeed) {
+                    throw new \Exception("Stok tidak cukup untuk barang_id {$barangId}");
                 }
 
-                // ----------------------------
-                // Update stok batch & stok barang
-                // ----------------------------
-                $batch = $child->stockBarangBatch;
-                $stockBarang = $batch->stockBarang;
+                $results = collect();
 
-                if ($batch->qty_sisa < $child->qty) {
-                    throw new \Exception("Stok batch tidak cukup untuk stock_barang_batch_id {$batch->id}");
+                foreach ($batches as $batch) {
+
+                    if ($qtyNeed <= 0) break;
+
+                    $ambil = min($batch->qty_sisa, $qtyNeed);
+
+                    // =========================
+                    // CREATE DETAIL (PER BATCH)
+                    // =========================
+                    $child = $this->repo2->create([
+                        'qrcode'                 => QrGenerator::build('QR-TRX-'),
+                        'transaksi_kasir_id'     => $header->id,
+                        'stock_barang_batch_id'  => $batch->id,
+                        'qty'                    => $ambil,
+                        'nominal'                => $detail['nominal'],
+                        'subtotal'               => $ambil * $detail['nominal'],
+                    ]);
+
+                    $child->load('stockBarangBatch.stockBarang.barang');
+
+                    $jenisBarangId = $child->stockBarangBatch->stockBarang->barang->jenis_barang_id;
+
+                    if (!$jenisBarangId) {
+                        throw new \Exception("Jenis barang tidak ditemukan");
+                    }
+
+                    $child->jenis_barang_id = $jenisBarangId;
+
+                    // =========================
+                    // UPDATE BATCH
+                    // =========================
+                    $batch->qty_sisa -= $ambil;
+                    $batch->save();
+
+                    // =========================
+                    // UPDATE STOCK BARANG
+                    // =========================
+                    $stockBarang = $batch->stockBarang;
+                    $stockBarang->stok -= $ambil;
+                    if ($stockBarang->stok < 0) $stockBarang->stok = 0;
+                    $stockBarang->save();
+
+                    // =========================
+                    // HPP
+                    // =========================
+                    $child->total_hpp       = $ambil * $stockBarang->hpp_baru;
+                    $child->total_hpp_batch = $ambil * $batch->hpp_baru;
+
+                    $results->push($child);
+
+                    $qtyNeed -= $ambil;
                 }
 
-                $batch->qty_sisa -= $child->qty;
-                $batch->save();
-
-                $stockBarang->stok -= $child->qty;
-                if ($stockBarang->stok < 0) $stockBarang->stok = 0; // aman
-                $stockBarang->save();
-
-                // ----------------------------
-                // Hitung total HPP per detail
-                // ----------------------------
-                $child->total_hpp = $child->qty * $stockBarang->hpp_baru;
-                $child->total_hpp_batch = $child->qty * $batch->hpp_baru;
-
-                return $child;
+                return $results;
             });
 
             // ----------------------------

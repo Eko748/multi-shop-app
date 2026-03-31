@@ -132,27 +132,14 @@
                     <div class="card">
                         <div class="card-header custom-header">
                             <div class="custom-left">
-                                @if (hasAnyPermission(['POST /toko/store', 'POST /import-toko']))
-                                    @if (hasAnyPermission(['POST /toko/store']))
-                                        <div class="custom-btn-tambah-wrap">
-                                            <button type="button" class="btn btn-primary w-100" id="btn-add-data"
-                                                onclick="openAddModal()">
-                                                <i class="fa fa-circle-plus"></i><span> Tambah Data</span>
-                                            </button>
-                                        </div>
-                                    @endif
-                                    @if (hasAnyPermission(['POST /import-toko']))
-                                        <form action="{{ route('master.toko.import') }}" method="POST"
-                                            enctype="multipart/form-data" class="custom-form-import">
-                                            @csrf
-                                            <input type="file" name="file" class="custom-input-file" accept=".xlsx"
-                                                required>
-                                            <button type="submit" class="btn btn-success custom-btn-import">
-                                                <i class="fa fa-file-import"></i> Import
-                                            </button>
-                                        </form>
-                                    @endif
-                                @endif
+                                {{-- @if (hasAnyPermission(['POST /toko/store'])) --}}
+                                    <div class="custom-btn-tambah-wrap">
+                                        <button type="button" class="btn btn-primary w-100" id="btn-add-data"
+                                            onclick="openAddModal()">
+                                            <i class="fa fa-circle-plus"></i><span> Tambah Data</span>
+                                        </button>
+                                    </div>
+                                {{-- @endif --}}
                             </div>
                             <div class="custom-right">
                                 <div class="custom-limit-page">
@@ -169,7 +156,6 @@
                             </div>
                         </div>
                         <div class="content">
-                            <x-adminlte-alerts />
                             <div class="card-body p-0">
                                 <div class="table-responsive table-scroll-wrapper">
                                     <table class="table table-striped m-0">

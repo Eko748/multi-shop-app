@@ -15,7 +15,7 @@ class ReturMemberRepository
 
     public function getAll($filter)
     {
-        $query = $this->model->with(['detail', 'toko', 'member', 'createdBy']);
+        $query = $this->model->with(['detail', 'toko', 'member', 'createdBy'])->where('toko_id', $filter->toko_id);
 
         if (!empty($filter->start_date) && !empty($filter->end_date)) {
             $query->whereBetween('tanggal', [$filter->start_date, $filter->end_date]);

@@ -34,7 +34,9 @@ class ReturMemberController extends Controller
     public function get(Request $request)
     {
         try {
-            $filter = $this->makeFilter($request, 30);
+            $filter = $this->makeFilter($request, 30, [
+                'toko_id' => $request->toko_id
+            ]);
             $data = $this->service->getAll($filter);
 
             return $this->success($data['data'], 200, 'Berhasil', $data['pagination']);

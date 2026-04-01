@@ -25,41 +25,32 @@ class LaporanPenjualanService
         $toko = Toko::find($idToko);
 
         $query = TransaksiKasirDetail::select(
-
             'transaksi_kasir.toko_id',
             'toko.nama as nama_toko',
-
             'jenis_barang.id as id_jenis_barang',
             'jenis_barang.nama_jenis_barang',
-
             DB::raw('COUNT(DISTINCT transaksi_kasir.id) as jml_trx'),
             DB::raw('SUM(transaksi_kasir_detail.qty) as item_qty'),
             DB::raw('SUM(transaksi_kasir_detail.subtotal) as nilai_trx'),
-            DB::raw('SUM(transaksi_kasir_detail.qty * stock_barang_batch.harga_beli) as nilai_hpp'),
-
+            DB::raw('SUM(transaksi_kasir_detail.qty * stock_barang.hpp_baru) as nilai_hpp'),
             DB::raw('SUM(CASE WHEN transaksi_kasir.member_id IS NOT NULL THEN transaksi_kasir_detail.subtotal ELSE 0 END) as member_nilai'),
             DB::raw('SUM(CASE WHEN transaksi_kasir.member_id IS NULL THEN transaksi_kasir_detail.subtotal ELSE 0 END) as non_member_nilai'),
-
             DB::raw('SUM(CASE WHEN transaksi_kasir.member_id IS NOT NULL THEN transaksi_kasir_detail.qty * stock_barang_batch.harga_beli ELSE 0 END) as member_hpp'),
             DB::raw('SUM(CASE WHEN transaksi_kasir.member_id IS NULL THEN transaksi_kasir_detail.qty * stock_barang_batch.harga_beli ELSE 0 END) as non_member_hpp'),
-
             DB::raw('COUNT(DISTINCT CASE WHEN transaksi_kasir.member_id IS NOT NULL THEN transaksi_kasir.id END) as member_trx'),
             DB::raw('COUNT(DISTINCT CASE WHEN transaksi_kasir.member_id IS NULL THEN transaksi_kasir.id END) as non_member_trx')
         )
-
             ->join('transaksi_kasir', 'transaksi_kasir.id', '=', 'transaksi_kasir_detail.transaksi_kasir_id')
             ->join('toko', 'toko.id', '=', 'transaksi_kasir.toko_id')
             ->join('stock_barang_batch', 'stock_barang_batch.id', '=', 'transaksi_kasir_detail.stock_barang_batch_id')
             ->join('stock_barang', 'stock_barang.id', '=', 'stock_barang_batch.stock_barang_id')
             ->join('barang', 'barang.id', '=', 'stock_barang.barang_id')
             ->join('jenis_barang', 'jenis_barang.id', '=', 'barang.jenis_barang_id')
-
             ->whereBetween('transaksi_kasir.tanggal', [$start, $end]);
 
         if ($toko && $toko->parent_id !== null) {
 
             $query->where('transaksi_kasir.toko_id', $idToko);
-
             $query->groupBy(
                 'transaksi_kasir.toko_id',
                 'toko.nama',

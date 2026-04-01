@@ -290,7 +290,7 @@
                 printWindow.document.write(`
                     <html>
                         <head>
-                            <title>Print QR Code Pembelian</title>
+                            <title>Print QR Code</title>
                             <style>
                                 @media print {
                                     @page {
@@ -422,7 +422,7 @@
             for (let i = 0; i < words.length; i++) {
                 let word = words[i];
                 if (word.length > 7) {
-                    word = word.substring(0, 7) + '..'; // now word is 9 chars
+                    word = word.substring(0, 7) + '..';
                 }
 
                 let wordWithSpace = (result ? ' ' : '') + word;
@@ -566,7 +566,7 @@
                 printWindow.document.write(`
                     <html>
                         <head>
-                            <title>Print QR Code Pembelian</title>
+                            <title>Print QR Code</title>
                             <style>
                                 @media print {
                                     @page {

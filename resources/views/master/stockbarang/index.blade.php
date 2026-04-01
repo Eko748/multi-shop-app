@@ -209,7 +209,7 @@
                     limit: limit,
                     ascending: ascending,
                     search: search,
-                    toko_id: '{{ auth()->user()->toko_id }}',
+                    toko_id: {{ auth()->user()->toko_id }},
                     ...filterParams
                 }
             ).then(function(response) {
@@ -881,20 +881,21 @@
 
         async function renderTabDetailBarang(id_barang, id = '#modal-detail-barang-body') {
             const detailResp = await renderAPI('GET', '{{ route('sb.getBarang') }}', {
-                barang_id: id_barang
+                barang_id: id_barang,
+                toko_id: {{ auth()->user()->toko_id }}
             }).then(r => r).catch(
                 e => e.response);
             const target = id;
 
             if (detailResp && detailResp.status === 200 && Array.isArray(detailResp.data.data)) {
                 const rows = detailResp.data.data.map((el, idx) => `
-            <tr class="text-dark">
-                <td class="text-center">${idx + 1}.</td>
-                <td>${el.created_at}</td>
-                <td class="text-center">${el.qty}</td>
-                <td class="text-right">${el.harga}</td>
-                <td class="text-right">${el.hpp_baru}</td>
-            </tr>`).join('');
+                <tr class="text-dark">
+                    <td class="text-center">${idx + 1}.</td>
+                    <td>${el.created_at}</td>
+                    <td class="text-center">${el.qty}</td>
+                    <td class="text-right">${el.harga}</td>
+                    <td class="text-right">${el.hpp_baru}</td>
+                </tr>`).join('');
                 $(target).html(rows);
 
                 document.querySelectorAll('.copy-btn').forEach(btn => {
@@ -921,28 +922,27 @@
             if (detailResp?.status === 200 && Array.isArray(detailResp.data.data)) {
 
                 const rows = detailResp.data.data.map((el, idx) => `
-            <tr>
-                <td class="text-center">${idx + 1}</td>
-                <td class="text-center">${el.created_at}</td>
-                <td class="text-center">${el.qty}</td>
-                <td class="text-right">${el.harga}</td>
-                <td class="text-right">${el.hpp_baru}</td>
-                <td class="text-left">
-                    <input type="number"
-                        class="form-control form-control-sm reduce-stock"
-                        min="0"
-                        max="${el.qty}"
-                        value="0"
-                        data-id="${el.id}"
-                        data-max="${el.qty}">
-                    <small class="text-muted text-danger">Maks: ${el.qty}</small>
-                </td>
-            </tr>
-        `).join('');
+                    <tr>
+                        <td class="text-center">${idx + 1}</td>
+                        <td class="text-center">${el.created_at}</td>
+                        <td class="text-center">${el.qty}</td>
+                        <td class="text-right">${el.harga}</td>
+                        <td class="text-right">${el.hpp_baru}</td>
+                        <td class="text-left">
+                            <input type="number"
+                                class="form-control form-control-sm reduce-stock"
+                                min="0"
+                                max="${el.qty}"
+                                value="0"
+                                data-id="${el.id}"
+                                data-max="${el.qty}">
+                            <small class="text-muted text-danger">Maks: ${el.qty}</small>
+                        </td>
+                    </tr>
+                `).join('');
 
                 $(target).html(rows);
 
-                // Copy QR
                 document.querySelectorAll('.copy-btn').forEach(btn => {
                     btn.onclick = () => {
                         const text = document.getElementById(btn.dataset.target).innerText;
@@ -952,7 +952,6 @@
                     };
                 });
 
-                // Validasi max per row
                 document.querySelectorAll('.reduce-stock').forEach(input => {
                     input.addEventListener('input', function() {
                         const max = Number(this.dataset.max);

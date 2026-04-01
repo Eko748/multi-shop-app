@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use App\Enums\StatusStockBarang;
+use App\Helpers\AssetGenerate;
 use App\Helpers\LogAktivitasGenerate;
 use App\Helpers\RupiahGenerate;
 use App\Helpers\TextGenerate;
@@ -597,7 +598,7 @@ class StockBarangController extends Controller
 
     public function getBarang(Request $request)
     {
-        $userTokoId = Auth::user()->toko_id;
+        $userTokoId = $request->toko_id;
 
         $detail = StockBarangBatch::whereHas('stockBarang', function ($q) use ($request, $userTokoId) {
             $q->where('barang_id', $request->barang_id)
@@ -613,15 +614,22 @@ class StockBarangController extends Controller
         }
 
         $data = $detail->map(function ($item) {
+            $img     = AssetGenerate::build("qrcodes/barang/{$item->stockBarang->barang->qrcode}.png");
+
             return [
                 'id'        => $item->id,
                 'qty'       => $item->qty_sisa ?? 0,
+                'nama_barang' => TextGenerate::smartTail($item->stockBarang->barang->nama, 10, 30, 5),
                 'harga'     => RupiahGenerate::build($item->harga_beli),
                 'hpp_awal'     => RupiahGenerate::build($item->hpp_awal),
                 'hpp_baru'     => RupiahGenerate::build($item->hpp_baru),
-                'qrcode'    => $item->qrcode ?? null,
+                'qrcode'    =>  $item->stockBarang->barang->qrcode,
+                'qrcode_path' => $img,
                 'created_at' => $item->created_at
                     ? $item->created_at->format('Y-m-d H:i:s')
+                    : null,
+                'tanggal' => $item->created_at
+                    ? $item->created_at->format('d/m/Y')
                     : null,
             ];
         });

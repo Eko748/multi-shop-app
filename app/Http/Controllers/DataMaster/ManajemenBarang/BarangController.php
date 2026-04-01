@@ -93,6 +93,7 @@ class BarangController extends Controller
                 'garansi' => $item->garansi === 1 ? 'Aktif' : 'Tidak Ada',
                 'status_garansi' => $item->garansi,
                 'barcode' => $item->barcode,
+                'qrcode' => $item->qrcode,
                 'barcode_path' => AssetGenerate::build("barcodes/{$item->barcode}.png"),
                 'qrcode_path' => AssetGenerate::build("qrcodes/barang/{$item->qrcode}.png"),
                 'gambar' => $item->gambar,

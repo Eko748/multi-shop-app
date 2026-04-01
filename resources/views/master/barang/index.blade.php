@@ -127,12 +127,12 @@
                         <div class="card-header custom-header">
                             <div class="custom-left">
                                 {{-- @if (hasAnyPermission(['POST /barang/store'])) --}}
-                                    <div class="custom-btn-tambah-wrap">
-                                        <button type="button" class="btn btn-primary w-100" id="btn-add-data"
-                                            onclick="openAddModal()">
-                                            <i class="fa fa-circle-plus"></i><span> Tambah Data</span>
-                                        </button>
-                                    </div>
+                                <div class="custom-btn-tambah-wrap">
+                                    <button type="button" class="btn btn-primary w-100" id="btn-add-data"
+                                        onclick="openAddModal()">
+                                        <i class="fa fa-circle-plus"></i><span> Tambah Data</span>
+                                    </button>
+                                </div>
                                 {{-- @endif --}}
                                 <div class="custom-btn-tambah-wrap">
                                     <button class="btn-dynamic btn btn-outline-primary custom-btn-tambah" type="button"
@@ -191,7 +191,6 @@
                                             <tr class="tb-head">
                                                 <th class="text-center text-wrap align-top">No</th>
                                                 <th class="text-wrap align-top">ID</th>
-                                                <th class="text-wrap align-top">Kode</th>
                                                 <th class="text-wrap align-top">Barcode</th>
                                                 <th class="text-wrap align-top">QR code</th>
                                                 <th class="text-wrap align-top">Barang</th>
@@ -242,6 +241,57 @@
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" aria-label="Close"><i
                                 class="fa fa-times mr-1"></i>Tutup</button>
                         <button type="submit" form="form-data" class="btn btn-success" id="save-btn">Simpan</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal fade" id="modal-detail" tabindex="-1" role="dialog" aria-labelledby="modal-form-label"
+            aria-hidden="true">
+            <div class="modal-dialog modal-xl" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalDetail">Detail Data Barang</h5>
+                        <button type="button" class="btn-close reset-all close" data-bs-dismiss="modal"
+                            aria-label="Close"><i class="fa fa-xmark"></i></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-striped">
+                                <thead class="thead-light">
+                                    <tr class="tb-head">
+                                        <th class="text-center">No.</th>
+                                        <th>Tanggal Masuk</th>
+                                        <th class="text-center">Stok</th>
+                                        <th class="text-right">Harga Beli</th>
+                                        <th class="text-right">Riwayat Hpp</th>
+                                        <th class="text-center">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="detail-data"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" aria-label="Close"><i
+                                class="fa fa-times mr-1"></i>Tutup</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal fade" id="modal-print-form" tabindex="-1" role="dialog" aria-labelledby="modal-form-label"
+            aria-hidden="true">
+            <div class="modal-dialog modal-xl" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modal-print-title">Print QR Code</h5>
+                        <button type="button" class="btn-close reset-all close" data-bs-dismiss="modal"
+                            aria-label="Close"><i class="fa fa-xmark"></i></button>
+                    </div>
+                    <div class="modal-body">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" aria-label="Close"><i
+                                class="fa fa-times mr-1"></i>Tutup</button>
                     </div>
                 </div>
             </div>
@@ -375,10 +425,20 @@
                 </a>` : ``;
 
             let gambar_barcode = data?.barcode_path && data.barcode_path !== "" ?
-                `<img src="${data.barcode_path}" width="100" class="barcode-img" alt="Barcode">` :
+                `
+                <div class="d-flex flex-column align-items-start">
+                    <img src="${data.barcode_path}" width="50" class="barcode-img" alt="Barcode">
+                    <span>${view_button}</span>
+                </div>
+                ` :
                 `<span class="badge badge-danger">Tidak Ada Gambar</span>`;
             let gambar_qrcode = data?.qrcode_path && data.qrcode_path !== "" ?
-                `<img src="${data.qrcode_path}" width="50" class="qrcode-img" alt="QR code">` :
+                `
+                <div class="d-flex flex-column align-items-start">
+                    <img src="${data.qrcode_path}" width="25" class="qrcode-img" alt="QRCode">
+                    <span>${data.qrcode}</span>
+                </div>
+                ` :
                 `<span class="badge badge-danger">Tidak Ada Gambar</span>`;
 
             let edit_button = `
@@ -386,6 +446,14 @@
                 <span class="text-dark" title="Edit ${title}: ${data.nama_barang}">Edit</span>
                 <div class="icon text-warning" title="Edit ${title}: ${data.nama_barang}">
                     <i class="fa fa-edit"></i>
+                </div>
+            </a>`;
+
+            let detail_button = `
+            <a class="p-1 btn detail-data action_button" onClick="openDetailModal('${encodeURIComponent(JSON.stringify(data))}')">
+                <span class="text-dark" title="Detail ${title}: ${data.nama_barang}">Detail</span>
+                <div class="icon text-info" title="Detail ${title}: ${data.nama_barang}">
+                    <i class="fa fa-folder"></i>
                 </div>
             </a>`;
 
@@ -417,7 +485,7 @@
             if (edit_button || delete_button) {
                 action_buttons = `
                 <div class="d-flex justify-content-start">
-                    ${download_button ? `<div class="hovering p-1">${download_button}</div>` : ''}
+                    ${detail_button ? `<div class="hovering p-1">${detail_button}</div>` : ''}
                     ${edit_button ? `<div class="hovering p-1">${edit_button}</div>` : ''}
                     ${delete_button ? `<div class="hovering p-1">${delete_button}</div>` : ''}
                 </div>`;
@@ -457,7 +525,6 @@
                     <tr class="text-dark">
                         <td class="${classCol} text-center">${display_from + index}.</td>
                         <td class="${classCol} text-primary">${element.id}</td>
-                        <td class="${classCol}">${element.barcode}</td>
                         <td class="${classCol}">${element.gambar_barcode}</td>
                         <td class="${classCol}">${element.gambar_qrcode}</td>
                         <td class="${classCol}">${element.nama_barang}</td>
@@ -546,81 +613,6 @@
             });
         }
 
-        // async function addData() {
-        //     $(document).on("click", ".add-data", function() {
-        //         $("#formTambahData")[0].reset();
-        //         $("#formTambahData select").val("");
-        //         $("#formTambahData .select2").val(null).trigger("change");
-        //         $('#garansi').prop('checked', false);
-        //         $('#switchStatus').text('Tidak');
-
-        //         $("#modal-title").html(`<i class="fa fa-circle-plus mr-1"></i>Form Tambah Barang`);
-        //         $("#modal-form").modal("show");
-        //         $("#formTambahData").data("action-url", '{{ route('barang.post') }}');
-        //         setTimeout(() => {
-        //             $('#brand_id').val('1').trigger('change');
-        //         }, 100);
-        //     });
-
-        //     $('#garansi').on('change', function() {
-        //         $('#switchStatus').text(this.checked ? 'Ya' : 'Tidak');
-        //     });
-
-        // }
-
-        // async function submitForm() {
-        //     $(document).off("submit").on("submit", "#formTambahData", async function(e) {
-        //         e.preventDefault();
-
-        //         const $submitButton = $("#submit-button");
-        //         const originalButtonHTML = $submitButton.html();
-
-        //         $submitButton.prop("disabled", true).html(
-        //             `<i class="fas fa-spinner fa-spin"></i> Menyimpan...`);
-
-        //         loadingPage(true);
-
-        //         let actionUrl = $("#formTambahData").data("action-url");
-
-        //         const userId = {{ auth()->user()->id }};
-
-        //         let formData = {
-        //             created_by: userId,
-        //             nama: $('#nama').val(),
-        //             barcode: $('#barcode').val(),
-        //             gambar: $('#gambar').val(),
-        //             jenis_barang_id: $('#jenis_barang_id').val(),
-        //             brand_id: $('#brand_id').val(),
-        //             garansi: $('#garansi').is(':checked'),
-        //         };
-
-        //         try {
-        //             let postData = await renderAPI("POST", actionUrl, formData);
-
-        //             loadingPage(false);
-        //             if (postData.status >= 200 && postData.status < 300) {
-        //                 notificationAlert("success", "Pemberitahuan", postData.data.message || "Berhasil");
-        //                 setTimeout(async function() {
-        //                     await getListData(defaultLimitPage, currentPage, defaultAscending,
-        //                         defaultSearch, customFilter);
-        //                 }, 500);
-        //                 setTimeout(() => {
-        //                     $("#modal-form").modal("hide");
-        //                 }, 500);
-        //             } else {
-        //                 notificationAlert("info", "Pemberitahuan", postData.data.message ||
-        //                     "Terjadi kesalahan");
-        //             }
-        //         } catch (error) {
-        //             loadingPage(false);
-        //             let resp = error.response?.data || {};
-        //             notificationAlert("error", "Kesalahan", resp.message || "Terjadi kesalahan");
-        //         } finally {
-        //             $submitButton.prop("disabled", false).html(originalButtonHTML);
-        //         }
-        //     });
-        // }
-
         function previewBarcode(base64) {
             const overlay = document.getElementById('barcodePreview');
             const img = document.getElementById('barcodePreviewImg');
@@ -670,6 +662,284 @@
             }
         }
 
+        async function openDetailModal(data) {
+            let item = JSON.parse(decodeURIComponent(data));
+
+            const detailResp = await renderAPI('GET', '{{ route('sb.getBarang') }}', {
+                barang_id: item.id,
+                toko_id: {{ auth()->user()->toko_id }}
+            }).then(r => r).catch(
+                e => e.response);
+            const target = '#detail-data';
+
+            if (detailResp && detailResp.status === 200 && Array.isArray(detailResp.data.data)) {
+                const rows = detailResp.data.data.map((el, idx) => `
+                <tr class="text-dark">
+                    <td class="text-center">${idx + 1}.</td>
+                    <td>${el.created_at}</td>
+                    <td class="text-center">${el.qty}</td>
+                    <td class="text-right">${el.harga}</td>
+                    <td class="text-right">${el.hpp_baru}</td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-outline-info btn-sm open-modal-print" style="min-width: 120px;" data-container="body" data-toggle="tooltip" data-placement="top"
+                            title="Atur print QR Code"
+                            data-text="${el.qrcode}" data-tanggal="${el.tanggal}" data-qty="${el.qty}" data-barang="${el.nama_barang}" data-qrcode="${el.qrcode_path}">
+                            <i class="fa fa-print"></i>
+                            <span class="d-none d-md-inline"> Print</span>
+                        </button>
+                    </td>
+                </tr>`).join('');
+                $(target).html(rows);
+
+                document.querySelectorAll('.copy-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const text = document.getElementById(this.getAttribute('data-target'))
+                            .innerText;
+                        navigator.clipboard.writeText(text).then(() => {
+                            notyf.success('QR Code berhasil disalin');
+                        }).catch(() => {
+                            notyf.error('Gagal menyalin QR Code');
+                        });
+                    });
+                });
+            } else {
+                $(target).html(`<tr><td class="text-center" colspan="6">Tidak ada Stok Barang</td></tr>`);
+            }
+            $('#modalDetail').html(`<i class="fa fa-folder-open mr-1"></i> Detail Barang ${item.nama_barang}`);
+            $('#modal-detail').modal('show');
+
+            $(document).on("click", ".open-modal-print", function() {
+                const maxQty = $(this).data("qty");
+                const qrCodePath = $(this).data("qrcode");
+                const namaBarang = $(this).data("barang");
+                const tanggal = $(this).data("tanggal");
+                const text = $(this).data("text");
+
+                $("#modal-print-form .-print-body").html("");
+                $("#modal-print-title").html(`Form Print QR Code Pembelian Barang`);
+                $("#modal-print-form").modal("show");
+
+                $("#modal-print-form .modal-body").html(`
+                <div class="mb-3">
+                    <label for="qty_print" class="form-label">Jumlah Print</label>
+                    <input type="number" id="qty_print" class="form-control" min="1" max="${maxQty}" value="${maxQty}">
+                    <small class="form-text text-danger">Maksimum: ${maxQty}</small>
+                </div>
+                <div class="justify-content-end">
+                    <button type="button" class="btn btn-primary w-100" id="confirm-print"
+                        data-text="${text}" data-tanggal="${tanggal}" data-qrcode="${qrCodePath}" data-barang="${namaBarang}" data-max="${maxQty}">
+                        <i class="fa fa-print mr-1"></i>Konfirmasi Print
+                    </button>
+                </div>
+            `);
+            });
+
+            $(document).off("click", "#confirm-print").on("click", "#confirm-print", function() {
+                const qty = parseInt($("#qty_print").val());
+                const maxQty = parseInt($(this).data("max"));
+                const qrCodePath = $(this).data("qrcode");
+                const namaBarang = $(this).data("barang");
+                const tanggal = $(this).data("tanggal");
+                const text = $(this).data("text");
+
+                if (isNaN(qty) || qty < 1 || qty > maxQty) {
+                    notificationAlert('error', 'Error',
+                        `Jumlah print tidak valid. Harus antara 1 hingga ${maxQty}`);
+                    return;
+                }
+
+                const width = 1020;
+                const height = 620;
+
+                const left = (screen.width / 2) - (width / 2);
+                const top = (screen.height / 2) - (height / 2);
+
+                const printWindow = window.open(
+                    '',
+                    'printWindow',
+                    `width=${width},height=${height},top=${top},left=${left},resizable=no,scrollbars=no,toolbar=no,menubar=no,location=no,status=no`
+                );
+
+                let imagesHtml = '';
+                for (let i = 0; i < qty; i++) {
+                    if (i % 3 === 0) {
+                        if (i !== 0) imagesHtml += `</div></div>`;
+                        imagesHtml += `<div class="page"><div class="label-container">`;
+                    }
+
+                    let displayName = formatLabelText(namaBarang);
+
+
+                    imagesHtml += `
+                            <div class="label">
+                                <div class="label-left">
+                                    <img src="${qrCodePath}" alt="QR Code">
+                                    <div class="qr-text">${text ?? ''}</div>
+                                </div>
+
+                                <div class="label-text">
+                                    <div class="label-name">${displayName}</div>
+                                    <div class="label-date">${tanggal ?? ''}</div>
+                                </div>
+                            </div>
+                        `;
+
+                    if (i === qty - 1) {
+                        imagesHtml += `</div></div>`;
+                    }
+                }
+
+                printWindow.document.write(`
+                    <html>
+                        <head>
+                            <title>Print QR Code Pembelian</title>
+                            <style>
+                                @media print {
+                                    @page {
+                                        size: 110mm 17mm;
+                                        margin: 0;
+                                    }
+
+                                    body, html {
+                                        margin: 0;
+                                        padding: 0;
+                                    }
+
+                                    .page {
+                                        page-break-after: always;
+                                        width: 110mm;
+                                        height: 17mm;
+                                        margin: 0;
+                                        padding: 0;
+                                        box-sizing: border-box;
+                                    }
+                                }
+
+                                body {
+                                    font-family: Arial, sans-serif;
+                                }
+
+                                .label-container {
+                                    display: flex;
+                                    flex-wrap: nowrap;
+                                    justify-content: flex-start;
+                                    column-gap: 2mm;
+                                }
+
+                                .label {
+                                    width: 31mm;
+                                    height: 15mm;
+                                    display: flex;
+                                    align-items: center;
+                                    padding: 0;
+                                    box-sizing: border-box;
+                                    margin-top: 1mm;
+                                    margin-bottom: 1mm;
+                                    margin-left: 2mm;
+                                }
+
+                                .label-left {
+                                    display: flex;
+                                    flex-direction: column;
+                                    align-items: center;
+
+                                }
+
+                                .qr-text {
+                                    font-size: 4px;
+                                    max-width: 16mm;
+                                    white-space: nowrap;
+                                    overflow: hidden;
+                                    text-overflow: ellipsis;
+                                }
+
+                                .label img {
+                                    width: 14mm;
+                                    height: 14mm;
+                                    object-fit: contain;
+                                    margin-right: 1mm;
+                                }
+
+                                .label-text {
+                                    display: flex;
+                                    flex-direction: column;
+                                    justify-content: space-between;
+                                    height: 100%;
+                                    margin-top: 1mm;
+                                }
+
+                                .label-name {
+                                    font-size: 6px;
+                                    line-height: 1.2;
+                                }
+
+                                .label-date {
+                                    font-size: 4px;
+                                    max-width: 16mm;
+                                    white-space: nowrap;
+                                    overflow: hidden;
+                                    text-overflow: ellipsis;
+                                    text-align: left;
+                                    margin-bottom: 0.5mm;
+                                }
+                            </style>
+                        </head>
+                        <body>${imagesHtml}</body>
+                    </html>
+                `);
+
+                printWindow.document.close();
+
+                printWindow.onload = function() {
+                    printWindow.focus();
+                    setTimeout(() => {
+                        printWindow.print();
+                    }, 0);
+                };
+
+                const handleAfterPrint = () => {
+                    printWindow.close();
+                    setTimeout(() => {
+                        const input = document.getElementById('qty_print');
+                        if (input) {
+                            input.blur();
+                            setTimeout(() => {
+                                input.focus();
+                                input.select();
+                            }, 10);
+                        }
+                    }, 300);
+                    window.removeEventListener('afterprint', handleAfterPrint);
+                };
+
+                window.addEventListener('afterprint', handleAfterPrint);
+            });
+        }
+
+        function formatLabelText(namaBarang) {
+            const words = namaBarang.trim().split(/\s+/);
+            let result = '';
+            let totalLength = 0;
+
+            for (let i = 0; i < words.length; i++) {
+                let word = words[i];
+                if (word.length > 7) {
+                    word = word.substring(0, 7) + '..'; // now word is 9 chars
+                }
+
+                let wordWithSpace = (result ? ' ' : '') + word;
+                if (totalLength + wordWithSpace.length > 40) {
+                    result += '..';
+                    break;
+                }
+
+                result += wordWithSpace;
+                totalLength = result.length;
+            }
+
+            return result;
+        }
+
         async function renderModalForm(mode = 'add', data = {}) {
             const title = mode === 'edit' ?
                 '<i class="fa fa-edit mr-1"></i>Edit Data Barang' :
@@ -681,7 +951,6 @@
                 <div class="row">
                     <div class="col-xl-12">
                         <div class="card-body">
-                            <div class="table-responsive">
                                 <div class="row">
                                     <div class="col-md-6">
                                         <div class="form-group">
@@ -745,7 +1014,6 @@
                                         </div>
                                     </div>
                                 </div>
-                            </div>
                         </div>
                     </div>
                 </div>

@@ -340,7 +340,7 @@
                                     display: flex;
                                     flex-direction: column;
                                     align-items: center;
-                                    
+
                                 }
 
                                 .qr-text {
@@ -446,7 +446,7 @@
             const text = $(this).data("text");
 
             $("#modal-form .modal-body").html("");
-            $("#modal-title").html(`Form Print QR Code Pembelian Barang`);
+            $("#modal-title").html(`Form Print QR Code`);
             $("#modal-form").modal("show");
 
             $("#modal-form .modal-body").html(`
@@ -631,7 +631,7 @@
                                     width: 14mm;
                                     height: 14mm;
                                     object-fit: contain;
-                                    
+
                                 }
 
                                 .label-text {
@@ -758,7 +758,7 @@
                     data-container="body"
                     data-toggle="tooltip"
                     data-placement="top"
-                    title="Unduh QR Code Pembelian Barang">
+                    title="Unduh QR Code">
                         <i class="fa fa-download"></i>
                         <span class="d-none d-md-inline"> Unduh</span>
                     </a>
@@ -766,7 +766,7 @@
 
                         buttons.push(`
                     <button type="button" class="btn btn-outline-info btn-sm open-modal-print" style="min-width: 120px;" data-container="body" data-toggle="tooltip" data-placement="top"
-                        title="Atur print QR Code Pembelian Barang"
+                        title="Atur print QR Code"
                         data-text="${item.qrcode}" data-tanggal="${item.tanggal}" data-qty="${item.qty}" data-barang="${item.nama_barang}" data-qrcode="${item.qrcode_path}">
                         <i class="fa fa-print"></i>
                         <span class="d-none d-md-inline"> Print</span>
@@ -811,7 +811,7 @@
                 <th colspan="2"></th>
                 <th>
                     <button type="button" class="btn btn-info btn-sm w-100 open-modal-print-all" data-container="body" data-toggle="tooltip" data-placement="top"
-                        title="Atur semua print QR Code Pembelian Barang"
+                        title="Atur semua print QR Code"
                         data-items='${jsonItems}'>
                         <i class="fa fa-print"></i> Print Semua
                     </button>

@@ -25,7 +25,7 @@ class LabaRugiService
             $query->where('toko_id', $tokoId);
         }
 
-        return (float) $query->sum('laba_bersih');
+        return (int) $query->sum('laba_bersih');
     }
 
     public function hitungLabaRugiRange($month, $year, $tokoId)
@@ -116,9 +116,9 @@ class LabaRugiService
             ->where($filterToko)
             ->with('sumber')
             ->get()
-            ->sum(fn($kt) => (float) $kt->sumber->total_hpp ?? 0);
+            ->sum(fn($kt) => (int) $kt->sumber->total_hpp ?? 0);
 
-        $hppretur = KasTransaksi::where('kas_transaksi.tipe', 'out')
+        $hppretur = (int) KasTransaksi::where('kas_transaksi.tipe', 'out')
             ->where('kas_transaksi.sumber_type', ReturMember::class)
             ->whereMonth('kas_transaksi.tanggal', $month)
             ->whereYear('kas_transaksi.tanggal', $year)
@@ -165,7 +165,7 @@ class LabaRugiService
         foreach ($jenisList as $index => $jenis) {
 
             $nilai = isset($pengeluaran[$jenis->id])
-                ? (float) $pengeluaran[$jenis->id]->total
+                ? (int) $pengeluaran[$jenis->id]->total
                 : 0;
 
             $label = '3.' . ($index + 1) . ' ' . $jenis->tipe;
@@ -223,13 +223,13 @@ class LabaRugiService
         $total_labarugi = $totalPendapatan - $total_hpp - $totalBeban;
 
         if ($isNeraca) {
-            return (float) $total_labarugi;
+            return (int) $total_labarugi;
         }
 
-        $totalPendapatan = (float) $totalPendapatan;
-        $total_hpp = (float) $total_hpp;
-        $totalBeban = (float) $totalBeban;
-        $total_labarugi = (float) $total_labarugi;
+        $totalPendapatan = (int) $totalPendapatan;
+        $total_hpp = (int) $total_hpp;
+        $totalBeban = (int) $totalBeban;
+        $total_labarugi = (int) $total_labarugi;
 
         return $this->getDetailLaporan(
             $penjualanUmum,
@@ -292,6 +292,6 @@ class LabaRugiService
 
     protected function getTotalLabaRugi($total_labarugi)
     {
-        return number_format((float) $total_labarugi, 0, ',', '.');
+        return number_format((int) $total_labarugi, 0, ',', '.');
     }
 }

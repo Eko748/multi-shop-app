@@ -93,17 +93,6 @@ class DashboardController extends Controller
                 ->pluck('total', 'bulan')
                 ->map(fn($v) => (float)$v);
 
-            // // === Kasbon per Bulan
-            // $kasbonPerBulan = DB::table('kasbon')
-            //     ->join('kasir', 'kasbon.id_kasir', '=', 'kasir.id')
-            //     ->where('kasbon.utang_sisa', '>', 0)
-            //     ->when($idToko !== 'all', fn($q) => $q->where('kasir.id_toko', $idToko))
-            //     ->selectRaw('MONTH(kasir.tgl_transaksi) as bulan, SUM(kasbon.utang_sisa) as total')
-            //     ->groupBy('bulan')
-            //     ->pluck('total', 'bulan')
-            //     ->map(fn($v) => (float)$v);
-
-            // === Inisialisasi laporan
             $laporan = [
                 'nama_toko' => $namaToko,
                 $period => [],
@@ -580,9 +569,17 @@ class DashboardController extends Controller
             $query = Toko::leftJoin('transaksi_kasir', function ($join) use ($startDate, $endDate) {
                 $join->on('toko.id', '=', 'transaksi_kasir.toko_id')
                     ->where('transaksi_kasir.total_qty', '>', 0)
-                    ->whereBetween('transaksi_kasir.tanggal', [$startDate, $endDate]);
+                    ->whereBetween('transaksi_kasir.tanggal', [
+                        $startDate . ' 00:00:00',
+                        $endDate . ' 23:59:59'
+                    ]);
             })
-                ->selectRaw('toko.id, toko.singkatan, COUNT(transaksi_kasir.id) as jumlah_transaksi, SUM(transaksi_kasir.total_nominal - transaksi_kasir.total_diskon) as total_transaksi')
+                ->selectRaw('
+    toko.id,
+    toko.singkatan,
+    COUNT(transaksi_kasir.id) as jumlah_transaksi,
+    COALESCE(SUM(transaksi_kasir.total_nominal),0) - COALESCE(SUM(transaksi_kasir.total_diskon),0) as total_transaksi
+')
                 ->groupBy('toko.id', 'toko.singkatan');
 
             $tokoData = $query->get();
@@ -593,15 +590,20 @@ class DashboardController extends Controller
             ];
 
             foreach ($tokoData as $data) {
+                $total = $data->total_transaksi ?? 0;
+
                 $result['singkatan'][] = [
                     $data->singkatan => [
                         'jumlah_transaksi' => (int) $data->jumlah_transaksi,
-                        'total_transaksi' => (float) (($data->total_transaksi ?? 0)),
+                        'total_transaksi' => round($total, 2), // aman
                     ],
                 ];
 
-                $result['total'] += ($data->total_transaksi ?? 0);
+                $result['total'] += $total;
             }
+
+            // optional: rapihin total akhir
+            $result['total'] = round($result['total'], 2);
 
             return response()->json([
                 'error' => false,

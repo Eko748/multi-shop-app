@@ -214,25 +214,6 @@ class ReturMemberService
 
                 $returDetail = $this->detailRepo->create($detail);
 
-                // $qtyBarang        = $detail['qty_barang'] ?? 0;
-                // $totalHppBarang   = $detail['total_hpp_barang'] ?? 0;
-
-                // if ($qtyBarang > 0 || $totalHppBarang > 0) {
-
-                //     if ($totalHppBarang > 0) {
-
-                //         $tanggal = \Carbon\Carbon::parse($data['tanggal']);
-
-                //         KasService::updateLabaRugi(
-                //             tokoId: $data['toko_id'],
-                //             tahun: $tanggal->year,
-                //             bulan: $tanggal->month,
-                //             tipe: 'out',
-                //             nominal: $totalHppBarang
-                //         );
-                //     }
-                // }
-
                 $barang = Barang::with('jenis')->find($detail['barang_id']);
 
                 if ($barang) {
@@ -247,7 +228,6 @@ class ReturMemberService
                         $totalHargaJual = $hargaJual * $qtyRefund;
                         $totalHpp       = $hpp * $qtyRefund;
 
-                        // 🚨 VALIDASI ANOMALI
                         if ($totalHargaJual < $totalHpp) {
                             throw \Illuminate\Validation\ValidationException::withMessages([
                                 'harga_jual' => "Data anomali: Total harga jual lebih kecil dari total HPP untuk barang ID {$detail['barang_id']}."
@@ -412,7 +392,7 @@ class ReturMemberService
                 'qty_retur'   => $returQty,
                 'kompensasi'  => $kompensasi,
                 'harga'       => $item->nominal,
-                'hpp'         => optional($item->stockBarangBatch)->harga_beli,
+                'hpp'         => $item->hpp,
                 'stok_detail_id'         => $stokDetailId,
             ];
         });

@@ -605,7 +605,7 @@
                 );
 
                 if (getDataRest && getDataRest.status === 200) {
-                    const responseData = getDataRest.data?.data?.[0] || {
+                    const responseData = getDataRest.data?.data || {
                         nama_toko: "All",
                         daily: {},
                         monthly: {},
@@ -669,7 +669,6 @@
 
             setActiveChartButton('chart-bar');
         }
-
 
         const getDaysInMonth = (year, month) => new Date(year, month, 0).getDate();
 
@@ -1210,43 +1209,43 @@
         async function initPageLoad() {
             // if (hasPermission(['GET /get-omset', 'GET /get-laba-kotor', 'GET /get-jumlah-transaksi'])) {
             //     if (hasPermission(['GET /get-omset'])) {
-                    await getOmset({});
-                // }
-                // if (hasPermission(['GET /get-laba-kotor'])) {
-                    await getLabaKotor({});
-                // }
-                // if (hasPermission(['GET /get-jumlah-transaksi'])) {
-                    await getJumlahTransaksi({});
-                // }
-                await filterOmset();
+            await getOmset({});
+            // }
+            // if (hasPermission(['GET /get-laba-kotor'])) {
+            await getLabaKotor({});
+            // }
+            // if (hasPermission(['GET /get-jumlah-transaksi'])) {
+            await getJumlahTransaksi({});
+            // }
+            await filterOmset();
             // }
 
             await setDynamicButton();
 
             // if (hasPermission(['GET /get-komparasi-toko'])) {
-                await getKomparasiToko(customFilter);
-                await filterKomparasiToko();
+            await getKomparasiToko(customFilter);
+            await filterKomparasiToko();
             // }
 
             // if (hasPermission(['GET /get-rekapitulasi-penjualan'])) {
-                await populateYearOptions();
-                await getLaporanPenjualan();
-                await filterLaporanPenjualan();
+            await populateYearOptions();
+            await getLaporanPenjualan();
+            await filterLaporanPenjualan();
             // }
 
             // if (hasPermission(['GET /get-top-penjualan', 'GET /get-top-member'])) {
             //     if (hasPermission(['GET /get-top-penjualan'])) {
-                    await getTopPenjualan();
-                // }
-                // if (hasPermission(['GET /get-top-member'])) {
-                    await getTopMember();
+            await getTopPenjualan();
+            // }
+            // if (hasPermission(['GET /get-top-member'])) {
+            await getTopMember();
             //     }
             // }
 
             // if (hasPermission(['POST /dashboard-filter-toko'])) {
-                await selectList(['f-penjualan-toko', 'f-barang-toko', 'f-member-toko', 'filter-period', 'filter-month',
-                    'filter-year'
-                ]);
+            await selectList(['f-penjualan-toko', 'f-barang-toko', 'f-member-toko', 'filter-period', 'filter-month',
+                'filter-year'
+            ]);
             // } else {
             //     await selectList(['filter-period', 'filter-month', 'filter-year']);
             // }

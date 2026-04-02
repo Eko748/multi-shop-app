@@ -218,8 +218,8 @@
                 const qty = parseInt($tr.find('.qty').val()) || 0;
                 const kompensasi = $tr.find('.kompensasi').val();
                 const stok = parseInt($tr.data('qty_now')) || 0;
-                const harga = parseInt($tr.data('harga')) || 0;
-                const hpp = parseInt($tr.data('hpp')) || 0;
+                const harga = parseFloat($tr.data('harga')) || 0;
+                const hpp = parseFloat($tr.data('hpp')) || 0;
                 const supplier_id = parseInt($tr.data('supplier_id')) || 0;
                 const barang_id = parseInt($tr.data('barang_id')) || 0;
                 const kasir = parseInt($tr.data('id')) || 0;

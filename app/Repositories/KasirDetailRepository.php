@@ -69,7 +69,7 @@ class KasirDetailRepository
     {
         $query = $this->model::with([
             'stockBarangBatch:id,stock_barang_id,harga_beli,supplier_id,qty_sisa',
-            'stockBarangBatch.stockBarang:id,barang_id,stok',
+            'stockBarangBatch.stockBarang:id,barang_id,stok,hpp_baru',
             'stockBarangBatch.stockBarang.barang:id,nama',
             'transaksiKasir:id,member_id'
         ])
@@ -80,6 +80,7 @@ class KasirDetailRepository
             qty,
             retur_qty,
             nominal,
+            hpp,
             (qty - IFNULL(retur_qty, 0)) as qty_selisih
         ')
             ->where('id', $filter->id);

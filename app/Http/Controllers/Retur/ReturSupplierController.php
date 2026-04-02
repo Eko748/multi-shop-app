@@ -84,7 +84,9 @@ class ReturSupplierController extends Controller
     public function getSupplier(Request $request)
     {
         try {
-            $filter = $this->makeFilter($request, 1);
+            $filter = $this->makeFilter($request, 1, [
+                'toko_id' => $request->input('toko_id'),
+            ]);
 
             $data = $this->service->getSupplier($filter);
 
@@ -99,7 +101,7 @@ class ReturSupplierController extends Controller
     public function getReturMember(Request $request)
     {
         try {
-            $filter = $this->makeFilter($request, 1, [
+            $filter = $this->makeFilter($request, 10, [
                 'supplier_id' => $request->input('supplier_id'),
             ]);
 
@@ -117,7 +119,9 @@ class ReturSupplierController extends Controller
     {
         try {
             // Tambahkan referensi dari request ke filter
-            $filter = $this->makeFilter($request, 1);
+            $filter = $this->makeFilter($request, 10, [
+                'toko_id' => $request->input('toko_id'),
+            ]);
 
             $data = $this->service->getQRCode($filter);
 
@@ -133,9 +137,10 @@ class ReturSupplierController extends Controller
     {
         try {
             // Tambahkan referensi dari request ke filter
-            $filter = $this->makeFilter($request, 500, [
+            $filter = $this->makeFilter($request, 10, [
                 'id' => $request->input('id'),
                 'tipe' => $request->input('tipe'),
+                'toko_id' => $request->input('toko_id'),
             ]);
 
             $data = $this->service->getHargaBarang($filter);

@@ -678,14 +678,10 @@
                 </div>
             </div>`;
 
-            const supplier = data.supplier ? data.supplier : {
-                id: '-',
-                nama: '-'
-            };
             const supplierRow = `
-            <tr class="supplier-row table-active font-weight-bold" data-supplier="${supplier.id}">
+            <tr class="supplier-row table-active font-weight-bold" data-supplier="${data.supplier_id}">
                 <td colspan="9">
-                    <i class="fa fa-truck mr-1"></i> Supplier: ${supplier.nama}
+                    <i class="fa fa-truck mr-1"></i> Supplier: ${data.nama_supplier}
                 </td>
             </tr>`;
 
@@ -752,15 +748,15 @@
                             <select class="form-control select2" id="supplier" name="supplier"></select>
                         </div>
                         <div class="col-md-12 d-none" id="qrcode-wrapper">
-                            <label for="qrcode_pembelian"><i class="fa fa-qrcode mr-1"></i>QR Code Pembelian <sup class="text-danger">*</sup></label>
-                            <select class="form-control select2" id="qrcode_pembelian" name="qrcode_pembelian"></select>
+                            <label for="qrcode_barang"><i class="fa fa-qrcode mr-1"></i>QR Code <sup class="text-danger">*</sup></label>
+                            <select class="form-control select2" id="qrcode_barang" name="qrcode_barang"></select>
                         </div>
                     </div>
                 </div>
             </div>`;
             tableData = `
             <tr class="no-data">
-                <td class="${tdClass} text-center" colspan="4">
+                <td class="${tdClass} text-center" colspan="6">
                     <div class="text-center my-3">
                         <i class="fa fa-circle-info mr-1"></i>Tidak ada data retur.
                     </div>
@@ -851,7 +847,7 @@
             } else if (val === 'pembelian') {
                 $('#qrcode-wrapper').removeClass('d-none');
                 $('#supplier-wrapper').addClass('d-none');
-                await returTable.getHarga('#qrcode_pembelian');
+                await returTable.getHarga('#qrcode_barang');
             } else {
                 $('#supplier-wrapper, #qrcode-wrapper').addClass('d-none');
             }
@@ -861,14 +857,21 @@
                 id: '#supplier',
                 isUrl: '{{ route('retur.supplier.getSupplier') }}',
                 placeholder: 'Pilih Suplier',
+                isFilter: {
+                    toko_id: {{ auth()->user()->toko_id }},
+                },
                 isModal: '#modal-form',
             },
             {
-                id: '#qrcode_pembelian',
+                id: '#qrcode_barang',
                 isUrl: '{{ route('retur.supplier.getQRCode') }}',
-                placeholder: 'Isi dari QR Code pada menu Detail Pembelian Barang',
+                placeholder: 'Isi dari QR Code Barang',
                 isModal: '#modal-form',
+                isFilter: {
+                    toko_id: {{ auth()->user()->toko_id }},
+                },
                 isMinimun: 3,
+                isImage: true
             }
         ];
 
@@ -1060,7 +1063,7 @@
                 const supplierRow = `
             <tr class="supplier-row table-active font-weight-bold" data-supplier="${item.supplier_id}">
                 <td colspan="${mode === 'edit' ? 8 : 9}">
-                    <i class="fa fa-truck mr-1"></i> Supplier: ${item.nama}
+                    <i class="fa fa-truck mr-1"></i> Supplier: ${item.nama_supplier}
                 </td>
                 ${
                     mode === 'add'
@@ -1160,6 +1163,7 @@
                             'GET',
                             '{{ route('retur.supplier.getHargaBarang') }}', {
                                 id: selectedId,
+                                toko_id: {{ auth()->user()->toko_id }},
                                 tipe: $('#tipe_retur').val()
                             }
                         ).then(res => res)
@@ -1213,7 +1217,7 @@
                 const supplierRow = `
             <tr class="supplier-row table-active font-weight-bold" data-supplier="${item.supplier_id}">
                 <td colspan="5">
-                    <i class="fa fa-truck mr-1"></i> Supplier: ${item.nama}
+                    <i class="fa fa-truck mr-1"></i> Supplier: ${item.nama_supplier}
                 </td>
                 <td class="text-center">
                     <button type="button" class="btn btn-sm btn-danger remove-supplier" data-supplier="${item.supplier_id}">

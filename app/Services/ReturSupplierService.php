@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Helpers\AssetGenerate;
 use App\Helpers\RupiahGenerate;
 use App\Helpers\TextGenerate;
 use App\Models\PembelianBarangDetail;
@@ -505,10 +506,33 @@ class ReturSupplierService
         $query = $this->stockBarangBatchRepo->getQRCode($filter);
 
         $data = collect($query->items())->map(function ($item) {
+            $qrcode  = $item->stockBarang->barang->qrcode ?? null;
             $barang = TextGenerate::smartTail($item->stockBarang->barang->nama);
+            $tanggal = $item->created_at
+                ? \Carbon\Carbon::parse($item->created_at)->format('d-m-Y H:i:s')
+                : '-';
+            $img = $qrcode
+                ? AssetGenerate::build("qrcodes/barang/{$qrcode}.png")
+                : '';
             return [
                 'id' => $item->id,
-                'text' => "{$item->qrcode} => {$barang} ~ (Sisa: {$item->qty_sisa})",
+                'text' => "
+                    <div style='display:flex;align-items:center;gap:8px' class='p-1'>
+                        <img src='{$img}' width='28' height='28' style='border-radius:3px'>
+
+                        <div style='display:flex;flex-direction:column;line-height:1.2'>
+                            <span style='font-weight:550;font-size:12px'>{$barang}</span>
+                            <small class='text-dark' style='display:flex;flex-direction:column'>
+                                <span>
+                                    {$qrcode} — <span class='font-weight-bold'>Stok: {$item->qty_sisa}</span>
+                                    <span style='font-size:11px;color:#666'>
+                                        Tanggal Masuk: {$tanggal}
+                                    </span>
+                                </span>
+                            </small>
+                        </div>
+                    </div>
+                ",
             ];
         });
 
@@ -520,10 +544,16 @@ class ReturSupplierService
 
     public function getHargaBarang($filter)
     {
+        $query = null;
+
         if ($filter->tipe == 'pembelian') {
             $query = $this->stockBarangBatchRepo->getHargaBarang($filter);
         } elseif ($filter->tipe == 'member') {
             $query = $this->returMemberDetailRepo->getHargaBarang($filter);
+        }
+
+        if (!$query) {
+            throw new \Exception("Tipe tidak valid");
         }
 
         $data = collect($query->items())->map(function ($item) use ($filter) {
@@ -536,7 +566,7 @@ class ReturSupplierService
                 $stokDetailId = $item->id;
                 $qtyNowDetail = $item->qty_sisa;
                 $tgl = "Tgl Pembelian:<br>{$item->created_at}";
-                $qrcode = $item->qrcode;
+                $qrcode = $item->stockBarang->barang->qrcode;
 
                 $supplier = optional($item->sumber?->pembelianBarang?->supplier);
                 $supplierId   = $supplier->id;
@@ -545,6 +575,7 @@ class ReturSupplierService
                 $barang = optional($item->stockBarang?->barang);
                 $barangId   = $barang->id;
                 $namaBarang = $barang->nama;
+                $hpp = $item->stockBarang->hpp_baru;
             } elseif ($filter->tipe == 'member') {
 
                 $qtyNowDetail = $item->qty;
@@ -558,6 +589,7 @@ class ReturSupplierService
                 $barang = optional($item->barang);
                 $barangId   = $barang->id;
                 $namaBarang = $barang->nama;
+                $hpp = $item->hpp;
             }
 
             return [
@@ -569,7 +601,7 @@ class ReturSupplierService
                 'barang'        => TextGenerate::smartTail($namaBarang),
                 'barang_id'     => $barangId,
                 'qty_now'       => $qtyNowDetail,
-                'hpp'           => $item->hpp,
+                'hpp'           => $hpp,
                 'harga_jual'    => $item->harga_jual ?? 0,
                 'stok_detail_id' => $stokDetailId,
             ];

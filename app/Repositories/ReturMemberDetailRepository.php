@@ -55,16 +55,22 @@ class ReturMemberDetailRepository
 
     public function getDistinctSuppliers($filter)
     {
+        if (empty($filter->toko_id)) {
+            throw new \Exception("toko_id wajib diisi");
+        }
+
         $query = $this->model->with('supplier:id,nama,telepon')
-            ->select('supplier_id')
-            ->distinct()
-            // exclude supplier yg semua itemnya sudah terpenuhi (qty_ke_supplier = qty_request)
-            ->whereRaw('EXISTS (
-            SELECT 1
-            FROM ' . $this->model->getTable() . ' d
-            WHERE d.supplier_id = ' . $this->model->getTable() . '.supplier_id
-              AND (d.qty_request > COALESCE(d.qty_ke_supplier,0))
-        )');
+            ->selectRaw("
+            supplier_id,
+            SUM(qty_request - COALESCE(qty_ke_supplier,0)) as total_item_retur
+        ")
+            ->whereRaw("
+            qty_request > COALESCE(qty_ke_supplier,0)
+        ")
+            ->whereHas('retur', function ($q) use ($filter) {
+                $q->where('toko_id', $filter->toko_id);
+            })
+            ->groupBy('supplier_id');
 
         if (!empty($filter->search)) {
             $search = $filter->search;
@@ -77,20 +83,11 @@ class ReturMemberDetailRepository
         $result = $query->paginate($filter->limit ?? 10);
 
         $result->getCollection()->transform(function ($item) {
-            $supplierId = $item->supplier->id ?? null;
-
-            $totalItemRetur = $this->model
-                ->where('supplier_id', $supplierId)
-                ->where('qty_barang', '>', 0)
-                ->whereRaw('qty_request > COALESCE(qty_ke_supplier,0)')
-                ->selectRaw('SUM(qty_request - COALESCE(qty_ke_supplier,0)) as total')
-                ->value('total');
-
             return (object) [
-                'id'               => $supplierId,
+                'id'               => $item->supplier->id ?? null,
                 'nama'             => $item->supplier->nama ?? null,
                 'telepon'          => $item->supplier->telepon ?? null,
-                'total_item_retur' => $totalItemRetur,
+                'total_item_retur' => (int) ($item->total_item_retur ?? 0),
             ];
         });
 
@@ -99,13 +96,14 @@ class ReturMemberDetailRepository
 
     public function getHargaBarang($filter)
     {
+        if (empty($filter->toko_id)) {
+            throw new \Exception("toko_id wajib diisi");
+        }
+
         $query = $this->model::with([
             'supplier:id,nama,telepon',
             'barang:id,nama',
             'transaksiKasirDetail:id,stock_barang_batch_id,qrcode',
-            'transaksiKasirDetail.stockBarangBatch' => function ($q) {
-                $q->select('id', 'qrcode');
-            },
         ])
             ->select(
                 'id',
@@ -122,7 +120,14 @@ class ReturMemberDetailRepository
             ->selectRaw('(qty_request - COALESCE(qty_ke_supplier,0)) as qty')
             ->where('supplier_id', $filter->id)
             ->where('qty_barang', '>', 0)
-            ->whereRaw('(qty_request - COALESCE(qty_ke_supplier,0)) > 0');
+            ->whereRaw('(qty_request - COALESCE(qty_ke_supplier,0)) > 0')
+
+            // ✅ FILTER TOKO (WAJIB)
+            ->whereHas('retur', function ($q) use ($filter) {
+                $q->where('toko_id', $filter->toko_id);
+            });
+
+            dd($query->get());
 
         return !empty($filter->limit)
             ? $query->orderByDesc('id')->paginate($filter->limit)

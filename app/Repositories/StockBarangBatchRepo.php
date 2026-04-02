@@ -36,15 +36,18 @@ class StockBarangBatchRepo
     {
         $query = $this->model::with([
             'stockBarang:id,barang_id',
-            'stockBarang.barang:id,nama',
+            'stockBarang.barang:id,nama,qrcode', // tambahin qrcode
         ])
-            ->select('id', 'qrcode', 'qty_sisa', 'stock_barang_id', 'created_at')
+            ->select('id', 'qty_sisa', 'stock_barang_id', 'created_at')
             ->where('qty_sisa', '>', 0);
 
         if (!empty($filter->search)) {
             $search = $filter->search;
+
             $query->where(function ($q) use ($search) {
-                $q->where('qrcode', 'like', "%{$search}%");
+                $q->whereHas('stockBarang.barang', function ($sub) use ($search) {
+                    $sub->where('qrcode', 'like', "%{$search}%");
+                });
             });
         }
 
@@ -57,11 +60,11 @@ class StockBarangBatchRepo
     {
         $query = $this->model::with([
             'sumber.pembelianBarang.supplier:id,nama,telepon',
-            'stockBarang:id,barang_id',
-            'stockBarang.barang:id,nama',
+            'stockBarang:id,barang_id,hpp_baru',
+            'stockBarang.barang:id,nama,qrcode',
         ])
-            ->select('id', 'supplier_id', 'stock_barang_id', 'harga_beli as hpp', 'qty_sisa', 'created_at', 'sumber_type', 'sumber_id', 'qrcode')
-            ->where('id', $filter->id);
+            ->select('id', 'supplier_id', 'stock_barang_id', 'harga_beli as hpp', 'qty_sisa', 'created_at', 'sumber_type', 'sumber_id', 'toko_id')
+            ->where('id', $filter->id)->where('toko_id', $filter->toko_id);
 
         return !empty($filter->limit)
             ? $query->orderByDesc('id')->paginate($filter->limit)

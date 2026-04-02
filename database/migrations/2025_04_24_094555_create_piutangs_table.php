@@ -16,8 +16,8 @@ return new class extends Migration
             $table->unsignedBigInteger('kas_id');
             $table->unsignedBigInteger('toko_id');
             $table->unsignedBigInteger('piutang_tipe_id');
-            $table->decimal('nominal', 15, 2)->nullable();
-            $table->decimal('sisa', 15, 2)->nullable();
+            $table->decimal('nominal', 15, 6)->nullable();
+            $table->decimal('sisa', 15, 6)->nullable();
             $table->datetime('tanggal');
             $table->string('keterangan');
             $table->boolean('status')->default(false);

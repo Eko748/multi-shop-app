@@ -19,8 +19,8 @@ return new class extends Migration
                 ->constrained('td_item_nonfisik')->onDelete('set null');
             $table->foreignId('dompet_kategori_id')->nullable()
                 ->constrained('td_dompet_kategori')->onDelete('set null');
-            $table->decimal('hpp', 15, 2);
-            $table->decimal('harga_jual', 15, 2);
+            $table->decimal('hpp', 15, 6);
+            $table->decimal('harga_jual', 15, 6);
             $table->timestamps();
         });
     }

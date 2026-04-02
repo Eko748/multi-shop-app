@@ -16,8 +16,8 @@ return new class extends Migration
             $table->unsignedBigInteger('pembelian_barang_id');
             $table->unsignedBigInteger('barang_id');
             $table->integer('qty')->default(0);
-            $table->decimal('harga_beli', 15, 2);
-            $table->decimal('subtotal', 15, 2);
+            $table->decimal('harga_beli', 15, 6);
+            $table->decimal('subtotal', 15, 6);
             $table->json('level_harga')->nullable();
             $table->timestamps();
         });

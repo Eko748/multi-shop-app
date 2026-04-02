@@ -12,7 +12,7 @@ return new class extends Migration {
             $table->unsignedBigInteger('kas_id');
             $table->enum('tipe', ['in', 'out']);
             $table->string('kode_transaksi')->unique();
-            $table->decimal('total_nominal', 15, 2);
+            $table->decimal('total_nominal', 15, 6);
             $table->string('kategori')->nullable();
             $table->text('keterangan')->nullable();
             $table->enum('item', ['kecil', 'besar', 'hutang', 'piutang']);

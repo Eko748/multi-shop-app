@@ -17,8 +17,8 @@ return new class extends Migration
             $table->unsignedBigInteger('barang_id');
 
             $table->integer('stok')->default(0);
-            $table->decimal('hpp_awal', 15, 2)->nullable();
-            $table->decimal('hpp_baru', 15, 2)->nullable();
+            $table->decimal('hpp_awal', 15, 6)->nullable();
+            $table->decimal('hpp_baru', 15, 6)->nullable();
             $table->json('level_harga')->nullable();
 
             $table->timestamps();

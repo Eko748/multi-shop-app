@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('piutang_detail', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('piutang_id');
-            $table->decimal('nominal', 15, 2)->nullable();
+            $table->decimal('nominal', 15, 6)->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

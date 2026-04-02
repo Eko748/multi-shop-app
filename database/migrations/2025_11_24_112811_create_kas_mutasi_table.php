@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('kas_asal_id');
             $table->unsignedBigInteger('kas_tujuan_id');
-            $table->decimal('nominal', 18, 2);
+            $table->decimal('nominal', 18, 6);
             $table->string('keterangan')->nullable();
             $table->dateTime('tanggal')->nullable();
             $table->unsignedBigInteger('created_by')->nullable();

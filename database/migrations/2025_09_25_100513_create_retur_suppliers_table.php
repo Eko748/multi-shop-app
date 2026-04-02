@@ -19,9 +19,9 @@ return new class extends Migration
             $table->enum('tipe_retur', ['member', 'pembelian']);
             $table->dateTime('tanggal');
             $table->integer('qty')->default(0);
-            $table->decimal('total_refund', 15, 2)->default(0);
-            $table->decimal('total_hpp', 15, 2)->default(0);
-            $table->decimal('total_selisih', 15, 2)->default(0);
+            $table->decimal('total_refund', 15, 6)->default(0);
+            $table->decimal('total_hpp', 15, 6)->default(0);
+            $table->decimal('total_selisih', 15, 6)->default(0);
             $table->enum('keterangan', ['seimbang', 'rugi', 'untung'])->nullable();
             $table->dateTime('verify_date')->nullable();
             $table->timestamps();

@@ -22,12 +22,12 @@ return new class extends Migration
             $table->integer('qty_request');
             $table->integer('qty_barang')->default(0);
             $table->integer('qty_refund')->default(0);
-            $table->decimal('hpp', 15, 2)->nullable();
-            $table->decimal('total_hpp', 15, 2)->nullable();
-            $table->decimal('total_hpp_barang', 15, 2)->nullable();
-            $table->decimal('jumlah_refund', 15, 2)->nullable();
-            $table->decimal('total_refund', 15, 2)->nullable();
-            $table->decimal('harga_jual', 15, 2)->nullable();
+            $table->decimal('hpp', 15, 6)->nullable();
+            $table->decimal('total_hpp', 15, 6)->nullable();
+            $table->decimal('total_hpp_barang', 15, 6)->nullable();
+            $table->decimal('jumlah_refund', 15, 6)->nullable();
+            $table->decimal('total_refund', 15, 6)->nullable();
+            $table->decimal('harga_jual', 15, 6)->nullable();
             $table->integer('qty_ke_supplier')->default(0);
             $table->timestamps();
         });

@@ -19,8 +19,8 @@ return new class extends Migration
                 ->constrained('td_penjualan_nonfisik')->onDelete('set null');
             $table->foreignId('item_nonfisik_id')->nullable()
                 ->constrained('td_item_nonfisik')->onDelete('set null');
-            $table->decimal('hpp', 15, 2);
-            $table->decimal('harga_jual', 15, 2);
+            $table->decimal('hpp', 15, 6);
+            $table->decimal('harga_jual', 15, 6);
             $table->unsignedInteger('qty')->default(1);
             $table->timestamps();
             $table->softDeletes();

@@ -19,11 +19,11 @@ return new class extends Migration
             $table->date('tanggal');
             $table->integer('total_transaksi')->default(0);
             $table->integer('total_qty')->default(0);
-            $table->decimal('total_nominal', 15, 2)->default(0);
-            $table->decimal('total_hpp', 15, 2)->default(0);
-            $table->decimal('total_hpp_batch', 15, 2)->default(0);
-            $table->decimal('total_bayar', 15, 2)->default(0);
-            $table->decimal('total_diskon', 15, 2)->default(0);
+            $table->decimal('total_nominal', 15, 6)->default(0);
+            $table->decimal('total_hpp', 15, 6)->default(0);
+            $table->decimal('total_hpp_batch', 15, 6)->default(0);
+            $table->decimal('total_bayar', 15, 6)->default(0);
+            $table->decimal('total_diskon', 15, 6)->default(0);
             $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
             $table->softDeletes();

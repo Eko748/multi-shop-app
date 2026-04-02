@@ -17,9 +17,10 @@ return new class extends Migration
             $table->unsignedBigInteger('stock_barang_batch_id');
             $table->string('qrcode')->unique()->nullable();
             $table->integer('qty');
-            $table->decimal('nominal', 15, 2);
-            $table->decimal('subtotal', 15, 2);
-            $table->decimal('diskon', 15, 2)->nullable();
+            $table->decimal('hpp', 15, 6);
+            $table->decimal('nominal', 15, 6);
+            $table->decimal('subtotal', 15, 6);
+            $table->decimal('diskon', 15, 6)->nullable();
             $table->integer('retur_qty')->nullable();
             $table->unsignedBigInteger('retur_by')->nullable();
             $table->timestamps();

@@ -18,9 +18,9 @@ return new class extends Migration
             // $table->string('qrcode')->unique();
             $table->integer('qty_masuk');
             $table->integer('qty_sisa');
-            $table->decimal('harga_beli', 15, 2);
-            $table->decimal('hpp_awal', 15, 2);
-            $table->decimal('hpp_baru', 15, 2);
+            $table->decimal('harga_beli', 15, 6);
+            $table->decimal('hpp_awal', 15, 6);
+            $table->decimal('hpp_baru', 15, 6);
             $table->unsignedBigInteger('supplier_id')->nullable();
             $table->unsignedBigInteger('parent_id')->nullable();
             $table->nullableMorphs('sumber');

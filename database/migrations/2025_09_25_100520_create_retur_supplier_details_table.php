@@ -21,15 +21,15 @@ return new class extends Migration
             $table->integer('qty')->default(0);
             $table->integer('qty_barang')->default(0);
             $table->integer('qty_refund')->default(0);
-            $table->decimal('hpp', 15, 2)->nullable();
-            $table->decimal('total_hpp_barang', 15, 2)->default(0);
-            $table->decimal('jumlah_refund', 15, 2)->default(0);
-            $table->decimal('total_refund_real', 15, 2)->default(0);
-            $table->decimal('total_refund', 15, 2)->default(0);
-            $table->decimal('total_hpp', 15, 2)->default(0);
-            $table->decimal('selisih', 15, 2)->default(0);
+            $table->decimal('hpp', 15, 6)->nullable();
+            $table->decimal('total_hpp_barang', 15, 6)->default(0);
+            $table->decimal('jumlah_refund', 15, 6)->default(0);
+            $table->decimal('total_refund_real', 15, 6)->default(0);
+            $table->decimal('total_refund', 15, 6)->default(0);
+            $table->decimal('total_hpp', 15, 6)->default(0);
+            $table->decimal('selisih', 15, 6)->default(0);
             $table->enum('keterangan', ['seimbang', 'rugi', 'untung'])->nullable();
-            $table->decimal('harga_jual', 15, 2)->nullable();
+            $table->decimal('harga_jual', 15, 6)->nullable();
             $table->timestamps();
         });
     }

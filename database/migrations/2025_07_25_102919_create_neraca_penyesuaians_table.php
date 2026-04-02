@@ -9,7 +9,7 @@ return new class extends Migration {
     {
         Schema::create('neraca_penyesuaian', function (Blueprint $table) {
             $table->id();
-            $table->decimal('nominal', 15, 2);
+            $table->decimal('nominal', 15, 6);
             $table->dateTime('tanggal');
             $table->unsignedBigInteger('created_by')->nullable();
             $table->unsignedBigInteger('updated_by')->nullable();

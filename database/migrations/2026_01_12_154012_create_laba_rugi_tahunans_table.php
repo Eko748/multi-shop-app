@@ -11,9 +11,9 @@ return new class extends Migration {
             $table->id();
             $table->unsignedBigInteger('toko_id');
             $table->year('tahun');
-            $table->decimal('pendapatan', 18, 2)->default(0);
-            $table->decimal('beban', 18, 2)->default(0);
-            $table->decimal('laba_bersih', 18, 2)->default(0);
+            $table->decimal('pendapatan', 18, 6)->default(0);
+            $table->decimal('beban', 18, 6)->default(0);
+            $table->decimal('laba_bersih', 18, 6)->default(0);
             $table->timestamps();
             $table->unique(['toko_id', 'tahun']);
         });

@@ -16,7 +16,7 @@ return new class extends Migration
             $table->unsignedBigInteger('kas_id');
             $table->unsignedBigInteger('toko_id');
             $table->unsignedBigInteger('pengeluaran_tipe_id')->nullable();
-            $table->decimal('nominal', 15, 2)->nullable();
+            $table->decimal('nominal', 15, 6)->nullable();
             $table->datetime('tanggal');
             $table->string('keterangan')->nullable();
             $table->enum('aset', ['kecil', 'besar'])->nullable();

@@ -19,9 +19,9 @@ return new class extends Migration
                 ->constrained('td_dompet_kategori')->onDelete('set null');
             $table->string('nota');
             $table->dateTime('tanggal');
-            $table->decimal('total_bayar', 15, 2);
-            $table->decimal('total_hpp', 15, 2);
-            $table->decimal('total_harga_jual', 15, 2);
+            $table->decimal('total_bayar', 15, 6);
+            $table->decimal('total_hpp', 15, 6);
+            $table->decimal('total_harga_jual', 15, 6);
             $table->timestamps();
             $table->softDeletes();
             $table->foreignId('created_by')->nullable()

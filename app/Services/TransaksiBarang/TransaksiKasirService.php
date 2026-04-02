@@ -140,6 +140,7 @@ class TransaksiKasirService
                         'transaksi_kasir_id'     => $header->id,
                         'stock_barang_batch_id'  => $batch->id,
                         'qty'                    => $ambil,
+                        'hpp'                    => $batch->stockBarang->hpp_baru,
                         'nominal'                => $detail['nominal'],
                         'subtotal'               => $ambil * $detail['nominal'],
                     ]);

@@ -16,8 +16,8 @@ return new class extends Migration
             $table->unsignedBigInteger('kas_id');
             $table->integer('tahun');
             $table->integer('bulan');
-            $table->decimal('saldo_awal', 18, 2)->default(0);
-            $table->decimal('saldo_akhir', 18, 2)->default(0);
+            $table->decimal('saldo_awal', 18, 6)->default(0);
+            $table->decimal('saldo_akhir', 18, 6)->default(0);
             $table->timestamps();
 
             $table->unique(['kas_id', 'tahun', 'bulan']);

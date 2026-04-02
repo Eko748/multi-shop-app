@@ -17,8 +17,8 @@ return new class extends Migration
             $table->unsignedBigInteger('barang_id');
             $table->unsignedBigInteger('stock_barang_batch_id');
             $table->integer('qty');
-            $table->decimal('harga_beli', 15, 2);
-            $table->decimal('subtotal', 15, 2);
+            $table->decimal('harga_beli', 15, 6);
+            $table->decimal('subtotal', 15, 6);
             $table->timestamps();
         });
     }

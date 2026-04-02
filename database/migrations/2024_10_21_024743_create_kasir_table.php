@@ -18,9 +18,9 @@ return new class extends Migration
             $table->string('nota');
             $table->dateTime('tanggal');
             $table->integer('total_qty');
-            $table->decimal('total_nominal', 15, 2);
-            $table->decimal('total_bayar', 15, 2);
-            $table->decimal('total_diskon', 15, 2)->nullable();
+            $table->decimal('total_nominal', 15, 6);
+            $table->decimal('total_bayar', 15, 6);
+            $table->decimal('total_diskon', 15, 6)->nullable();
             $table->enum('metode', ['cash', 'cashless'])->default('cash');
             $table->unsignedBigInteger('member_id')->nullable();
             $table->unsignedBigInteger('created_by');

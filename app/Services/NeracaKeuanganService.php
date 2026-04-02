@@ -79,7 +79,7 @@ class NeracaKeuanganService
         // ==========================
         // IV.1 MODAL
         // ==========================
-        $modal = (float) $this->pemasukanRepo->getModal($month, $year, $tokoId);
+        $modal = (int) $this->pemasukanRepo->getModal($month, $year, $tokoId);
 
         $items[] = [
             "kode"   => "IV.1",
@@ -113,7 +113,7 @@ class NeracaKeuanganService
 
             $periode = Carbon::create($year, $i, 1);
             $namaPeriode = $periode->translatedFormat('F Y');
-            $nilai = (float) ($labaRugiPerBulan[$i] ?? 0);
+            $nilai = (int) ($labaRugiPerBulan[$i] ?? 0);
 
             $items[] = [
                 "kode"   => "IV.$counter",
@@ -169,7 +169,7 @@ class NeracaKeuanganService
             $kasBesarItems[] = [
                 'kode'   => 'I.1.' . $counter,
                 'nama'   => 'Kas Besar - ' . $jenisNama,
-                'nilai'  => (float) $saldoBesar,
+                'nilai'  => (int) $saldoBesar,
                 'format' => RupiahGenerate::build($saldoBesar),
                 'sub'    => 'I.1',
             ];
@@ -185,7 +185,7 @@ class NeracaKeuanganService
             $kasKecilItems[] = [
                 'kode'   => 'I.2.' . $counter,
                 'nama'   => 'Kas Kecil - ' . $jenisNama,
-                'nilai'  => (float) $saldoKecil,
+                'nilai'  => (int) $saldoKecil,
                 'format' => RupiahGenerate::build($saldoKecil),
                 'sub'    => 'I.2',
             ];
@@ -199,7 +199,7 @@ class NeracaKeuanganService
                 'parent' => [
                     'kode'   => 'I.1',
                     'nama'   => 'Kas Besar',
-                    'nilai'  => (float) $totalKasBesar,
+                    'nilai'  => (int) $totalKasBesar,
                     'format' => RupiahGenerate::build($totalKasBesar),
                 ],
                 'items' => $kasBesarItems,
@@ -208,7 +208,7 @@ class NeracaKeuanganService
                 'parent' => [
                     'kode'   => 'I.2',
                     'nama'   => 'Kas Kecil',
-                    'nilai'  => (float) $totalKasKecil,
+                    'nilai'  => (int) $totalKasKecil,
                     'format' => RupiahGenerate::build($totalKasKecil),
                 ],
                 'items' => $kasKecilItems,
@@ -216,7 +216,7 @@ class NeracaKeuanganService
         ];
     }
 
-    private function getSaldoAkhirKas($kasId, int $month, int $year): float
+    private function getSaldoAkhirKas($kasId, int $month, int $year): int
     {
         // coba bulan berjalan
         $current = KasSaldoHistory::where('kas_id', $kasId)
@@ -226,7 +226,7 @@ class NeracaKeuanganService
             ->first();
 
         if ($current) {
-            return (float) $current->saldo_akhir;
+            return (int) $current->saldo_akhir;
         }
 
         // hitung bulan sebelumnya
@@ -244,7 +244,7 @@ class NeracaKeuanganService
             ->orderByDesc('id')
             ->first();
 
-        return $prev ? (float) $prev->saldo_akhir : 0;
+        return $prev ? (int) $prev->saldo_akhir : 0;
     }
 
     private function composeNeracaStructure(
@@ -253,7 +253,7 @@ class NeracaKeuanganService
         array $ekuitasItems,
         array $returData,
         array $piutangData,
-        float $penyesuaianNeraca,
+        int $penyesuaianNeraca,
         array $kasData,
         int $month,
         int $year,
@@ -285,8 +285,8 @@ class NeracaKeuanganService
         $stokPerJenis = $this->stokRepo->getStokPerJenis($tokoId, $month, $year);
 
         foreach ($stokPerJenis as $index => $item) {
-            $qty   = (float) $item['total_qty'];
-            $nilai = (float) $item['total_harga'];
+            $qty   = (int) $item['total_qty'];
+            $nilai = (int) $item['total_harga'];
 
             $stokPerJenisItems[] = [
                 "kode"   => "I.4." . ($index + 1),
@@ -312,8 +312,8 @@ class NeracaKeuanganService
         $piutangJangkaTotal = array_sum(array_column($piutangData, 'nilai'));
 
         $piutangTotal =
-            (float) $piutangKasbon +
-            (float) $piutangJangkaTotal;
+            (int) $piutangKasbon +
+            (int) $piutangJangkaTotal;
 
         $piutangParent = [
             "kode"   => "I.3",
@@ -347,14 +347,14 @@ class NeracaKeuanganService
         $piutangItems[] = $piutangKasbonItem;
 
         $sisaDompetSaldo = $this->dompetSaldoService->sumSisaSaldo($month, $year, $tokoId);
-        $hppDompetSaldoNilai = (float) ($sisaDompetSaldo['saldo'] ?? 0);
-    
-        $returTotal = (float) ($returData['total_retur'] ?? 0);
-        $pengirimanTotal = (float) ($pengirimanData['total_harga'] ?? 0);
-        $penyesuaian = (float) $penyesuaianNeraca;
+        $hppDompetSaldoNilai = (int) ($sisaDompetSaldo['saldo'] ?? 0);
 
-        $totalKasBesarParent = (float) ($kasData['kasBesar']['parent']['nilai'] ?? 0);
-        $totalKasKecilParent = (float) ($kasData['kasKecil']['parent']['nilai'] ?? 0);
+        $returTotal = (int) ($returData['total_retur'] ?? 0);
+        $pengirimanTotal = (int) ($pengirimanData['total_harga'] ?? 0);
+        $penyesuaian = (int) $penyesuaianNeraca;
+
+        $totalKasBesarParent = (int) ($kasData['kasBesar']['parent']['nilai'] ?? 0);
+        $totalKasKecilParent = (int) ($kasData['kasKecil']['parent']['nilai'] ?? 0);
 
         $asetLancarTotal =
             $totalKasBesarParent +
@@ -366,7 +366,7 @@ class NeracaKeuanganService
             $pengirimanTotal +
             $penyesuaian;
 
-        $asetTetapTotal = (float) $asetPeralatanBesar['nilai'] + (float) $asetPeralatanKecil['nilai'];
+        $asetTetapTotal = (int) $asetPeralatanBesar['nilai'] + (int) $asetPeralatanKecil['nilai'];
         $totalAktiva = $asetLancarTotal + $asetTetapTotal;
 
         $totalHutang  = array_sum(array_column($hutangItems, 'nilai'));

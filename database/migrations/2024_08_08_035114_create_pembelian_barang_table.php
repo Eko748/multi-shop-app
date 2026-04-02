@@ -19,7 +19,7 @@ return new class extends Migration
             $table->string('nota')->nullable();
             $table->dateTime('tanggal')->nullable();
             $table->integer('qty')->nullable()->default(0);
-            $table->decimal('total', 15, 2)->default(0);
+            $table->decimal('total', 15, 6)->default(0);
             $table->enum('tipe', ['cash', 'hutang'])->default('cash');
             $table->unsignedBigInteger('created_by');
             $table->unsignedBigInteger('verified_by')->nullable();

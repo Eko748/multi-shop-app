@@ -119,15 +119,26 @@ class ReturMemberDetailRepository
             )
             ->selectRaw('(qty_request - COALESCE(qty_ke_supplier,0)) as qty')
             ->where('supplier_id', $filter->id)
-            ->where('qty_barang', '>', 0)
             ->whereRaw('(qty_request - COALESCE(qty_ke_supplier,0)) > 0')
 
-            // ✅ FILTER TOKO (WAJIB)
+            // ✅ FILTER TOKO
             ->whereHas('retur', function ($q) use ($filter) {
                 $q->where('toko_id', $filter->toko_id);
-            });
+            })
 
-            dd($query->get());
+            // ✅ GROUP BY SEMUA KOLOM (biar aman)
+            ->groupBy(
+                'id',
+                'transaksi_kasir_detail_id',
+                'supplier_id',
+                'barang_id',
+                'qty_request',
+                'qty_barang',
+                'qty_ke_supplier',
+                'hpp',
+                'harga_jual',
+                'created_at'
+            );
 
         return !empty($filter->limit)
             ? $query->orderByDesc('id')->paginate($filter->limit)

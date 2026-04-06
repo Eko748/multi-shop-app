@@ -45,11 +45,11 @@
                             <div class="row">
                                 <div class="col-sm-12 col-md-3 col-lg-3 col-xl-2 mb-2">
                                     {{-- @if (hasPermission('GET /pembelianbarang')) --}}
-                                        <a href="{{ route('transaksi.pembelianbarang.index') }}"
-                                            class="mr-2 btn btn-primary w-100" data-container="body" data-toggle="tooltip"
-                                            data-placement="top" title="Tambah Data Stok Barang">
-                                            <i class="fa fa-circle-plus"></i> Tambah
-                                        </a>
+                                    <a href="{{ route('transaksi.pembelianbarang.index') }}"
+                                        class="mr-2 btn btn-primary w-100" data-container="body" data-toggle="tooltip"
+                                        data-placement="top" title="Tambah Data Stok Barang">
+                                        <i class="fa fa-circle-plus"></i> Tambah
+                                    </a>
                                     {{-- @endif --}}
                                 </div>
                                 <div class="col-sm-12 col-md-9 col-lg-9 col-xl-10 mb-2">
@@ -514,11 +514,11 @@
             await renderTabStokBarang(stokData);
 
             // if (canAturHarga) {
-                await renderTabAturHarga(id_barang, stokData);
+            await renderTabAturHarga(id_barang, stokData);
             // }
 
             // if (canDetailBarang) {
-                await renderTabDetailBarang(id_barang);
+            await renderTabDetailBarang(id_barang);
             // }
 
             $(modalId).modal('show');
@@ -916,7 +916,8 @@
 
         async function renderTabDetailStockBarang(id_barang, target = '#detailStockBarang') {
             const detailResp = await renderAPI('GET', '{{ route('sb.getBarang') }}', {
-                barang_id: id_barang
+                barang_id: id_barang,
+                toko_id: {{ auth()->user()->toko_id }}
             }).catch(e => e.response);
 
             if (detailResp?.status === 200 && Array.isArray(detailResp.data.data)) {

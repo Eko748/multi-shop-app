@@ -24,19 +24,19 @@
                             <div class="custom-left">
                                 {{-- @if (hasAnyPermission(['POST /pembelianbarang/store', 'POST /import-pembelianbarang']))
                                     @if (hasAnyPermission(['POST /pembelianbarang/store'])) --}}
-                                        <button onclick="openAddModal()"
-                                            class="btn btn-primary mb-2 mb-lg-0 text-white add-data custom-btn-tambah"
-                                            data-container="body" data-toggle="tooltip" data-placement="top"
-                                            title="Tambah Data Pembelian Barang">
-                                            <i class="fa fa-plus-circle"></i> Tambah
-                                        </button>
-                                    {{-- @endif --}}
-                                    <button class="btn-dynamic btn btn-outline-primary custom-btn-tambah" type="button"
-                                        data-toggle="collapse" data-target="#filter-collapse" aria-expanded="false"
-                                        aria-controls="filter-collapse" data-container="body" data-toggle="tooltip"
-                                        data-placement="top" title="Filter Pembelian Barang">
-                                        <i class="fa fa-filter"></i> Filter
-                                    </button>
+                                <button onclick="openAddModal()"
+                                    class="btn btn-primary mb-2 mb-lg-0 text-white add-data custom-btn-tambah"
+                                    data-container="body" data-toggle="tooltip" data-placement="top"
+                                    title="Tambah Data Pembelian Barang">
+                                    <i class="fa fa-plus-circle"></i> Tambah
+                                </button>
+                                {{-- @endif --}}
+                                <button class="btn-dynamic btn btn-outline-primary custom-btn-tambah" type="button"
+                                    data-toggle="collapse" data-target="#filter-collapse" aria-expanded="false"
+                                    aria-controls="filter-collapse" data-container="body" data-toggle="tooltip"
+                                    data-placement="top" title="Filter Pembelian Barang">
+                                    <i class="fa fa-filter"></i> Filter
+                                </button>
                                 {{-- @endif --}}
                             </div>
                             <div class="custom-right">
@@ -959,78 +959,106 @@
         }
 
         async function addItemDetail() {
-            const idBarang = String($('#id_barang').val());
-            const qty = Number($('#jml_item').val());
-            const harga = Number($('#harga_barang').val().replace(/\./g, ''));
+            const $btn = $('#add-item-detail');
 
-            if (!idBarang || qty <= 0 || harga <= 0) {
-                return notificationAlert('warning', 'Error', 'Barang, qty dan harga wajib diisi');
+            // ⏳ SET LOADING
+            $btn.prop('disabled', true)
+                .html('<i class="fa fa-spinner fa-spin mr-1"></i>Menyimpan Item ke List...');
+
+            try {
+                const idBarang = String($('#id_barang').val());
+                const qty = Number($('#jml_item').val());
+                const harga = Number($('#harga_barang').val().replace(/\./g, ''));
+
+                if (!idBarang || qty <= 0 || harga <= 0) {
+                    return notificationAlert('warning', 'Error', 'Barang, qty dan harga wajib diisi');
+                }
+
+                if (PBState.addedItems.has(idBarang)) {
+                    return notificationAlert('warning', 'Error', 'Barang sudah ada di list');
+                }
+
+                // ✅ AMBIL LEVEL HARGA
+                let levelHarga = [];
+                let isLevelHargaValid = true;
+
+                $('.level-harga').each(function() {
+                    const val = $(this).val();
+
+                    if (!val || Number(val.replace(/\./g, '')) <= 0) {
+                        isLevelHargaValid = false;
+                        $(this).addClass('is-invalid');
+                    } else {
+                        $(this).removeClass('is-invalid');
+                    }
+
+                    levelHarga.push(Number(val.replace(/\./g, '')) || 0);
+                });
+
+                if (!isLevelHargaValid) {
+                    return notificationAlert('warning', 'Error', 'Semua level harga wajib diisi dan tidak boleh 0');
+                }
+
+                // HPP
+                const hppAwal = parseRupiah($('.hpp-awal').text());
+                const hppBaru = parseRupiah($('.hpp-baru').text());
+
+                const payload = {
+                    id_pembelian: PBState.pembelianId,
+                    id_barang: idBarang,
+                    qty,
+                    harga_barang: harga,
+                    level_harga: levelHarga,
+                    hpp_awal: hppAwal,
+                    hpp_baru: hppBaru,
+                    toko_group_id: PBState.header.tokoGroup,
+                    supplier_id: PBState.header.supplier,
+                    kas_id: PBState.header.kas,
+                    nota: PBState.header.nota,
+                    tanggal: PBState.header.tgl,
+                    tipe: $('#tipe').val(),
+                    created_by: {{ auth()->id() }},
+                    toko_id: {{ auth()->user()->toko_id }},
+                };
+
+                const res = await renderAPI('POST', "{{ route('tb.pb.temp.post') }}", payload);
+                const temp = res.data.data;
+
+                PBState.pembelianId = temp.pembelian_barang_id ?? PBState.pembelianId;
+
+                const barangLabel = $('#id_barang option:selected').text();
+                const subtotal = qty * harga;
+
+                PBState.items.push({
+                    id_barang: idBarang,
+                    qty,
+                    harga_barang: harga,
+                    subtotal,
+                    barang_label: barangLabel,
+                    level_harga: levelHarga,
+                    hpp_awal: hppAwal,
+                    hpp_baru: hppBaru
+                });
+
+                PBState.addedItems.add(idBarang);
+
+                renderTable();
+                updateSubtotal();
+                resetItemInput();
+
+                setTimeout(async () => {
+                    await getListData(defaultLimitPage, currentPage, defaultAscending,
+                        defaultSearch, customFilter);
+                }, 500);
+
+            } catch (error) {
+                notificationAlert('error', 'Error', 'Terjadi kesalahan saat menyimpan');
+            } finally {
+                // 🔄 BALIKIN BUTTON
+                $btn.prop('disabled', false)
+                    .html('<i class="fa fa-circle-plus mr-1"></i>Add');
             }
-
-            if (PBState.addedItems.has(idBarang)) {
-                return notificationAlert('warning', 'Error', 'Barang sudah ada di list');
-            }
-
-            // ✅ AMBIL LEVEL HARGA
-            let levelHarga = [];
-            $('.level-harga').each(function() {
-                levelHarga.push(Number($(this).val().replace(/\./g, '')) || 0);
-            });
-
-            // HPP
-            const hppAwal = parseRupiah($('.hpp-awal').text());
-            const hppBaru = parseRupiah($('.hpp-baru').text());
-
-            const payload = {
-                id_pembelian: PBState.pembelianId,
-                id_barang: idBarang,
-                qty,
-                harga_barang: harga,
-                level_harga: levelHarga,
-                hpp_awal: hppAwal,
-                hpp_baru: hppBaru,
-                toko_group_id: PBState.header.tokoGroup,
-                supplier_id: PBState.header.supplier,
-                kas_id: PBState.header.kas,
-                nota: PBState.header.nota,
-                tanggal: PBState.header.tgl,
-                tipe: $('#tipe').val(),
-                created_by: {{ auth()->id() }},
-                toko_id: {{ auth()->user()->toko_id }},
-            };
-
-            const res = await renderAPI('POST', "{{ route('tb.pb.temp.post') }}", payload);
-            const temp = res.data.data;
-
-            PBState.pembelianId = temp.pembelian_barang_id ?? PBState.pembelianId;
-
-            const barangLabel = $('#id_barang option:selected').text();
-            const subtotal = qty * harga;
-
-            // ✅ SIMPAN KE STATE
-            PBState.items.push({
-                id_barang: idBarang,
-                qty,
-                harga_barang: harga,
-                subtotal,
-                barang_label: barangLabel,
-                level_harga: levelHarga, // ⭐ PENTING
-                hpp_awal: hppAwal,
-                hpp_baru: hppBaru
-            });
-
-            PBState.addedItems.add(idBarang);
-
-            renderTable();
-            updateSubtotal();
-            resetItemInput();
-
-            setTimeout(async () => {
-                await getListData(defaultLimitPage, currentPage, defaultAscending,
-                    defaultSearch, customFilter);
-            }, 500);
         }
-
 
         function resetLevelHargaPersen() {
             document.querySelectorAll('[id^="persen_"]').forEach(el => {

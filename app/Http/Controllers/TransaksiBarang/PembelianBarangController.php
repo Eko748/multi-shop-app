@@ -426,26 +426,26 @@ class PembelianBarangController extends Controller
                 $pembelian->status = 'success';
             } elseif ($pembelian->tipe == 'hutang') {
                 $pembelian->status = 'completed_debt';
-                $nominal = RupiahGenerate::build($pembelian->total_nilai);
+                $nominal = RupiahGenerate::build($pembelian->total);
 
                 $firstDetail = PembelianBarangDetail::where('pembelian_barang_id', $pembelian->id)
                     ->first();
 
                 $kasJenisBarang = $firstDetail && $firstDetail->barang
-                    ? $firstDetail->barang->id_jenis_barang
+                    ? $firstDetail->barang->jenis_barang_id
                     : null;
 
                 $hutang  = Hutang::create([
-                    'id_toko' => $request->toko_id,
+                    'kas_id' => $pembelian->kas_id,
                     'toko_id' => $request->toko_id,
                     'hutang_tipe_id' => 1,
-                    'keterangan' => "Hutang Pembelian Barang Nota {$pembelian->no_nota}",
-                    'nominal' => $pembelian->total_nilai,
+                    'keterangan' => "Hutang Pembelian Barang Nota {$pembelian->nota}",
+                    'nominal' => $pembelian->total,
+                    'sisa' => $pembelian->total,
                     'status' => false,
                     'jangka' => 2,
-                    'tanggal' => $pembelian->tgl_nota,
-                    'label' => $pembelian->label,
-                    'kas_jenis_barang' => $kasJenisBarang,
+                    'tanggal' => $pembelian->tanggal,
+                    'created_by' => $request->created_by,
                 ]);
 
                 $kas    = KasJenisBarangGenerate::labelForKas($hutang);
@@ -471,6 +471,31 @@ class PembelianBarangController extends Controller
                     message: filled($request->keterangan)
                         ? $request->keterangan
                         : '(Sistem) Hutang dibuat.'
+                );
+
+                KasService::neutralIN(
+                    toko_id: $hutang->toko_id,
+                    jenis_barang_id: $kasJenisBarang,
+                    tipe_kas: 'kecil',
+                    total_nominal: $hutang->nominal,
+                    item: 'hutang',
+                    kategori: 'Hutang',
+                    keterangan: $hutang->hutangTipe->tipe ?? 'Hutang Lainnya',
+                    sumber: $hutang,
+                    tanggal: $hutang->tanggal,
+                );
+
+                KasService::in(
+                    toko_id: $hutang->toko_id,
+                    jenis_barang_id: $kasJenisBarang,
+                    tipe_kas: 'kecil',
+                    total_nominal: $hutang->nominal,
+                    item: 'kecil',
+                    kategori: 'Hutang',
+                    keterangan: $data->hutangTipe->tipe ?? 'Hutang Lainnya',
+                    sumber: $hutang,
+                    tanggal: $hutang->tanggal,
+                    laba: false
                 );
             }
 
@@ -524,9 +549,6 @@ class PembelianBarangController extends Controller
             $editedBatch  = $detail->stockBarangBatch;
             $stockBarang  = $editedBatch->stockBarang;
 
-            /** ===============================
-             * DATA LAMA & BARU
-         ===============================*/
             $oldQty       = $detail->qty;
             $oldHarga     = $detail->harga_beli;
             $oldSubtotal  = $oldQty * $oldHarga;
@@ -538,9 +560,6 @@ class PembelianBarangController extends Controller
             $deltaQty     = $newQty - $oldQty;
             $deltaNilai   = $newSubtotal - $oldSubtotal;
 
-            /** ===============================
-             * VALIDASI QTY KELUAR
-         ===============================*/
             $qtyKeluar = $editedBatch->qty_masuk - $editedBatch->qty_sisa;
             if ($newQty < $qtyKeluar) {
                 throw new \Exception(
@@ -548,32 +567,20 @@ class PembelianBarangController extends Controller
                 );
             }
 
-            /** ===============================
-             * UPDATE DETAIL
-         ===============================*/
             $detail->update([
                 'qty'         => $newQty,
                 'harga_beli'  => $newHarga,
                 'subtotal'    => $newSubtotal,
             ]);
 
-            /** ===============================
-             * AMBIL SEMUA BATCH (URUT)
-         ===============================*/
             $batches = StockBarangBatch::where('stock_barang_id', $stockBarang->id)
                 ->orderBy('tanggal')
                 ->orderBy('id')
                 ->lockForUpdate()
                 ->get();
 
-            /** ===============================
-             * SIMPAN HPP LAMA STOCK
-         ===============================*/
             $hppStockLama = $stockBarang->hpp_baru;
 
-            /** ===============================
-             * RECALC SEMUA BATCH
-         ===============================*/
             $prevHpp = null;
 
             foreach ($batches as $batch) {
@@ -605,26 +612,17 @@ class PembelianBarangController extends Controller
                 $prevHpp = $batch->hpp_baru;
             }
 
-            /** ===============================
-             * UPDATE STOCK BARANG
-         ===============================*/
             $stockBarang->update([
                 'stok'       => $stockBarang->stok + $deltaQty,
                 'hpp_awal'   => $hppStockLama,        // SEBELUM DIUBAH
                 'hpp_baru'   => $prevHpp,              // HPP AKHIR BATCH TERAKHIR
             ]);
 
-            /** ===============================
-             * UPDATE TOTAL PEMBELIAN
-         ===============================*/
             $pembelian->update([
                 'qty'   => $pembelian->qty + $deltaQty,
                 'total' => $pembelian->total + $deltaNilai,
             ]);
 
-            /** ===============================
-             * UPDATE KAS
-         ===============================*/
             if ($pembelian->tipe === 'cash' && $deltaNilai != 0) {
                 KasService::updatePembelianBarang(
                     pembelian: $pembelian,

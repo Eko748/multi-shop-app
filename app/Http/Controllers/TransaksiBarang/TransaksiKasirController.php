@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\TransaksiBarang;
 
+use App\Helpers\PinCheck;
 use App\Helpers\RupiahGenerate;
 use App\Http\Controllers\Controller;
 use App\Models\Barang;
@@ -154,6 +155,12 @@ class TransaksiKasirController extends Controller
                 'toko_id' => 'required|integer|exists:toko,id',
                 'message' => 'required|string',
             ]);
+
+            $pinCheck = PinCheck::validate($validated['toko_id'], $validated['pin']);
+
+            if (!$pinCheck['status']) {
+                return $this->error(403, $pinCheck['message']);
+            }
 
             $deleted = $this->service->delete($validated['public_id'], $validated);
 

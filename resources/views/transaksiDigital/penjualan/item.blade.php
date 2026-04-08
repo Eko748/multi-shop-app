@@ -76,7 +76,7 @@
         let print_button = '';
         let delete_button = '';
 
-        if (hasPermission('GET /transaksi-nonfisik/detail')) {
+        // if (hasPermission('GET /transaksi-nonfisik/detail')) {
             detail_button = `
                 <button onClick="openDetailModal('${encodeURIComponent(JSON.stringify(data))}')" class="action_button btn btn-outline-secondary btn-md" title="Detail data ${data.nota}" data-id="${data?.id}" data-container="body" data-toggle="tooltip" data-placement="top">
                     <span class="text-dark">Detail</span>
@@ -85,9 +85,9 @@
                     </div>
                 </button>
             `;
-        }
+        // }
 
-        if (hasPermission('GET /transaksi-nonfisik/print')) {
+        // if (hasPermission('GET /transaksi-nonfisik/print')) {
             print_button = `
                 <button onClick="openPrintPreview('${data.id}')"
                     class="action_button btn btn-outline-secondary btn-md"
@@ -100,9 +100,9 @@
                     </div>
                 </button>
             `;
-        }
+        // }
 
-        if (hasPermission('DELETE /transaksi-nonfisik/delete')) {
+        // if (hasPermission('DELETE /transaksi-nonfisik/delete')) {
             delete_button = `
                 <button onClick="deleteData('${encodeURIComponent(JSON.stringify(data))}')" class="action_button btn btn-outline-secondary btn-md" title="Hapus data ${data.nota}" data-id="${data?.id}" data-container="body" data-toggle="tooltip" data-placement="top">
                     <span class="text-dark">Hapus</span>
@@ -111,7 +111,7 @@
                     </div>
                 </button>
             `;
-        }
+        // }
 
         let infoText = 'Dibuat oleh:';
         let infoUser = `${data.created_by || '-'}`;

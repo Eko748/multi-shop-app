@@ -191,7 +191,7 @@
                         </div>
                         <div class="form-group">
                             <label>Harga Barang</label>
-                            <input type="number" id="edit_harga_barang" name="harga_barang" class="form-control"
+                            <input type="text" id="edit_harga_barang" name="harga_barang" class="form-control rupiah"
                                 required>
                         </div>
                     </div>
@@ -700,7 +700,7 @@
 
             try {
                 let response = await renderAPI('GET', '{{ route('tb.pb.getDetail') }}', {
-                    id_pembelian: dataParams,
+                    pembelian_barang_id: dataParams,
                     page: page,
                     limit: limit,
                     ascending: ascending,
@@ -740,15 +740,15 @@
                     data.detail.forEach((item, index) => {
                         let buttons = [];
 
-                        if (hasPermission(['PUT /pembelianbarang/edit/detail-pembelian-barang'])) {
-                            buttons.push(`
+                        // if (hasPermission(['PUT /pembelianbarang/edit/detail-pembelian-barang'])) {
+                        buttons.push(`
                         <button type="button" class="btn btn-outline-warning btn-sm" style="min-width: 120px;" data-container="body" data-toggle="tooltip" data-placement="top"
                             title="Edit Barang" onClick="openModalEdit('${btoa(JSON.stringify(item))}')">
                             <i class="fa fa-edit"></i>
                             <span class="d-none d-md-inline"> Edit</span>
                         </button>
                     `);
-                        }
+                        // }
 
                         buttons.push(`
                     <a href="${item.qrcode_path}"
@@ -772,6 +772,16 @@
                         <span class="d-none d-md-inline"> Print</span>
                     </button>
                 `);
+
+                        buttons.push(`
+                <button type="button" class="btn btn-outline-danger btn-sm" style="min-width: 120px;" data-container="body" data-toggle="tooltip" data-placement="top"
+                    onclick="deleteData('${encodeURIComponent(JSON.stringify(item))}')"
+                    title="Hapus ${title}: ${item.nama_barang}"
+                    data-id='${item.id}'
+                    data-name='${item.nama_barang}'>
+                    <i class="fa fa-trash-alt"></i>
+                    <span class="d-none d-md-inline"> Hapus</span>
+                </button>`);
 
                         detailBody.innerHTML += `
                 <tr>
@@ -870,6 +880,7 @@
             }
         }
 
+        let qtyTimer;
 
         async function openModalEdit(encodedItem) {
             const item = JSON.parse(atob(encodedItem));
@@ -880,8 +891,25 @@
             $('#edit_harga_barang').val(item.harga_barang);
 
             const minQty = item.qty_out > 0 ? item.qty_out : 1;
+
             $('#edit_qty').attr('min', minQty);
             $('#min_qty').text(minQty);
+
+            $('#edit_qty').off('input').on('input', function() {
+                const $this = $(this);
+
+                // reset timer setiap ngetik
+                clearTimeout(qtyTimer);
+
+                qtyTimer = setTimeout(() => {
+                    let val = parseFloat($this.val());
+
+                    if (isNaN(val) || val < minQty) {
+                        $this.val(minQty);
+                    }
+                }, 800); // ⏱️ delay 800ms (bisa ubah jadi 1000ms = 1 detik)
+            });
+
             $('#modalEditDetail').modal('show');
         }
 
@@ -899,7 +927,7 @@
 
             const id = $('#edit_id_detail').val();
             const qty = $('#edit_qty').val();
-            const harga_barang = $('#edit_harga_barang').val();
+            const harga_barang = $('#edit_harga_barang').val().replace(/\./g, '');
 
             const payload = {
                 id: id,
@@ -928,6 +956,74 @@
         }
 
         $('#formEditDetail').on('submit', submitEditDetail);
+
+        async function deleteData(encodedData) {
+            let data = JSON.parse(decodeURIComponent(encodedData));
+
+            swal({
+                title: `Hapus ${title}`,
+                html: `
+                    <p class="font-weight-bold">${title} ${data.nama_barang} akan dihapus!</p>
+                    <hr>
+                    <div class="px-4" style="gap: 0.5rem;">
+                        <div class="form-group">
+                            <label for="input-pin" class="form-control-label d-flex justify-content-start">PIN<span class="text-danger ml-1">*</span></label>
+                            <input type="text" id="input-pin" class="swal-content__input form-control mb-2" placeholder="Masukkan PIN Toko">
+                        </div>
+                        <div class="form-group">
+                            <label for="input-message" class="form-control-label d-flex justify-content-start">Pesan<span class="text-danger ml-1">*</span></label>
+                            <textarea id="input-message" class="swal-content__input form-control mb-2" placeholder="Masukkan Pesan" rows="4"></textarea>
+                        </div>
+                    </div>
+                `,
+                type: "question",
+                showCancelButton: true,
+                confirmButtonText: "Konfirmasi",
+                cancelButtonText: "Batal",
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                reverseButtons: true,
+                confirmButtonClass: "btn btn-danger",
+                cancelButtonClass: "btn btn-secondary"
+            }).then(async (result) => {
+                const pin = document.getElementById('input-pin')?.value;
+                const message = document.getElementById('input-message')?.value;
+
+                if (!pin) {
+                    notificationAlert("error", "Gagal", "PIN tidak boleh kosong!");
+                    return;
+                }
+                if (!message) {
+                    notificationAlert("error", "Gagal", "Pesan tidak boleh kosong!");
+                    return;
+                }
+
+                let postDataRest = await renderAPI(
+                        'DELETE',
+                        '{{ route('tb.pb.deleteDetail') }}', {
+                            id: data.id,
+                            deleted_by: {{ auth()->user()->id }},
+                            toko_id: {{ auth()->user()->toko_id }},
+                            message: message,
+                            pin: pin
+                        }
+                    ).then(response => response)
+                    .catch(error => error.response);
+
+                swal.close();
+
+                if (postDataRest.status == 200) {
+                    setTimeout(() => {
+                        getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
+                            customFilter);
+                    }, 500);
+                    notificationAlert('success', 'Pemberitahuan', postDataRest.data.message);
+                } else {
+                    notificationAlert('error', 'Gagal', postDataRest.data?.message ||
+                        'Terjadi kesalahan.');
+                }
+            }).catch(swal.noop);
+        }
 
         async function initPageLoad() {
             await Promise.all([

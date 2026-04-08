@@ -6,15 +6,13 @@ use App\Helpers\AssetGenerate;
 use App\Helpers\FormatHarga;
 use App\Helpers\KasJenisBarangGenerate;
 use App\Helpers\LogAktivitasGenerate;
-use App\Helpers\QrGenerator;
 use App\Helpers\RupiahGenerate;
-use App\Helpers\TextGenerate;
+use App\Helpers\{TextGenerate, PinCheck};
 use App\Http\Controllers\Controller;
 use App\Imports\PembelianBarangImport;
 use App\Models\Barang;
 use App\Models\PembelianBarangDetail;
 use App\Models\PembelianBarangDetailTemp;
-use App\Models\DetailStockBarang;
 use App\Models\Hutang;
 use App\Models\Kas;
 use App\Models\LevelHarga;
@@ -161,7 +159,7 @@ class PembelianBarangController extends Controller
 
     public function getDetail(Request $request)
     {
-        $id = $request->input('id_pembelian');
+        $id = $request->input('pembelian_barang_id');
 
         if (!$id) {
             return response()->json([
@@ -212,7 +210,7 @@ class PembelianBarangController extends Controller
                 'nama_barang' => TextGenerate::smartTail($item->barang->nama, 10, 30, 5),
                 'qty' => $item->qty,
                 'format_harga_barang' => RupiahGenerate::build($item->harga_beli),
-                'harga_barang' => $item->harga_beli,
+                'harga_barang' => TextGenerate::numeric($item->harga_beli),
                 'total_harga' => RupiahGenerate::build($item->subtotal),
                 'qty_out' => ($item->stockBarangBatch->qty_masuk - $item->stockBarangBatch->qty_sisa) ?? 0,
                 'qty_now' => $item->stockBarangBatch->qty_sisa ?? 0,
@@ -444,6 +442,8 @@ class PembelianBarangController extends Controller
                     'sisa' => $pembelian->total,
                     'status' => false,
                     'jangka' => 2,
+                    'sumber_type' => PembelianBarang::class,
+                    'sumber_id' => $pembelian->id,
                     'tanggal' => $pembelian->tanggal,
                     'created_by' => $request->created_by,
                 ]);
@@ -631,6 +631,123 @@ class PembelianBarangController extends Controller
                 );
             }
 
+            if ($pembelian->tipe === 'hutang' && $deltaNilai != 0) {
+                $hutang = Hutang::where('sumber_type', PembelianBarang::class)
+                    ->where('sumber_id', $pembelian->id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$hutang) {
+                    throw new \Exception("Data hutang tidak ditemukan");
+                }
+
+                $totalDibayar = $hutang->nominal - $hutang->sisa;
+
+                if ($totalDibayar > 0) {
+                    throw new \Exception("Tidak bisa edit pembelian karena hutang sudah pernah dibayar");
+                }
+
+                $oldNominal = $hutang->nominal;
+                $newNominal = $oldNominal + $deltaNilai;
+
+                if ($newNominal < 0) {
+                    throw new \Exception("Nominal hutang tidak valid");
+                }
+
+                // Update hutang
+                $hutang->update([
+                    'nominal' => $newNominal,
+                    'sisa'    => $hutang->sisa + $deltaNilai
+                ]);
+
+                // Ambil jenis barang
+                $firstDetail = PembelianBarangDetail::where('pembelian_barang_id', $pembelian->id)->first();
+
+                $kasJenisBarang = $firstDetail && $firstDetail->barang
+                    ? $firstDetail->barang->jenis_barang_id
+                    : null;
+
+                // Update kas (mirroring logic di update())
+                if ($deltaNilai > 0) {
+
+                    // Hutang bertambah
+                    KasService::neutralIN(
+                        toko_id: $hutang->toko_id,
+                        jenis_barang_id: $kasJenisBarang,
+                        tipe_kas: 'kecil',
+                        total_nominal: $deltaNilai,
+                        item: 'hutang',
+                        kategori: 'Hutang',
+                        keterangan: $hutang->hutangTipe->tipe ?? 'Hutang Lainnya',
+                        sumber: $hutang,
+                        tanggal: $hutang->tanggal,
+                    );
+
+                    KasService::in(
+                        toko_id: $hutang->toko_id,
+                        jenis_barang_id: $kasJenisBarang,
+                        tipe_kas: 'kecil',
+                        total_nominal: $deltaNilai,
+                        item: 'kecil',
+                        kategori: 'Hutang',
+                        keterangan: $hutang->hutangTipe->tipe ?? 'Hutang Lainnya',
+                        sumber: $hutang,
+                        tanggal: $hutang->tanggal,
+                        laba: false
+                    );
+                } else {
+
+                    // Hutang berkurang
+                    $absDelta = abs($deltaNilai);
+
+                    KasService::neutralOUT(
+                        toko_id: $hutang->toko_id,
+                        jenis_barang_id: $kasJenisBarang,
+                        tipe_kas: 'kecil',
+                        total_nominal: $absDelta,
+                        item: 'hutang',
+                        kategori: 'Hutang',
+                        keterangan: $hutang->hutangTipe->tipe ?? 'Hutang Lainnya',
+                        sumber: $hutang,
+                        tanggal: $hutang->tanggal,
+                    );
+
+                    KasService::out(
+                        toko_id: $hutang->toko_id,
+                        jenis_barang_id: $kasJenisBarang,
+                        tipe_kas: 'kecil',
+                        total_nominal: $absDelta,
+                        item: 'kecil',
+                        kategori: 'Hutang',
+                        keterangan: $hutang->hutangTipe->tipe ?? 'Hutang Lainnya',
+                        sumber: $hutang,
+                        tanggal: $hutang->tanggal,
+                        laba: false
+                    );
+                }
+
+                // Logging
+                LogAktivitasGenerate::store(
+                    logName: 'Hutang',
+                    subjectType: Hutang::class,
+                    subjectId: $hutang->id,
+                    event: 'Update Data',
+                    properties: [
+                        'changes' => [
+                            'old' => [
+                                'nominal' => $oldNominal,
+                            ],
+                            'new' => [
+                                'nominal' => $newNominal,
+                            ],
+                        ]
+                    ],
+                    description: "Update nominal hutang dari {$oldNominal} menjadi {$newNominal}",
+                    userId: $request->user_id,
+                    message: '(Sistem) Update hutang dari edit pembelian.'
+                );
+            }
+
             DB::commit();
             return $this->success(null, 200, 'Detail pembelian berhasil diperbarui');
         } catch (\Throwable $e) {
@@ -641,25 +758,169 @@ class PembelianBarangController extends Controller
         }
     }
 
-
-    public function delete($id)
+    public function deleteDetail(Request $request)
     {
+        $request->validate([
+            'id' => 'required|integer|exists:pembelian_barang_detail,id',
+            'deleted_by' => 'required|integer|exists:users,id',
+            'pin' => 'required',
+            'toko_id' => 'required|integer|exists:toko,id',
+            'message' => 'required|string',
+        ]);
+
+        $pinCheck = PinCheck::validate($request->toko_id, $request->pin);
+
+        if (!$pinCheck['status']) {
+            return $this->error(403, $pinCheck['message']);
+        }
+
         DB::beginTransaction();
-
         try {
-            $pembelian = PembelianBarang::findOrFail($id);
+            $detail = PembelianBarangDetail::with([
+                'pembelianBarang',
+                'stockBarangBatch.stockBarang'
+            ])->lockForUpdate()->findOrFail($request->id);
 
-            $pembelian->detail()->delete();
+            $pembelian   = $detail->pembelianBarang;
+            $batch       = $detail->stockBarangBatch;
+            $stockBarang = $batch->stockBarang;
 
-            $pembelian->delete();
+            $qty   = $detail->qty;
+            $nilai = $detail->subtotal;
+
+            // 🔒 VALIDASI: tidak boleh jika sudah ada barang keluar
+            $qtyKeluar = $batch->qty_masuk - $batch->qty_sisa;
+            if ($qtyKeluar > 0) {
+                throw new \Exception("Tidak bisa hapus, barang sudah terpakai sebanyak {$qtyKeluar}");
+            }
+
+            // 🔥 HANDLE HUTANG
+            if ($pembelian->tipe === 'hutang') {
+                $hutang = Hutang::where('sumber_type', PembelianBarang::class)
+                    ->where('sumber_id', $pembelian->id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$hutang) {
+                    throw new \Exception("Data hutang tidak ditemukan");
+                }
+
+                $totalDibayar = $hutang->nominal - $hutang->sisa;
+
+                if ($totalDibayar > 0) {
+                    throw new \Exception("Tidak bisa hapus karena hutang sudah pernah dibayar");
+                }
+
+                $oldNominal = $hutang->nominal;
+                $newNominal = $oldNominal - $nilai;
+
+                if ($newNominal < 0) {
+                    throw new \Exception("Nominal hutang tidak valid");
+                }
+
+                $hutang->update([
+                    'nominal' => $newNominal,
+                    'sisa'    => $hutang->sisa - $nilai
+                ]);
+
+                // jenis barang
+                $kasJenisBarang = $detail->barang
+                    ? $detail->barang->jenis_barang_id
+                    : null;
+
+                // kas adjustment (hutang berkurang)
+                KasService::neutralOUT(
+                    toko_id: $hutang->toko_id,
+                    jenis_barang_id: $kasJenisBarang,
+                    tipe_kas: 'kecil',
+                    total_nominal: $nilai,
+                    item: 'hutang',
+                    kategori: 'Hutang',
+                    keterangan: $hutang->hutangTipe->tipe ?? 'Hutang Lainnya',
+                    sumber: $hutang,
+                    tanggal: $hutang->tanggal,
+                );
+
+                KasService::out(
+                    toko_id: $hutang->toko_id,
+                    jenis_barang_id: $kasJenisBarang,
+                    tipe_kas: 'kecil',
+                    total_nominal: $nilai,
+                    item: 'kecil',
+                    kategori: 'Hutang',
+                    keterangan: $hutang->hutangTipe->tipe ?? 'Hutang Lainnya',
+                    sumber: $hutang,
+                    tanggal: $hutang->tanggal,
+                    laba: false
+                );
+
+                LogAktivitasGenerate::store(
+                    logName: 'Hutang',
+                    subjectType: Hutang::class,
+                    subjectId: $hutang->id,
+                    event: 'Delete Detail Pembelian Barang',
+                    properties: [
+                        'changes' => [
+                            'old' => ['nominal' => $oldNominal],
+                            'new' => ['nominal' => $newNominal],
+                        ]
+                    ],
+                    description: "Pengurangan hutang karena hapus item pembelian",
+                    userId: $request->deleted_by,
+                    message: $request->message ?? '(Sistem) Delete Detail Pembelian Barang.'
+                );
+            }
+
+            // 🔥 HANDLE CASH
+            if ($pembelian->tipe === 'cash') {
+                KasService::updatePembelianBarang(
+                    pembelian: $pembelian,
+                    deltaNominal: -$nilai, // negatif = kas masuk balik
+                    userId: $request->deleted_by
+                );
+
+                LogAktivitasGenerate::store(
+                    logName: 'Pembelian Barang',
+                    subjectType: PembelianBarang::class,
+                    subjectId: $hutang->id,
+                    event: 'Delete Detail Pembelian Barang',
+                    properties: [
+                        'changes' => [
+                            'old' => ['nominal' => $oldNominal],
+                            'new' => ['nominal' => $newNominal],
+                        ]
+                    ],
+                    description: "Pengurangan hutang karena hapus item pembelian",
+                    userId: $request->deleted_by,
+                    message: $request->message ?? '(Sistem) Delete Detail Pembelian Barang.'
+                );
+            }
+
+            // 🔥 UPDATE STOCK
+            $stockBarang->update([
+                'stok' => $stockBarang->stok - $qty
+            ]);
+
+            // 🔥 DELETE BATCH
+            $batch->delete();
+
+            // 🔥 UPDATE PEMBELIAN
+            $pembelian->update([
+                'qty'   => $pembelian->qty - $qty,
+                'total' => $pembelian->total - $nilai,
+            ]);
+
+            // 🔥 DELETE DETAIL
+            $detail->delete();
 
             DB::commit();
 
-            return response()->json(['success' => true, 'message' => 'Success to delete pembelian barang. ']);
-        } catch (\Exception $e) {
-            DB::rollback();
-
-            return response()->json(['success' => false, 'message' => 'Failed to delete pembelian barang. ' . $e->getMessage()]);
+            return $this->success(null, 200, 'Detail pembelian berhasil dihapus');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return $this->error(500, 'Gagal hapus detail pembelian', [
+                'exception' => $e->getMessage()
+            ]);
         }
     }
 
@@ -855,6 +1116,149 @@ class PembelianBarangController extends Controller
         } catch (\Exception $e) {
             // Tangani exception umum
             return back()->with('error', 'Terjadi kesalahan saat mengimpor data: ' . $e->getMessage());
+        }
+    }
+
+    public function delete(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'id' => 'required|integer|exists:pembelian_barang,id',
+                'deleted_by' => 'required|integer|exists:users,id',
+                'pin' => 'required',
+                'toko_id' => 'required|integer|exists:toko,id',
+                'message' => 'required|string',
+            ]);
+
+            // ✅ VALIDASI PIN
+            $pinCheck = PinCheck::validate($validated['toko_id'], $validated['pin']);
+            if (!$pinCheck['status']) {
+                return $this->error(403, $pinCheck['message']);
+            }
+
+            DB::beginTransaction();
+
+            $pembelian = PembelianBarang::findOrFail($validated['id']);
+
+            // =========================
+            // 🟡 KONDISI: MASIH PROGRESS
+            // =========================
+            if ($pembelian->status !== 'success') {
+
+                $tempDetails = PembelianBarangDetailTemp::where('pembelian_barang_id', $pembelian->id)->get();
+
+                foreach ($tempDetails as $temp) {
+
+                    $stockBarang = StockBarang::where('barang_id', $temp->barang_id)
+                        ->where('toko_group_id', $pembelian->toko_group_id)
+                        ->first();
+
+                    if ($stockBarang) {
+
+                        // 🔥 OPTIONAL: rollback HPP ke sebelumnya (kalau ada logic tracking)
+                        // kalau tidak ada histori → amanin aja jadi 0 / biarkan
+
+                        // contoh simple reset (opsional):
+                        $stockBarang->hpp_awal = 0;
+                        $stockBarang->hpp_baru = 0;
+
+                        $stockBarang->save();
+                    }
+
+                    // ❌ HAPUS TEMP
+                    $temp->delete();
+                }
+
+                // ❌ HAPUS PEMBELIAN
+                $pembelian->delete();
+
+                DB::commit();
+
+                return $this->success(null, 200, "Draft pembelian berhasil dihapus");
+            }
+
+            // =========================
+            // 🔴 KONDISI: SUDAH SUCCESS
+            // =========================
+
+            $pembelian = PembelianBarang::with('detail')->findOrFail($validated['id']);
+
+            foreach ($pembelian->detail as $detail) {
+
+                $batch = StockBarangBatch::find($detail->stock_barang_batch_id);
+
+                if (!$batch) continue;
+
+                $stockBarang = StockBarang::find($batch->stock_barang_id);
+
+                if ($stockBarang) {
+
+                    $stockBarang->stok -= $batch->qty_masuk;
+
+                    $prevBatch = StockBarangBatch::where('stock_barang_id', $stockBarang->id)
+                        ->where('id', '<', $batch->id)
+                        ->orderBy('id', 'desc')
+                        ->first();
+
+                    if ($prevBatch) {
+                        $stockBarang->hpp_awal = $prevBatch->hpp_awal;
+                        $stockBarang->hpp_baru = $prevBatch->hpp_baru;
+                    } else {
+                        $stockBarang->hpp_awal = 0;
+                        $stockBarang->hpp_baru = 0;
+                    }
+
+                    $stockBarang->save();
+                }
+
+                $batch->delete();
+                $detail->delete();
+            }
+
+            // 💰 KAS
+            if ($pembelian->tipe == 'cash') {
+
+                KasService::delete(
+                    $pembelian->kas_id,
+                    $pembelian->id,
+                    PembelianBarang::class,
+                    $pembelian->tanggal,
+                    true
+                );
+            } elseif ($pembelian->tipe == 'hutang') {
+
+                KasService::delete(
+                    $pembelian->kas_id,
+                    $pembelian->id,
+                    PembelianBarang::class,
+                    $pembelian->tanggal,
+                    true
+                );
+
+                KasService::delete(
+                    $pembelian->kas_id,
+                    $pembelian->id,
+                    Hutang::class,
+                    $pembelian->tanggal,
+                    false
+                );
+
+                Hutang::where('sumber_type', PembelianBarang::class)
+                    ->where('sumber_id', $pembelian->id)
+                    ->delete();
+            }
+
+            $pembelian->delete();
+
+            DB::commit();
+
+            return $this->success(null, 200, "Pembelian berhasil dihapus & stok dikembalikan");
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return $this->error(500, 'Gagal menghapus data', [
+                'error' => $e->getMessage()
+            ]);
         }
     }
 }

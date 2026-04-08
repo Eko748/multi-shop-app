@@ -308,7 +308,7 @@
             }
 
             let edit_button = '';
-            if (hasPermission(['PUT /toko/update/{id}'])) {
+            // if (hasPermission(['PUT /toko/update/{id}'])) {
                 edit_button = `
                 <button class="p-1 btn edit-data action_button" onClick="openEditModal('${encodeURIComponent(JSON.stringify(data))}')">
                     <span class="text-dark" title="Edit ${title}: ${data.nama}">Edit</span>
@@ -316,7 +316,7 @@
                         <i class="fa fa-edit"></i>
                     </div>
                 </button>`;
-            }
+            // }
 
             let delete_button = '';
             if (hasPermission('DELETE /toko/delete/{id}')) {

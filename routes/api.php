@@ -312,6 +312,8 @@ Route::prefix('transaksi-barang')->as('tb.')->group(function () {
         Route::get('get', [PembelianBarangController::class, 'get'])->name('get');
         Route::get('get-detail', [PembelianBarangController::class, 'getDetail'])->name('getDetail');
         Route::put('put-detail', [PembelianBarangController::class, 'putDetail'])->name('putDetail');
+        Route::delete('delete', [PembelianBarangController::class, 'delete'])->name('delete');
+        Route::delete('delete-detail', [PembelianBarangController::class, 'deleteDetail'])->name('deleteDetail');
 
         Route::prefix('temporary')->as('temp.')->group(function () {
             Route::post('post', [PembelianBarangController::class, 'postTemp'])->name('post');

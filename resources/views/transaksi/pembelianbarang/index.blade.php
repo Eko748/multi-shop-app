@@ -496,11 +496,11 @@
             let delete_button = '';
             let detail_button = '';
 
-            if (data?.status === 'Sukses' || data?.status === 'success_debt') {
+            if (data?.status === 'Sukses') {
                 status =
                     `<span class="badge badge-success custom-badge"><i class="mx-1 fa fa-circle-check"></i>${data.status}</span>`;
                 detail_button = `
-                    <a href="pembelian-barang/detail?r=${data.id}" class="p-1 btn detail-data action_button"
+                    <a href="{{ route('transaksi.pembelianbarang.detail') }}?r=${data.id}" class="p-1 btn detail-data action_button"
                         data-container="body" data-toggle="tooltip" data-placement="top"
                         title="Detail Data Nomor Nota: ${data.nota}"
                         data-id='${data.id}'>
@@ -509,11 +509,11 @@
                             <i class="fa fa-eye"></i>
                         </div>
                     </a>`;
-            } else if (data?.status === 'completed_debt') {
+            } else if (data?.status === 'Sukses - Hutang') {
                 status =
                     `<span class="badge badge-warning custom-badge"><i class="mx-1 fa fa-circle-info"></i>${data.status}</span>`;
                 detail_button = `
-                    <a href="pembelian-barang/detail?r=${data.id}" class="p-1 btn detail-data action_button"
+                    <a href="{{ route('transaksi.pembelianbarang.detail') }}?r=${data.id}" class="p-1 btn detail-data action_button"
                         data-container="body" data-toggle="tooltip" data-placement="top"
                         title="Detail Data Nomor Nota: ${data.nota}"
                         data-id='${data.id}'>
@@ -546,9 +546,12 @@
                     </div>
                 </a>`;
                 delete_button = `
-                <a class="p-1 btn delete-data action_button"
+                <a class="p-1 btn hapus-data action_button"
                     data-container="body" data-toggle="tooltip" data-placement="top"
-                    title="Hapus ${title} No.Nota: ${data.nota}" data="${elementData}">
+                    onclick="deleteData('${encodeURIComponent(JSON.stringify(data))}')"
+                    title="Hapus ${title}: ${data.nota}"
+                    data-id='${data.id}'
+                    data-name='${data.nota}'>
                     <span class="text-dark">Hapus</span>
                     <div class="icon text-danger">
                         <i class="fa fa-trash"></i>
@@ -633,16 +636,84 @@
 
                 let id = $(this).data('id');
                 if (id) {
-                    window.location.href = `pembelianbarang/${id}/detail?r=${id}`;
+                    window.location.href = `{{ route('transaksi.pembelianbarang.detail') }}?r=${id}`;
                 }
             });
         }
 
+        async function deleteData(encodedData) {
+            let data = JSON.parse(decodeURIComponent(encodedData));
+
+            swal({
+                title: `Hapus ${title}`,
+                html: `
+                    <p class="font-weight-bold">Transaksi ${data.nota} akan dihapus!</p>
+                    <hr>
+                    <div class="px-4" style="gap: 0.5rem;">
+                        <div class="form-group">
+                            <label for="input-pin" class="form-control-label d-flex justify-content-start">PIN<span class="text-danger ml-1">*</span></label>
+                            <input type="text" id="input-pin" class="swal-content__input form-control mb-2" placeholder="Masukkan PIN Toko">
+                        </div>
+                        <div class="form-group">
+                            <label for="input-message" class="form-control-label d-flex justify-content-start">Pesan<span class="text-danger ml-1">*</span></label>
+                            <textarea id="input-message" class="swal-content__input form-control mb-2" placeholder="Masukkan Pesan" rows="4"></textarea>
+                        </div>
+                    </div>
+                `,
+                type: "question",
+                showCancelButton: true,
+                confirmButtonText: "Konfirmasi",
+                cancelButtonText: "Batal",
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                reverseButtons: true,
+                confirmButtonClass: "btn btn-danger",
+                cancelButtonClass: "btn btn-secondary"
+            }).then(async (result) => {
+                const pin = document.getElementById('input-pin')?.value;
+                const message = document.getElementById('input-message')?.value;
+
+                if (!pin) {
+                    notificationAlert("error", "Gagal", "PIN tidak boleh kosong!");
+                    return;
+                }
+                if (!message) {
+                    notificationAlert("error", "Gagal", "Pesan tidak boleh kosong!");
+                    return;
+                }
+
+                let postDataRest = await renderAPI(
+                        'DELETE',
+                        '{{ route('tb.pb.delete') }}', {
+                            id: data.id,
+                            deleted_by: {{ auth()->user()->id }},
+                            toko_id: {{ auth()->user()->toko_id }},
+                            message: message,
+                            pin: pin
+                        }
+                    ).then(response => response)
+                    .catch(error => error.response);
+
+                swal.close();
+
+                if (postDataRest.status == 200) {
+                    setTimeout(() => {
+                        getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
+                            customFilter);
+                    }, 500);
+                    notificationAlert('success', 'Pemberitahuan', postDataRest.data.message);
+                } else {
+                    notificationAlert('error', 'Gagal', postDataRest.data?.message ||
+                        'Terjadi kesalahan.');
+                }
+            }).catch(swal.noop);
+        }
+
         const PBState = {
-            mode: 'add', // add | edit
+            mode: 'add',
             pembelianId: null,
             header: {},
-            items: [], // single source of truth
+            items: [],
             addedItems: new Set(),
         };
 

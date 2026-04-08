@@ -385,11 +385,12 @@ class KasService
     public static function updatePembelianBarang(
         PembelianBarang $pembelian,
         float $deltaNominal,
-        int $userId
+        int $userId,
+        $edit = true
     ) {
         if ($deltaNominal == 0) return;
 
-        DB::transaction(function () use ($pembelian, $deltaNominal, $userId) {
+        DB::transaction(function () use ($pembelian, $deltaNominal, $userId, $edit) {
 
             $kas = Kas::where('id', $pembelian->kas_id)
                 ->lockForUpdate()
@@ -486,19 +487,35 @@ class KasService
             $arahSaldo = $deltaNominal > 0 ? 'berkurang' : 'bertambah';
             $nominal   = number_format(abs($deltaNominal), 0, ',', '.');
 
-            LogAktivitasGenerate::store(
-                logName: 'Kas',
-                subjectType: Kas::class,
-                subjectId: $kas->id,
-                event: 'Edit Data',
-                properties: [
-                    'delta_nominal' => $deltaNominal,
-                    'saldo_akhir' => $kas->saldo
-                ],
-                description: "Penyesuaian edit Pembelian Barang Nota {$pembelian->nota}, saldo {$arahSaldo} Rp {$nominal}",
-                userId: $userId,
-                message: "(Sistem) Penyesuaian Kas {$arahSaldo}"
-            );
+            if($edit) {
+                LogAktivitasGenerate::store(
+                    logName: 'Kas',
+                    subjectType: Kas::class,
+                    subjectId: $kas->id,
+                    event: 'Edit Data',
+                    properties: [
+                        'delta_nominal' => $deltaNominal,
+                        'saldo_akhir' => $kas->saldo
+                    ],
+                    description: "Penyesuaian edit Pembelian Barang Nota {$pembelian->nota}, saldo {$arahSaldo} Rp {$nominal}",
+                    userId: $userId,
+                    message: "(Sistem) Penyesuaian Kas {$arahSaldo}"
+                );
+            } else {
+                LogAktivitasGenerate::store(
+                    logName: 'Kas',
+                    subjectType: Kas::class,
+                    subjectId: $kas->id,
+                    event: 'Hapus Data',
+                    properties: [
+                        'delta_nominal' => $deltaNominal,
+                        'saldo_akhir' => $kas->saldo
+                    ],
+                    description: "Penyesuaian hapus Pembelian Barang Nota {$pembelian->nota}, saldo {$arahSaldo} Rp {$nominal}",
+                    userId: $userId,
+                    message: "(Sistem) Penyesuaian Kas {$arahSaldo}"
+                );
+            }
         });
     }
 

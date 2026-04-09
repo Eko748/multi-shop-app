@@ -509,6 +509,18 @@
                             <i class="fa fa-eye"></i>
                         </div>
                     </a>`;
+                delete_button = `
+                <a class="p-1 btn hapus-data action_button"
+                    data-container="body" data-toggle="tooltip" data-placement="top"
+                    onclick="deleteData('${encodeURIComponent(JSON.stringify(data))}')"
+                    title="Hapus ${title}: ${data.nota}"
+                    data-id='${data.id}'
+                    data-name='${data.nota}'>
+                    <span class="text-dark">Hapus</span>
+                    <div class="icon text-danger">
+                        <i class="fa fa-trash"></i>
+                    </div>
+                </a>`;
             } else if (data?.status === 'Sukses - Hutang') {
                 status =
                     `<span class="badge badge-warning custom-badge"><i class="mx-1 fa fa-circle-info"></i>${data.status}</span>`;
@@ -530,6 +542,18 @@
                     <span class="text-dark">Bayar</span>
                     <div class="icon text-success">
                         <i class="fa fa-coins"></i>
+                    </div>
+                </a>`;
+                delete_button = `
+                <a class="p-1 btn hapus-data action_button"
+                    data-container="body" data-toggle="tooltip" data-placement="top"
+                    onclick="deleteData('${encodeURIComponent(JSON.stringify(data))}')"
+                    title="Hapus ${title}: ${data.nota}"
+                    data-id='${data.id}'
+                    data-name='${data.nota}'>
+                    <span class="text-dark">Hapus</span>
+                    <div class="icon text-danger">
+                        <i class="fa fa-trash"></i>
                     </div>
                 </a>`;
             } else {
@@ -630,7 +654,7 @@
             renderPagination();
 
             $('.clickable-row').on('click', function(e) {
-                if ($(e.target).closest('.edit-data, .detail-data, .delete-data').length) {
+                if ($(e.target).closest('.edit-data, .detail-data, .hapus-data').length) {
                     return;
                 }
 

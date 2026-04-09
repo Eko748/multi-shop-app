@@ -7,7 +7,7 @@ use App\Helpers\FormatHarga;
 use App\Helpers\KasJenisBarangGenerate;
 use App\Helpers\LogAktivitasGenerate;
 use App\Helpers\RupiahGenerate;
-use App\Helpers\{TextGenerate, PinCheck};
+use App\Helpers\{TextGenerate, PinCheck, HppGenerate};
 use App\Http\Controllers\Controller;
 use App\Imports\PembelianBarangImport;
 use App\Models\Barang;
@@ -241,41 +241,6 @@ class PembelianBarangController extends Controller
         ]);
     }
 
-    public function getStock($id_barang)
-    {
-        $stock = StockBarang::where('id_barang', $id_barang)->first();
-
-        $barang = Barang::where('id', $id_barang)->first();
-
-        $detail = DetailPembelianBarang::where('id_barang', $id_barang)->get();
-
-        $totalHargaSuccess = $detail->sum('total_harga');
-        $totalQtySuccess = $detail->sum('qty');
-
-        // Hitung HPP baru
-        if ($totalQtySuccess > 0) {
-            $hppBaru = $totalHargaSuccess / $totalQtySuccess;
-        } else {
-            $hppBaru = 0;
-        }
-
-        $level_harga = [];
-        if ($barang && $barang->level_harga) {
-            $decoded_level_harga = json_decode($stock->level_harga, true);
-            foreach ($decoded_level_harga as $item) {
-                list($level_name, $level_value) = explode(' : ', $item);
-                $level_harga[$level_name] = $level_value;
-            }
-        }
-
-        return response()->json([
-            'stock' => $stock->stock ?? 0,
-            'hpp_awal' => $stock->hpp_awal ?? 0,
-            'hpp_baru' => $hppBaru,
-            'level_harga' => $level_harga,
-        ]);
-    }
-
     public function update(Request $request)
     {
         $id = $request->id;
@@ -492,7 +457,7 @@ class PembelianBarangController extends Controller
                     total_nominal: $hutang->nominal,
                     item: 'kecil',
                     kategori: 'Hutang',
-                    keterangan: $data->hutangTipe->tipe ?? 'Hutang Lainnya',
+                    keterangan: $hutang->hutangTipe->tipe ?? 'Hutang Lainnya',
                     sumber: $hutang,
                     tanggal: $hutang->tanggal,
                     laba: false
@@ -791,7 +756,7 @@ class PembelianBarangController extends Controller
             // 🔒 VALIDASI: tidak boleh jika sudah ada barang keluar
             $qtyKeluar = $batch->qty_masuk - $batch->qty_sisa;
             if ($qtyKeluar > 0) {
-                throw new \Exception("Tidak bisa hapus, barang sudah terpakai sebanyak {$qtyKeluar}");
+                throw new \Exception("Tidak bisa hapus, barang sudah terpakai sebanyak {$qtyKeluar} qty");
             }
 
             // 🔥 HANDLE HUTANG
@@ -918,7 +883,7 @@ class PembelianBarangController extends Controller
             return $this->success(null, 200, 'Detail pembelian berhasil dihapus');
         } catch (\Throwable $e) {
             DB::rollBack();
-            return $this->error(500, 'Gagal hapus detail pembelian', [
+            return $this->error(500, $e->getMessage(), [
                 'exception' => $e->getMessage()
             ]);
         }
@@ -1138,12 +1103,12 @@ class PembelianBarangController extends Controller
 
             DB::beginTransaction();
 
-            $pembelian = PembelianBarang::findOrFail($validated['id']);
+            $pembelian = PembelianBarang::with('detail')->findOrFail($validated['id']);
 
             // =========================
             // 🟡 KONDISI: MASIH PROGRESS
             // =========================
-            if ($pembelian->status !== 'success') {
+            if ($pembelian->status == 'progress') {
 
                 $tempDetails = PembelianBarangDetailTemp::where('pembelian_barang_id', $pembelian->id)->get();
 
@@ -1154,26 +1119,17 @@ class PembelianBarangController extends Controller
                         ->first();
 
                     if ($stockBarang) {
-
-                        // 🔥 OPTIONAL: rollback HPP ke sebelumnya (kalau ada logic tracking)
-                        // kalau tidak ada histori → amanin aja jadi 0 / biarkan
-
-                        // contoh simple reset (opsional):
                         $stockBarang->hpp_awal = 0;
                         $stockBarang->hpp_baru = 0;
-
                         $stockBarang->save();
                     }
 
-                    // ❌ HAPUS TEMP
                     $temp->delete();
                 }
 
-                // ❌ HAPUS PEMBELIAN
                 $pembelian->delete();
 
                 DB::commit();
-
                 return $this->success(null, 200, "Draft pembelian berhasil dihapus");
             }
 
@@ -1181,41 +1137,35 @@ class PembelianBarangController extends Controller
             // 🔴 KONDISI: SUDAH SUCCESS
             // =========================
 
-            $pembelian = PembelianBarang::with('detail')->findOrFail($validated['id']);
-
+            // ❗ VALIDASI AWAL (FAIL FAST)
             foreach ($pembelian->detail as $detail) {
 
                 $batch = StockBarangBatch::find($detail->stock_barang_batch_id);
 
+                if ($batch && $batch->qty_sisa != $batch->qty_masuk) {
+                    DB::rollBack();
+                    return $this->error(400, "Tidak bisa hapus pembelian. Ada stok yang sudah terjual.");
+                }
+            }
+
+            // 🔥 PROSES DELETE + RECALC
+            foreach ($pembelian->detail as $detail) {
+
+                $batch = StockBarangBatch::find($detail->stock_barang_batch_id);
                 if (!$batch) continue;
 
-                $stockBarang = StockBarang::find($batch->stock_barang_id);
-
-                if ($stockBarang) {
-
-                    $stockBarang->stok -= $batch->qty_masuk;
-
-                    $prevBatch = StockBarangBatch::where('stock_barang_id', $stockBarang->id)
-                        ->where('id', '<', $batch->id)
-                        ->orderBy('id', 'desc')
-                        ->first();
-
-                    if ($prevBatch) {
-                        $stockBarang->hpp_awal = $prevBatch->hpp_awal;
-                        $stockBarang->hpp_baru = $prevBatch->hpp_baru;
-                    } else {
-                        $stockBarang->hpp_awal = 0;
-                        $stockBarang->hpp_baru = 0;
-                    }
-
-                    $stockBarang->save();
-                }
+                $stockBarangId = $batch->stock_barang_id;
 
                 $batch->delete();
                 $detail->delete();
+
+                // ✅ RECALCULATE HPP & STOK (AMAN SEMUA CASE)
+                HppGenerate::recalcHpp($stockBarangId);
             }
 
-            // 💰 KAS
+            // =========================
+            // 💰 HANDLE KAS & HUTANG
+            // =========================
             if ($pembelian->tipe == 'cash') {
 
                 KasService::delete(
@@ -1223,29 +1173,36 @@ class PembelianBarangController extends Controller
                     $pembelian->id,
                     PembelianBarang::class,
                     $pembelian->tanggal,
-                    true
+                    false
                 );
             } elseif ($pembelian->tipe == 'hutang') {
 
+                $hutang = Hutang::where('sumber_type', PembelianBarang::class)
+                    ->where('sumber_id', $pembelian->id)
+                    ->first();
+
+                // hapus kas pembelian
                 KasService::delete(
                     $pembelian->kas_id,
                     $pembelian->id,
                     PembelianBarang::class,
                     $pembelian->tanggal,
-                    true
-                );
-
-                KasService::delete(
-                    $pembelian->kas_id,
-                    $pembelian->id,
-                    Hutang::class,
-                    $pembelian->tanggal,
                     false
                 );
 
-                Hutang::where('sumber_type', PembelianBarang::class)
-                    ->where('sumber_id', $pembelian->id)
-                    ->delete();
+                // hapus kas hutang (kalau ada)
+                if ($hutang) {
+
+                    KasService::delete(
+                        $hutang->kas_id,
+                        $hutang->id,
+                        Hutang::class,
+                        $hutang->tanggal,
+                        false
+                    );
+
+                    $hutang->delete();
+                }
             }
 
             $pembelian->delete();
@@ -1254,6 +1211,7 @@ class PembelianBarangController extends Controller
 
             return $this->success(null, 200, "Pembelian berhasil dihapus & stok dikembalikan");
         } catch (\Exception $e) {
+
             DB::rollBack();
 
             return $this->error(500, 'Gagal menghapus data', [

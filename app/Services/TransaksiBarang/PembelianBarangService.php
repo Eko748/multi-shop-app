@@ -9,6 +9,7 @@ use App\Helpers\RupiahGenerate;
 use App\Helpers\TextGenerate;
 use App\Models\JenisBarang;
 use App\Models\Kas;
+use App\Models\PembelianBarangDetailTemp;
 use App\Models\Toko;
 use App\Models\TransaksiKasirHarian;
 use App\Repositories\TransaksiBarang\TransaksiKasirDetailRepo;
@@ -42,11 +43,20 @@ class PembelianBarangService
                 'completed_debt' => 'Sukses - Hutang',
                 default => $item->status,
             };
+            if ($item->status === 'progress') {
+                $detail = PembelianBarangDetailTemp::where('pembelian_barang_id', $item->id)
+                    ->selectRaw('SUM(qty) as qty, SUM(harga_beli * qty) as nominal')
+                    ->first();
+                $total = RupiahGenerate::build($detail->nominal);
+            } else {
+                $total = RupiahGenerate::build($item->total);
+            }
+
             return [
                 'id' => $item->id,
                 'nota' => $item->nota,
-                'qty' => $item->qty ?? 0,
-                'total' => RupiahGenerate::build($item->total),
+                'qty' => $detail->qty ?? $item->qty ?? 0,
+                'total' => $total,
                 'tanggal' => $item->tanggal->format('d-m-Y H:i:s'),
                 'kas' => KasJenisBarangGenerate::labelForKas($item),
                 'status' => "{$status}",

@@ -34,11 +34,7 @@ class PembelianBarangRepo
         $totalNominal = 0;
 
         foreach ($pembelian as $pb) {
-            if ($pb->status === 'progress') {
-                $detail = PembelianBarangDetailTemp::where('pembelian_barang_id', $pb->id)
-                    ->selectRaw('SUM(qty) as qty, SUM(harga_beli * qty) as nominal')
-                    ->first();
-            } else {
+            if ($pb->status === 'success') {
                 $detail = PembelianBarangDetail::where('pembelian_barang_id', $pb->id)
                     ->selectRaw('SUM(qty) as qty, SUM(harga_beli * qty) as nominal')
                     ->first();

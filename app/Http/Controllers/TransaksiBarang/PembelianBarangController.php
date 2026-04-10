@@ -841,23 +841,8 @@ class PembelianBarangController extends Controller
                 KasService::updatePembelianBarang(
                     pembelian: $pembelian,
                     deltaNominal: -$nilai, // negatif = kas masuk balik
-                    userId: $request->deleted_by
-                );
-
-                LogAktivitasGenerate::store(
-                    logName: 'Pembelian Barang',
-                    subjectType: PembelianBarang::class,
-                    subjectId: $hutang->id,
-                    event: 'Delete Detail Pembelian Barang',
-                    properties: [
-                        'changes' => [
-                            'old' => ['nominal' => $oldNominal],
-                            'new' => ['nominal' => $newNominal],
-                        ]
-                    ],
-                    description: "Pengurangan hutang karena hapus item pembelian",
                     userId: $request->deleted_by,
-                    message: $request->message ?? '(Sistem) Delete Detail Pembelian Barang.'
+                    edit: false
                 );
             }
 

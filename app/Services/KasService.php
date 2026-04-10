@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Helpers\LogAktivitasGenerate;
+use App\Helpers\LogHelper;
 use App\Helpers\RupiahGenerate;
+use App\Helpers\TextGenerate;
 use App\Models\Hutang;
 use App\Models\Kas;
 use App\Models\KasTransaksi;
@@ -381,7 +383,6 @@ class KasService
         return $transaksiKas;
     }
 
-
     public static function updatePembelianBarang(
         PembelianBarang $pembelian,
         float $deltaNominal,
@@ -396,6 +397,9 @@ class KasService
                 ->lockForUpdate()
                 ->firstOrFail();
 
+            // ✅ ambil saldo lama (OLD)
+            $oldSaldo = $kas->saldo;
+
             $tahun = now()->year;
             $bulan = now()->month;
 
@@ -409,7 +413,6 @@ class KasService
              * ===============================
              * VALIDASI SALDO
              * ===============================
-             * deltaNominal > 0 = kas keluar
              */
             if ($deltaNominal > 0) {
 
@@ -421,21 +424,19 @@ class KasService
 
                 if ($history && $history->saldo_akhir < $deltaNominal) {
                     throw new \Exception(
-                        "Saldo akhir kas bulan berjalan tidak mencukupi. Saldo akhir: " .  RupiahGenerate::build($history->saldo_akhir)
+                        "Saldo akhir kas bulan berjalan tidak mencukupi. Saldo akhir: " . RupiahGenerate::build($history->saldo_akhir)
                     );
                 }
             }
 
             /**
              * ===============================
-             * UPDATE SALDO KAS
+             * UPDATE SALDO
              * ===============================
              */
             if ($deltaNominal > 0) {
-                // pembelian naik → kas keluar
                 $kas->saldo -= abs($deltaNominal);
             } else {
-                // pembelian turun → kas masuk
                 $kas->saldo += abs($deltaNominal);
             }
 
@@ -443,7 +444,7 @@ class KasService
 
             /**
              * ===============================
-             * UPDATE HISTORY BULAN INI
+             * UPDATE HISTORY
              * ===============================
              */
             if ($history) {
@@ -461,14 +462,12 @@ class KasService
 
             /**
              * ===============================
-             * SIMPAN TRANSAKSI KAS
+             * SIMPAN TRANSAKSI
              * ===============================
              */
-            $tipeKas = $deltaNominal > 0 ? 'out' : 'in';
-
             KasTransaksi::create([
                 'kas_id' => $kas->id,
-                'tipe' => $tipeKas,
+                'tipe' => $deltaNominal > 0 ? 'out' : 'in',
                 'kode_transaksi' => 'KS-ADJ-' . time(),
                 'total_nominal' => abs($deltaNominal),
                 'kategori' => 'Adjustment Pembelian',
@@ -487,35 +486,28 @@ class KasService
             $arahSaldo = $deltaNominal > 0 ? 'berkurang' : 'bertambah';
             $nominal   = number_format(abs($deltaNominal), 0, ',', '.');
 
-            if($edit) {
-                LogAktivitasGenerate::store(
-                    logName: 'Kas',
-                    subjectType: Kas::class,
-                    subjectId: $kas->id,
-                    event: 'Edit Data',
-                    properties: [
-                        'delta_nominal' => $deltaNominal,
-                        'saldo_akhir' => $kas->saldo
+            $newSaldo = $kas->saldo;
+
+            LogAktivitasGenerate::store(
+                logName: 'Kas',
+                subjectType: Kas::class,
+                subjectId: $kas->id,
+                event: $edit ? 'Edit Data' : 'Hapus Data',
+                properties: LogHelper::buildChanges(
+                    old: [
+                        'saldo' => TextGenerate::formatNumber($oldSaldo),
                     ],
-                    description: "Penyesuaian edit Pembelian Barang Nota {$pembelian->nota}, saldo {$arahSaldo} Rp {$nominal}",
-                    userId: $userId,
-                    message: "(Sistem) Penyesuaian Kas {$arahSaldo}"
-                );
-            } else {
-                LogAktivitasGenerate::store(
-                    logName: 'Kas',
-                    subjectType: Kas::class,
-                    subjectId: $kas->id,
-                    event: 'Hapus Data',
-                    properties: [
+                    new: [
+                        'saldo' => $newSaldo,
                         'delta_nominal' => $deltaNominal,
-                        'saldo_akhir' => $kas->saldo
-                    ],
-                    description: "Penyesuaian hapus Pembelian Barang Nota {$pembelian->nota}, saldo {$arahSaldo} Rp {$nominal}",
-                    userId: $userId,
-                    message: "(Sistem) Penyesuaian Kas {$arahSaldo}"
-                );
-            }
+                    ]
+                ),
+                description: $edit
+                    ? "Penyesuaian edit Pembelian Barang Nota {$pembelian->nota}, saldo {$arahSaldo} Rp {$nominal}"
+                    : "Penyesuaian hapus Pembelian Barang Nota {$pembelian->nota}, saldo {$arahSaldo} Rp {$nominal}",
+                userId: $userId,
+                message: "(Sistem) Penyesuaian Kas {$arahSaldo}"
+            );
         });
     }
 

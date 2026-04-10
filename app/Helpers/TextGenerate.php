@@ -87,4 +87,15 @@ class TextGenerate
 
         return number_format($number, 6, ',', '.');
     }
+
+    public static function formatNumber($value)
+    {
+        // jika desimal = 0 semua → jadikan integer
+        if (fmod($value, 1) == 0.0) {
+            return (int) $value;
+        }
+
+        // kalau ada desimal → biarkan (atau bisa limit)
+        return $value;
+    }
 }

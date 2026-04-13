@@ -27,6 +27,13 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
+
+        $exceptions->render(function (\Spatie\Permission\Exceptions\UnauthorizedException $e, $request) {
+            return response()->json([
+                'message' => 'Kamu tidak memiliki izin untuk mengakses fitur ini.',
+            ], 403);
+        });
+
         $exceptions->render(function (\Illuminate\Database\QueryException $e, $request) {
             if (str_contains($e->getMessage(), '[2002]')) {
                 return redirect()->route('login');

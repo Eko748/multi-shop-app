@@ -9,7 +9,7 @@
     <meta name="keywords" content="">
     <meta name="author" content="GSS" />
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title') | @if (auth()->user()->id_level == 1)
+    <title>@yield('title') | @if (auth()->user()->role_id == 1)
             {{ env('APP_NAME') ?? 'GSS' }}
         @else
             {{ Auth::user()->toko->singkatan }}

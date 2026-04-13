@@ -479,7 +479,7 @@
 
             const response = await renderAPI(
                 'GET',
-                '{{ route('dashboard.laba_kotor') }}', {
+                '{{ route('dashboard.laba-kotor') }}', {
                     id_toko: '{{ auth()->user()->toko_id }}',
                     ...filterParams
                 }
@@ -503,7 +503,7 @@
 
             const response = await renderAPI(
                 'GET',
-                '{{ route('dashboard.jumlah_transaksi') }}', {
+                '{{ route('dashboard.jumlah-transaksi') }}', {
                     id_toko: '{{ auth()->user()->toko_id }}',
                     ...filterParams
                 }
@@ -600,7 +600,7 @@
             try {
                 const getDataRest = await renderAPI(
                     'GET',
-                    '{{ route('master.index.kasir') }}',
+                    '{{ route('dashboard.rekapitulasi-penjualan') }}',
                     filterParams
                 );
 
@@ -780,7 +780,7 @@
 
             let getDataRest = await renderAPI(
                 'GET',
-                '{{ route('dashboard.komparasi') }}', {
+                '{{ route('dashboard.komparasi-toko') }}', {
                     ...filterParams
                 }
             ).then(function(response) {
@@ -955,7 +955,7 @@
 
             let getDataRest = await renderAPI(
                 'GET',
-                '{{ route('dashboard.rating') }}', {
+                '{{ route('dashboard.top-barang') }}', {
                     ...filterParams
                 }
             ).then(function(response) {
@@ -1070,7 +1070,7 @@
 
             let getDataRest = await renderAPI(
                 'GET',
-                '{{ route('dashboard.member') }}', {
+                '{{ route('dashboard.top-member') }}', {
                     ...filterParams
                 }
             ).then(function(response) {

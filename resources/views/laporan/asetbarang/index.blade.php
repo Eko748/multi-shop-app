@@ -110,7 +110,7 @@
 
             let getDataRest = await renderAPI(
                 'GET',
-                '{{ route('dashboard.asset') }}', {
+                '{{ route('laporan.aset-barang-jualan') }}', {
                     page: page,
                     limit: limit,
                     ascending: ascending,

@@ -273,11 +273,11 @@
                                 <li><a href="{{ route('keuangan.piutang.index') }}" class="dropdown-item"><i
                                             class="icon feather icon-file-plus"></i> Piutang</a></li>
                             @endif
-                            @if (hasMenu(36))
+                            @if (hasMenu(37))
                                 <li><a href="{{ route('keuangan.hutang.index') }}" class="dropdown-item"><i
                                             class="icon feather icon-file-minus"></i> Hutang</a></li>
                             @endif
-                            @if (hasMenu(37))
+                            @if (hasMenu(36))
                                 <li><a href="{{ route('keuangan.mutasi.index') }}" class="dropdown-item"><i
                                             class="icon feather icon-file-text"></i> Mutasi Kas</a></li>
                             @endif

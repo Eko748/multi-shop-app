@@ -1,118 +1,42 @@
 @extends('layouts.main')
 
 @section('title')
-    Data User
+    {{ $title }}
 @endsection
 
 @section('css')
     <link rel="stylesheet" href="{{ asset('css/button-action.css') }}">
     <link rel="stylesheet" href="{{ asset('css/table.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/daterange-picker.css') }}">
     <link rel="stylesheet" href="{{ asset('css/sweetalert2.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/notyf.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/glossy.css') }}">
     <style>
-        .custom-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            flex-wrap: wrap;
-            gap: 10px;
+        .todo-container {
+            width: 100%;
+            padding: 10px 20px;
         }
 
-        .custom-left {
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 10px;
+        .todo-item {
+            margin-bottom: 10px;
         }
 
-        .custom-btn-tambah-wrap {
-            flex: 1 1 auto;
+        .todo-done {
+            border-left: 4px solid #28a745;
+            background: #f8f9fa;
         }
 
-        .custom-form-import {
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 10px;
+        .todo-text {
+            font-weight: 500;
         }
 
-        .custom-input-file {
-            padding: 8px;
-            border: 1px solid #ccc;
-            background-color: #fff;
-            border-radius: 4px;
-            flex: 1 1 auto;
+        .todo-done .todo-text {
+            text-decoration: line-through;
         }
 
-        .custom-btn-import {
-            flex: 0 0 auto;
-            white-space: nowrap;
-        }
-
-        .custom-right {
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            flex-wrap: wrap;
-            gap: 10px;
-            flex: 0 0 auto;
-        }
-
-        .custom-limit-page {
-            flex: 0 0 auto;
-        }
-
-        .custom-search {
-            flex: 0 0 auto;
-            width: 200px;
-        }
-
-        @media (max-width: 767.98px) {
-            .custom-header {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .custom-left {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .custom-btn-tambah-wrap {
-                width: 100%;
-            }
-
-            .custom-form-import {
-                flex-direction: row;
-                justify-content: space-between;
-                width: 100%;
-            }
-
-            .custom-input-file {
-                flex: 1 1 65%;
-            }
-
-            .custom-btn-import {
-                flex: 1 1 30%;
-            }
-
-            .custom-right {
-                flex-direction: row;
-                justify-content: space-between;
-                width: 100%;
-                margin-top: 10px;
-            }
-
-            .custom-limit-page {
-                flex: 1 1 25%;
-            }
-
-            .custom-search {
-                flex: 1 1 70%;
-            }
-
-            .custom-btn-tambah {
-                width: 100%;
-            }
+        .todo-item:hover {
+            transform: translateY(-2px);
+            transition: 0.2s;
         }
     </style>
 @endsection
@@ -122,52 +46,93 @@
         <div class="pcoded-content pt-1 mt-1">
             @include('components.breadcrumbs')
             <div class="row">
-                <div class="col-xl-12">
-                    <div class="card">
-                        <div class="card-header custom-header">
-                            <div class="custom-left">
-                                <div class="custom-btn-tambah-wrap">
-                                    @if (hasPermission('POST /user/post'))
-                                        <button type="button" class="btn btn-primary w-100" id="btn-add-data"
-                                            onclick="openAddModal()">
-                                            <i class="fa fa-circle-plus"></i><span> Tambah Data</span>
+                <div class="col-12 col-sm-12 col-md-12 col-lg-12 col-xl-12 mb-2">
+                    <div class="row" id="tambahData">
+                        <div class="col-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
+                            <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
+                                <div class="d-flex flex-row justify-content-between align-items-center p-3 flex-wrap">
+                                    <h5 class="m-0">List {{ $title }}</h5>
+                                    <div class="d-flex align-items-center" style="gap: 0.5rem;">
+                                        <button
+                                            class="btn-dynamic btn btn-md btn-outline-secondary d-flex align-items-center justify-content-center"
+                                            type="button" data-toggle="collapse" data-target="#filter-collapse"
+                                            aria-expanded="false" aria-controls="filter-collapse" data-container="body"
+                                            data-toggle="tooltip" data-placement="top"
+                                            style="flex: 0 0 45px; max-width: 45px;" title="Filter Data">
+                                            <i class="fa fa-filter my-1"></i>
                                         </button>
-                                    @endif
+                                        @if (hasAnyPermission(['POST /kasir/store']))
+                                            <button type="button"
+                                                class="btn btn-md btn-outline-primary d-flex align-items-center justify-content-center"
+                                                id="btn-add-data" onclick="openAddModal()" data-container="body"
+                                                data-toggle="tooltip" data-placement="top"
+                                                style="flex: 1 1 45px; max-width: 150px;"
+                                                title="Tambah Data {{ $menu[0] }}">
+                                                <i class="fa fa-circle-plus my-1"></i>
+                                                <span class="d-none d-sm-inline ml-1">Tambah Data</span>
+                                            </button>
+                                        @endif
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="custom-right">
-                                <div class="custom-limit-page">
-                                    <select name="limitPage" id="limitPage" class="form-control">
-                                        <option value="10">10</option>
-                                        <option value="20">20</option>
+                                <hr class="m-0">
+                                <div class="collapse" id="filter-collapse">
+                                    <form id="custom-filter" class="p-3">
+                                        <div class="d-flex flex-column flex-md-row justify-content-md-end align-items-md-center"
+                                            style="gap: 1rem;">
+                                            <div class="input-group w-25 w-md-auto filter-input">
+                                                <div class="input-group-prepend">
+                                                    <span class="input-group-text">
+                                                        <i class="fa fa-calendar"></i>
+                                                    </span>
+                                                </div>
+                                                <input class="form-control" type="text" id="daterange" name="daterange"
+                                                    placeholder="Pilih rentang tanggal">
+                                            </div>
+                                            <div class="d-flex justify-content-end" style="gap: 1rem;">
+                                                <button class="btn btn-info" id="tb-filter" type="submit">
+                                                    <i class="fa fa-magnifying-glass mr-1"></i>Cari
+                                                </button>
+                                                <button type="button" class="btn btn-secondary" id="tb-reset">
+                                                    <i class="fa fa-rotate mr-1"></i>Reset
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </form>
+                                    <hr class="m-0">
+                                </div>
+
+                                <div class="d-flex flex-row justify-content-between align-items-center p-3 flex-wrap"
+                                    style="gap: 0.5rem;">
+                                    <select name="limitPage" id="limitPage" class="form-control"
+                                        style="flex: 1 1 80px; max-width: 80px;">
                                         <option value="30">30</option>
+                                        <option value="40">40</option>
+                                        <option value="50">50</option>
+                                        <option value="60">60</option>
+                                        <option value="70">70</option>
+                                        <option value="80">80</option>
+                                        <option value="90">90</option>
+                                        <option value="100">100</option>
+                                        <option value="150">150</option>
+                                        <option value="200">200</option>
                                     </select>
-                                </div>
-                                <div class="custom-search">
-                                    <input id="tb-search" class="tb-search form-control" type="search" name="search"
-                                        placeholder="Cari Data" aria-label="search">
+                                    <input class="tb-search form-control ms-auto" type="search" name="search"
+                                        placeholder="Cari Data" aria-label="search"
+                                        style="flex: 1 1 100px; max-width: 200px;">
                                 </div>
                             </div>
                         </div>
-                        <div class="content">
-                            <div class="card-body p-0">
-                                <div class="table-responsive table-scroll-wrapper">
-                                    <table class="table table-striped m-0">
-                                        <thead>
-                                            <tr class="tb-head">
-                                                <th class="text-center text-wrap align-top">No</th>
-                                                <th class="text-wrap align-top">Nama User</th>
-                                                <th class="text-wrap align-top">Level</th>
-                                                <th class="text-wrap align-top">Toko</th>
-                                                <th class="text-wrap align-top">Username</th>
-                                                <th class="text-wrap align-top">Alamat</th>
-                                                <th class="text-center text-wrap align-top">Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="listData">
-                                        </tbody>
-                                    </table>
-                                </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
+                            <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
+                                <div class="row overflow-auto" id="listData" style="max-height: 50vh;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row" id="paginateData">
+                        <div class="col-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
+                            <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
                                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-center p-3">
                                     <div class="text-center text-md-start mb-2 mb-md-0">
                                         <div class="pagination">
@@ -194,9 +159,9 @@
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="modalLabel">Tambah Data User</h5>
-                    <button type="button" class="btn-close reset-all close" data-bs-dismiss="modal" aria-label="Close"><i
-                            class="fa fa-xmark"></i></button>
+                    <h5 class="modal-title" id="modalLabel">Tambah {{ $title }}</h5>
+                    <button type="button" class="btn-close reset-all close" data-bs-dismiss="modal"
+                        aria-label="Close"><i class="fa fa-xmark"></i></button>
                 </div>
                 <div class="modal-body">
                     <form id="form-data">
@@ -213,46 +178,66 @@
 @endsection
 
 @section('asset_js')
+    <script src="{{ asset('js/moment.js') }}"></script>
+    <script src="{{ asset('js/daterange-picker.js') }}"></script>
+    <script src="{{ asset('js/daterange-custom.js') }}"></script>
     <script src="{{ asset('js/pagination.js') }}"></script>
+    <script src="{{ asset('js/notyf.min.js') }}"></script>
 @endsection
 
 @section('js')
     <script>
-        let title = 'Data User';
-        let defaultLimitPage = 10;
+        let title = 'Catatan';
+        let scannedBarang = null;
+        let defaultLimitPage = 30;
         let currentPage = 1;
         let totalPage = 1;
         let defaultAscending = 0;
         let defaultSearch = '';
         let customFilter = {};
         let selectOptions = [{
-                id: '#toko_id',
-                isUrl: '{{ route('master.toko') }}',
-                placeholder: 'Pilih Toko',
-                isModal: '#modal-form',
+            id: '#toko_tujuan_id',
+            isUrl: '{{ route('master.toko') }}',
+            placeholder: 'Pilih Toko',
+            isModal: '#modal-form',
+            isFilter: {
+                not_self: {{ auth()->user()->toko_id }},
             },
-            {
-                id: '#role_id',
-                isUrl: '{{ route('master.levelUser') }}',
-                placeholder: 'Pilih Role',
-                isModal: '#modal-form',
+        }, ];
+        const notyf = new Notyf({
+            duration: 3000,
+            position: {
+                x: 'center',
+                y: 'top',
             }
-        ];
+        });
+        const userId = {{ auth()->user()->id }};
+        const tokoId = {{ auth()->user()->toko_id }};
 
-        async function getListData(limit = 10, page = 1, ascending = 0, search = '', customFilter = {}) {
-            $('#listData').html(loadingData());
+        async function getListData(limit = 30, page = 1, ascending = 0, search = '', customFilter = {}) {
+            $('#listData').html(`
+                <div class="col-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
+                    <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
+                        <div class="d-flex justify-content-center align-items-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="sr-only">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `);
 
-            let filterParams = {};
-
+            let filterParams = {
+                ...customFilter
+            };
             let getDataRest = await renderAPI(
                 'GET',
-                '{{ route('master.getdatauser') }}', {
+                '{{ route('catatan.get') }}', {
                     page: page,
                     limit: limit,
                     ascending: ascending,
                     search: search,
-                    toko_id: '{{ auth()->user()->toko_id }}',
-                    user_id: '{{ auth()->user()->id }}',
+                    toko_id: tokoId,
                     ...filterParams
                 }
             ).then(function(response) {
@@ -267,110 +252,141 @@
                     getDataRest.data.data.map(async item => await handleData(item))
                 );
                 await setListData(handleDataArray, getDataRest.data.pagination);
+                if (getDataRest.data.data.length == 0) {
+                    $('#listData').html(`
+                    <div class="col-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
+                        <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
+                            <div class="text-center my-3" role="alert">
+                                Tidak ada ${title}.
+                            </div>
+                        </div>
+                    </div>
+                    `);
+                }
             } else {
-                let errorMessage = getDataRest?.data?.message || 'Data gagal dimuat';
-                let errorRow = `
-                <tr class="text-dark">
-                    <th class="text-center" colspan="${$('.tb-head th').length}"> ${errorMessage} </th>
-                </tr>`;
-                $('#listData').html(errorRow);
+                $('#listData').html(`
+                    <div class="col-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
+                        <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
+                            <div class="text-center my-3" role="alert">
+                                Data tidak tersedia untuk ditampilkan.
+                            </div>
+                        </div>
+                    </div>
+                    `);
                 $('#countPage').text("0 - 0");
                 $('#totalPage').text("0");
+                $('#totalData').text(getDataRest?.data?.total ?? 0);
             }
         }
 
         async function handleData(data) {
-            let status = '';
-            if (data?.status === 'Sukses') {
-                status =
-                    `<span class="badge badge-success custom-badge"><i class="mx-1 fa fa-circle-check"></i>Sukses</span>`;
-            } else if (data?.status === 'Gagal') {
-                status =
-                    `<span class="badge badge-danger custom-badge"><i class="mx-1 fa fa-circle-xmark"></i>Gagal</span>`;
-            } else {
-                status = `<span class="badge badge-secondary custom-badge">Tidak Diketahui</span>`;
-            }
 
             let edit_button = '';
             let delete_button = '';
+            let checkbox = '';
 
-            if (hasPermission('PUT /user/put')) {
+            if (data.akses === 'sender') {
+
                 edit_button = `
-            <button class="p-1 btn edit-data action_button" onClick="openEditModal('${encodeURIComponent(JSON.stringify(data))}')">
-                <span class="text-dark" title="Edit ${title}: ${data.nama}">Edit</span>
-                <div class="icon text-warning" title="Edit ${title}: ${data.nama}">
-                    <i class="fa fa-edit"></i>
-                </div>
-            </button>`;
+        <a class="btn btn-sm btn-warning edit-data"
+            onClick="openEditModal('${encodeURIComponent(JSON.stringify(data))}')">
+            <i class="fa fa-edit"></i>
+        </a>`;
+
+                delete_button = `
+        <a class="btn btn-sm btn-danger hapus-data"
+            data-id="${data.id}"
+            data-name="${data.keterangan}">
+            <i class="fa fa-trash-alt"></i>
+        </a>`;
             }
 
-            if (hasPermission('DELETE /user/delete')) {
-                delete_button = `
-                <a class="p-1 btn hapus-data action_button"
-                    data-container="body" data-toggle="tooltip" data-placement="top"
-                    title="Hapus ${title}: ${data.nama}"
-                    data-id='${data.id}'
-                    data-name='${data.nama}'>
-                    <span class="text-dark">Hapus</span>
-                    <div class="icon text-danger">
-                        <i class="fa fa-trash"></i>
-                    </div>
+            if (data.akses === 'receiver' && data.is_read == false) {
+
+                checkbox = `
+                <a class="btn btn-sm btn-success read-data"
+                    data-id="${data.id}"
+                    data-name="${data.keterangan}">
+                    <i class="fa fa-circle-check"></i>
                 </a>`;
             }
 
-            if (!edit_button && !delete_button) {
-                edit_button =
-                    `<span style="background-color: rgba(0, 123, 255, 0.1); color: #007bff; font-style: italic; padding: 4px 8px; border-radius: 4px; display: inline-block;">Tidak ada aksi</span>`;
-            }
-
             return {
-                id: data?.id ?? '-',
-                nama: data?.nama ?? '-',
-                nama_level: data?.nama_level ?? '-',
-                nama_toko: data?.nama_toko ?? '-',
-                username: data?.username ?? '-',
-                alamat: data?.alamat ?? '-',
+                id: data.id,
+                keterangan: data.keterangan,
+                toko_asal: data.toko_asal,
+                toko_tujuan: data.toko_tujuan,
+                created_by: data.created_by,
+                created_at: data.created_at,
+                is_read: data.is_read,
+                akses: data.akses,
+                checkbox,
                 edit_button,
-                delete_button,
+                delete_button
             };
         }
 
-
         async function setListData(dataList, pagination) {
-            totalPage = pagination.total_pages;
-            currentPage = pagination.current_page;
-            let display_from = ((defaultLimitPage * (currentPage - 1)) + 1);
-            let display_to = Math.min(display_from + dataList.length - 1, pagination.total);
 
-            let getDataTable = '';
-            let classCol = 'align-center text-dark text-wrap';
-            dataList.forEach((element, index) => {
-                getDataTable += `
-                    <tr class="text-dark">
-                        <td class="${classCol} text-center">${display_from + index}.</td>
-                        <td class="${classCol}">${element.nama}</td>
-                        <td class="${classCol}">${element.nama_level}</td>
-                        <td class="${classCol}">${element.nama_toko}</td>
-                        <td class="${classCol}">${element.username}</td>
-                        <td class="${classCol}">${element.alamat}</td>
-                        <td class="${classCol}">
-                            <div class="d-flex justify-content-center w-100">
-                                <div class="hovering p-1">
-                                    ${element.edit_button}
-                                </div>
-                                <div class="hovering p-1">
-                                    ${element.delete_button}
-                                </div>
-                            </div>
-                        </td>
-                    </tr>`;
+            let html = `<div class="todo-container">`;
+
+            dataList.forEach((item) => {
+
+                const readIcon = item.is_read ?
+                    `<i class="fa fa-check-circle text-success mr-2" title="Sudah dibaca"></i>` :
+                    `<i class="fa fa-circle text-secondary mr-2" title="Belum dibaca"></i>`;
+
+                let roleBadge = '';
+                let cardBorder = '';
+
+                if (item.akses === 'sender') {
+                    roleBadge = `<span class="badge badge-primary ml-2">Terkirim</span>`;
+                    cardBorder = 'border-left border-primary';
+                } else if (item.akses === 'receiver' && item.is_read == true) {
+                    roleBadge = `<span class="badge badge-warning ml-2">Diterima & Ditandai</span>`;
+                    cardBorder = 'border-left border-warning';
+                } else if (item.akses === 'receiver' && item.is_read == false) {
+                    roleBadge = `<span class="badge badge-danger ml-2">Diterima belum Ditandai</span>`;
+                    cardBorder = 'border-left border-danger';
+                }
+
+                html += `
+<div class="todo-item card shadow-sm mx-3 mb-2 ${cardBorder}">
+    <div class="card-body d-flex justify-content-between align-items-start">
+
+        <div>
+
+            <div class="font-weight-bold d-flex align-items-center">
+                ${readIcon}
+                ${item.keterangan}
+            </div>
+
+            <small class="text-muted">
+                ${roleBadge} ${item.toko_asal} → ${item.toko_tujuan}
+            </small>
+
+            <div>
+                <small class="text-muted">
+                    Dibuat oleh <b>${item.created_by}</b>
+                </small>
+            </div>
+
+        </div>
+
+        <div class="d-flex text-white" style="gap: 0.5rem;">
+            ${item.edit_button || ''}
+            ${item.delete_button || ''}
+            ${item.checkbox || ''}
+        </div>
+
+    </div>
+</div>
+`;
             });
 
-            $('#listData').html(getDataTable);
-            $('#totalPage').text(pagination.total);
-            $('#countPage').text(`${display_from} - ${display_to}`);
-            $('[data-toggle="tooltip"]').tooltip();
-            renderPagination();
+            html += `</div>`;
+
+            $('#listData').html(html);
         }
 
         async function deleteData() {
@@ -380,7 +396,7 @@
                 let name = $(this).attr("data-name");
 
                 swal({
-                    title: `Hapus User ${name}`,
+                    title: `Hapus ${title}`,
                     text: "Apakah anda yakin?",
                     type: "warning",
                     showCancelButton: true,
@@ -394,9 +410,56 @@
                 }).then(async (result) => {
                     let postDataRest = await renderAPI(
                         'DELETE',
-                        '{{ route('user.delete') }}', {
+                        '{{ route('catatan.delete') }}', {
                             id: id,
-                            user_id: {{ auth()->user()->id }}
+                            user_id: userId,
+                            toko_id: tokoId
+                        }
+                    ).then(function(response) {
+                        return response;
+                    }).catch(function(error) {
+                        let resp = error.response;
+                        return resp;
+                    });
+
+                    if (postDataRest.status == 200) {
+                        setTimeout(function() {
+                            getListData(defaultLimitPage, currentPage, defaultAscending,
+                                defaultSearch, customFilter);
+                        }, 500);
+                        notificationAlert('success', 'Pemberitahuan', postDataRest.data
+                            .message);
+                    }
+                }).catch(swal.noop);
+            })
+        }
+
+        async function readData() {
+            $(document).on("click", ".read-data", async function() {
+                isActionForm = "destroy";
+                let id = $(this).attr("data-id");
+                let name = $(this).attr("data-name");
+
+                swal({
+                    title: `Tandai ${title} ini`,
+                    text: "Apakah anda yakin?",
+                    type: "question",
+                    showCancelButton: true,
+                    confirmButtonText: "Ya, Tandai!",
+                    cancelButtonText: "Tidak, Batal!",
+                    confirmButtonColor: '#47c339',
+                    cancelButtonColor: '#6c757d',
+                    reverseButtons: true,
+                    confirmButtonClass: "btn btn-danger",
+                    cancelButtonClass: "btn btn-secondary",
+                }).then(async (result) => {
+                    let postDataRest = await renderAPI(
+                        'PUT',
+                        '{{ route('catatan.read') }}', {
+                            id: id,
+                            user_id: userId,
+                            toko_id: tokoId,
+                            is_read: true,
                         }
                     ).then(function(response) {
                         return response;
@@ -447,67 +510,26 @@
         }
 
         async function renderModalForm(mode = 'add', data = {}) {
-            const title = mode === 'edit' ?
-                '<i class="fa fa-edit mr-1"></i>Edit Data User' :
-                '<i class="fa fa-circle-plus mr-1"></i>Tambah Data User';
+            const flag = mode === 'edit' ?
+                `<i class="fa fa-edit mr-1"></i>Edit ${title}` :
+                `<i class="fa fa-circle-plus mr-1"></i>Tambah ${title}`;
 
-            $('#modalLabel').html(title);
+            $('#modalLabel').html(flag);
 
             const formContent = `
                 <div class="row">
                     <div class="col-xl-12">
                         <div class="card-body">
-                                <div class="row p-0">
-                                    <div class="col-md-6">
-                                        <div class="form-group">
-                                            <label for="toko_id" class=" form-control-label">Toko<span
-                                                    style="color: red">*</span></label>
-                                            <select name="toko_id" id="toko_id" class="form-control select2" tabindex="1">
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="form-group">
-                                            <label for="role_id" class="form-control-label">Role<span
-                                                    style="color: red">*</span></label>
-                                            <select name="role_id" id="role_id" class="form-control" tabindex="2">
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="form-group">
-                                            <label for="nama" class=" form-control-label">Nama<span
-                                                    style="color: red">*</span></label>
-                                            <input required type="text" id="nama" name="nama"
-                                                placeholder="Masukkan nama" class="form-control">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="form-group">
-                                            <label for="username" class=" form-control-label">Username<span
-                                                    style="color: red">*</span></label>
-                                            <input type="text" id="username" name="username" placeholder="Masukkan username"
-                                                class="form-control">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="form-group">
-                                            <label for="password" class=" form-control-label">Password<span
-                                                    style="color: red">*</span></label>
-                                            <input type="password" id="password" class="form-control" name="password"
-                                                placeholder="Masukkan password" aria-label="Recipient's username"
-                                                aria-describedby="basic-addon2">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="form-group">
-                                            <label for="alamat" class=" form-control-label">Alamat<span
-                                                    style="color: red">*</span></label>
-                                            <textarea name="alamat" id="alamat" rows="4"
-                                                placeholder="Masukkan alamat" class="form-control"></textarea>
-                                        </div>
-                                    </div>
+                            <div class="table-responsive">
+                                <div class="form-group">
+                                    <label for="toko_tujuan_id" class="form-control-label">Pesan ke Toko<span style="color: red">*</span></label>
+                                    <select id="toko_tujuan_id" name="toko_tujuan_id" class="form-control id-toko select2"></select>
                                 </div>
+                                <div class="form-group">
+                                    <label for="keterangan" class="form-control-label">Pesan / Keterangan<span style="color: red">*</span></label>
+                                    <textarea id="keterangan" name="keterangan" placeholder="Masukkan pesan atau keterangan" class="form-control"></textarea>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -518,22 +540,14 @@
             await selectData(selectOptions);
 
             if (mode === 'edit') {
-                $('#nama').val(data.nama);
-                $('#username').val(data.username);
-                $('#no_hp').val(data.no_hp);
-                $('#alamat').val(data.alamat);
+                if ($('#toko_tujuan_id option[value="' + data.toko_tujuan_id + '"]').length === 0) {
+                    const newOption = new Option(data.toko_tujuan, data.toko_tujuan_id, true, true);
+                    $('#toko_tujuan_id').append(newOption).trigger('change');
+                } else {
+                    $('#toko_tujuan_id').val(data.toko_tujuan_id).trigger('change');
+                }
 
-                setSelect2Value(
-                    "#role_id",
-                    data.role_id,
-                    data.nama_level
-                );
-
-                setSelect2Value(
-                    "#toko_id",
-                    data.toko_id,
-                    data.nama_toko
-                );
+                $('#keterangan').val(data.keterangan);
 
                 if ($('#form-data input[name="id"]').length === 0) {
                     $('<input>').attr({
@@ -556,8 +570,8 @@
                 const form = $('#form-data')[0];
                 const formData = new FormData(form);
 
-                const userId = '{{ auth()->user()->id }}';
                 formData.append('user_id', userId);
+                formData.append('toko_id', tokoId);
 
                 if (saveButton.disabled) return;
 
@@ -585,7 +599,7 @@
 
                     const isEdit = formData.get('id') !== null && formData.get('id') !== '';
                     const url = isEdit ?
-                        `{{ route('user.update') }}` : `{{ route('user.post') }}`;
+                        `{{ route('catatan.put') }}` : `{{ route('catatan.post') }}`;
 
                     let method = 'POST';
 
@@ -635,6 +649,7 @@
                 getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter),
                 searchList(),
                 deleteData(),
+                readData(),
                 saveData(),
             ])
         }

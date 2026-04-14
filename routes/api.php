@@ -40,6 +40,7 @@ Route::prefix('dashboard')->as('dashboard.')->group(function () {
 Route::prefix('user')->as('user.')->group(function () {
     Route::post('post', [UserController::class, 'post'])->name('post')->middleware('permission:POST /user/post');
     Route::put('put', [UserController::class, 'update'])->name('update')->middleware('permission:PUT /user/put');
+    Route::patch('patch', [UserController::class, 'updateProfile'])->name('updateProfile')->middleware('permission:PUT /user/put');
     Route::delete('delete', [UserController::class, 'delete'])->name('delete')->middleware('permission:DELETE /user/delete');
 });
 

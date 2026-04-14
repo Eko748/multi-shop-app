@@ -190,7 +190,6 @@
             };
         }
 
-
         async function setListData(dataList, pagination) {
             totalPage = pagination.total_pages;
             currentPage = pagination.current_page;
@@ -328,7 +327,7 @@
                 const form = $('#form-data')[0];
                 const formData = new FormData(form);
 
-                const userId = '{{ auth()->user()->id }}';
+                const userId = {{ auth()->user()->id }};
                 formData.append('user_id', userId);
 
                 if (saveButton.disabled) return;
@@ -366,6 +365,7 @@
                         formData.append('_method', 'PUT');
                         formData.append('id', formData.get('id'));
                     }
+                    formData.append('toko_id', {{ auth()->user()->toko_id }});
 
                     try {
                         const response = await renderAPI(method, url, formData);

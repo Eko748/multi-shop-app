@@ -11,6 +11,7 @@ use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Maatwebsite\Excel\Facades\Excel;
 
 class UserController extends Controller
@@ -116,6 +117,13 @@ class UserController extends Controller
         return view('master.user.index', compact('menu'));
     }
 
+    public function profile()
+    {
+        $menu = ['Profile', $this->label[0]];
+
+        return view('master.user.profile', compact('menu'));
+    }
+
     public function post(Request $request)
     {
         $request->validate(
@@ -172,6 +180,77 @@ class UserController extends Controller
             DB::rollBack();
             return $this->error(500, 'Terjadi kesalahan saat menyimpan data: ' . $e->getMessage());
         }
+    }
+
+    public function updateProfile(Request $request)
+    {
+        // ===== VALIDASI ID =====
+        if (!$request->filled('id')) {
+            return response()->json([
+                'message' => 'ID wajib dikirim'
+            ], 400);
+        }
+
+        // paksa jadi integer
+        $userId = (int) $request->id;
+
+        // ===== CARI USER =====
+        $user = User::find($userId);
+
+        if (!$user) {
+            return response()->json([
+                'message' => 'User tidak ditemukan',
+                'debug_id' => $request->id
+            ], 404);
+        }
+
+        // ===== VALIDASI =====
+        $request->validate([
+            'nama' => 'nullable|string',
+            'username' => 'nullable|string',
+            'alamat' => 'nullable|string',
+
+            'old_password' => 'nullable',
+            'new_password' => 'nullable|min:6',
+            'confirm_password' => 'same:new_password',
+        ]);
+
+        // ===== UPDATE PROFILE =====
+        if ($request->filled('nama')) {
+            $user->nama = $request->nama;
+        }
+
+        if ($request->filled('username')) {
+            $user->username = $request->username;
+        }
+
+        if ($request->filled('alamat')) {
+            $user->alamat = $request->alamat;
+        }
+
+        // ===== UPDATE PASSWORD =====
+        if ($request->filled('old_password') || $request->filled('new_password')) {
+
+            if (!Hash::check($request->old_password, $user->password)) {
+                return response()->json([
+                    'message' => 'Password lama salah'
+                ], 422);
+            }
+
+            if (!$request->filled('new_password')) {
+                return response()->json([
+                    'message' => 'Password baru wajib diisi'
+                ], 422);
+            }
+
+            $user->password = bcrypt($request->new_password);
+        }
+
+        $user->save();
+
+        return response()->json([
+            'message' => 'Data berhasil diperbarui'
+        ]);
     }
 
     public function update(Request $request)

@@ -97,7 +97,7 @@
                             <i class="feather icon-maximize"></i>
                         </button>
                         <!-- Profile button -->
-                        <a href="" class="neu-btn" title="Profile">
+                        <a href="{{ route('user.profile') }}" class="neu-btn" title="Profile">
                             <i class="feather icon-user"></i>
                         </a>
 
@@ -139,7 +139,7 @@
                         </button>
 
                         <!-- Profile button -->
-                        <a href="" class="neu-btn" title="Profile">
+                        <a href="{{ route('user.profile') }}" class="neu-btn" title="Profile">
                             <i class="feather icon-user"></i>
                         </a>
 

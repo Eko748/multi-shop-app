@@ -28,6 +28,7 @@ Route::middleware(['auth'])->group(function () {
 
     // User Controller
     Route::get('user', [UserController::class, 'index'])->name('master.user.index')->middleware('permission:GET /user');
+    Route::get('profile', [UserController::class, 'profile'])->name('user.profile')->middleware('permission:GET /user');
 
     // Toko Controller
     Route::get('toko', [TokoController::class, 'index'])->name('master.toko.index')->middleware('permission:GET /toko');

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\DataMaster\ManajemenBarang;
 
 use App\Http\Controllers\Controller;
 use App\Models\JenisBarang;
+use App\Models\Kas;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -111,6 +112,19 @@ class JenisBarangController extends Controller
                 'nama_jenis_barang' => $validatedData['nama_jenis_barang'],
             ]);
 
+            Kas::create([
+                'toko_id'           => $request->toko_id,
+                'tipe_kas'          => 'kecil',
+                'jenis_barang_id'   => $data->id,
+                'tanggal'           => now(),
+            ]);
+            Kas::create([
+                'toko_id'           => $request->toko_id,
+                'tipe_kas'          => 'besar',
+                'jenis_barang_id'   => $data->id,
+                'tanggal'           => now(),
+            ]);
+
             $this->saveLogAktivitas(
                 logName: $this->title[0],
                 subjectType: JenisBarang::class,
@@ -140,7 +154,7 @@ class JenisBarangController extends Controller
             $request->validate([
                 'nama_jenis_barang' => 'required|string',
             ]);
-            
+
             DB::beginTransaction();
 
             $jenisbarang = JenisBarang::findOrFail($request->id);

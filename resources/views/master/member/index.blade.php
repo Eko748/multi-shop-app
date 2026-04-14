@@ -19,14 +19,14 @@
                     <div class="card">
                         <div class="card-header custom-header">
                             <div class="custom-left">
-                                {{-- @if (hasAnyPermission(['POST /member/store'])) --}}
+                                @if (hasAnyPermission(['POST /member/post']))
                                     <div class="custom-btn-tambah-wrap">
                                         <button type="button" class="btn btn-primary w-100" id="btn-add-data"
                                             onclick="openAddModal()">
                                             <i class="fa fa-circle-plus"></i><span> Tambah Data</span>
                                         </button>
                                     </div>
-                                {{-- @endif --}}
+                                @endif
                             </div>
                             <div class="custom-right">
                                 <div class="custom-limit-page">
@@ -166,15 +166,19 @@
         }
 
         async function handleData(data) {
-            let edit_button = `
-            <a class="p-1 btn edit-data action_button" onClick="openEditModal('${encodeURIComponent(JSON.stringify(data))}')">
-                <span class="text-dark" title="Edit ${title}: ${data.nama}">Edit</span>
-                <div class="icon text-warning" title="Edit ${title}: ${data.nama}">
-                    <i class="fa fa-edit"></i>
-                </div>
-            </a>`;
-
-            let delete_button = `
+            let edit_button = '';
+            let delete_button = '';
+            if (hasPermission(['PUT /member/put'])) {
+                edit_button = `
+                <a class="p-1 btn edit-data action_button" onClick="openEditModal('${encodeURIComponent(JSON.stringify(data))}')">
+                    <span class="text-dark" title="Edit ${title}: ${data.nama}">Edit</span>
+                    <div class="icon text-warning" title="Edit ${title}: ${data.nama}">
+                        <i class="fa fa-edit"></i>
+                    </div>
+                </a>`;
+            }
+            if (hasPermission(['DELETE /member/delete'])) {
+                delete_button = `
                 <a class="p-1 btn hapus-data action_button"
                     data-container="body" data-toggle="tooltip" data-placement="top"
                     title="Hapus ${title}: ${data.nama}"
@@ -185,6 +189,7 @@
                         <i class="fa fa-trash"></i>
                     </div>
                 </a>`;
+            }
 
             return {
                 id: data?.id ?? '-',
@@ -281,7 +286,8 @@
 
                     if (postDataRest.status == 200) {
                         setTimeout(function() {
-                            getListData(defaultLimitPage, currentPage, defaultAscending,
+                            getListData(defaultLimitPage, currentPage,
+                                defaultAscending,
                                 defaultSearch, customFilter);
                         }, 500);
                         notificationAlert('success', 'Pemberitahuan', postDataRest.data
@@ -344,12 +350,12 @@
                                     <label for="jenis_barang" class="form-control-label">Jenis Barang</label>
                                     <ul class="list-group list-group-flush">
                                         ${jenisBarangList.map(jb => `
-                                                                        <li class="list-group-item">
-                                                                            <h6>${jb.nama_jenis_barang}
-                                                                                <select name="level_harga[${jb.id}]" id="level_harga_${jb.id}" class="form-control select2"></select>
-                                                                            </h6>
-                                                                        </li>
-                                                                    `).join('')}
+                                                                                    <li class="list-group-item">
+                                                                                        <h6>${jb.nama_jenis_barang}
+                                                                                            <select name="level_harga[${jb.id}]" id="level_harga_${jb.id}" class="form-control select2"></select>
+                                                                                        </h6>
+                                                                                    </li>
+                                                                                `).join('')}
                                     </ul>
                                 </div>
                                 <div class="form-group">
@@ -402,8 +408,10 @@
                         const selector = `#level_harga_${item.id_jenis_barang}`;
 
                         if ($(selector).length) {
-                            if ($(selector + ' option[value="' + item.id_level_harga + '"]').length === 0) {
-                                const newOption = new Option(item.nama_level_harga, item.id_level_harga, true,
+                            if ($(selector + ' option[value="' + item.id_level_harga + '"]').length ===
+                                0) {
+                                const newOption = new Option(item.nama_level_harga, item.id_level_harga,
+                                    true,
                                     true);
                                 $(selector).append(newOption).trigger('change');
                             } else {
@@ -461,7 +469,8 @@
 
                     loadingPage(true);
 
-                    const isEdit = formData.get('id') !== null && formData.get('id') !== '';
+                    const isEdit = formData.get('id') !== null && formData.get('id') !==
+                        '';
                     const url = isEdit ?
                         `{{ route('member.update') }}` : `{{ route('member.post') }}`;
 
@@ -482,7 +491,8 @@
                             isDataSaved = true;
 
                             setTimeout(async function() {
-                                await getListData(defaultLimitPage, currentPage,
+                                await getListData(defaultLimitPage,
+                                    currentPage,
                                     defaultAscending,
                                     defaultSearch, customFilter);
                             }, 500);
@@ -492,7 +502,8 @@
                             }, 500);
 
                         } else {
-                            notificationAlert('info', 'Pemberitahuan', response.data.message ||
+                            notificationAlert('info', 'Pemberitahuan', response.data
+                                .message ||
                                 'Terjadi kesalahan saat menyimpan.');
                             saveButton.disabled = false;
                             btn.html(btn.data('original-content'));
@@ -510,7 +521,8 @@
 
         async function initPageLoad() {
             await Promise.all([
-                getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter),
+                getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
+                    customFilter),
                 searchList(),
                 deleteData(),
                 saveData(),

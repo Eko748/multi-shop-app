@@ -126,14 +126,14 @@
                     <div class="card">
                         <div class="card-header custom-header">
                             <div class="custom-left">
-                                {{-- @if (hasAnyPermission(['POST /barang/store'])) --}}
-                                <div class="custom-btn-tambah-wrap">
-                                    <button type="button" class="btn btn-primary w-100" id="btn-add-data"
-                                        onclick="openAddModal()">
-                                        <i class="fa fa-circle-plus"></i><span> Tambah Data</span>
-                                    </button>
-                                </div>
-                                {{-- @endif --}}
+                                @if (hasAnyPermission(['POST /barang/post']))
+                                    <div class="custom-btn-tambah-wrap">
+                                        <button type="button" class="btn btn-primary w-100" id="btn-add-data"
+                                            onclick="openAddModal()">
+                                            <i class="fa fa-circle-plus"></i><span> Tambah Data</span>
+                                        </button>
+                                    </div>
+                                @endif
                                 <div class="custom-btn-tambah-wrap">
                                     <button class="btn-dynamic btn btn-outline-primary custom-btn-tambah" type="button"
                                         data-toggle="collapse" data-target="#filter-collapse" aria-expanded="false"
@@ -414,6 +414,9 @@
         }
 
         async function handleData(data) {
+            let edit_button = '';
+            let delete_button = '';
+
             let view_button = data?.barcode_path && data.barcode_path !== "" ?
                 `
                 <a href="javascript:void(0)"
@@ -441,13 +444,15 @@
                 ` :
                 `<span class="badge badge-danger">Tidak Ada Gambar</span>`;
 
-            let edit_button = `
-            <a class="p-1 btn edit-data action_button" onClick="openEditModal('${encodeURIComponent(JSON.stringify(data))}')">
-                <span class="text-dark" title="Edit ${title}: ${data.nama_barang}">Edit</span>
-                <div class="icon text-warning" title="Edit ${title}: ${data.nama_barang}">
-                    <i class="fa fa-edit"></i>
-                </div>
-            </a>`;
+            if (hasPermission(['PUT /barang/put'])) {
+                edit_button = `
+                    <a class="p-1 btn edit-data action_button" onClick="openEditModal('${encodeURIComponent(JSON.stringify(data))}')">
+                        <span class="text-dark" title="Edit ${title}: ${data.nama_barang}">Edit</span>
+                        <div class="icon text-warning" title="Edit ${title}: ${data.nama_barang}">
+                            <i class="fa fa-edit"></i>
+                        </div>
+                    </a>`;
+            }
 
             let detail_button = `
             <a class="p-1 btn detail-data action_button" onClick="openDetailModal('${encodeURIComponent(JSON.stringify(data))}')">
@@ -468,18 +473,19 @@
                     </div>
                 </a>` :
                 ``;
-
-            let delete_button = `
-                <a class="p-1 btn hapus-data action_button"
-                    data-container="body" data-toggle="tooltip" data-placement="top"
-                    title="Hapus ${title}: ${data.nama_barang}"
-                    data-id='${data.id}'
-                    data-name='${data.nama_barang}'>
-                    <span class="text-dark">Hapus</span>
-                    <div class="icon text-danger">
-                        <i class="fa fa-trash"></i>
-                    </div>
-                </a>`;
+            if (hasPermission(['DELETE /barang/delete'])) {
+                delete_button = `
+                    <a class="p-1 btn hapus-data action_button"
+                        data-container="body" data-toggle="tooltip" data-placement="top"
+                        title="Hapus ${title}: ${data.nama_barang}"
+                        data-id='${data.id}'
+                        data-name='${data.nama_barang}'>
+                        <span class="text-dark">Hapus</span>
+                        <div class="icon text-danger">
+                            <i class="fa fa-trash"></i>
+                        </div>
+                    </a>`;
+            }
 
             let action_buttons = '';
             if (edit_button || delete_button) {
@@ -500,8 +506,8 @@
                     '<span class="badge badge-danger">Tidak Ada Data</span>',
                 barcode: data?.barcode && data.barcode !== "" ? view_button :
                     '<span class="badge badge-danger">Tidak Ada Data</span>',
-                nama_jenis_barang: data?.nama_jenis_barang && data.nama_jenis_barang !== "" ? data.nama_jenis_barang :
-                    '<span class="badge badge-danger">Tidak Ada Data</span>',
+                nama_jenis_barang: data?.nama_jenis_barang && data.nama_jenis_barang !== "" ? data
+                    .nama_jenis_barang : '<span class="badge badge-danger">Tidak Ada Data</span>',
                 nama_brand: data?.nama_brand && data.nama_brand !== "" ? data.nama_brand :
                     '<span class="badge badge-danger">Tidak Ada Data</span>',
                 garansi: data?.garansi && data.garansi !== "" ? data.garansi :
@@ -576,7 +582,8 @@
 
                     if (postDataRest.status == 200) {
                         setTimeout(function() {
-                            getListData(defaultLimitPage, currentPage, defaultAscending,
+                            getListData(defaultLimitPage, currentPage,
+                                defaultAscending,
                                 defaultSearch, customFilter);
                         }, 500);
                         notificationAlert('success', 'Pemberitahuan', postDataRest.data
@@ -1139,7 +1146,8 @@
 
                     loadingPage(true);
 
-                    const isEdit = formData.get('id') !== null && formData.get('id') !== '';
+                    const isEdit = formData.get('id') !== null && formData.get('id') !==
+                        '';
                     const url = isEdit ?
                         `{{ route('barang.update') }}` : `{{ route('barang.post') }}`;
 
@@ -1160,7 +1168,8 @@
                             isDataSaved = true;
 
                             setTimeout(async function() {
-                                await getListData(defaultLimitPage, currentPage,
+                                await getListData(defaultLimitPage,
+                                    currentPage,
                                     defaultAscending,
                                     defaultSearch, customFilter);
                             }, 500);
@@ -1170,7 +1179,8 @@
                             }, 500);
 
                         } else {
-                            notificationAlert('info', 'Pemberitahuan', response.data.message ||
+                            notificationAlert('info', 'Pemberitahuan', response.data
+                                .message ||
                                 'Terjadi kesalahan saat menyimpan.');
                             saveButton.disabled = false;
                             btn.html(btn.data('original-content'));
@@ -1190,7 +1200,8 @@
             await Promise.all([
                 selectData(selectOptions),
                 setDynamicButton(),
-                getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter),
+                getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
+                    customFilter),
                 searchList(),
                 filterList(),
                 deleteData(),

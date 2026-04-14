@@ -132,14 +132,14 @@
                     <div class="card">
                         <div class="card-header custom-header">
                             <div class="custom-left">
-                                {{-- @if (hasAnyPermission(['POST /toko/store'])) --}}
+                                @if (hasAnyPermission(['POST /toko/post']))
                                     <div class="custom-btn-tambah-wrap">
                                         <button type="button" class="btn btn-primary w-100" id="btn-add-data"
                                             onclick="openAddModal()">
                                             <i class="fa fa-circle-plus"></i><span> Tambah Data</span>
                                         </button>
                                     </div>
-                                {{-- @endif --}}
+                                @endif
                             </div>
                             <div class="custom-right">
                                 <div class="custom-limit-page">
@@ -308,7 +308,7 @@
             }
 
             let edit_button = '';
-            // if (hasPermission(['PUT /toko/update/{id}'])) {
+            if (hasPermission(['PUT /toko/put'])) {
                 edit_button = `
                 <button class="p-1 btn edit-data action_button" onClick="openEditModal('${encodeURIComponent(JSON.stringify(data))}')">
                     <span class="text-dark" title="Edit ${title}: ${data.nama}">Edit</span>
@@ -316,10 +316,10 @@
                         <i class="fa fa-edit"></i>
                     </div>
                 </button>`;
-            // }
+            }
 
             let delete_button = '';
-            if (hasPermission('DELETE /toko/delete/{id}')) {
+            if (hasPermission('DELETE /toko/delete')) {
                 delete_button = `
                 <a class="p-1 btn hapus-data action_button"
                     data-container="body" data-toggle="tooltip" data-placement="top"

@@ -127,12 +127,12 @@
                         <div class="card-header custom-header">
                             <div class="custom-left">
                                 <div class="custom-btn-tambah-wrap">
-                                    {{-- @if (hasPermission('GET /user/create')) --}}
+                                    @if (hasPermission('POST /user/post'))
                                         <button type="button" class="btn btn-primary w-100" id="btn-add-data"
                                             onclick="openAddModal()">
                                             <i class="fa fa-circle-plus"></i><span> Tambah Data</span>
                                         </button>
-                                    {{-- @endif --}}
+                                    @endif
                                 </div>
                             </div>
                             <div class="custom-right">
@@ -294,7 +294,7 @@
             let edit_button = '';
             let delete_button = '';
 
-            if (hasPermission('PUT /user/update/{id}')) {
+            if (hasPermission('PUT /user/put')) {
                 edit_button = `
             <button class="p-1 btn edit-data action_button" onClick="openEditModal('${encodeURIComponent(JSON.stringify(data))}')">
                 <span class="text-dark" title="Edit ${title}: ${data.nama}">Edit</span>
@@ -304,7 +304,7 @@
             </button>`;
             }
 
-            if (hasPermission('DELETE /user/delete/{id}')) {
+            if (hasPermission('DELETE /user/delete')) {
                 delete_button = `
                 <a class="p-1 btn hapus-data action_button"
                     data-container="body" data-toggle="tooltip" data-placement="top"

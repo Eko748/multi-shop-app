@@ -126,14 +126,14 @@
                     <div class="card">
                         <div class="card-header custom-header">
                             <div class="custom-left">
-                                {{-- @if (hasAnyPermission(['POST /supplier/store'])) --}}
+                                @if (hasAnyPermission(['POST /suplier/post']))
                                     <div class="custom-btn-tambah-wrap">
                                         <button type="button" class="btn btn-primary w-100" id="btn-add-data"
                                             onclick="openAddModal()">
                                             <i class="fa fa-circle-plus"></i><span> Tambah Data</span>
                                         </button>
                                     </div>
-                                {{-- @endif --}}
+                                @endif
                             </div>
 
                             <div class="custom-right">
@@ -152,7 +152,6 @@
                         </div>
 
                         <div class="content">
-                            <x-adminlte-alerts />
                             <div class="card-body p-0">
                                 <div class="table-responsive table-scroll-wrapper">
                                     <table class="table table-striped m-0">
@@ -268,26 +267,30 @@
         }
 
         async function handleData(data) {
-            let edit_button = `
-            <a class="p-1 btn edit-data action_button" onClick="openEditModal('${encodeURIComponent(JSON.stringify(data))}')">
-                <span class="text-dark" title="Edit ${title}: ${data.nama}">Edit</span>
-                <div class="icon text-warning" title="Edit ${title}: ${data.nama}">
-                    <i class="fa fa-edit"></i>
-                </div>
-            </a>`;
-
-            let delete_button = `
-            <a class="p-1 btn hapus-data action_button"
-                data-container="body" data-toggle="tooltip" data-placement="top"
-                title="Hapus ${title}: ${data.nama}"
-                data-id='${data.id}'
-                data-name='${data.nama}'>
-                <span class="text-dark">Hapus</span>
-                <div class="icon text-danger">
-                    <i class="fa fa-trash"></i>
-                </div>
-            </a>`;
-
+            let edit_button = '';
+            let delete_button = '';
+            if (hasPermission(['PUT /suplier/put'])) {
+                edit_button = `
+                <a class="p-1 btn edit-data action_button" onClick="openEditModal('${encodeURIComponent(JSON.stringify(data))}')">
+                    <span class="text-dark" title="Edit ${title}: ${data.nama}">Edit</span>
+                    <div class="icon text-warning" title="Edit ${title}: ${data.nama}">
+                        <i class="fa fa-edit"></i>
+                    </div>
+                </a>`;
+            }
+            if (hasPermission(['PUT /suplier/delete'])) {
+                delete_button = `
+                <a class="p-1 btn hapus-data action_button"
+                    data-container="body" data-toggle="tooltip" data-placement="top"
+                    title="Hapus ${title}: ${data.nama}"
+                    data-id='${data.id}'
+                    data-name='${data.nama}'>
+                    <span class="text-dark">Hapus</span>
+                    <div class="icon text-danger">
+                        <i class="fa fa-trash"></i>
+                    </div>
+                </a>`;
+            }
             return {
                 id: data?.id ?? '-',
                 nama: data?.nama ?? '-',

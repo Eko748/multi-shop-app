@@ -20,10 +20,12 @@
                         <div class="card-header">
                             <div class="row">
                                 <div class="col-12 col-xl-2 col-lg-2 mb-2">
-                                    <button type="button" class="btn btn-primary w-100" id="btn-add-data"
-                                        onclick="openAddModal()">
-                                        <i class="fa fa-circle-plus"></i><span> Tambah Data</span>
-                                    </button>
+                                    @if (hasAnyPermission(['POST /brand/post']))
+                                        <button type="button" class="btn btn-primary w-100" id="btn-add-data"
+                                            onclick="openAddModal()">
+                                            <i class="fa fa-circle-plus"></i><span> Tambah Data</span>
+                                        </button>
+                                    @endif
                                 </div>
                                 <div class="col-12 col-xl-10 col-lg-10 mb-2">
                                     <div class="row justify-content-end">
@@ -157,25 +159,31 @@
         }
 
         async function handleData(data) {
-            let edit_button = `
-            <a class="p-1 btn edit-data action_button" onClick="openEditModal('${encodeURIComponent(JSON.stringify(data))}')">
-                <span class="text-dark" title="Edit ${title}: ${data.nama_jenis_barang}">Edit</span>
-                <div class="icon text-warning" title="Edit ${title}: ${data.nama_jenis_barang}">
-                    <i class="fa fa-edit"></i>
-                </div>
-            </a>`;
+            let edit_button = '';
+            let delete_button = '';
+            if (hasPermission(['PUT /brand/put'])) {
+                edit_button = `
+                <a class="p-1 btn edit-data action_button" onClick="openEditModal('${encodeURIComponent(JSON.stringify(data))}')">
+                    <span class="text-dark" title="Edit ${title}: ${data.nama_jenis_barang}">Edit</span>
+                    <div class="icon text-warning" title="Edit ${title}: ${data.nama_jenis_barang}">
+                        <i class="fa fa-edit"></i>
+                    </div>
+                </a>`;
+            }
 
-            let delete_button = `
-            <a class="p-1 btn hapus-data action_button"
-                data-container="body" data-toggle="tooltip" data-placement="top"
-                title="Hapus ${title}: ${data.nama_brand}"
-                data-id='${data.id}'
-                data-name='${data.nama_brand}'>
-                <span class="text-dark">Hapus</span>
-                <div class="icon text-danger">
-                    <i class="fa fa-trash"></i>
-                </div>
-            </a>`;
+            if (hasPermission(['DELETE /brand/delete'])) {
+                delete_button = `
+                <a class="p-1 btn hapus-data action_button"
+                    data-container="body" data-toggle="tooltip" data-placement="top"
+                    title="Hapus ${title}: ${data.nama_brand}"
+                    data-id='${data.id}'
+                    data-name='${data.nama_brand}'>
+                    <span class="text-dark">Hapus</span>
+                    <div class="icon text-danger">
+                        <i class="fa fa-trash"></i>
+                    </div>
+                </a>`;
+            }
 
             return {
                 id: data?.id ?? '-',

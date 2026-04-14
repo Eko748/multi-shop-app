@@ -22,22 +22,20 @@
                     <div class="card">
                         <div class="card-header custom-header">
                             <div class="custom-left">
-                                {{-- @if (hasAnyPermission(['POST /pembelianbarang/store', 'POST /import-pembelianbarang']))
-                                    @if (hasAnyPermission(['POST /pembelianbarang/store'])) --}}
-                                <button onclick="openAddModal()"
-                                    class="btn btn-primary mb-2 mb-lg-0 text-white add-data custom-btn-tambah"
-                                    data-container="body" data-toggle="tooltip" data-placement="top"
-                                    title="Tambah Data Pembelian Barang">
-                                    <i class="fa fa-plus-circle"></i> Tambah
-                                </button>
-                                {{-- @endif --}}
+                                @if (hasAnyPermission(['PUT /transaksi-barang/pembelian/put']))
+                                    <button onclick="openAddModal()"
+                                        class="btn btn-primary mb-2 mb-lg-0 text-white add-data custom-btn-tambah"
+                                        data-container="body" data-toggle="tooltip" data-placement="top"
+                                        title="Tambah Data Pembelian Barang">
+                                        <i class="fa fa-plus-circle"></i> Tambah
+                                    </button>
+                                @endif
                                 <button class="btn-dynamic btn btn-outline-primary custom-btn-tambah" type="button"
                                     data-toggle="collapse" data-target="#filter-collapse" aria-expanded="false"
                                     aria-controls="filter-collapse" data-container="body" data-toggle="tooltip"
                                     data-placement="top" title="Filter Pembelian Barang">
                                     <i class="fa fa-filter"></i> Filter
                                 </button>
-                                {{-- @endif --}}
                             </div>
                             <div class="custom-right">
                                 <div class="custom-limit-page">

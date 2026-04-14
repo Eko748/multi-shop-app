@@ -69,7 +69,7 @@
                                             style="flex: 0 0 45px; max-width: 45px;" title="Filter Data">
                                             <i class="fa fa-filter my-1"></i>
                                         </button>
-                                        {{-- @if (hasAnyPermission(['POST /kasir/store'])) --}}
+                                        @if (hasAnyPermission(['POST /transaksi-barang/kasir/post']))
                                             <button type="button"
                                                 class="btn btn-md btn-outline-primary d-flex align-items-center justify-content-center"
                                                 id="btn-add-data" onclick="openAddModal()" data-container="body"
@@ -79,7 +79,7 @@
                                                 <i class="fa fa-circle-plus my-1"></i>
                                                 <span class="d-none d-sm-inline ml-1">Tambah Data</span>
                                             </button>
-                                        {{-- @endif --}}
+                                        @endif
                                     </div>
                                 </div>
                                 <hr class="m-0">
@@ -359,7 +359,9 @@
                     </div>
                 </a>`;
 
-            let delete_button = `
+            let delete_button = '';
+            if (hasPermission('DELETE /transaksi-barang/kasir/delete')) {
+                delete_button = `
                 <a class="p-1 btn hapus-data action_button"
                     data-container="body" data-toggle="tooltip" data-placement="top"
                     onclick="deleteData('${encodeURIComponent(JSON.stringify(data))}')"
@@ -371,7 +373,7 @@
                         <i class="fa fa-trash"></i>
                     </div>
                 </a>`;
-
+            }
             let infoText = 'Dibuat oleh:';
             let infoUser = `${data.created_by || '-'}`;
             let infoTime = `${data.created_at || '-'}`;
@@ -438,10 +440,10 @@
                     <div class="d-flex justify-content-center flex-column flex-sm-row align-items-center align-items-sm-start mx-3" style="gap: 0.5rem;">
                         ${hasButtons
                             ? `
-                                    ${element.print_button || ''}
-                                    ${element.detail_button || ''}
-                                    ${element.delete_button || ''}
-                                   `
+                                            ${element.print_button || ''}
+                                            ${element.detail_button || ''}
+                                            ${element.delete_button || ''}
+                                           `
                             : `<i class="text-muted">Tidak ada aksi</span>`
                         }
                     </div>
@@ -800,7 +802,7 @@
                         <tr class="bg-light"><td colspan="3"><b>Total</b></td><td class="text-right"><b>${total}</b></td></tr>
                         <tr class="bg-success text-white"><td colspan="3">Dibayar</td><td class="text-right">${jmlBayar}</td></tr>
                         ${kembalian != 0 ? `
-                                                                            <tr class="bg-info text-white"><td colspan="3">Kembalian</td><td class="text-right">${kembalian}</td></tr>` : ''}
+                                                                                    <tr class="bg-info text-white"><td colspan="3">Kembalian</td><td class="text-right">${kembalian}</td></tr>` : ''}
                     </tfoot>
                 </table>
 

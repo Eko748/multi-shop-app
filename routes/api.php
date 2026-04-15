@@ -252,8 +252,8 @@ Route::prefix('transaksi-barang')->as('tb.')->group(function () {
         Route::delete('delete-detail', [PembelianBarangController::class, 'deleteDetail'])->name('deleteDetail')->middleware('permission:DELETE /transaksi-barang/pembelian/delete-detail');
 
         Route::prefix('temporary')->as('temp.')->group(function () {
-            Route::post('post', [PembelianBarangController::class, 'postTemp'])->name('post')->middleware('permission:POST /transaksi-barang/pembelian/temporary/post');
-            Route::delete('delete', [PembelianBarangController::class, 'deleteTemp'])->name('delete')->middleware('permission:DELETE /transaksi-barang/pembelian/temporary/delete');
+            Route::post('post', [PembelianBarangController::class, 'postTemp'])->name('post');
+            Route::delete('delete', [PembelianBarangController::class, 'deleteTemp'])->name('delete');
             Route::get('get-temporary', [PembelianBarangController::class, 'getTemporary'])->name('get');
         });
     });

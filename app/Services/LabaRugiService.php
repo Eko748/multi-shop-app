@@ -116,7 +116,7 @@ class LabaRugiService
             ->where($filterToko)
             ->with('sumber')
             ->get()
-            ->sum(fn($kt) => (int) $kt->sumber->total_hpp ?? 0);
+            ->sum(fn($kt) => (int) $kt->sumber->total_hpp_batch ?? 0);
 
         $hppretur = (int) KasTransaksi::where('kas_transaksi.tipe', 'out')
             ->where('kas_transaksi.sumber_type', ReturMember::class)

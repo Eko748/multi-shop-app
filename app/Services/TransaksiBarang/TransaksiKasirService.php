@@ -115,7 +115,7 @@ class TransaksiKasirService
                 })
                     ->where('qty_sisa', '>', 0)
                     ->where('toko_id', $data['toko_id'])
-                    ->orderBy('created_at') // FIFO
+                    ->orderBy('created_at')
                     ->get();
 
                 $totalAvailable = $batches->sum('qty_sisa');
@@ -239,7 +239,7 @@ class TransaksiKasirService
                     kas_id: $kas->id,
                     tanggal: $header->tanggal,
                     pendapatan: $total_nominal,
-                    beban: $total_hpp,
+                    beban: $total_hpp_batch,
                     sumber: $rekap
                 );
             }

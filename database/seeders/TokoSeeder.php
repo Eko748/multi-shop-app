@@ -36,6 +36,7 @@ class TokoSeeder extends Seeder
                     'wilayah' => $item['wilayah'],
                     'alamat' => $item['alamat'],
                     'deleted_at' => $item['deleted_at'],
+                    'pin' => 1122
                 ]
             );
         }

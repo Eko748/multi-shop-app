@@ -621,81 +621,82 @@ class KasService
         $labaRugiTahunan->save();
     }
 
-    public static function delete($kasId, $id, $sumber, $tanggal, $laba = true)
+    public static function delete($kasId, $id, $sumber, $tanggal, $laba = true, $saldo = true)
     {
-        return DB::transaction(function () use ($kasId, $id, $sumber, $tanggal, $laba) {
+        return DB::transaction(function () use ($kasId, $id, $sumber, $tanggal, $laba, $saldo) {
 
             $trx = KasTransaksi::where('kas_id', $kasId)
                 ->where('sumber_type', $sumber)
                 ->where('sumber_id', $id)
                 ->firstOrFail();
 
-            $kas = Kas::findOrFail($trx->kas_id);
+            if ($saldo) {
+                $kas = Kas::findOrFail($trx->kas_id);
 
-            $tanggalRef = $tanggal
-                ? Carbon::parse($tanggal)
-                : Carbon::parse($trx->tanggal);
+                $tanggalRef = $tanggal
+                    ? Carbon::parse($tanggal)
+                    : Carbon::parse($trx->tanggal);
 
-            $year   = $tanggalRef->year;
-            $month  = $tanggalRef->month;
-            $tokoId = $kas->toko_id;
+                $year   = $tanggalRef->year;
+                $month  = $tanggalRef->month;
+                $tokoId = $kas->toko_id;
 
-            $nominal = (float) $trx->total_nominal;
+                $nominal = (float) $trx->total_nominal;
 
-            // =========================
-            // HITUNG DELTA
-            // =========================
-            if (str_contains($trx->tipe, 'in')) {
-                $deltaKas  = -$nominal;
-                $deltaIn   = -$nominal;
-                $deltaOut  = 0;
-            } else {
-                $deltaKas  = +$nominal;
-                $deltaIn   = 0;
-                $deltaOut  = -$nominal;
+                // =========================
+                // HITUNG DELTA
+                // =========================
+                if (str_contains($trx->tipe, 'in')) {
+                    $deltaKas  = -$nominal;
+                    $deltaIn   = -$nominal;
+                    $deltaOut  = 0;
+                } else {
+                    $deltaKas  = +$nominal;
+                    $deltaIn   = 0;
+                    $deltaOut  = -$nominal;
+                }
+
+                // =========================
+                // 1. UPDATE SALDO KAS
+                // =========================
+                $kas->saldo += $deltaKas;
+                $kas->save();
+
+                // =========================
+                // 2. UPDATE HISTORY BULAN
+                // =========================
+                $history = KasSaldoHistory::firstOrCreate(
+                    ['kas_id' => $kas->id, 'tahun' => $year, 'bulan' => $month],
+                    ['saldo_awal' => 0, 'saldo_akhir' => 0]
+                );
+
+                $history->saldo_akhir += $deltaKas;
+                $history->save();
+
+                // =========================
+                // 3. REBUILD BULAN SETELAHNYA
+                // =========================
+                $current = $history;
+
+                while ($next = KasSaldoHistory::where('kas_id', $kas->id)
+                    ->where(function ($q) use ($current) {
+                        $q->where('tahun', '>', $current->tahun)
+                            ->orWhere(
+                                fn($q2) =>
+                                $q2->where('tahun', $current->tahun)
+                                    ->where('bulan', '>', $current->bulan)
+                            );
+                    })
+                    ->orderBy('tahun')
+                    ->orderBy('bulan')
+                    ->first()
+                ) {
+                    $next->saldo_awal  = $current->saldo_akhir;
+                    $next->saldo_akhir += $deltaKas;
+                    $next->save();
+                    $current = $next;
+                }
             }
-
-            // =========================
-            // 1. UPDATE SALDO KAS
-            // =========================
-            $kas->saldo += $deltaKas;
-            $kas->save();
-
-            // =========================
-            // 2. UPDATE HISTORY BULAN
-            // =========================
-            $history = KasSaldoHistory::firstOrCreate(
-                ['kas_id' => $kas->id, 'tahun' => $year, 'bulan' => $month],
-                ['saldo_awal' => 0, 'saldo_akhir' => 0]
-            );
-
-            $history->saldo_akhir += $deltaKas;
-            $history->save();
-
-            // =========================
-            // 3. REBUILD BULAN SETELAHNYA
-            // =========================
-            $current = $history;
-
-            while ($next = KasSaldoHistory::where('kas_id', $kas->id)
-                ->where(function ($q) use ($current) {
-                    $q->where('tahun', '>', $current->tahun)
-                        ->orWhere(
-                            fn($q2) =>
-                            $q2->where('tahun', $current->tahun)
-                                ->where('bulan', '>', $current->bulan)
-                        );
-                })
-                ->orderBy('tahun')
-                ->orderBy('bulan')
-                ->first()
-            ) {
-                $next->saldo_awal  = $current->saldo_akhir;
-                $next->saldo_akhir += $deltaKas;
-                $next->save();
-                $current = $next;
-            }
-
             // =========================
             // 4 & 5. UPDATE LABA RUGI (OPTIONAL)
             // =========================

@@ -397,7 +397,7 @@
 
             let action_buttons = '';
 
-            let delete_button = (data.action) ? `
+            let delete_button = (data.action && data.tipe != 'Pembelian Barang') ? `
                 <a class="p-1 btn delete-data action_button"
                     data-container="body" data-toggle="tooltip" data-placement="top"
                     title="Hapus ${title}" data="${elementData}">
@@ -430,9 +430,9 @@
             if (delete_button || edit_button || detail_button) {
                 action_buttons = `
                 <div class="d-flex justify-content-end">
+                    ${delete_button ? `<div class="hovering p-1">${delete_button}</div>` : ''}
                     ${edit_button ? `<div class="hovering p-1">${edit_button}</div>` : ''}
                     ${detail_button ? `<div class="hovering p-1">${detail_button}</div>` : ''}
-                    ${delete_button ? `<div class="hovering p-1">${delete_button}</div>` : ''}
                 </div>`;
             } else {
                 action_buttons = `

@@ -210,6 +210,7 @@ class HutangController extends Controller
                 keterangan: $data->hutangTipe->tipe ?? 'Hutang Lainnya',
                 sumber: $data,
                 tanggal: $validatedData['tanggal'],
+                laba: false
             );
 
             KasService::in(
@@ -346,7 +347,8 @@ class HutangController extends Controller
                     kategori: 'Pembayaran Piutang',
                     keterangan: $piutang->piutangTipe->tipe,
                     sumber: $piutang,
-                    tanggal: $piutang->tanggal
+                    tanggal: $piutang->tanggal,
+                    laba: false
                 );
 
                 KasService::in(
@@ -358,7 +360,8 @@ class HutangController extends Controller
                     kategori: 'Pembayaran Piutang',
                     keterangan: $piutang->piutangTipe->tipe,
                     sumber: $piutang,
-                    tanggal: $piutang->tanggal
+                    tanggal: $piutang->tanggal,
+                    laba: false
                 );
             }
 
@@ -371,7 +374,8 @@ class HutangController extends Controller
                 kategori: 'Pembayaran Hutang',
                 keterangan: $hutang->hutangTipe->tipe,
                 sumber: $hutang,
-                tanggal: now()
+                tanggal: now(),
+                laba: false
             );
 
             KasService::out(
@@ -383,7 +387,8 @@ class HutangController extends Controller
                 kategori: 'Pembayaran Hutang',
                 keterangan: $hutang->hutangTipe->tipe,
                 sumber: $hutang,
-                tanggal: now()
+                tanggal: now(),
+                laba: false
             );
 
             DB::commit();

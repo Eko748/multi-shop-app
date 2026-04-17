@@ -387,6 +387,20 @@ class PembelianBarangController extends Controller
 
             if ($pembelian->tipe == 'cash') {
                 $pembelian->status = 'success';
+                $suplier = Supplier::where('id', $pembelian->supplier_id)->first();
+
+                KasService::out(
+                    toko_id: $pembelian->kas->toko_id,
+                    jenis_barang_id: $pembelian->kas->jenis_barang_id,
+                    tipe_kas: $pembelian->kas->tipe_kas,
+                    total_nominal: $totalNilai,
+                    item: $pembelian->kas->tipe_kas,
+                    kategori: 'Pembelian Barang',
+                    keterangan: $suplier->nama,
+                    sumber: $pembelian,
+                    tanggal: $request->tanggal,
+                    laba: false
+                );
             } elseif ($pembelian->tipe == 'hutang') {
                 $pembelian->status = 'completed_debt';
                 $nominal = RupiahGenerate::build($pembelian->total);
@@ -450,39 +464,24 @@ class PembelianBarangController extends Controller
                     tanggal: $hutang->tanggal,
                 );
 
-                KasService::in(
-                    toko_id: $hutang->toko_id,
-                    jenis_barang_id: $kasJenisBarang,
-                    tipe_kas: 'kecil',
-                    total_nominal: $hutang->nominal,
-                    item: 'kecil',
-                    kategori: 'Hutang',
-                    keterangan: $hutang->hutangTipe->tipe ?? 'Hutang Lainnya',
-                    sumber: $hutang,
-                    tanggal: $hutang->tanggal,
-                    laba: false
-                );
+                // KasService::in(
+                //     toko_id: $hutang->toko_id,
+                //     jenis_barang_id: $kasJenisBarang,
+                //     tipe_kas: 'kecil',
+                //     total_nominal: $hutang->nominal,
+                //     item: 'kecil',
+                //     kategori: 'Hutang',
+                //     keterangan: $hutang->hutangTipe->tipe ?? 'Hutang Lainnya',
+                //     sumber: $hutang,
+                //     tanggal: $hutang->tanggal,
+                //     laba: false
+                // );
             }
 
             $pembelian->save();
 
             PembelianBarangDetailTemp::where('pembelian_barang_id', $pembelian->id)
                 ->delete();
-
-            $suplier = Supplier::where('id', $pembelian->supplier_id)->first();
-
-            KasService::out(
-                toko_id: $pembelian->kas->toko_id,
-                jenis_barang_id: $pembelian->kas->jenis_barang_id,
-                tipe_kas: $pembelian->kas->tipe_kas,
-                total_nominal: $totalNilai,
-                item: $pembelian->kas->tipe_kas,
-                kategori: 'Pembelian Barang',
-                keterangan: $suplier->nama,
-                sumber: $pembelian,
-                tanggal: $request->tanggal,
-                laba: false
-            );
 
             DB::commit();
 
@@ -1167,13 +1166,13 @@ class PembelianBarangController extends Controller
                     ->first();
 
                 // hapus kas pembelian
-                KasService::delete(
-                    $pembelian->kas_id,
-                    $pembelian->id,
-                    PembelianBarang::class,
-                    $pembelian->tanggal,
-                    false
-                );
+                // KasService::delete(
+                //     $pembelian->kas_id,
+                //     $pembelian->id,
+                //     PembelianBarang::class,
+                //     $pembelian->tanggal,
+                //     false
+                // );
 
                 // hapus kas hutang (kalau ada)
                 if ($hutang) {
@@ -1183,6 +1182,7 @@ class PembelianBarangController extends Controller
                         $hutang->id,
                         Hutang::class,
                         $hutang->tanggal,
+                        false,
                         false
                     );
 

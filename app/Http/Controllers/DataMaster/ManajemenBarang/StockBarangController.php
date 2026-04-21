@@ -596,7 +596,7 @@ class StockBarangController extends Controller
         // ================================
         $data = [
             'stock'                => $stockUtama,
-            'hpp_awal'             => $stockBarang->hpp_awal ?? 0,
+            'hpp_awal'             => $stockBarang->hpp_baru ?? 0,
             'hpp_baru'             => $stockBarang->hpp_baru ?? 0,
             'total_harga_success'  => $totalHargaSuccess,
             'total_qty_success'    => $totalQtySuccess,

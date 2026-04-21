@@ -937,19 +937,44 @@
             };
 
             try {
-                let response = await renderAPI('PUT', '{{ route('tb.pb.putDetail') }}',
-                    payload);
+                let response = await renderAPI(
+                    'PUT',
+                    '{{ route('tb.pb.putDetail') }}',
+                    payload
+                );
 
                 if (response.status === 200) {
                     $('#modalEditDetail').modal('hide');
-                    notificationAlert('success', 'Berhasil', response.data.message || 'Data berhasil diperbarui!');
-                    await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter);
+
+                    notificationAlert(
+                        'success',
+                        'Berhasil',
+                        response.data.message || 'Data berhasil diperbarui!'
+                    );
+
+                    await getListData(
+                        defaultLimitPage,
+                        currentPage,
+                        defaultAscending,
+                        defaultSearch,
+                        customFilter
+                    );
+
                 } else {
-                    notificationAlert('error', 'Pemberitahuan', response.data.message || 'Gagal memperbarui data.');
+                    notificationAlert(
+                        'error',
+                        'Pemberitahuan',
+                        response.data.message || 'Gagal memperbarui data.'
+                    );
                 }
+
             } catch (error) {
-                console.error(error);
-                notificationAlert('error', 'Kesalahan', 'Terjadi kesalahan saat mengirim data.');
+                notificationAlert(
+                    'error',
+                    'Kesalahan',
+                    error.response?.data?.message || 'Terjadi kesalahan server.'
+                );
+
             } finally {
                 submitBtn.html(originalBtnHTML).prop('disabled', false);
             }

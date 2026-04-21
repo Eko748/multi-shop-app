@@ -30,7 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $exceptions->render(function (\Spatie\Permission\Exceptions\UnauthorizedException $e, $request) {
             return response()->json([
-                'message' => 'Kamu tidak memiliki izin untuk mengakses fitur ini.',
+                'message' => 'Kamu tidak memiliki izin untuk mengakses fitur ini. Aktifkan pada menu Level User dan atur hak aksesnya atau hubungi admin',
             ], 403);
         });
 

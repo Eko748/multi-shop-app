@@ -286,6 +286,7 @@
                 nama_barang: data?.nama_barang ?? '-',
                 stock: data?.stock ?? '-',
                 hpp_baru: data?.hpp_baru,
+                warning: data?.warning,
                 level_harga: level_harga_html,
                 detail_button,
                 edit_button,
@@ -296,42 +297,53 @@
         async function setListData(dataList, pagination) {
             totalPage = pagination.total_pages;
             currentPage = pagination.current_page;
+
             let display_from = ((defaultLimitPage * (currentPage - 1)) + 1);
             let display_to = Math.min(display_from + dataList.length - 1, pagination.total);
 
             let getDataTable = '';
             let classCol = 'align-center text-dark text-wrap';
+
             dataList.forEach((element, index) => {
+
+                const warningClass = element.warning ?
+                    'table-danger' :
+                    '';
+
                 getDataTable += `
-                    <tr class="text-dark">
-                        <td class="${classCol} text-center">${display_from + index}.</td>
-                        <td class="${classCol}">${element.nama_toko_group}</td>
-                        <td class="${classCol}">${element.nama_barang}</td>
-                        <td class="${classCol}">${element.stock}</td>
-                        @if (Auth::user()->role_id == 1)
-                        <td class="${classCol}">${element.hpp_baru}</td>
-                        @endif
-                        <td class="${classCol}">${element.level_harga}</td>
-                        <td class="${classCol}">
-                            <div class="d-flex justify-content-center w-100">
-                                <div class="hovering p-1">
-                                    ${element.detail_button}
-                                </div>
-                                <div class="hovering p-1">
-                                    ${element.stock_button}
-                                </div>
-                                <div class="hovering p-1">
-                                    ${element.edit_button}
-                                </div>
+                <tr class="text-dark ${warningClass}">
+                    <td class="${classCol} text-center">${display_from + index}.</td>
+                    <td class="${classCol}">${element.nama_toko_group}</td>
+                    <td class="${classCol}">${element.nama_barang}</td>
+                    <td class="${classCol}">${element.stock}</td>
+
+                    @if (Auth::user()->role_id == 1)
+                    <td class="${classCol}">${element.hpp_baru}</td>
+                    @endif
+
+                    <td class="${classCol}">${element.level_harga}</td>
+
+                    <td class="${classCol}">
+                        <div class="d-flex justify-content-center w-100">
+                            <div class="hovering p-1">
+                                ${element.detail_button}
                             </div>
-                        </td>
-                    </tr>`;
+                            <div class="hovering p-1">
+                                ${element.stock_button}
+                            </div>
+                            <div class="hovering p-1">
+                                ${element.edit_button}
+                            </div>
+                        </div>
+                    </td>
+                </tr>`;
             });
 
             $('#listData').html(getDataTable);
             $('#totalPage').text(pagination.total);
             $('#countPage').text(`${display_from} - ${display_to}`);
             $('[data-toggle="tooltip"]').tooltip();
+
             renderPagination();
         }
 

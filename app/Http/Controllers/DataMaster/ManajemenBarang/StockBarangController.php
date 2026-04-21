@@ -69,9 +69,10 @@ class StockBarangController extends Controller
         }
 
         if ($request->has('start_date') && $request->has('end_date')) {
-            $start_date = $request->input('start_date');
-            $end_date = $request->input('end_date');
-            $query->whereBetween('created_at', [$start_date, $end_date]);
+            $query->whereBetween('created_at', [
+                $request->input('start_date'),
+                $request->input('end_date')
+            ]);
         }
 
         $data = $query->paginate($meta['limit']);
@@ -83,23 +84,32 @@ class StockBarangController extends Controller
             'total_pages' => $data->lastPage()
         ];
 
-        $mappedData = collect($data->items())->map(function ($item) {
+        $levelNames = LevelHarga::orderBy('id', 'asc')
+            ->pluck('nama_level_harga')
+            ->toArray();
+
+        $mappedData = collect($data->items())->map(function ($item) use ($levelNames) {
+
             $barang = $item->barang;
             $tokoGroup = $item->tokoGroup;
 
             $decoded = json_decode($item->level_harga, true);
             $decoded = is_array($decoded) ? $decoded : [];
 
-            $levelNames = LevelHarga::orderBy('id', 'asc')
-                ->pluck('nama_level_harga')
-                ->toArray();
+            $hppBaruNumeric = (int) $item->hpp_baru;
 
             $level_harga = [];
+            $warning = false;
 
             foreach ($decoded as $index => $harga) {
 
                 $numeric = preg_replace('/[^0-9]/', '', $harga);
                 $numeric = $numeric !== '' ? (int) $numeric : 0;
+
+                // cek jika harga jual < hpp
+                if ($numeric < $hppBaruNumeric) {
+                    $warning = true;
+                }
 
                 $formatted = RupiahGenerate::build($numeric);
 
@@ -109,17 +119,18 @@ class StockBarangController extends Controller
             }
 
             return [
-                'id'                => $item->id,
-                'id_barang'         => $barang->id ?? null,
-                'nama_barang'       => TextGenerate::smartTail($barang->nama),
-                'barcode'           => $barang->barcode ?? null,
+                'id'              => $item->id,
+                'id_barang'       => $barang->id ?? null,
+                'nama_barang'     => TextGenerate::smartTail($barang->nama),
+                'barcode'         => $barang->barcode ?? null,
 
-                'toko_group_id'     => $tokoGroup->id ?? null,
-                'nama_toko_group'   => $tokoGroup->nama ?? null,
+                'toko_group_id'   => $tokoGroup->id ?? null,
+                'nama_toko_group' => $tokoGroup->nama ?? null,
 
-                'hpp_baru'          => RupiahGenerate::build($item->hpp_baru),
-                'stock'             => (int) ($item->stok ?? 0),
-                'level_harga'       => $level_harga,
+                'hpp_baru'        => RupiahGenerate::build($hppBaruNumeric),
+                'stock'           => (int) ($item->stok ?? 0),
+                'level_harga'     => $level_harga,
+                'warning'         => $warning,
             ];
         });
 

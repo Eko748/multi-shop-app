@@ -900,6 +900,7 @@
                 harga_barang: d.harga_beli,
                 subtotal: Number(d.subtotal),
                 barang_label: d.barang_label,
+                level_harga: JSON.parse(d.level_harga),
             }));
 
             PBState.items.forEach(i => PBState.addedItems.add(i.id_barang));
@@ -965,17 +966,25 @@
         }
 
         async function savePembelian() {
-            const url =
-                "{{ route('tb.pb.put') }}";
+            const url = "{{ route('tb.pb.put') }}";
 
             const payload = {
                 id: PBState.pembelianId,
                 toko_id: {{ auth()->user()->toko_id }},
                 ...PBState.header,
-                items: PBState.items
+                items: PBState.items.map(item => ({
+                    ...item,
+                    level_harga: Array.isArray(item.level_harga) ?
+                        JSON.stringify(item.level_harga) :
+                        item.level_harga
+                }))
             };
 
-            await renderAPI(PBState.mode === 'add' ? 'POST' : 'PUT', url, payload);
+            await renderAPI(
+                PBState.mode === 'add' ? 'POST' : 'PUT',
+                url,
+                payload
+            );
         }
 
         function resetForm() {

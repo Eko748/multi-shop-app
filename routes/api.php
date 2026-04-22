@@ -175,6 +175,7 @@ Route::prefix('stock-barang')->as('sb.')->group(function () {
     Route::post('post-harga', [StockBarangController::class, 'updateHarga'])->name('updateHarga')->middleware('permission:POST /stock-barang/post-harga');
     Route::put('put-refresh', [StockBarangController::class, 'refreshStock'])->name('refreshStock')->middleware('permission:PUT /stock-barang/put-refresh');
     Route::put('put-stok', [StockBarangController::class, 'updateStock'])->name('updateStock')->middleware('permission:PUT /stock-barang/put-stok');
+    Route::put('put-hpp', [StockBarangController::class, 'updateHpp'])->name('updateHpp')->middleware('permission:PUT /stock-barang/put-hpp');
 
     Route::prefix('batch')->as('batch.')->group(function () {
         Route::get('get', [StockBarangBatchController::class, 'get'])->name('get');

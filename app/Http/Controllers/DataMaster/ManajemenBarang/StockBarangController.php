@@ -128,6 +128,7 @@ class StockBarangController extends Controller
                 'nama_toko_group' => $tokoGroup->nama ?? null,
 
                 'hpp_baru'        => RupiahGenerate::build($hppBaruNumeric),
+                'real_hpp'        => $item->hpp_baru,
                 'stock'           => (int) ($item->stok ?? 0),
                 'level_harga'     => $level_harga,
                 'warning'         => $warning,
@@ -241,6 +242,108 @@ class StockBarangController extends Controller
             return $this->success(null, 200, 'Stok berhasil dikosongkan.');
         } catch (\Throwable $e) {
             DB::rollBack();
+            return $this->error(500, $e->getMessage());
+        }
+    }
+
+    public function updateHpp(Request $request)
+    {
+        $request->validate([
+            'id'       => 'required|integer',
+            'id_barang' => 'required|integer',
+            'hpp'      => 'required|numeric|min:0',
+            'pin'      => 'required',
+            'toko_id'  => 'required|integer',
+            'user_id'  => 'required|integer',
+            'message'  => 'nullable|string',
+        ]);
+
+        $toko = Toko::find($request->toko_id);
+
+        if (!$toko) {
+            return $this->error(404, 'Data toko tidak ditemukan.');
+        }
+
+        if ((int)$toko->pin !== (int)$request->pin) {
+            return $this->error(403, 'PIN yang Anda masukkan salah.');
+        }
+
+        DB::beginTransaction();
+
+        try {
+
+            $stok = StockBarang::lockForUpdate()->find($request->id);
+
+            if (!$stok) {
+                return $this->error(404, 'Data stok tidak ditemukan.');
+            }
+
+            $oldHpp = $stok->hpp_baru;
+            $newHpp = (float) $request->hpp;
+
+            // =========================
+            // UPDATE STOCK BARANG
+            // =========================
+            $stok->update([
+                'hpp_awal' => $oldHpp,
+                'hpp_baru' => $newHpp,
+            ]);
+
+            /**
+             * =========================
+             * UPDATE BATCH TERAKHIR
+             * =========================
+             * Batch terakhir mengikuti HPP manual
+             * supaya batch berikutnya nanti tetap nyambung:
+             *
+             * batch baru => hpp_awal = batch terakhir.hpp_baru
+             */
+            $lastBatch = StockBarangBatch::where('stock_barang_id', $stok->id)
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')
+                ->lockForUpdate()
+                ->first();
+
+            if ($lastBatch) {
+                $lastBatch->update([
+                    'hpp_baru' => $newHpp
+                ]);
+            }
+
+            // =========================
+            // LOG
+            // =========================
+            LogAktivitasGenerate::store(
+                logName: $this->title[0] ?? 'Stok Barang',
+                subjectType: StockBarang::class,
+                subjectId: $stok->id,
+                event: 'Update HPP Manual',
+                properties: [
+                    'changes' => [
+                        'old' => [
+                            'hpp_baru' => $oldHpp
+                        ],
+                        'new' => [
+                            'hpp_baru' => $newHpp
+                        ]
+                    ]
+                ],
+                description: "HPP barang ID {$request->id_barang} diubah manual dari {$oldHpp} menjadi {$newHpp}",
+                userId: $request->user_id,
+                message: $request->message ?? '(Sistem) Update HPP manual.'
+            );
+
+            DB::commit();
+
+            return $this->success(
+                null,
+                200,
+                'HPP berhasil diperbarui.'
+            );
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+
             return $this->error(500, $e->getMessage());
         }
     }

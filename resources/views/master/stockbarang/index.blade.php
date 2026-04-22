@@ -626,12 +626,35 @@
             swal({
                 title: `Edit Hpp ${title}`,
                 html: `
-                    <p class="font-weight-bold">Hpp ${data.nama_barang} akan diperbarui!</p>
+                    <p class="font-weight-bold">Hpp Saat ini ${data.hpp_baru}, Barang: ${data.nama_barang}</p>
                     <hr>
                     <div class="px-4" style="gap: 0.5rem;">
                         <div class="form-group">
-                            <label for="input-pin" class="form-control-label d-flex justify-content-start">Hpp<span class="text-danger ml-1">*</span></label>
-                            <input type="number" id="input-pin" class="swal-content__input form-control mb-2" placeholder="Masukkan PIN Toko">
+                            <label for="input-hpp" class="form-control-label d-flex justify-content-start">
+                                HPP<span class="text-danger ml-1">*</span>
+                            </label>
+
+                            <input
+                                type="number"
+                                id="input-hpp"
+                                class="swal-content__input form-control mb-2"
+                                placeholder="Masukkan HPP"
+                                value="${data.real_hpp}"
+                                step="0.01"
+                            >
+
+                            <small
+                                class="text-muted font-italic d-block text-left"
+                                style="font-size: 11px;"
+                            >
+                                Gunakan tanda titik (.) sebagai pemisah desimal.
+                            </small>
+                            <small
+                                class="text-muted font-italic d-block text-left"
+                                style="font-size: 11px;"
+                            >
+                                Maksimal nilai desimal: 6 angka dibelakang koma. Contoh: 12500.333333
+                            </small>
                         </div>
                         <div class="form-group">
                             <label for="input-pin" class="form-control-label d-flex justify-content-start">PIN<span class="text-danger ml-1">*</span></label>
@@ -655,7 +678,12 @@
             }).then(async (result) => {
                 const pin = document.getElementById('input-pin')?.value;
                 const message = document.getElementById('input-message')?.value;
+                const hpp = document.getElementById('input-hpp')?.value;
 
+                if (!hpp) {
+                    notificationAlert("error", "Gagal", "HPP tidak boleh kosong!");
+                    return;
+                }
                 if (!pin) {
                     notificationAlert("error", "Gagal", "PIN tidak boleh kosong!");
                     return;
@@ -667,13 +695,14 @@
 
                 let postDataRest = await renderAPI(
                         'PUT',
-                        '{{ route('sb.refreshStock') }}', {
+                        '{{ route('sb.updateHpp') }}', {
                             id: data.id,
                             id_barang: data.id_barang,
                             toko_id: '{{ auth()->user()->toko_id }}',
                             user_id: '{{ auth()->user()->id }}',
                             message: message,
-                            pin: pin
+                            pin: pin,
+                            hpp: hpp
                         }
                     ).then(response => response)
                     .catch(error => error.response);

@@ -279,6 +279,17 @@
                 </div>
             </a>`;
 
+            let hpp_button = `
+            <button id="hpp-${data.id}" class="p-1 btn hpp-data action_button atur-harga-btn"
+                data-container="body" data-toggle="tooltip" data-placement="top"
+                title="Edit Hpp ${title}: ${data.nama_barang}"
+                onclick="editHpp('${encodeURIComponent(JSON.stringify(data))}')">
+                <span class="text-dark">Hpp</span>
+                <div class="icon text-success">
+                    <i class="fa fa-wallet"></i>
+                </div>
+            </button>`;
+
             return {
                 id: data?.id ?? '-',
                 nama_toko_group: data?.nama_toko_group ?? '-',
@@ -290,7 +301,8 @@
                 level_harga: level_harga_html,
                 detail_button,
                 edit_button,
-                stock_button
+                stock_button,
+                hpp_button
             };
         }
 
@@ -325,6 +337,9 @@
 
                     <td class="${classCol}">
                         <div class="d-flex justify-content-center w-100">
+                            <div class="hovering p-1">
+                                ${element.hpp_button}
+                            </div>
                             <div class="hovering p-1">
                                 ${element.detail_button}
                             </div>
@@ -545,6 +560,79 @@
                     <p class="font-weight-bold">Stok ${data.nama_barang} akan dikosongkan!</p>
                     <hr>
                     <div class="px-4" style="gap: 0.5rem;">
+                        <div class="form-group">
+                            <label for="input-pin" class="form-control-label d-flex justify-content-start">PIN<span class="text-danger ml-1">*</span></label>
+                            <input type="text" id="input-pin" class="swal-content__input form-control mb-2" placeholder="Masukkan PIN Toko">
+                        </div>
+                        <div class="form-group">
+                            <label for="input-message" class="form-control-label d-flex justify-content-start">Pesan<span class="text-danger ml-1">*</span></label>
+                            <textarea id="input-message" class="swal-content__input form-control mb-2" placeholder="Masukkan Pesan" rows="4"></textarea>
+                        </div>
+                    </div>
+                `,
+                type: "question",
+                showCancelButton: true,
+                confirmButtonText: "Konfirmasi",
+                cancelButtonText: "Batal",
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                reverseButtons: true,
+                confirmButtonClass: "btn btn-danger",
+                cancelButtonClass: "btn btn-secondary"
+            }).then(async (result) => {
+                const pin = document.getElementById('input-pin')?.value;
+                const message = document.getElementById('input-message')?.value;
+
+                if (!pin) {
+                    notificationAlert("error", "Gagal", "PIN tidak boleh kosong!");
+                    return;
+                }
+                if (!message) {
+                    notificationAlert("error", "Gagal", "Pesan tidak boleh kosong!");
+                    return;
+                }
+
+                let postDataRest = await renderAPI(
+                        'PUT',
+                        '{{ route('sb.refreshStock') }}', {
+                            id: data.id,
+                            id_barang: data.id_barang,
+                            toko_id: '{{ auth()->user()->toko_id }}',
+                            user_id: '{{ auth()->user()->id }}',
+                            message: message,
+                            pin: pin
+                        }
+                    ).then(response => response)
+                    .catch(error => error.response);
+
+                swal.close();
+
+                if (postDataRest.status == 200) {
+                    setTimeout(() => {
+                        getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
+                            customFilter);
+                    }, 500);
+                    notificationAlert('success', 'Pemberitahuan', postDataRest.data.message);
+                } else {
+                    notificationAlert('error', 'Gagal', postDataRest.data?.message ||
+                        'Terjadi kesalahan.');
+                }
+            }).catch(swal.noop);
+        }
+
+        async function editHpp(encodedData) {
+            let data = JSON.parse(decodeURIComponent(encodedData));
+
+            swal({
+                title: `Edit Hpp ${title}`,
+                html: `
+                    <p class="font-weight-bold">Hpp ${data.nama_barang} akan diperbarui!</p>
+                    <hr>
+                    <div class="px-4" style="gap: 0.5rem;">
+                        <div class="form-group">
+                            <label for="input-pin" class="form-control-label d-flex justify-content-start">Hpp<span class="text-danger ml-1">*</span></label>
+                            <input type="number" id="input-pin" class="swal-content__input form-control mb-2" placeholder="Masukkan PIN Toko">
+                        </div>
                         <div class="form-group">
                             <label for="input-pin" class="form-control-label d-flex justify-content-start">PIN<span class="text-danger ml-1">*</span></label>
                             <input type="text" id="input-pin" class="swal-content__input form-control mb-2" placeholder="Masukkan PIN Toko">
@@ -929,7 +1017,8 @@
         async function renderTabDetailStockBarang(id_barang, target = '#detailStockBarang') {
             const detailResp = await renderAPI('GET', '{{ route('sb.getBarang') }}', {
                 barang_id: id_barang,
-                toko_id: {{ auth()->user()->toko_id }}
+                toko_id: {{ auth()->user()->toko_id }},
+                user_id: {{ auth()->user()->id }}
             }).catch(e => e.response);
 
             if (detailResp?.status === 200 && Array.isArray(detailResp.data.data)) {

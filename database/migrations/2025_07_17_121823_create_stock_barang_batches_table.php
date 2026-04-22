@@ -15,7 +15,6 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('toko_id');
             $table->unsignedBigInteger('stock_barang_id');
-            // $table->string('qrcode')->unique();
             $table->integer('qty_masuk');
             $table->integer('qty_sisa');
             $table->decimal('harga_beli', 15, 6);

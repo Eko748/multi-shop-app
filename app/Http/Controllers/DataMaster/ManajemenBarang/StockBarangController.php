@@ -249,7 +249,7 @@ class StockBarangController extends Controller
     {
         $request->validate([
             'toko_id' => 'required|integer|exists:toko,id',
-            'user_id' => 'required|string',
+            'user_id' => 'required|integer|exists:users,id',
             'message' => 'nullable|string',
             'reductions' => 'required|array|min:1',
             'reductions.*.stock_barang_batch_id' => 'required|integer|exists:stock_barang_batch,id',
@@ -295,6 +295,7 @@ class StockBarangController extends Controller
                     'stock_barang_batch_id' => $batch->id,
                     'status' => $reduction['status'],
                     'qty' => $qtyKurangi,
+                    'toko_id' => $tokoId,
                 ]);
 
                 // log

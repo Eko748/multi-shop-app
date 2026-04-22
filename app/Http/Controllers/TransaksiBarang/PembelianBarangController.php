@@ -725,11 +725,11 @@ class PembelianBarangController extends Controller
     public function deleteDetail(Request $request)
     {
         $request->validate([
-            'id' => 'required|integer|exists:pembelian_barang_detail,id',
+            'id'         => 'required|integer|exists:pembelian_barang_detail,id',
             'deleted_by' => 'required|integer|exists:users,id',
-            'pin' => 'required',
-            'toko_id' => 'required|integer|exists:toko,id',
-            'message' => 'required|string',
+            'pin'        => 'required',
+            'toko_id'    => 'required|integer|exists:toko,id',
+            'message'    => 'required|string',
         ]);
 
         $pinCheck = PinCheck::validate($request->toko_id, $request->pin);
@@ -739,10 +739,12 @@ class PembelianBarangController extends Controller
         }
 
         DB::beginTransaction();
+
         try {
             $detail = PembelianBarangDetail::with([
                 'pembelianBarang',
-                'stockBarangBatch.stockBarang'
+                'stockBarangBatch.stockBarang',
+                'barang'
             ])->lockForUpdate()->findOrFail($request->id);
 
             $pembelian   = $detail->pembelianBarang;
@@ -754,12 +756,18 @@ class PembelianBarangController extends Controller
 
             // 🔒 VALIDASI: tidak boleh jika sudah ada barang keluar
             $qtyKeluar = $batch->qty_masuk - $batch->qty_sisa;
+
             if ($qtyKeluar > 0) {
-                throw new \Exception("Tidak bisa hapus, barang sudah terpakai sebanyak {$qtyKeluar} qty");
+                throw new \Exception(
+                    "Tidak bisa hapus, barang sudah terpakai sebanyak {$qtyKeluar} qty"
+                );
             }
 
+            // =========================
             // 🔥 HANDLE HUTANG
+            // =========================
             if ($pembelian->tipe === 'hutang') {
+
                 $hutang = Hutang::where('sumber_type', PembelianBarang::class)
                     ->where('sumber_id', $pembelian->id)
                     ->lockForUpdate()
@@ -772,7 +780,9 @@ class PembelianBarangController extends Controller
                 $totalDibayar = $hutang->nominal - $hutang->sisa;
 
                 if ($totalDibayar > 0) {
-                    throw new \Exception("Tidak bisa hapus karena hutang sudah pernah dibayar");
+                    throw new \Exception(
+                        "Tidak bisa hapus karena hutang sudah pernah dibayar"
+                    );
                 }
 
                 $oldNominal = $hutang->nominal;
@@ -787,12 +797,10 @@ class PembelianBarangController extends Controller
                     'sisa'    => $hutang->sisa - $nilai
                 ]);
 
-                // jenis barang
                 $kasJenisBarang = $detail->barang
                     ? $detail->barang->jenis_barang_id
                     : null;
 
-                // kas adjustment (hutang berkurang)
                 KasService::neutralOUT(
                     toko_id: $hutang->toko_id,
                     jenis_barang_id: $kasJenisBarang,
@@ -831,42 +839,59 @@ class PembelianBarangController extends Controller
                     ],
                     description: "Pengurangan hutang karena hapus item pembelian",
                     userId: $request->deleted_by,
-                    message: $request->message ?? '(Sistem) Delete Detail Pembelian Barang.'
+                    message: $request->message
                 );
             }
 
+            // =========================
             // 🔥 HANDLE CASH
+            // =========================
             if ($pembelian->tipe === 'cash') {
+
                 KasService::updatePembelianBarang(
                     pembelian: $pembelian,
-                    deltaNominal: -$nilai, // negatif = kas masuk balik
+                    deltaNominal: -$nilai,
                     userId: $request->deleted_by,
                     edit: false
                 );
             }
 
-            // 🔥 UPDATE STOCK
-            $stockBarang->update([
-                'stok' => $stockBarang->stok - $qty
-            ]);
+            // =========================
+            // 🔥 DELETE BATCH DULU
+            // =========================
+            $stockBarangId = $batch->stock_barang_id;
 
-            // 🔥 DELETE BATCH
             $batch->delete();
 
+            // =========================
             // 🔥 UPDATE PEMBELIAN
+            // =========================
             $pembelian->update([
                 'qty'   => $pembelian->qty - $qty,
                 'total' => $pembelian->total - $nilai,
             ]);
 
+            // =========================
             // 🔥 DELETE DETAIL
+            // =========================
             $detail->delete();
+
+            // =========================
+            // 🔥 RECALC HPP + STOK
+            // =========================
+            HppGenerate::recalcHpp($stockBarangId);
 
             DB::commit();
 
-            return $this->success(null, 200, 'Detail pembelian berhasil dihapus');
+            return $this->success(
+                null,
+                200,
+                'Detail pembelian berhasil dihapus'
+            );
         } catch (\Throwable $e) {
+
             DB::rollBack();
+
             return $this->error(500, $e->getMessage(), [
                 'exception' => $e->getMessage()
             ]);
@@ -1072,11 +1097,11 @@ class PembelianBarangController extends Controller
     {
         try {
             $validated = $request->validate([
-                'id' => 'required|integer|exists:pembelian_barang,id',
+                'id'         => 'required|integer|exists:pembelian_barang,id',
                 'deleted_by' => 'required|integer|exists:users,id',
-                'pin' => 'required',
-                'toko_id' => 'required|integer|exists:toko,id',
-                'message' => 'required|string',
+                'pin'        => 'required',
+                'toko_id'    => 'required|integer|exists:toko,id',
+                'message'    => 'required|string',
             ]);
 
             // ✅ VALIDASI PIN
@@ -1087,14 +1112,18 @@ class PembelianBarangController extends Controller
 
             DB::beginTransaction();
 
-            $pembelian = PembelianBarang::with('detail')->findOrFail($validated['id']);
+            // 🔥 Ambil pembelian saja dulu
+            $pembelian = PembelianBarang::lockForUpdate()->findOrFail($validated['id']);
 
             // =========================
             // 🟡 KONDISI: MASIH PROGRESS
             // =========================
             if ($pembelian->status == 'progress') {
 
-                $tempDetails = PembelianBarangDetailTemp::where('pembelian_barang_id', $pembelian->id)->get();
+                $tempDetails = PembelianBarangDetailTemp::where(
+                    'pembelian_barang_id',
+                    $pembelian->id
+                )->get();
 
                 foreach ($tempDetails as $temp) {
 
@@ -1103,9 +1132,10 @@ class PembelianBarangController extends Controller
                         ->first();
 
                     if ($stockBarang) {
-                        $stockBarang->hpp_awal = 0;
-                        $stockBarang->hpp_baru = 0;
-                        $stockBarang->save();
+                        $stockBarang->update([
+                            'hpp_awal' => 0,
+                            'hpp_baru' => 0
+                        ]);
                     }
 
                     $temp->delete();
@@ -1117,34 +1147,50 @@ class PembelianBarangController extends Controller
                 return $this->success(null, 200, "Draft pembelian berhasil dihapus");
             }
 
-            // =========================
-            // 🔴 KONDISI: SUDAH SUCCESS
-            // =========================
+            /**
+             * 🔥 PENTING:
+             * Reload detail terbaru langsung dari DB
+             * supaya detail yg sudah dihapus via deleteDetail
+             * tidak ikut terbaca lagi
+             */
+            $details = PembelianBarangDetail::where('pembelian_barang_id', $pembelian->id)
+                ->lockForUpdate()
+                ->get();
 
-            // ❗ VALIDASI AWAL (FAIL FAST)
-            foreach ($pembelian->detail as $detail) {
+            // =========================
+            // 🔴 VALIDASI STOK TERPAKAI
+            // =========================
+            foreach ($details as $detail) {
 
                 $batch = StockBarangBatch::find($detail->stock_barang_batch_id);
 
                 if ($batch && $batch->qty_sisa != $batch->qty_masuk) {
                     DB::rollBack();
-                    return $this->error(400, "Tidak bisa hapus pembelian. Ada stok yang sudah terjual.");
+
+                    return $this->error(
+                        400,
+                        "Tidak bisa hapus pembelian. Ada stok yang sudah terjual."
+                    );
                 }
             }
 
-            // 🔥 PROSES DELETE + RECALC
-            foreach ($pembelian->detail as $detail) {
+            // =========================
+            // 🔥 DELETE DETAIL AKTIF SAJA
+            // =========================
+            foreach ($details as $detail) {
 
                 $batch = StockBarangBatch::find($detail->stock_barang_batch_id);
-                if (!$batch) continue;
 
-                $stockBarangId = $batch->stock_barang_id;
+                if ($batch) {
+                    $stockBarangId = $batch->stock_barang_id;
 
-                $batch->delete();
+                    $batch->delete();
+
+                    // recalc setelah batch dihapus
+                    HppGenerate::recalcHpp($stockBarangId);
+                }
+
                 $detail->delete();
-
-                // ✅ RECALCULATE HPP & STOK (AMAN SEMUA CASE)
-                HppGenerate::recalcHpp($stockBarangId);
             }
 
             // =========================
@@ -1165,16 +1211,6 @@ class PembelianBarangController extends Controller
                     ->where('sumber_id', $pembelian->id)
                     ->first();
 
-                // hapus kas pembelian
-                // KasService::delete(
-                //     $pembelian->kas_id,
-                //     $pembelian->id,
-                //     PembelianBarang::class,
-                //     $pembelian->tanggal,
-                //     false
-                // );
-
-                // hapus kas hutang (kalau ada)
                 if ($hutang) {
 
                     KasService::delete(
@@ -1194,8 +1230,12 @@ class PembelianBarangController extends Controller
 
             DB::commit();
 
-            return $this->success(null, 200, "Pembelian berhasil dihapus & stok dikembalikan");
-        } catch (\Exception $e) {
+            return $this->success(
+                null,
+                200,
+                "Pembelian berhasil dihapus & stok dikembalikan"
+            );
+        } catch (\Throwable $e) {
 
             DB::rollBack();
 

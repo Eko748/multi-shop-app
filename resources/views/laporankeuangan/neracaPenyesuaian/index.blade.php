@@ -40,60 +40,91 @@
         <div class="pcoded-content pt-1 mt-1">
             @include('components.breadcrumbs')
             <div class="row">
-                <div class="col-xl-12">
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="row">
-                                <div class="col-12 col-sm-12 col-md-6 col-lg-6 col-xl-6 mb-2">
-                                    <button type="button" class="btn btn-primary w-100" id="btn-add-data"
-                                        onclick="openAddModal()">
-                                        <i class="fa fa-circle-plus"></i><span> Tambah Data</span>
-                                    </button>
+                <div class="col-12 col-sm-12 col-md-12 col-lg-12 col-xl-12 mb-2">
+                    <div class="row" id="tambahData">
+                        <div class="col-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
+                            <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
+                                <div class="d-flex flex-row justify-content-between align-items-center p-3 flex-wrap">
+                                    <h5 class="m-0">List Penyesuaian</h5>
+                                    <div class="d-flex align-items-center" style="gap: 0.5rem;">
+                                        <button
+                                            class="btn-dynamic btn btn-md btn-outline-secondary d-flex align-items-center justify-content-center"
+                                            type="button" data-toggle="collapse" data-target="#filter-collapse"
+                                            aria-expanded="false" aria-controls="filter-collapse" data-container="body"
+                                            data-toggle="tooltip" data-placement="top"
+                                            style="flex: 0 0 45px; max-width: 45px;" title="Filter Data">
+                                            <i class="fa fa-filter my-1"></i>
+                                        </button>
+                                        <button type="button"
+                                            class="btn btn-md btn-outline-primary d-flex align-items-center justify-content-center"
+                                            id="btn-add-data" onclick="openAddModal()" data-container="body"
+                                            data-toggle="tooltip" data-placement="top"
+                                            style="flex: 1 1 45px; max-width: 150px;"
+                                            title="Tambah Data {{ $menu[0] }}">
+                                            <i class="fa fa-circle-plus my-1"></i>
+                                            <span class="d-none d-sm-inline ml-1">Tambah Data</span>
+                                        </button>
+                                    </div>
                                 </div>
-                                <div class="col-12 col-sm-12 col-md-6 col-lg-6 col-xl-6">
-                                    <form id="custom-filter" class="row justify-content-end">
-                                        <div class="col-6 col-sm-6 col-md-4 col-xl-4 col-lg-5 mb-2">
-                                            <select id="filter_bulan" class="form-control">
-                                                <option value="">Pilih Bulan</option>
-                                                <option value="01">Januari</option>
-                                                <option value="02">Februari</option>
-                                                <option value="03">Maret</option>
-                                                <option value="04">April</option>
-                                                <option value="05">Mei</option>
-                                                <option value="06">Juni</option>
-                                                <option value="07">Juli</option>
-                                                <option value="08">Agustus</option>
-                                                <option value="09">September</option>
-                                                <option value="10">Oktober</option>
-                                                <option value="11">November</option>
-                                                <option value="12">Desember</option>
-                                            </select>
-                                        </div>
-
-                                        <div class="col-6 col-sm-6 col-md-4 col-xl-4 col-lg-5 mb-2">
-                                            <select id="filter_tahun" class="form-control">
-                                                <option value="">Pilih Tahun</option>
-                                            </select>
-                                        </div>
-
-                                        <div class="col-12 col-sm-12 col-md-4 col-xl-3 col-lg-2 mb-2 d-flex justify-content-end"
-                                            style="gap: 0.5rem;">
-                                            <button form="custom-filter" class="btn btn-info btn-md" id="tb-filter"
-                                                type="submit">
-                                                <i class="fa fa-magnifying-glass"></i>
-                                            </button>
-                                            <button type="button" class="btn btn-secondary btn-md" id="tb-reset">
-                                                <i class="fa fa-rotate"></i>
-                                            </button>
+                                <hr class="m-0">
+                                <div class="collapse" id="filter-collapse">
+                                    <form id="custom-filter" class="p-3">
+                                        <div class="d-flex flex-column flex-md-row justify-content-md-end align-items-md-center"
+                                            style="gap: 1rem;">
+                                            <div class="input-group w-25 w-md-auto filter-input">
+                                                <div class="input-group-prepend">
+                                                    <span class="input-group-text">
+                                                        <i class="fa fa-calendar"></i>
+                                                    </span>
+                                                </div>
+                                                <input class="form-control" type="text" id="daterange" name="daterange"
+                                                    placeholder="Pilih rentang tanggal">
+                                            </div>
+                                            <div class="d-flex justify-content-end" style="gap: 1rem;">
+                                                <button class="btn btn-info" id="tb-filter" type="submit">
+                                                    <i class="fa fa-magnifying-glass mr-1"></i>Cari
+                                                </button>
+                                                <button type="button" class="btn btn-secondary" id="tb-reset">
+                                                    <i class="fa fa-rotate mr-1"></i>Reset
+                                                </button>
+                                            </div>
                                         </div>
                                     </form>
+                                    <hr class="m-0">
+                                </div>
+
+                                <div class="d-flex flex-row justify-content-between align-items-center p-3 flex-wrap"
+                                    style="gap: 0.5rem;">
+                                    <select name="limitPage" id="limitPage" class="form-control"
+                                        style="flex: 1 1 80px; max-width: 80px;">
+                                        <option value="30">30</option>
+                                        <option value="40">40</option>
+                                        <option value="50">50</option>
+                                        <option value="60">60</option>
+                                        <option value="70">70</option>
+                                        <option value="80">80</option>
+                                        <option value="90">90</option>
+                                        <option value="100">100</option>
+                                        <option value="150">150</option>
+                                        <option value="200">200</option>
+                                    </select>
+                                    <input class="tb-search form-control ms-auto" type="search" name="search"
+                                        placeholder="Cari Data" aria-label="search"
+                                        style="flex: 1 1 100px; max-width: 200px;">
                                 </div>
                             </div>
                         </div>
-                        <div class="content">
-                            <div class="card-body p-0">
-                                <div class="row px-3 my-1" id="listData">
-                                </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
+                            <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
+                                <div class="row overflow-auto" id="listData" style="max-height: 50vh;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row" id="paginateData">
+                        <div class="col-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
+                            <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
                                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-center p-3">
                                     <div class="text-center text-md-start mb-2 mb-md-0">
                                         <div class="pagination">
@@ -115,24 +146,25 @@
         </div>
     </div>
 
-    <div class="modal fade" id="modal-form" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
+    <div class="modal fade" id="modal-form" tabindex="-1" role="dialog" aria-labelledby="modalLabel"
+        aria-hidden="true">
         <div class="modal-dialog modal-lg" role="document">
-            <form id="form-neraca">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="modalLabel">Form Neraca</h5>
-                        <button type="button" class="btn-close reset-all close" data-bs-dismiss="modal"
-                            aria-label="Close"><i class="fa fa-xmark"></i></button>
-                    </div>
-                    <div class="modal-body card-body">
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" aria-label="Close"><i
-                                class="fa fa-times mr-1"></i>Tutup</button>
-                        <button type="submit" class="btn btn-success" id="save-btn">Simpan</button>
-                    </div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalLabel">Form Penyesuaian</h5>
+                    <button type="button" class="btn-close reset-all close" data-bs-dismiss="modal"
+                        aria-label="Close"><i class="fa fa-xmark"></i></button>
                 </div>
-            </form>
+                <div class="modal-body card-body">
+                    <form id="form-neraca">
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" aria-label="Close"><i
+                            class="fa fa-times mr-1"></i>Tutup</button>
+                    <button type="submit" class="btn btn-success" id="save-btn" form="#form-neraca">Simpan</button>
+                </div>
+            </div>
         </div>
     </div>
 @endsection
@@ -151,11 +183,15 @@
         let defaultSearch = '';
         let customFilter = {};
 
-        async function getListData(limit = 12, page = 1, ascending = 0, search = '', customFilter = {}) {
+        async function getListData(limit = 30, page = 1, ascending = 0, search = '', customFilter = {}) {
             $('#listData').html(`
-                <div class="d-flex justify-content-center align-items-center py-5">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="sr-only">Loading...</span>
+                <div class="col-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
+                    <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
+                        <div class="d-flex justify-content-center align-items-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="sr-only">Loading...</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `);
@@ -163,7 +199,6 @@
             let filterParams = {
                 ...customFilter
             };
-
             let getDataRest = await renderAPI(
                 'GET',
                 '{{ route('neraca.get') }}', {
@@ -171,41 +206,45 @@
                     limit: limit,
                     ascending: ascending,
                     search: search,
+                    toko_id: {{ auth()->user()->toko_id }},
                     ...filterParams
                 }
             ).then(function(response) {
                 return response;
             }).catch(function(error) {
-                return error.response;
+                let resp = error.response;
+                return resp;
             });
 
-            if (getDataRest && getDataRest.status === 200) {
-                const dataArray = getDataRest.data.data || [];
-
-                if (Array.isArray(dataArray) && dataArray.length > 0) {
-                    let handleDataArray = await Promise.all(
-                        dataArray.map(item => handleData(item))
-                    );
-                    await setListData(handleDataArray, getDataRest.data.pagination);
-                } else {
+            if (getDataRest && getDataRest.status == 200 && Array.isArray(getDataRest.data.data)) {
+                let handleDataArray = await Promise.all(
+                    getDataRest.data.data.map(async item => await handleData(item))
+                );
+                await setListData(handleDataArray, getDataRest.data.pagination);
+                if (getDataRest.data.data.length == 0) {
                     $('#listData').html(`
-                        <div class="alert alert-info text-center mt-4" role="alert">
-                            Data tidak tersedia untuk ditampilkan.
+                    <div class="col-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
+                        <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
+                            <div class="text-center my-3" role="alert">
+                                Tidak ada Penyesuaian.
+                            </div>
                         </div>
+                    </div>
                     `);
-                    $('#countPage').text("0 - 0");
-                    $('#totalPage').text("0");
                 }
             } else {
-                let errorMessage = getDataRest?.data?.message || 'Data gagal dimuat';
-
                 $('#listData').html(`
-                    <div class="alert alert-warning text-center mt-4" role="alert">
-                        ${errorMessage}
+                    <div class="col-12 col-sm-12 col-md-12 col-lg-12 col-xl-12">
+                        <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
+                            <div class="text-center my-3" role="alert">
+                                Data tidak tersedia untuk ditampilkan.
+                            </div>
+                        </div>
                     </div>
-                `);
+                    `);
                 $('#countPage').text("0 - 0");
                 $('#totalPage').text("0");
+                $('#totalData').text(getDataRest?.data?.total ?? 0);
             }
         }
 
@@ -227,7 +266,8 @@
             return {
                 id: data?.id ?? '-',
                 tanggal: tanggalFormatted,
-                nilai: data?.nilai ?? '-',
+                nominal: data?.nominal ?? '-',
+                pesan: data?.pesan ?? '-',
                 creator_name: data?.creator_name ?? '-',
                 created_at: data?.created_at ?? '-',
                 edit_button,
@@ -235,52 +275,69 @@
             };
         }
 
-        async function setListData(dataList, pagination) {
+        async function setListData(dataList, pagination, total) {
             totalPage = pagination.total_pages;
             currentPage = pagination.current_page;
             let display_from = ((defaultLimitPage * (currentPage - 1)) + 1);
             let display_to = Math.min(display_from + dataList.length - 1, pagination.total);
+            let tdClass = 'text-wrap align-top';
+            let getDataTable = `
+            <div class="col-12">
+                <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover m-0">
+                                <thead class="glossy-thead">
+                                    <tr>
+                                        <th scope="col" class="${tdClass} text-center" style="width:5%">No</th>
+                                        <th scope="col" class="${tdClass}" style="width:15%">Tanggal</th>
+                                        <th scope="col" class="${tdClass} text-right" style="width:15%">Nominal</th>
+                                        <th scope="col" class="${tdClass}" style="width:15%">Pesan</th>
+                                        <th scope="col" class="${tdClass}" style="width:10%">Dibuat Oleh</th>
+                                        <th scope="col" class="${tdClass} text-center" style="width:25%">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody>`;
 
-            let getDataCard = '';
             dataList.forEach((element, index) => {
-                const date = new Date(element.tanggal);
-                const monthNames = [
-                    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-                    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-                ];
-                const monthYear = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+                const number = display_from + index;
+                const hasButtons = element.edit_button || element.delete_button;
+                const actionHTML = `
+                    <div class="d-flex justify-content-center flex-column flex-sm-row align-items-center align-items-sm-start mx-3" style="gap: 0.5rem;">
+                        ${hasButtons
+                            ? `
+                                                    ${element.edit_button || ''}
+                                                    ${element.delete_button || ''}
+                                    `
+                            : `<i class="text-muted">Tidak ada aksi</span>`
+                        }
+                    </div>
+                `;
 
-                getDataCard += `
-                    <div class="col-12 col-sm-12 col-md-6 col-lg-4 col-xl-3">
-                        <div class="card shadow-sm border-0 m-0 mt-3 mx-2 rounded glossy-card bg-light h-100">
-                            <div class="card-body d-flex flex-column justify-content-between">
-                                <div>
-                                    <h6 class="text-uppercase text-secondary fw-semibold mb-1">
-                                        <i class="fa fa-wallet me-1 text-primary"></i> Saldo Bulan ${monthYear}
-                                    </h6>
-                                    <p style="color: #212529; font-weight: bold; font-size: 2.25rem;">${formatRupiah(element.nilai)}</p>
-                                </div>
-                                <div class="d-flex flex-column flex-md-row justify-content-md-between align-items-md-center">
-                                    <div class="d-flex align-items-center mb-2 mb-md-0">
-                                        <i class="fa fa-user text-muted mr-2" style="font-size: 1.50rem;"></i>
-                                        <div>
-                                            <small class="d-block text-muted">Dibuat oleh:</small>
-                                            <small class="d-block text-bold">${element.creator_name || '-'}, ${element.created_at}</small>
-                                        </div>
-                                    </div>
-                                    <div class="d-flex justify-content-end" style="gap: 0.5rem;">
-                                        ${element.edit_button}
-                                        ${element.delete_button}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>`;
+                getDataTable += `
+                    <tr class="glossy-tr">
+                        <td class="${tdClass} text-center">${number}</td>
+                        <td class="${tdClass}">${element.tanggal}</td>
+                        <td class="${tdClass} text-right">${element.nominal}</td>
+                        <td class="${tdClass}">${element.pesan}</td>
+                        <td class="${tdClass}">${element.creator_name}</td>
+                        <td class="${tdClass}">${actionHTML}</td>
+                    </tr>
+                `;
             });
 
-            $('#listData').html(getDataCard);
+            getDataTable += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+
+            $('#listData').html(getDataTable);
             $('#totalPage').text(pagination.total);
             $('#countPage').text(`${display_from} - ${display_to}`);
+            $('[data-toggle="tooltip"]').tooltip();
             renderPagination();
         }
 
@@ -293,14 +350,16 @@
                 const form = btn.closest("form")[0];
                 const formData = new FormData(form);
 
-                const userId = '{{ auth()->user()->id }}';
+                const userId = {{ auth()->user()->id }};
+                const tokoId = {{ auth()->user()->toko_id }};
                 formData.append('user_id', userId);
+                formData.append('toko_id', tokoId);
 
                 if (saveButton.disabled) return;
 
                 swal({
                     title: "Konfirmasi",
-                    text: "Apakah Anda yakin ingin menyimpan data neraca ini?",
+                    text: "Apakah Anda yakin ingin menyimpan data penyesuaian ini?",
                     type: "question",
                     showCancelButton: true,
                     confirmButtonColor: '#2ecc71',
@@ -435,8 +494,8 @@
 
         function renderModalForm(mode = 'add', data = {}) {
             const title = mode === 'edit' ?
-                '<i class="fa fa-edit mr-1"></i>Edit Data Neraca' :
-                '<i class="fa fa-circle-plus mr-1"></i>Tambah Data Neraca';
+                '<i class="fa fa-edit mr-1"></i>Edit Data Penyesuaian Neraca' :
+                '<i class="fa fa-circle-plus mr-1"></i>Tambah Data Penyesuaian Neraca';
 
             $('#modalLabel').html(title);
 
@@ -458,8 +517,30 @@
 
             const formContent = `
                 <div class="form-group">
-                    <label for="nilai">Nilai</label>
-                    <input type="number" class="form-control" id="nilai" name="nilai" step="0.01" value="${saldoValue}" required>
+                    <label for="nominal">Nominal</label>
+                    <input type="number" class="form-control" id="nominal" name="nominal" step="0.000001" value="${saldoValue}" required>
+                    <small
+                                class="text-muted font-italic d-block text-left"
+                                style="font-size: 11px;"
+                            >
+                                Gunakan tanda titik (.) sebagai pemisah desimal.
+                            </small>
+                            <small
+                                class="text-muted font-italic d-block text-left"
+                                style="font-size: 11px;"
+                            >
+                                Maksimal nilai desimal: 6 angka dibelakang koma. Contoh: 12500.333333
+                            </small>
+                            <small
+                                class="text-muted font-italic d-block text-left"
+                                style="font-size: 11px;"
+                            >
+                                Bisa isi dengan angka negatif dengan tambahkan tanda minus (-). Contoh: -12500.333333
+                            </small>
+                </div>
+                <div class="form-group">
+                    <label for="pesan">Pesan</label>
+                    <textarea class="form-control" id="pesan" name="pesan"  value="${saldoValue}" placeholder="Masukkan pesan" required></textarea>
                 </div>
                 <div class="form-group">
                     <label for="tanggal">Tanggal</label>
@@ -468,7 +549,7 @@
                 ${mode === 'edit' ? `<input type="hidden" name="id" value="${data.id}">` : ''}
             `;
 
-            $('#modal-form .modal-body').html(formContent);
+            $('#form-neraca').html(formContent);
         }
 
         function selectYear() {
@@ -511,7 +592,6 @@
 
         async function initPageLoad() {
             await Promise.all([
-                selectYear(),
                 getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter),
                 filterList(),
                 searchList(),

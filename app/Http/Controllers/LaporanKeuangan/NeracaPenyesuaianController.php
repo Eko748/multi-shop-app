@@ -57,20 +57,8 @@ class NeracaPenyesuaianController extends Controller
                 'nilai' => 'required|numeric',
                 'tanggal' => 'required|date',
                 'user_id' => 'required|integer|exists:users,id',
+                'toko_id' => 'required|integer|exists:toko,id',
             ]);
-
-            $tanggal = new \Carbon\Carbon($validated['tanggal']);
-            $bulan = $tanggal->format('m');
-            $tahun = $tanggal->format('Y');
-
-            $existing = $this->neracaService->model()
-                ->whereYear('tanggal', $tahun)
-                ->whereMonth('tanggal', $bulan)
-                ->exists();
-
-            if ($existing) {
-                return $this->error(422, "Data bulan {$bulan} tahun {$tahun} sudah ada, silahkan edit data tersebut.");
-            }
 
             $data = $this->neracaService->create($validated);
 

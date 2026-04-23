@@ -9,8 +9,10 @@ return new class extends Migration {
     {
         Schema::create('neraca_penyesuaian', function (Blueprint $table) {
             $table->id();
+            $table->unsignedBigInteger('toko_id');
             $table->decimal('nominal', 15, 6);
             $table->dateTime('tanggal');
+            $table->text('pesan');
             $table->unsignedBigInteger('created_by')->nullable();
             $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();
@@ -22,4 +24,3 @@ return new class extends Migration {
         Schema::dropIfExists('neraca_penyesuaian');
     }
 };
-

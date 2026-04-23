@@ -25,7 +25,7 @@ class NeracaService
 
             return [
                 'id' => $item->id,
-                'nilai' => rtrim(rtrim(number_format($item->nilai, 10, '.', ''), '0'), '.'),
+                'nominal' => rtrim(rtrim(number_format($item->nominal, 10, '.', ''), '0'), '.'),
                 'tanggal' => $item->tanggal,
                 'read_tanggal' => 'Bulan ' . $carbonTanggal->translatedFormat('F Y'),
                 'created_by' => $item->created_by,

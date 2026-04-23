@@ -107,9 +107,6 @@ class TransaksiKasirService
                 $barangId = $detail['barang_id'];
                 $qtyNeed  = $detail['qty'];
 
-                // =========================
-                // AMBIL SEMUA BATCH (FIFO)
-                // =========================
                 $batches = StockBarangBatch::whereHas('stockBarang', function ($q) use ($barangId) {
                     $q->where('barang_id', $barangId);
                 })
@@ -132,9 +129,6 @@ class TransaksiKasirService
 
                     $ambil = min($batch->qty_sisa, $qtyNeed);
 
-                    // =========================
-                    // CREATE DETAIL (PER BATCH)
-                    // =========================
                     $child = $this->repo2->create([
                         'qrcode'                 => QrGenerator::build('QR-TRX-'),
                         'transaksi_kasir_id'     => $header->id,
@@ -155,25 +149,18 @@ class TransaksiKasirService
 
                     $child->jenis_barang_id = $jenisBarangId;
 
-                    // =========================
-                    // UPDATE BATCH
-                    // =========================
                     $batch->qty_sisa -= $ambil;
                     $batch->save();
 
-                    // =========================
-                    // UPDATE STOCK BARANG
-                    // =========================
                     $stockBarang = $batch->stockBarang;
                     $stockBarang->stok -= $ambil;
                     if ($stockBarang->stok < 0) $stockBarang->stok = 0;
                     $stockBarang->save();
 
-                    // =========================
-                    // HPP
-                    // =========================
                     $child->total_hpp       = $ambil * $stockBarang->hpp_baru;
-                    $child->total_hpp_batch = $ambil * $batch->hpp_baru;
+
+                    // pakai harga_beli masing-masing batch
+                    $child->total_hpp_batch = $ambil * $batch->harga_beli;
 
                     $results->push($child);
 
@@ -183,12 +170,10 @@ class TransaksiKasirService
                 return $results;
             });
 
-            // ----------------------------
-            // Bagian create()
-            // ----------------------------
             $grouped = $savedDetails->groupBy(fn($d) => $d->jenis_barang_id);
 
             foreach ($grouped as $jenisId => $rows) {
+
                 $kas = Kas::where('toko_id', $data['toko_id'])
                     ->where('jenis_barang_id', $jenisId)
                     ->where('tipe_kas', 'kecil')
@@ -198,12 +183,13 @@ class TransaksiKasirService
                     throw new \Exception("Kas kecil untuk jenis_barang_id {$jenisId} belum dibuat.");
                 }
 
-                $total_qty       = $rows->sum(fn($r) => $r->qty);
-                $total_nominal   = $rows->sum(fn($r) => $r->subtotal);
-                $total_hpp       = $rows->sum(fn($r) => $r->total_hpp);
-                $total_hpp_batch = $rows->sum(fn($r) => $r->total_hpp_batch);
+                $total_qty       = $rows->sum('qty');
+                $total_nominal   = $rows->sum('subtotal');
+                $total_hpp       = $rows->sum('total_hpp');
 
-                // Ambil atau buat TransaksiKasirHarian
+                // hasil dari harga_beli tiap batch
+                $total_beban     = $rows->sum('total_hpp_batch');
+
                 $rekap = TransaksiKasirHarian::firstOrNew([
                     'toko_id'         => $header->toko_id,
                     'tanggal'         => Carbon::parse($header->tanggal)->toDateString(),
@@ -219,27 +205,29 @@ class TransaksiKasirService
                     $rekap->total_diskon    = 0;
                     $rekap->total_bayar     = $total_nominal;
                     $rekap->total_hpp       = $total_hpp;
-                    $rekap->total_hpp_batch = $total_hpp_batch;
+                    $rekap->total_hpp_batch = $total_beban;
                 } else {
                     $rekap->total_transaksi += 1;
                     $rekap->total_qty       += $total_qty;
                     $rekap->total_nominal   += $total_nominal;
                     $rekap->total_bayar     += $total_nominal;
                     $rekap->total_hpp       += $total_hpp;
-                    $rekap->total_hpp_batch  += $total_hpp_batch; // selalu latest
+                    $rekap->total_hpp_batch += $total_beban;
                 }
 
                 $rekap->updated_by = $header->created_by;
                 $rekap->save();
 
-                // Gunakan TransaksiKasirHarian sebagai sumber KasTransaksi
                 KasRekapHelper::syncKasFromKasir(
                     toko_id: $header->toko_id,
                     jenis_barang_id: $jenisId,
                     kas_id: $kas->id,
                     tanggal: $header->tanggal,
                     pendapatan: $total_nominal,
-                    beban: $total_hpp_batch,
+
+                    // beban pakai harga_beli masing-masing batch
+                    beban: $total_beban,
+
                     sumber: $rekap
                 );
             }

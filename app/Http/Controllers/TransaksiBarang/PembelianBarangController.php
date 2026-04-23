@@ -15,8 +15,11 @@ use App\Models\PembelianBarangDetail;
 use App\Models\PembelianBarangDetailTemp;
 use App\Models\Hutang;
 use App\Models\Kas;
+use App\Models\LabaRugi;
+use App\Models\LabaRugiTahunan;
 use App\Models\LevelHarga;
 use App\Models\PembelianBarang;
+use App\Models\PembelianBarangDetailAdjustment;
 use App\Models\StockBarang;
 use App\Models\StockBarangBatch;
 use App\Models\Supplier;
@@ -739,10 +742,120 @@ class PembelianBarangController extends Controller
             $deltaNilai   = $newSubtotal - $oldSubtotal;
 
             $qtyKeluar = $editedBatch->qty_masuk - $editedBatch->qty_sisa;
+            $qtySisa   = $editedBatch->qty_sisa;
+
             if ($newQty < $qtyKeluar) {
                 throw new \Exception(
                     "Qty tidak boleh kurang dari yang sudah keluar ({$qtyKeluar})"
                 );
+            }
+
+            /**
+             * =====================================================
+             * HITUNG ADJUSTMENT
+             * =====================================================
+             */
+            $selisihHarga = $newHarga - $oldHarga;
+
+            $nominalLabaRugi = $qtyKeluar * $selisihHarga;
+            $nominalStok     = $qtySisa * $selisihHarga;
+
+            if (
+                $oldQty != $newQty ||
+                $oldHarga != $newHarga
+            ) {
+                PembelianBarangDetailAdjustment::create([
+                    'toko_id'   => $pembelian->toko_id,
+                    'pembelian_barang_id'        => $pembelian->id,
+                    'pembelian_barang_detail_id' => $detail->id,
+                    'stock_barang_batch_id'      => $editedBatch->id,
+
+                    'old_qty' => $oldQty,
+                    'new_qty' => $newQty,
+
+                    'old_harga' => $oldHarga,
+                    'new_harga' => $newHarga,
+
+                    'selisih_harga' => $selisihHarga,
+
+                    'nominal_laba_rugi' => $nominalLabaRugi,
+                    'nominal_stok'      => $nominalStok,
+
+                    'created_by' => $request->user_id,
+                ]);
+            }
+            if ($qtyKeluar > 0) {
+
+                $selisihHarga = $newHarga - $oldHarga;
+
+                // hanya qty yang sudah keluar
+                $labaNominal = abs($qtyKeluar * $selisihHarga);
+
+                if ($qtyKeluar > 0) {
+
+                    $tokoId   = $pembelian->toko_id;
+                    $tahunNow = Carbon::parse($pembelian->tanggal)->year;
+                    $bulanNow = Carbon::parse($pembelian->tanggal)->month;
+
+                    /**
+                     * harga beli naik = out (beban bertambah)
+                     * harga beli turun = in (beban berkurang / laba naik)
+                     */
+                    $tipe = $selisihHarga > 0 ? ['out'] : ['in'];
+
+                    /* ============================
+                    | LABA RUGI BULANAN
+                    ==============================*/
+                    $labaRugi = LabaRugi::firstOrCreate(
+                        [
+                            'toko_id' => $tokoId,
+                            'tahun'   => $tahunNow,
+                            'bulan'   => $bulanNow,
+                        ],
+                        [
+                            'pendapatan'  => 0,
+                            'beban'       => 0,
+                            'laba_bersih' => 0,
+                        ]
+                    );
+
+                    if ($tipe[0] === 'in') {
+                        $labaRugi->pendapatan += $labaNominal;
+                    } elseif ($tipe[0] === 'out') {
+                        $labaRugi->beban += $labaNominal;
+                    }
+
+                    $labaRugi->laba_bersih =
+                        $labaRugi->pendapatan - $labaRugi->beban;
+
+                    $labaRugi->save();
+
+                    /* ============================
+                    | LABA RUGI TAHUNAN
+                    ==============================*/
+                    $labaRugiTahunan = LabaRugiTahunan::firstOrCreate(
+                        [
+                            'toko_id' => $tokoId,
+                            'tahun'   => $tahunNow,
+                        ],
+                        [
+                            'pendapatan'  => 0,
+                            'beban'       => 0,
+                            'laba_bersih' => 0,
+                        ]
+                    );
+
+                    if ($tipe[0] === 'in') {
+                        $labaRugiTahunan->pendapatan += $labaNominal;
+                    } elseif ($tipe[0] === 'out') {
+                        $labaRugiTahunan->beban += $labaNominal;
+                    }
+
+                    $labaRugiTahunan->laba_bersih =
+                        $labaRugiTahunan->pendapatan - $labaRugiTahunan->beban;
+
+                    $labaRugiTahunan->save();
+                }
             }
 
             $detail->update([

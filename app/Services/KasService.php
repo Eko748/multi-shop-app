@@ -397,8 +397,12 @@ class KasService
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            // ✅ ambil saldo lama (OLD)
-            $oldSaldo = $kas->saldo;
+            /**
+             * ======================================
+             * OLD SALDO
+             * ======================================
+             */
+            $oldSaldo = (float) $kas->saldo;
 
             $tahun = now()->year;
             $bulan = now()->month;
@@ -410,29 +414,37 @@ class KasService
                 ->first();
 
             /**
-             * ===============================
+             * ======================================
              * VALIDASI SALDO
-             * ===============================
+             * ======================================
+             *
+             * deltaNominal > 0 :
+             * pembelian naik -> kas keluar lagi
+             *
+             * deltaNominal < 0 :
+             * pembelian turun -> kas masuk kembali
              */
             if ($deltaNominal > 0) {
 
                 if ($kas->saldo < $deltaNominal) {
                     throw new \Exception(
-                        "Saldo kas tidak mencukupi. Saldo tersedia: " . RupiahGenerate::build($kas->saldo)
+                        "Saldo kas tidak mencukupi. Saldo tersedia: " .
+                            RupiahGenerate::build($kas->saldo)
                     );
                 }
 
                 if ($history && $history->saldo_akhir < $deltaNominal) {
                     throw new \Exception(
-                        "Saldo akhir kas bulan berjalan tidak mencukupi. Saldo akhir: " . RupiahGenerate::build($history->saldo_akhir)
+                        "Saldo akhir kas bulan berjalan tidak mencukupi. Saldo akhir: " .
+                            RupiahGenerate::build($history->saldo_akhir)
                     );
                 }
             }
 
             /**
-             * ===============================
-             * UPDATE SALDO
-             * ===============================
+             * ======================================
+             * UPDATE SALDO KAS
+             * ======================================
              */
             if ($deltaNominal > 0) {
                 $kas->saldo -= abs($deltaNominal);
@@ -443,48 +455,76 @@ class KasService
             $kas->save();
 
             /**
-             * ===============================
-             * UPDATE HISTORY
-             * ===============================
+             * ======================================
+             * UPDATE HISTORY BULANAN
+             * ======================================
              */
             if ($history) {
+
                 $history->saldo_akhir = $kas->saldo;
                 $history->save();
             } else {
+
                 KasSaldoHistory::create([
-                    'kas_id' => $kas->id,
-                    'tahun' => $tahun,
-                    'bulan' => $bulan,
-                    'saldo_awal' => $kas->saldo_awal,
+                    'kas_id'      => $kas->id,
+                    'tahun'       => $tahun,
+                    'bulan'       => $bulan,
+                    'saldo_awal'  => $kas->saldo_awal,
                     'saldo_akhir' => $kas->saldo,
                 ]);
             }
 
             /**
-             * ===============================
-             * SIMPAN TRANSAKSI
-             * ===============================
+             * ======================================
+             * KAS TRANSAKSI (PENTING)
+             * ======================================
+             *
+             * deltaNominal > 0
+             * harga beli naik / qty naik
+             * => kas keluar tambahan
+             *
+             * deltaNominal < 0
+             * harga beli turun / qty turun
+             * => kas masuk pengembalian
              */
+            $isNaik = $deltaNominal > 0;
+
+            $tipe = $isNaik ? 'out' : 'in';
+
+            $kategori = 'Pembelian Barang';
+
+            /**
+             * KETERANGAN LEBIH AKURAT
+             */
+            $keterangan = $isNaik
+                ? "Koreksi Kas OUT"
+                : "Koreksi Kas IN";
+            /**
+             * KODE TRANSAKSI UNIK
+             */
+            $kode = 'KS-ADJ-' . now()->format('YmdHis') . '-' . $pembelian->id;
+
             KasTransaksi::create([
-                'kas_id' => $kas->id,
-                'tipe' => $deltaNominal > 0 ? 'out' : 'in',
-                'kode_transaksi' => 'KS-ADJ-' . time(),
-                'total_nominal' => abs($deltaNominal),
-                'kategori' => 'Adjustment Pembelian',
-                'keterangan' => "Perubahan pembelian nota {$pembelian->nota}",
-                'item' => 'kecil',
-                'sumber_type' => PembelianBarang::class,
-                'sumber_id' => $pembelian->id,
-                'tanggal' => now(),
+                'kas_id'         => $kas->id,
+                'tipe'           => $tipe,
+                'kode_transaksi' => $kode,
+                'total_nominal'  => abs($deltaNominal),
+                'kategori'       => $kategori,
+                'keterangan'     => $keterangan,
+                'item'           => 'kecil',
+                'sumber_type'    => PembelianBarang::class,
+                'sumber_id'      => $pembelian->id,
+                'tanggal'        => now(),
             ]);
 
             /**
-             * ===============================
+             * ======================================
              * LOG AKTIVITAS
-             * ===============================
+             * ======================================
              */
-            $arahSaldo = $deltaNominal > 0 ? 'berkurang' : 'bertambah';
-            $nominal   = number_format(abs($deltaNominal), 0, ',', '.');
+            $arahSaldo = $isNaik ? 'berkurang' : 'bertambah';
+
+            $nominal = number_format(abs($deltaNominal), 0, ',', '.');
 
             $newSaldo = $kas->saldo;
 
@@ -498,15 +538,15 @@ class KasService
                         'saldo' => TextGenerate::formatNumber($oldSaldo),
                     ],
                     new: [
-                        'saldo' => $newSaldo,
-                        'delta_nominal' => $deltaNominal,
+                        'saldo' => TextGenerate::formatNumber($newSaldo),
+                        'delta_nominal' => TextGenerate::formatNumber($deltaNominal),
                     ]
                 ),
                 description: $edit
-                    ? "Penyesuaian edit Pembelian Barang Nota {$pembelian->nota}, saldo {$arahSaldo} Rp {$nominal}"
-                    : "Penyesuaian hapus Pembelian Barang Nota {$pembelian->nota}, saldo {$arahSaldo} Rp {$nominal}",
+                    ? "Penyesuaian pembelian nota {$pembelian->nota}, saldo {$arahSaldo} Rp {$nominal}"
+                    : "Pembatalan pembelian nota {$pembelian->nota}, saldo {$arahSaldo} Rp {$nominal}",
                 userId: $userId,
-                message: "(Sistem) Penyesuaian Kas {$arahSaldo}"
+                message: "(Sistem) Saldo kas {$arahSaldo}"
             );
         });
     }

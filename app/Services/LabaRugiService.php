@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Helpers\RupiahGenerate;
-use App\Models\{DompetSaldo, Pemasukan, Pengeluaran, PengeluaranTipe, KasTransaksi, TransaksiKasirHarian};
+use App\Models\{DompetSaldo, Pemasukan, Pengeluaran, PengeluaranTipe, KasTransaksi, PembelianBarang, PembelianBarangDetailAdjustment, TransaksiKasirHarian};
 use App\Models\PenjualanNonFisikDetail;
 use App\Models\ReturMember;
 use App\Models\{LabaRugi, LabaRugiTahunan};
@@ -109,7 +109,7 @@ class LabaRugiService
         // ============================
         // HPP (sementara 0)
         // ============================
-        $hppPenjualan = KasTransaksi::where('tipe', 'in')
+        $hppTrx = KasTransaksi::where('tipe', 'in')
             ->where('sumber_type', TransaksiKasirHarian::class)
             ->whereMonth('tanggal', $month)
             ->whereYear('tanggal', $year)
@@ -117,6 +117,22 @@ class LabaRugiService
             ->with('sumber')
             ->get()
             ->sum(fn($kt) => (int) $kt->sumber->total_hpp_batch ?? 0);
+
+        $hppKoreksi = PembelianBarangDetailAdjustment::whereMonth('created_at', $month)
+            ->whereYear('created_at', $year)
+            ->where('toko_id', $tokoId)
+            ->get()
+            ->sum(fn($kt) => (int) $kt->nominal_laba_rugi ?? 0);
+
+        // $hppKoreksiOUT = KasTransaksi::where('tipe', 'out')
+        //     ->where('sumber_type', PembelianBarang::class)
+        //     ->where('keterangan', 'Koreksi Kas OUT')
+        //     ->whereMonth('tanggal', $month)
+        //     ->whereYear('tanggal', $year)
+        //     ->where($filterToko)
+        //     ->with('sumber')
+        //     ->get()
+        //     ->sum(fn($kt) => (int) $kt->total_nominal ?? 0);
 
         $hppretur = (int) KasTransaksi::where('kas_transaksi.tipe', 'out')
             ->where('kas_transaksi.sumber_type', ReturMember::class)
@@ -139,7 +155,7 @@ class LabaRugiService
             ->where('keterangan', 'Selisih Top-up')
             ->sum('total_nominal');
 
-        $hppPenjualan -= $hppretur;
+        $hppPenjualan = $hppTrx - $hppretur + $hppKoreksi;
         $total_hpp = $hppPenjualan;
 
         // ============================

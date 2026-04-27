@@ -231,7 +231,8 @@ class DashboardController extends Controller
                 ->leftJoinSub($subqueryRetur, 'retur_sub', function ($join) {
                     $join->on('stock_barang.barang_id', '=', 'retur_sub.barang_id');
                 })
-                ->where('transaksi_kasir.total_qty', '>', 0);
+                ->where('transaksi_kasir.total_qty', '>', 0)
+                ->whereNull('transaksi_kasir.deleted_at');
 
             // ===== FILTER TOKO =====
             if (!empty($selectedTokoIds) && $selectedTokoIds !== 'all') {

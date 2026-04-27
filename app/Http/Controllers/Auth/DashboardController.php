@@ -363,6 +363,7 @@ class DashboardController extends Controller
             $query = Toko::leftJoin('transaksi_kasir', function ($join) use ($startDate, $endDate) {
                 $join->on('toko.id', '=', 'transaksi_kasir.toko_id')
                     ->where('transaksi_kasir.total_qty', '>', 0)
+                    ->whereNull('deleted_at')
                     ->whereBetween('transaksi_kasir.tanggal', [$startDate, $endDate]);
             })
                 ->when($idTokoLogin, function ($query) use ($idTokoLogin) {
@@ -373,7 +374,6 @@ class DashboardController extends Controller
             $omsetData = $query->first();
             $totalOmsetKasir = (float) ($omsetData->total_nominal ?? 0);
 
-            // Omset dari Penjualan Non Fisik (PNF)
             $pnfQuery = PenjualanNonFisik::whereBetween('created_at', [$startDate, $endDate])
                 ->when($idTokoLogin && $idTokoLogin != 1, function ($q) use ($idTokoLogin) {
                     $q->whereHas('createdBy', function ($sub) use ($idTokoLogin) {
@@ -385,10 +385,8 @@ class DashboardController extends Controller
             $pnfData = $pnfQuery->first();
             $totalOmsetPNF = (float) ($pnfData->total_pnf ?? 0);
 
-            // Total Omset = Kasir + PNF
             $totalOmset = $totalOmsetKasir + $totalOmsetPNF;
 
-            // Hitung retur
             $refundReturMember = ReturMemberDetail::where('qty_refund', '>', 0)
                 ->whereHas('retur', function ($query) use ($startDate, $endDate, $idTokoLogin) {
                     $query->whereBetween('tanggal', [$startDate, $endDate])
@@ -406,10 +404,8 @@ class DashboardController extends Controller
 
             $returTotal = $refundReturMember - $keuntunganRefundSuplier + $kerugianRefundSuplier;
 
-            // Hitung kasbon
             $totalKasbon = 0;
 
-            // Fix Omset (dikurangi retur + kasbon)
             $fixOmset = max($totalOmset - $returTotal - $totalKasbon, 0);
 
             return response()->json([
@@ -569,6 +565,7 @@ class DashboardController extends Controller
             $query = Toko::leftJoin('transaksi_kasir', function ($join) use ($startDate, $endDate) {
                 $join->on('toko.id', '=', 'transaksi_kasir.toko_id')
                     ->where('transaksi_kasir.total_qty', '>', 0)
+                    ->whereNull('deleted_at')
                     ->whereBetween('transaksi_kasir.tanggal', [
                         $startDate . ' 00:00:00',
                         $endDate . ' 23:59:59'

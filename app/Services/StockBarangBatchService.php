@@ -83,7 +83,7 @@ class StockBarangBatchService
         // ASSET
         // =========================
         $img = $qrcode
-            ? AssetGenerate::build("qrcodes/pembelian/{$qrcode}.png")
+            ? AssetGenerate::build("qrcodes/barang/{$qrcode}.png")
             : '';
 
         // =========================

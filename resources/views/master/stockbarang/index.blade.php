@@ -10,6 +10,19 @@
     <link rel="stylesheet" href="{{ asset('css/sweetalert2.css') }}">
     <link rel="stylesheet" href="{{ asset('css/notyf.min.css') }}">
     <style>
+        @media (max-width: 768px) {
+            .modal-dialog {
+                max-width: 100%;
+                margin: 0;
+            }
+        }
+
+        @media (min-width: 769px) {
+            .modal-dialog {
+                max-width: 90%;
+            }
+        }
+
         .scroll-section {
             max-height: 300px;
             overflow-y: auto;

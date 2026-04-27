@@ -61,7 +61,7 @@ class StockBarangBatchRepository
     public function getByQR($filter)
     {
         $query = $this->model
-            ->selectRaw('barang.qrcode, SUM(qty_sisa) as total_qty')
+            ->selectRaw($this->model->getTable() . '.*, barang.qrcode')
             ->join('stock_barang', 'stock_barang.id', '=', $this->model->getTable() . '.stock_barang_id')
             ->join('barang', 'barang.id', '=', 'stock_barang.barang_id')
             ->where($this->model->getTable() . '.qty_sisa', '>', 0)
@@ -71,10 +71,7 @@ class StockBarangBatchRepository
             $query->where('barang.qrcode', $filter->search);
         }
 
-        $query->groupBy('barang.qrcode')
-            ->orderByDesc('total_qty');
-
-        return $query->get();
+        return $query->first();
     }
 
     public function getDetailByQR($filter)

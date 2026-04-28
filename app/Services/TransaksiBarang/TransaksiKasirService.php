@@ -322,6 +322,10 @@ class TransaksiKasirService
                     return $detail->qty * $detail->stockBarangBatch->hpp_baru;
                 });
 
+                $hargaBeliTrx = $rows->sum(function ($detail) {
+                    return $detail->qty * $detail->stockBarangBatch->harga_beli;
+                });
+
 
                 /**
                  * -------------------------------
@@ -371,7 +375,7 @@ class TransaksiKasirService
 
                 if ($labaRugi) {
                     $labaRugi->pendapatan = max(0, $labaRugi->pendapatan - $nominalTrx);
-                    $labaRugi->beban      = max(0, $labaRugi->beban - $hppTrx);
+                    $labaRugi->beban      = max(0, $labaRugi->beban - $hargaBeliTrx);
                     $labaRugi->laba_bersih =
                         $labaRugi->pendapatan - $labaRugi->beban;
                     $labaRugi->save();
@@ -394,7 +398,7 @@ class TransaksiKasirService
                     );
                     $labaRugiTahunan->beban = max(
                         0,
-                        $labaRugiTahunan->beban - $hppTrx
+                        $labaRugiTahunan->beban - $hargaBeliTrx
                     );
                     $labaRugiTahunan->laba_bersih =
                         $labaRugiTahunan->pendapatan - $labaRugiTahunan->beban;

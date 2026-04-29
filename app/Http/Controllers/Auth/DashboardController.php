@@ -364,7 +364,7 @@ class DashboardController extends Controller
             $query = Toko::leftJoin('transaksi_kasir', function ($join) use ($startDate, $endDate) {
                 $join->on('toko.id', '=', 'transaksi_kasir.toko_id')
                     ->where('transaksi_kasir.total_qty', '>', 0)
-                    ->whereNull('deleted_at')
+                    ->whereNull('transaksi_kasir.deleted_at')
                     ->whereBetween('transaksi_kasir.tanggal', [$startDate, $endDate]);
             })
                 ->when($idTokoLogin, function ($query) use ($idTokoLogin) {
@@ -566,7 +566,7 @@ class DashboardController extends Controller
             $query = Toko::leftJoin('transaksi_kasir', function ($join) use ($startDate, $endDate) {
                 $join->on('toko.id', '=', 'transaksi_kasir.toko_id')
                     ->where('transaksi_kasir.total_qty', '>', 0)
-                    ->whereNull('deleted_at')
+                    ->whereNull('transaksi_kasir.deleted_at')
                     ->whereBetween('transaksi_kasir.tanggal', [
                         $startDate . ' 00:00:00',
                         $endDate . ' 23:59:59'

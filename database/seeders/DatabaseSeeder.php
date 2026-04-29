@@ -39,7 +39,7 @@ class DatabaseSeeder extends Seeder
             // LevelHargaSeeder::class,
             // JenisPemasukanSeeder::class,
             // JenisPengeluaranSeeder::class,
-            // BarangSeeder::class,
+            BarangFixSeeder::class,
             // PembelianSeeder::class,
             // StockBarangSeeder::class,
             // DetailStockSeeder::class,

@@ -135,6 +135,8 @@ class TransaksiKasirService
                         'stock_barang_batch_id'  => $batch->id,
                         'qty'                    => $ambil,
                         'hpp'                    => $batch->stockBarang->hpp_baru,
+                        'hpp_batch'              => $batch->hpp_baru,
+                        'harga_beli'             => $batch->harga_beli,
                         'nominal'                => $detail['nominal'],
                         'subtotal'               => $ambil * $detail['nominal'],
                     ]);
@@ -157,10 +159,9 @@ class TransaksiKasirService
                     if ($stockBarang->stok < 0) $stockBarang->stok = 0;
                     $stockBarang->save();
 
-                    $child->total_hpp       = $ambil * $stockBarang->hpp_baru;
-
-                    // pakai harga_beli masing-masing batch
-                    $child->total_hpp_batch = $ambil * $batch->harga_beli;
+                    $child->total_hpp           = $ambil * $stockBarang->hpp_baru;
+                    $child->total_harga_beli    = $ambil * $batch->harga_beli;
+                    $child->total_hpp_batch     = $ambil * $batch->hpp_baru;
 
                     $results->push($child);
 
@@ -188,7 +189,8 @@ class TransaksiKasirService
                 $total_hpp       = $rows->sum('total_hpp');
 
                 // hasil dari harga_beli tiap batch
-                $total_beban     = $rows->sum('total_hpp_batch');
+                $total_beban          = $rows->sum('total_hpp_batch');
+                $total_harga_beli     = $rows->sum('total_harga_beli');
 
                 $rekap = TransaksiKasirHarian::firstOrNew([
                     'toko_id'         => $header->toko_id,
@@ -206,6 +208,7 @@ class TransaksiKasirService
                     $rekap->total_bayar     = $total_nominal;
                     $rekap->total_hpp       = $total_hpp;
                     $rekap->total_hpp_batch = $total_beban;
+                    $rekap->total_harga_beli = $total_harga_beli;
                 } else {
                     $rekap->total_transaksi += 1;
                     $rekap->total_qty       += $total_qty;
@@ -213,6 +216,7 @@ class TransaksiKasirService
                     $rekap->total_bayar     += $total_nominal;
                     $rekap->total_hpp       += $total_hpp;
                     $rekap->total_hpp_batch += $total_beban;
+                    $rekap->total_harga_beli += $total_harga_beli;
                 }
 
                 $rekap->updated_by = $header->created_by;
@@ -226,7 +230,7 @@ class TransaksiKasirService
                     pendapatan: $total_nominal,
 
                     // beban pakai harga_beli masing-masing batch
-                    beban: $total_beban,
+                    beban: $total_harga_beli,
 
                     sumber: $rekap
                 );
@@ -315,15 +319,15 @@ class TransaksiKasirService
                 $qtyTrx     = $rows->sum('qty');
 
                 $hppTrx = $rows->sum(function ($detail) {
-                    return $detail->qty * $detail->stockBarangBatch->stockBarang->hpp_baru;
+                    return $detail->qty * $detail->hpp;
                 });
 
                 $hppBatchTrx = $rows->sum(function ($detail) {
-                    return $detail->qty * $detail->stockBarangBatch->hpp_baru;
+                    return $detail->qty * $detail->hpp_batch;
                 });
 
                 $hargaBeliTrx = $rows->sum(function ($detail) {
-                    return $detail->qty * $detail->stockBarangBatch->harga_beli;
+                    return $detail->qty * $detail->harga_beli;
                 });
 
 
@@ -415,6 +419,7 @@ class TransaksiKasirService
                 $rekap->total_bayar     = max(0, $rekap->total_bayar - $nominalTrx);
                 $rekap->total_hpp       = max(0, $rekap->total_hpp - $hppTrx);
                 $rekap->total_hpp_batch = max(0, $rekap->total_hpp_batch - $hppBatchTrx);
+                $rekap->total_harga_beli = max(0, $rekap->total_harga_beli - $hargaBeliTrx);
 
                 $rekap->save();
             }

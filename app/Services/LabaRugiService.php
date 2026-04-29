@@ -116,7 +116,7 @@ class LabaRugiService
             ->where($filterToko)
             ->with('sumber')
             ->get()
-            ->sum(fn($kt) => (int) $kt->sumber->total_hpp_batch ?? 0);
+            ->sum(fn($kt) => (int) $kt->sumber->total_harga_beli ?? 0);
 
         $hppKoreksi = PembelianBarangDetailAdjustment::whereMonth('created_at', $month)
             ->whereYear('created_at', $year)

@@ -231,6 +231,7 @@ class PenjualanNonFisikService
                 $rekap->total_diskon      = 0;
                 $rekap->total_hpp         = $data['total_hpp'];
                 $rekap->total_hpp_batch   = $data['total_hpp'];
+                $rekap->total_harga_beli  = $data['total_hpp'];
             } else {
                 $rekap->total_transaksi += 1;
                 $rekap->total_qty       += $data['total_qty'] ?? 1;
@@ -238,6 +239,7 @@ class PenjualanNonFisikService
                 $rekap->total_bayar     += $data['total_bayar'];
                 $rekap->total_hpp       += $data['total_hpp'];
                 $rekap->total_hpp_batch += $data['total_hpp'];
+                $rekap->total_harga_beli += $data['total_hpp'];
             }
 
             $rekap->updated_by = $data['created_by'];
@@ -324,7 +326,8 @@ class PenjualanNonFisikService
                 $nominalTrx = $harga * $qtyTrx;
                 $hppTrx = $hpp * $qtyTrx;
 
-                $hppBatchTrx = $hppTrx;
+                $hppBatchTrx  = $hppTrx;
+                $hargaBeliTrx = $hppTrx;
 
                 /**
                  * -------------------------------
@@ -414,6 +417,7 @@ class PenjualanNonFisikService
                 $rekap->total_bayar     = max(0, $rekap->total_bayar - $nominalTrx);
                 $rekap->total_hpp       = max(0, $rekap->total_hpp - $hppTrx);
                 $rekap->total_hpp_batch = max(0, $rekap->total_hpp_batch - $hppBatchTrx);
+                $rekap->total_harga_beli = max(0, $rekap->total_harga_beli - $hargaBeliTrx);
 
                 $rekap->save();
             }

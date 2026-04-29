@@ -20,6 +20,7 @@ return new class extends Migration
             $table->integer('total_transaksi')->default(0);
             $table->integer('total_qty')->default(0);
             $table->decimal('total_nominal', 15, 6)->default(0);
+            $table->decimal('total_harga_beli', 15, 6)->default(0);
             $table->decimal('total_hpp', 15, 6)->default(0);
             $table->decimal('total_hpp_batch', 15, 6)->default(0);
             $table->decimal('total_bayar', 15, 6)->default(0);

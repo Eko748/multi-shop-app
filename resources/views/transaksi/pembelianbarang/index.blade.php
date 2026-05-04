@@ -975,8 +975,7 @@
                 items: PBState.items.map(item => ({
                     ...item,
                     level_harga: Array.isArray(item.level_harga) ?
-                        JSON.stringify(item.level_harga) :
-                        item.level_harga
+                        JSON.stringify(item.level_harga) : item.level_harga
                 }))
             };
 
@@ -1006,11 +1005,19 @@
         $('#add-item-detail').off().on('click', addItemDetail);
 
         function setHpp() {
-            $('#id_barang').on('change', getHppInfo);
+            $('#id_barang').off('change').on('change', async function() {
+                let barangId = $(this).val();
+                if (!barangId) return;
+                await getDetailBarang(barangId);
+                getHppInfo();
+            });
+            $('#jml_item')
+                .off('input')
+                .on('input', debounce(getHppInfo, 1000));
 
-            $('#jml_item').on('input', debounce(getHppInfo, 1000));
-
-            $('#harga_barang').on('input', debounce(getHppInfo, 1000));
+            $('#harga_barang')
+                .off('input')
+                .on('input', debounce(getHppInfo, 1000));
         }
 
         async function getHppInfo() {
@@ -1032,11 +1039,16 @@
                 if (res && res.status === 200) {
                     const data = res.data;
 
-                    $('.hpp-awal').text(formatRupiah(data.hpp_lama ?? 0));
-                    $('.hpp-baru').text(formatRupiah(data.hpp_baru ?? 0));
+                    const hppAwal = Math.floor(parseFloat(data.hpp_lama || 0));
+                    const hppBaru = Math.floor(parseFloat(data.hpp_baru || 0));
+
+                    PBState.hppBaru = hppBaru;
+
+                    $('.hpp-awal').text(formatRupiah(hppAwal));
+                    $('.hpp-baru').text(formatRupiah(hppBaru));
                     $('.stock').text(data.stok_baru);
 
-                    updateLevelHarga(data.hpp_baru);
+                    updateLevelHarga(hppBaru); // ⬅️ kirim angka, bukan string
                 }
 
             } catch (e) {
@@ -1047,7 +1059,11 @@
         function updateLevelHarga(hppBaru) {
             document.querySelectorAll('.level-harga').forEach((input, index) => {
                 const val = parseInt(input.value.replace(/\./g, '')) || 0;
-                const persen = hppBaru > 0 ? ((val - hppBaru) / hppBaru * 100).toFixed(2) : 0;
+
+                const persen = hppBaru > 0 ?
+                    ((val - hppBaru) / hppBaru * 100).toFixed(2) :
+                    0;
+
                 document.getElementById('persen_' + index).innerText = persen + '%';
             });
         }
@@ -1178,17 +1194,12 @@
             $('.hpp-baru').text('Rp 0');
         }
 
-        $('#id_barang').on('change', async function() {
-            let barangId = $(this).val();
-            if (!barangId) return;
-
-            await getDetailBarang(barangId);
-        });
-
-
         async function getDetailBarang(barangId) {
 
-            let tokoId = $('#toko_group').val(); // atau toko aktif
+            let tokoId = $('#toko_group').val();
+
+            // 🔥 RESET DULU sebelum ambil data baru
+            resetBarangDetail();
 
             try {
                 let res = await renderAPI('GET', '{{ route('sb.getLevelHarga') }}', {
@@ -1197,18 +1208,42 @@
                 });
 
                 let data = res.data.data;
+
+                // ================= KALAU DATA KOSONG =================
+                if (!data || !data.level_harga || data.level_harga.length === 0) {
+                    // cukup stop, karena sudah di-reset di atas
+                    return;
+                }
+
                 // ================= STOCK INFO =================
-                $('.hpp-awal').text(formatRupiah(data.hpp_awal ?? 0));
+                const hppAwal = Math.floor(parseFloat(data.hpp_awal || 0));
+
+                $('.hpp-awal').text(formatRupiah(hppAwal));
                 $('.stock').text(data.stock);
 
                 // ================= LEVEL HARGA =================
-                // Misal input level harga dynamic
                 setLevelHarga(data.level_harga);
 
             } catch (e) {
                 console.error('Gagal get detail barang', e);
                 notificationAlert('error', 'Error', 'Gagal mengambil detail barang');
             }
+        }
+
+        function resetBarangDetail() {
+            // HPP & stock
+            $('.hpp-awal').text('Rp 0');
+            $('.hpp-baru').text('Rp 0');
+            $('.stock').text('0');
+
+            // reset state
+            PBState.hppBaru = 0;
+
+            // reset input level harga
+            $('.level-harga').each(function(index) {
+                $(this).val('');
+                $('#persen_' + index).text('0%');
+            });
         }
 
         function setLevelHarga(levelHargaArray) {
@@ -1298,19 +1333,23 @@
         }
 
         $(document).on('input', '.level-harga', function() {
-            const hppBaru = Number($('.hpp-baru').text().replace(/\D/g, '')) || 0;
+            const hppBaru = PBState.hppBaru;
+
+            if (!hppBaru) return; // ⬅️ penting
 
             const index = $(this).data('index');
-            const val = Number($(this).val().replace(/\./g, '')) || 0;
+            const raw = $(this).val().replace(/\./g, '');
+            const val = parseInt(raw) || 0;
 
-            let persen = 0;
-            if (hppBaru > 0) {
-                persen = ((val - hppBaru) / hppBaru * 100).toFixed(2);
+            if (!val) {
+                $('#persen_' + index).text('0%');
+                return;
             }
+
+            const persen = ((val - hppBaru) / hppBaru * 100).toFixed(2);
 
             $('#persen_' + index).text(persen + '%');
         });
-
 
         async function filterList() {
             let dateRangePickerList = initializeDateRangePicker();

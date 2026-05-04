@@ -2,25 +2,27 @@
 
 namespace App\Http\Controllers\DataMaster\ManajemenBarang;
 
-use App\Http\Controllers\Controller;
 use App\Helpers\ActivityLogger;
 use App\Helpers\AssetGenerate;
+use App\Helpers\BarcodeGenerator;
 use App\Helpers\QrGenerator;
 use App\Helpers\TextGenerate;
+use App\Http\Controllers\Controller;
 use App\Imports\BarangImport;
 use App\Models\Barang;
 use App\Models\Brand;
-use Illuminate\Http\Request;
 use App\Traits\ApiResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Milon\Barcode\Facades\DNS1DFacade;
 use Maatwebsite\Excel\Facades\Excel;
+use Milon\Barcode\Facades\DNS1DFacade;
 
 class BarangController extends Controller
 {
     use ApiResponse;
+
     private array $menu = [];
 
     public function __construct()
@@ -29,7 +31,7 @@ class BarangController extends Controller
         $this->title = [
             'Data Barang',
             'Tambah Data',
-            'Edit Data'
+            'Edit Data',
         ];
     }
 
@@ -40,20 +42,20 @@ class BarangController extends Controller
 
         $query = Barang::query();
 
-        $query->with(['jenis', 'brand',])->orderBy('id', $meta['orderBy']);
+        $query->with(['jenis', 'brand'])->orderBy('id', $meta['orderBy']);
 
-        if (!empty($request['search'])) {
+        if (! empty($request['search'])) {
             $searchTerm = trim(strtolower($request['search']));
 
             $query->where(function ($query) use ($searchTerm) {
                 // Pencarian pada kolom langsung
-                $query->orWhereRaw("LOWER(barcode) LIKE ?", ["%$searchTerm%"]);
-                $query->orWhereRaw("LOWER(nama) LIKE ?", ["%$searchTerm%"]);
+                $query->orWhereRaw('LOWER(barcode) LIKE ?', ["%$searchTerm%"]);
+                $query->orWhereRaw('LOWER(nama) LIKE ?', ["%$searchTerm%"]);
                 $query->orWhereHas('jenis', function ($subquery) use ($searchTerm) {
-                    $subquery->whereRaw("LOWER(nama_jenis_barang) LIKE ?", ["%$searchTerm%"]);
+                    $subquery->whereRaw('LOWER(nama_jenis_barang) LIKE ?', ["%$searchTerm%"]);
                 });
                 $query->orWhereHas('brand', function ($subquery) use ($searchTerm) {
-                    $subquery->whereRaw("LOWER(nama_brand) LIKE ?", ["%$searchTerm%"]);
+                    $subquery->whereRaw('LOWER(nama_brand) LIKE ?', ["%$searchTerm%"]);
                 });
             });
         }
@@ -71,19 +73,19 @@ class BarangController extends Controller
             'total' => $data->total(),
             'per_page' => $data->perPage(),
             'current_page' => $data->currentPage(),
-            'total_pages' => $data->lastPage()
+            'total_pages' => $data->lastPage(),
         ];
 
         $data = [
             'data' => $data->items(),
-            'meta' => $paginationMeta
+            'meta' => $paginationMeta,
         ];
 
         if (empty($data['data'])) {
             return response()->json([
                 'status_code' => 400,
                 'errors' => true,
-                'message' => 'Tidak ada data'
+                'message' => 'Tidak ada data',
             ], 400);
         }
 
@@ -111,7 +113,7 @@ class BarangController extends Controller
             'status_code' => 200,
             'errors' => true,
             'message' => 'Sukses',
-            'pagination' => $data['meta']
+            'pagination' => $data['meta'],
         ], 200);
     }
 
@@ -126,7 +128,7 @@ class BarangController extends Controller
     {
         // Validasi bahwa id_jenis_barang dikirim melalui AJAX
         $request->validate([
-            'id_jenis_barang' => 'required|exists:jenis_barang,id'
+            'id_jenis_barang' => 'required|exists:jenis_barang,id',
         ]);
 
         // Ambil semua Brand yang memiliki id_jenis_barang sesuai dengan yang dipilih
@@ -146,35 +148,52 @@ class BarangController extends Controller
             'barcode' => 'nullable|string|max:255|unique:barang,barcode',
             'garansi' => 'nullable|boolean',
             'gambar' => 'nullable|image|max:2048',
+        ], [
+            'user_id.required' => 'User wajib diisi.',
+            'user_id.integer' => 'User tidak valid.',
+
+            'nama_barang.required' => 'Nama barang wajib diisi.',
+            'nama_barang.max' => 'Nama barang maksimal 255 karakter.',
+
+            'jenis_barang_id.required' => 'Jenis barang wajib dipilih.',
+            'jenis_barang_id.exists' => 'Jenis barang tidak ditemukan.',
+
+            'brand_id.required' => 'Brand wajib dipilih.',
+            'brand_id.exists' => 'Brand tidak ditemukan.',
+
+            'barcode.unique' => 'Barcode sudah digunakan, silakan gunakan yang lain.',
+
+            'gambar.image' => 'File gambar harus berupa gambar (jpg/png/dll).',
+            'gambar.max' => 'Ukuran gambar maksimal 2MB.',
         ]);
 
         try {
             DB::beginTransaction();
-            $barcodeValue = $request->barcode ?: $this->generateIncrementalBarcode();
 
-            $barcodeFilename = "{$barcodeValue}.png";
-            $barcodeRelativePath = "barcodes/{$barcodeFilename}";
+            // =========================
+            // BARCODE (PAKAI HELPER)
+            // =========================
+            $barcodeValue = $request->barcode
+                ?: BarcodeGenerator::generateIncrementalBarcode();
 
-            if (!Storage::disk('public')->exists($barcodeRelativePath)) {
-                $barcodeImage = DNS1DFacade::getBarcodePNG($barcodeValue, 'C128', 3, 100);
+            $barcodePath = BarcodeGenerator::generateImage($barcodeValue);
 
-                if (!$barcodeImage) {
-                    throw new \Exception('Gagal membuat barcode PNG dari base64');
-                }
-
-                Storage::disk('public')->put($barcodeRelativePath, base64_decode($barcodeImage));
-            }
-
+            // =========================
+            // GAMBAR
+            // =========================
             $gambarPath = null;
 
             if ($request->hasFile('gambar')) {
                 $gambarFile = $request->file('gambar');
 
-                $fileName = time() . '_' . uniqid() . '.' . $gambarFile->getClientOriginalExtension();
+                $fileName = time().'_'.uniqid().'.'.$gambarFile->getClientOriginalExtension();
 
                 $gambarPath = $gambarFile->storeAs('barang/gambar', $fileName, 'public');
             }
 
+            // =========================
+            // INSERT DATA
+            // =========================
             $data = Barang::create([
                 'created_by' => $request->user_id,
                 'nama' => $request->nama_barang,
@@ -186,6 +205,9 @@ class BarangController extends Controller
                 'garansi' => $request->garansi ?? 0,
             ]);
 
+            // =========================
+            // LOG
+            // =========================
             $this->saveLogAktivitas(
                 logName: $this->title[0],
                 subjectType: Barang::class,
@@ -202,24 +224,26 @@ class BarangController extends Controller
             );
 
             DB::commit();
+
             return $this->success(null, 200, 'Data berhasil disimpan!');
+        } catch (ValidationException $e) {
+            DB::rollBack();
+
+            // Ambil semua pesan error jadi array sederhana
+            $errors = collect($e->errors())->map(function ($item) {
+                return $item[0];
+            });
+
+            return $this->error(422, 'Data belum lengkap atau tidak valid.', $errors);
+
         } catch (\Exception $e) {
             DB::rollBack();
-            return $this->error(500, 'Terjadi kesalahan saat menyimpan data: ' . $e->getMessage());
+
+            return $this->error(
+                500,
+                'Terjadi kesalahan saat menyimpan data. Silakan coba lagi atau hubungi admin.'
+            );
         }
-    }
-
-    private function generateIncrementalBarcode(): string
-    {
-        $lastBarcode = Barang::whereRaw('LENGTH(barcode) = 6')
-            ->where('barcode', 'REGEXP', '^[0-9]+$')
-            ->orderByDesc('barcode')
-            ->value('barcode');
-
-        $lastNumber = $lastBarcode ? intval($lastBarcode) : 0;
-        $newNumber = $lastNumber + 1;
-
-        return str_pad($newNumber, 6, '0', STR_PAD_LEFT); // jadi format 000001
     }
 
     public function downloadQrCode(Barang $barang)
@@ -228,6 +252,7 @@ class BarangController extends Controller
         if (Storage::exists($barang->barcode_path)) {
             // Nama file download berdasarkan nama barang
             $filename = "{$barang->nama_barang}.png";
+
             return Storage::download($barang->barcode_path, $filename);
         }
 
@@ -245,7 +270,7 @@ class BarangController extends Controller
                 'brand_id' => 'required|integer',
                 'jenis_barang_id' => 'required|integer',
                 'nama_barang' => 'required|string|max:255',
-                'barcode' => 'nullable|string|max:255|unique:barang,barcode,' . $request->id,
+                'barcode' => 'nullable|string|max:255|unique:barang,barcode,'.$request->id,
                 'gambar' => 'nullable',
                 'garansi' => 'nullable|boolean',
             ]);
@@ -273,11 +298,11 @@ class BarangController extends Controller
                 $barcodeFilename = "{$barcodeValue}.png";
                 $barcodeRelativePath = "barcodes/{$barcodeFilename}";
 
-                if (!Storage::disk('public')->exists($barcodeRelativePath)) {
+                if (! Storage::disk('public')->exists($barcodeRelativePath)) {
 
                     $barcodeImage = DNS1DFacade::getBarcodePNG($barcodeValue, 'C128', 3, 100);
 
-                    if (!$barcodeImage) {
+                    if (! $barcodeImage) {
                         throw new \Exception('Gagal membuat barcode PNG dari base64');
                     }
 
@@ -298,7 +323,7 @@ class BarangController extends Controller
                 }
 
                 $gambarFile = $request->file('gambar');
-                $fileName = time() . '_' . uniqid() . '.' . $gambarFile->getClientOriginalExtension();
+                $fileName = time().'_'.uniqid().'.'.$gambarFile->getClientOriginalExtension();
 
                 $gambarPath = $gambarFile->storeAs('barang/gambar', $fileName, 'public');
             }
@@ -316,18 +341,18 @@ class BarangController extends Controller
             $changedData = [];
             foreach ($updateData as $key => $value) {
                 $oldValue = $originalData[$key] ?? null;
-                if ((string)$oldValue !== (string)$value) {
+                if ((string) $oldValue !== (string) $value) {
                     $changedData['old'][$key] = $oldValue;
                     $changedData['new'][$key] = $value;
                 }
             }
 
             $updated = $data->update($updateData);
-            if (!$updated) {
+            if (! $updated) {
                 throw new \Exception('Gagal memperbarui data barang');
             }
 
-            if (!empty($changedData)) {
+            if (! empty($changedData)) {
                 $this->saveLogAktivitas(
                     logName: $this->title[0],
                     subjectType: Barang::class,
@@ -341,9 +366,11 @@ class BarangController extends Controller
             }
 
             DB::commit();
+
             return $this->success($updateData, 201, 'Data berhasil diperbarui');
         } catch (\Exception $e) {
             DB::rollBack();
+
             return $this->error(500, $e->getMessage());
         }
     }
@@ -378,6 +405,7 @@ class BarangController extends Controller
             return $this->success(null, 200, 'Data berhasil dihapus');
         } catch (\Exception $e) {
             DB::rollBack();
+
             return $this->error(500, 'Internal Server Error', $e->getMessage());
         }
     }
@@ -385,7 +413,7 @@ class BarangController extends Controller
     public function import(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:xlsx,xls'
+            'file' => 'required|file|mimes:xlsx,xls',
         ]);
 
         Excel::import(new BarangImport, $request->file('file'));

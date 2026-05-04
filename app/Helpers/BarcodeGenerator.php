@@ -20,6 +20,23 @@ class BarcodeGenerator
         return $barcode;
     }
 
+    public static function generateIncrementalBarcode(): string
+    {
+        $lastBarcode = Barang::whereRaw('LENGTH(barcode) = 7')
+            ->where('barcode', 'REGEXP', '^[0-9]+$')
+            ->orderByDesc('barcode')
+            ->value('barcode');
+
+        $lastNumber = $lastBarcode ? intval($lastBarcode) : 0;
+
+        do {
+            $lastNumber++;
+            $newBarcode = str_pad($lastNumber, 7, '0', STR_PAD_LEFT);
+        } while (Barang::where('barcode', $newBarcode)->exists());
+
+        return $newBarcode;
+    }
+
     public static function generateImage(
         string $barcodeValue,
         string $folder = 'barcodes/'

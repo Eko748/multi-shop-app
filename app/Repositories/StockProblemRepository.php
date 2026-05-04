@@ -7,9 +7,9 @@ use Illuminate\Support\Facades\DB;
 
 class StockProblemRepository
 {
-    public function getStockProblem(): array
+    public function getStockProblem($toko_id): array
     {
-        $stokProblem = StockBarangBermasalah::with('batch')
+        $stokProblem = StockBarangBermasalah::where('toko_id', $toko_id)->with('batch')
             ->whereIn('status', ['hilang', 'mati'])
             ->get()
             ->groupBy('status')
@@ -18,7 +18,7 @@ class StockProblemRepository
                 $totalQty = $group->sum('qty');
 
                 $totalHpp = $group->sum(function ($item) {
-                    $hpp = $item->batch->hpp_akhir ?? 0;
+                    $hpp = $item->batch->harga_beli ?? 0;
                     return $item->qty * $hpp;
                 });
 

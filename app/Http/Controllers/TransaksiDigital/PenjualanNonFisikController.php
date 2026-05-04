@@ -3,12 +3,13 @@
 namespace App\Http\Controllers\TransaksiDigital;
 
 use App\Http\Controllers\Controller;
+use App\Helpers\PinCheck;
 use App\Services\PenjualanNonFisikService;
-use Illuminate\Http\Request;
 use App\Traits\ApiResponse;
 use App\Traits\HasFilter;
-use Illuminate\Validation\ValidationException;
 use Exception;
+use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class PenjualanNonFisikController extends Controller
 {
@@ -16,6 +17,7 @@ class PenjualanNonFisikController extends Controller
     use HasFilter;
 
     private array $menu = [];
+
     protected $service;
 
     public function __construct(PenjualanNonFisikService $service)
@@ -38,7 +40,7 @@ class PenjualanNonFisikController extends Controller
             return $this->success($data, 200, 'Berhasil');
         } catch (\Exception $e) {
             return $this->error(500, "Gagal mengambil data {$this->title[0]}", [
-                'exception' => $e->getMessage()
+                'exception' => $e->getMessage(),
             ]);
         }
     }
@@ -54,7 +56,7 @@ class PenjualanNonFisikController extends Controller
             return $this->success($data['data'], 200, 'Berhasil', $data['pagination']);
         } catch (\Exception $e) {
             return $this->error(500, "Gagal mengambil data {$this->title[0]}", [
-                'exception' => $e->getMessage()
+                'exception' => $e->getMessage(),
             ]);
         }
     }
@@ -73,7 +75,7 @@ class PenjualanNonFisikController extends Controller
             return $this->success($data['data'], 200, 'Berhasil', $data['pagination']);
         } catch (\Exception $e) {
             return $this->error(500, "Gagal mengambil data {$this->title[0]}", [
-                'exception' => $e->getMessage()
+                'exception' => $e->getMessage(),
             ]);
         }
     }
@@ -89,7 +91,7 @@ class PenjualanNonFisikController extends Controller
             return $this->success($data['data'], 200, 'Berhasil', $data['pagination']);
         } catch (\Exception $e) {
             return $this->error(500, 'Gagal mengambil data {$this->title[0]}', [
-                'exception' => $e->getMessage()
+                'exception' => $e->getMessage(),
             ]);
         }
     }
@@ -117,7 +119,7 @@ class PenjualanNonFisikController extends Controller
 
             return $this->success($data, 201, 'Data berhasil ditambahkan');
         } catch (ValidationException $e) {
-            return $this->error(422, collect($e->errors())->map(fn($err) => $err[0])->implode(', '), $e->errors());
+            return $this->error(422, collect($e->errors())->map(fn ($err) => $err[0])->implode(', '), $e->errors());
         } catch (Exception $e) {
             return $this->error(500, 'Internal Server Error', $e->getMessage());
         }
@@ -127,17 +129,17 @@ class PenjualanNonFisikController extends Controller
     {
         try {
             $validated = $request->validate([
-                'public_id'          => 'required|string|exists:td_dompet_saldo,public_id',
+                'public_id' => 'required|string|exists:td_dompet_saldo,public_id',
                 'dompet_kategori_id' => 'required|integer|exists:td_dompet_kategori,id',
-                'saldo'              => ['required', 'numeric', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
-                'harga_beli'         => ['required', 'numeric', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
-                'updated_by'         => 'required|integer|exists:users,id',
+                'saldo' => ['required', 'numeric', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
+                'harga_beli' => ['required', 'numeric', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
+                'updated_by' => 'required|integer|exists:users,id',
                 'toko_id' => 'required|integer|exists:toko,id',
             ]);
 
             $data = $this->service->update($validated['public_id'], $validated);
 
-            if (!$data) {
+            if (! $data) {
                 return $this->error(404, 'Data not found');
             }
 
@@ -155,12 +157,20 @@ class PenjualanNonFisikController extends Controller
             $validated = $request->validate([
                 'public_id' => 'required|string|exists:td_penjualan_nonfisik,public_id',
                 'deleted_by' => 'required|integer|exists:users,id',
+                'pin' => 'required|integer',
                 'toko_id' => 'required|integer|exists:toko,id',
+                'message' => 'required|string',
             ]);
+
+            $pinCheck = PinCheck::validate($validated['toko_id'], $validated['pin']);
+
+            if (! $pinCheck['status']) {
+                return $this->error(403, $pinCheck['message']);
+            }
 
             $deleted = $this->service->delete($validated['public_id'], $validated);
 
-            if (!$deleted) {
+            if (! $deleted) {
                 return $this->error(404, 'Data not found');
             }
 

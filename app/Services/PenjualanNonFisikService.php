@@ -267,6 +267,158 @@ class PenjualanNonFisikService
         return $this->repository->update($id, $data);
     }
 
+        public function delete(string $publicId, array $data): bool
+    {
+        return DB::transaction(function () use ($publicId, $data) {
+
+            // =========================
+            // 1. AMBIL HEADER & DETAIL
+            // =========================
+            $header = PenjualanNonFisik::where('public_id', $publicId)->firstOrFail();
+
+            $details = PenjualanNonFisikDetail::with('item')
+                ->where('penjualan_nonfisik_id', $header->id)
+                ->get();
+
+            if ($details->isEmpty()) {
+                return false;
+            }
+
+            $tokoId = $header->toko_id;
+            $tanggal = Carbon::parse($header->tanggal);
+            $tahun = $tanggal->year;
+            $bulan = $tanggal->month;
+
+            // =========================
+            // 2. HITUNG TOTAL TRANSAKSI (SEKALI)
+            // =========================
+            $totalQty = 0;
+            $totalNominal = 0;
+            $totalHpp = 0;
+
+            foreach ($details as $row) {
+                $totalQty += $row->qty;
+                $totalNominal += $row->harga_jual * $row->qty;
+                $totalHpp += $row->hpp * $row->qty;
+            }
+
+            // =========================
+            // 3. AMBIL REKAP HARIAN
+            // =========================
+            $rekap = TransaksiKasirHarian::where([
+                'toko_id' => $tokoId,
+                'tanggal' => $tanggal->toDateString(),
+                'jenis_barang_id' => 0,
+            ])->first();
+
+            if ($rekap) {
+
+                // =========================
+                // KAS TRANSAKSI
+                // =========================
+                $kasTransaksi = KasTransaksi::where([
+                    'kas_id' => $rekap->kas_id,
+                    'sumber_type' => TransaksiKasirHarian::class,
+                    'sumber_id' => $rekap->id,
+                ])->first();
+
+                if ($kasTransaksi) {
+                    $kasTransaksi->total_nominal = max(0, $kasTransaksi->total_nominal - $totalNominal);
+                    $kasTransaksi->save();
+                }
+
+                // =========================
+                // SALDO KAS
+                // =========================
+                $kas = Kas::find($rekap->kas_id);
+                if ($kas) {
+                    $kas->saldo = max(0, $kas->saldo - $totalNominal);
+                    $kas->save();
+
+                    // HISTORY
+                    $history = KasSaldoHistory::where([
+                        'kas_id' => $kas->id,
+                        'tahun' => $tahun,
+                        'bulan' => $bulan,
+                    ])->first();
+
+                    if ($history) {
+                        $history->saldo_akhir = $kas->saldo;
+                        $history->save();
+                    }
+                }
+
+                // =========================
+                // LABA RUGI BULANAN
+                // =========================
+                $labaRugi = LabaRugi::where([
+                    'toko_id' => $tokoId,
+                    'tahun' => $tahun,
+                    'bulan' => $bulan,
+                ])->first();
+
+                if ($labaRugi) {
+                    $labaRugi->pendapatan = max(0, $labaRugi->pendapatan - $totalNominal);
+                    $labaRugi->beban = max(0, $labaRugi->beban - $totalHpp);
+                    $labaRugi->laba_bersih =
+                        $labaRugi->pendapatan - $labaRugi->beban;
+                    $labaRugi->save();
+                }
+
+                // =========================
+                // LABA RUGI TAHUNAN
+                // =========================
+                $labaRugiTahunan = LabaRugiTahunan::where([
+                    'toko_id' => $tokoId,
+                    'tahun' => $tahun,
+                ])->first();
+
+                if ($labaRugiTahunan) {
+                    $labaRugiTahunan->pendapatan = max(0, $labaRugiTahunan->pendapatan - $totalNominal);
+                    $labaRugiTahunan->beban = max(0, $labaRugiTahunan->beban - $totalHpp);
+                    $labaRugiTahunan->laba_bersih =
+                        $labaRugiTahunan->pendapatan - $labaRugiTahunan->beban;
+                    $labaRugiTahunan->save();
+                }
+
+                // =========================
+                // UPDATE REKAP (SEKALI)
+                // =========================
+                $rekap->total_qty = max(0, $rekap->total_qty - $totalQty);
+                $rekap->total_nominal = max(0, $rekap->total_nominal - $totalNominal);
+                $rekap->total_bayar = max(0, $rekap->total_bayar - $totalNominal);
+                $rekap->total_hpp = max(0, $rekap->total_hpp - $totalHpp);
+                $rekap->total_hpp_batch = max(0, $rekap->total_hpp_batch - $totalHpp);
+                $rekap->total_harga_beli = max(0, $rekap->total_harga_beli - $totalHpp);
+
+                // transaksi dikurangi hanya SEKALI
+                if ($rekap->total_transaksi > 0) {
+                    $rekap->total_transaksi -= 1;
+                }
+
+                $rekap->save();
+            }
+
+            // =========================
+            // 4. DELETE DETAIL
+            // =========================
+            foreach ($details as $detail) {
+                $detail->deleted_by = $data['deleted_by'] ?? null;
+                $detail->save();
+                $detail->delete();
+            }
+
+            // =========================
+            // 5. DELETE HEADER
+            // =========================
+            $header->deleted_by = $data['deleted_by'] ?? null;
+            $header->save();
+            $header->delete();
+
+            return true;
+        });
+    }
+
     // public function delete($id, array $data)
     // {
     //     $item = $this->repository->getByPublicId($id);
@@ -275,193 +427,193 @@ class PenjualanNonFisikService
 
     //     return $this->repository->delete($id, $data);
     // }
-    public function delete(string $publicId, array $data): bool
-    {
-        return DB::transaction(function () use ($publicId, $data) {
+    // public function delete(string $publicId, array $data): bool
+    // {
+    //     return DB::transaction(function () use ($publicId, $data) {
 
-            $header = PenjualanNonFisik::where('public_id', $publicId)->firstOrFail();
+    //         $header = PenjualanNonFisik::where('public_id', $publicId)->firstOrFail();
 
-            $details = PenjualanNonFisikDetail::with(
-                'item'
-            )->where('penjualan_nonfisik_id', $header->id)->get();
+    //         $details = PenjualanNonFisikDetail::with(
+    //             'item'
+    //         )->where('penjualan_nonfisik_id', $header->id)->get();
 
-            if ($details->isEmpty()) {
-                return false;
-            }
+    //         if ($details->isEmpty()) {
+    //             return false;
+    //         }
 
-            $tokoId  = $header->toko_id;
-            $tanggal = Carbon::parse($header->tanggal);
-            $tahun   = $tanggal->year;
-            $bulan   = $tanggal->month;
+    //         $tokoId  = $header->toko_id;
+    //         $tanggal = Carbon::parse($header->tanggal);
+    //         $tahun   = $tanggal->year;
+    //         $bulan   = $tanggal->month;
 
-            /**
-             * =====================================================
-             * 2. ROLLBACK KAS, LABA RUGI, REKAP HARIAN
-             * =====================================================
-             */
-            foreach ($details as $rows) {
+    //         /**
+    //          * =====================================================
+    //          * 2. ROLLBACK KAS, LABA RUGI, REKAP HARIAN
+    //          * =====================================================
+    //          */
+    //         foreach ($details as $rows) {
 
-                $rekap = TransaksiKasirHarian::where([
-                    'toko_id'         => $tokoId,
-                    'tanggal'         => $tanggal->toDateString(),
-                    'jenis_barang_id' => 0,
-                ])->first();
+    //             $rekap = TransaksiKasirHarian::where([
+    //                 'toko_id'         => $tokoId,
+    //                 'tanggal'         => $tanggal->toDateString(),
+    //                 'jenis_barang_id' => 0,
+    //             ])->first();
 
-                if (!$rekap) continue;
+    //             if (!$rekap) continue;
 
-                $kasTransaksi = KasTransaksi::where([
-                    'kas_id'      => $rekap->kas_id,
-                    'sumber_type' => TransaksiKasirHarian::class,
-                    'sumber_id'   => $rekap->id,
-                ])->first();
+    //             $kasTransaksi = KasTransaksi::where([
+    //                 'kas_id'      => $rekap->kas_id,
+    //                 'sumber_type' => TransaksiKasirHarian::class,
+    //                 'sumber_id'   => $rekap->id,
+    //             ])->first();
 
-                /**
-                 * -------------------------------
-                 * HITUNG NILAI TRANSAKSI INI
-                 * -------------------------------
-                 */
-                $hpp = $rows->sum('hpp');
-                $harga = $rows->sum('harga_jual');
-                $qtyTrx     = $rows->sum('qty');
-                $nominalTrx = $harga * $qtyTrx;
-                $hppTrx = $hpp * $qtyTrx;
+    //             /**
+    //              * -------------------------------
+    //              * HITUNG NILAI TRANSAKSI INI
+    //              * -------------------------------
+    //              */
+    //             $hpp = $rows->sum('hpp');
+    //             $harga = $rows->sum('harga_jual');
+    //             $qtyTrx     = $rows->sum('qty');
+    //             $nominalTrx = $harga * $qtyTrx;
+    //             $hppTrx = $hpp * $qtyTrx;
 
-                $hppBatchTrx  = $hppTrx;
-                $hargaBeliTrx = $hppTrx;
+    //             $hppBatchTrx  = $hppTrx;
+    //             $hargaBeliTrx = $hppTrx;
 
-                /**
-                 * -------------------------------
-                 * 1. KURANGI KAS TRANSAKSI
-                 * -------------------------------
-                 */
-                if ($kasTransaksi) {
-                    $kasTransaksi->total_nominal = max(
-                        0,
-                        $kasTransaksi->total_nominal - $nominalTrx
-                    );
-                    $kasTransaksi->save();
-                }
+    //             /**
+    //              * -------------------------------
+    //              * 1. KURANGI KAS TRANSAKSI
+    //              * -------------------------------
+    //              */
+    //             if ($kasTransaksi) {
+    //                 $kasTransaksi->total_nominal = max(
+    //                     0,
+    //                     $kasTransaksi->total_nominal - $nominalTrx
+    //                 );
+    //                 $kasTransaksi->save();
+    //             }
 
-                /**
-                 * -------------------------------
-                 * 2. KURANGI SALDO KAS
-                 * -------------------------------
-                 */
-                $kas = Kas::find($rekap->kas_id);
-                if ($kas) {
-                    $kas->saldo = max(0, $kas->saldo - $nominalTrx);
-                    $kas->save();
-                }
+    //             /**
+    //              * -------------------------------
+    //              * 2. KURANGI SALDO KAS
+    //              * -------------------------------
+    //              */
+    //             $kas = Kas::find($rekap->kas_id);
+    //             if ($kas) {
+    //                 $kas->saldo = max(0, $kas->saldo - $nominalTrx);
+    //                 $kas->save();
+    //             }
 
-                $history = KasSaldoHistory::where([
-                    'kas_id' => $kas->id,
-                    'tahun'  => $tahun,
-                    'bulan'  => $bulan,
-                ])->first();
+    //             $history = KasSaldoHistory::where([
+    //                 'kas_id' => $kas->id,
+    //                 'tahun'  => $tahun,
+    //                 'bulan'  => $bulan,
+    //             ])->first();
 
-                if ($history) {
-                    $history->saldo_akhir = max(0, $kas->saldo);
-                    $history->save();
-                }
+    //             if ($history) {
+    //                 $history->saldo_akhir = max(0, $kas->saldo);
+    //                 $history->save();
+    //             }
 
-                /**
-                 * -------------------------------
-                 * 3. ROLLBACK LABA RUGI BULANAN
-                 * -------------------------------
-                 */
-                $labaRugi = LabaRugi::where([
-                    'toko_id' => $tokoId,
-                    'tahun'   => $tahun,
-                    'bulan'   => $bulan,
-                ])->first();
+    //             /**
+    //              * -------------------------------
+    //              * 3. ROLLBACK LABA RUGI BULANAN
+    //              * -------------------------------
+    //              */
+    //             $labaRugi = LabaRugi::where([
+    //                 'toko_id' => $tokoId,
+    //                 'tahun'   => $tahun,
+    //                 'bulan'   => $bulan,
+    //             ])->first();
 
-                if ($labaRugi) {
-                    $labaRugi->pendapatan = max(0, $labaRugi->pendapatan - $nominalTrx);
-                    $labaRugi->beban      = max(0, $labaRugi->beban - $hppTrx);
-                    $labaRugi->laba_bersih =
-                        $labaRugi->pendapatan - $labaRugi->beban;
-                    $labaRugi->save();
-                }
+    //             if ($labaRugi) {
+    //                 $labaRugi->pendapatan = max(0, $labaRugi->pendapatan - $nominalTrx);
+    //                 $labaRugi->beban      = max(0, $labaRugi->beban - $hppTrx);
+    //                 $labaRugi->laba_bersih =
+    //                     $labaRugi->pendapatan - $labaRugi->beban;
+    //                 $labaRugi->save();
+    //             }
 
-                /**
-                 * -------------------------------
-                 * 4. ROLLBACK LABA RUGI TAHUNAN
-                 * -------------------------------
-                 */
-                $labaRugiTahunan = LabaRugiTahunan::where([
-                    'toko_id' => $tokoId,
-                    'tahun'   => $tahun,
-                ])->first();
+    //             /**
+    //              * -------------------------------
+    //              * 4. ROLLBACK LABA RUGI TAHUNAN
+    //              * -------------------------------
+    //              */
+    //             $labaRugiTahunan = LabaRugiTahunan::where([
+    //                 'toko_id' => $tokoId,
+    //                 'tahun'   => $tahun,
+    //             ])->first();
 
-                if ($labaRugiTahunan) {
-                    $labaRugiTahunan->pendapatan = max(
-                        0,
-                        $labaRugiTahunan->pendapatan - $nominalTrx
-                    );
-                    $labaRugiTahunan->beban = max(
-                        0,
-                        $labaRugiTahunan->beban - $hppTrx
-                    );
-                    $labaRugiTahunan->laba_bersih =
-                        $labaRugiTahunan->pendapatan - $labaRugiTahunan->beban;
-                    $labaRugiTahunan->save();
-                }
+    //             if ($labaRugiTahunan) {
+    //                 $labaRugiTahunan->pendapatan = max(
+    //                     0,
+    //                     $labaRugiTahunan->pendapatan - $nominalTrx
+    //                 );
+    //                 $labaRugiTahunan->beban = max(
+    //                     0,
+    //                     $labaRugiTahunan->beban - $hppTrx
+    //                 );
+    //                 $labaRugiTahunan->laba_bersih =
+    //                     $labaRugiTahunan->pendapatan - $labaRugiTahunan->beban;
+    //                 $labaRugiTahunan->save();
+    //             }
 
-                /**
-                 * -------------------------------
-                 * 5. UPDATE REKAP (TANPA TRANSAKSI COUNT)
-                 * -------------------------------
-                 */
-                $rekap->total_qty       = max(0, $rekap->total_qty - $qtyTrx);
-                $rekap->total_nominal   = max(0, $rekap->total_nominal - $nominalTrx);
-                $rekap->total_bayar     = max(0, $rekap->total_bayar - $nominalTrx);
-                $rekap->total_hpp       = max(0, $rekap->total_hpp - $hppTrx);
-                $rekap->total_hpp_batch = max(0, $rekap->total_hpp_batch - $hppBatchTrx);
-                $rekap->total_harga_beli = max(0, $rekap->total_harga_beli - $hargaBeliTrx);
+    //             /**
+    //              * -------------------------------
+    //              * 5. UPDATE REKAP (TANPA TRANSAKSI COUNT)
+    //              * -------------------------------
+    //              */
+    //             $rekap->total_qty       = max(0, $rekap->total_qty - $qtyTrx);
+    //             $rekap->total_nominal   = max(0, $rekap->total_nominal - $nominalTrx);
+    //             $rekap->total_bayar     = max(0, $rekap->total_bayar - $nominalTrx);
+    //             $rekap->total_hpp       = max(0, $rekap->total_hpp - $hppTrx);
+    //             $rekap->total_hpp_batch = max(0, $rekap->total_hpp_batch - $hppBatchTrx);
+    //             $rekap->total_harga_beli = max(0, $rekap->total_harga_beli - $hargaBeliTrx);
 
-                $rekap->save();
-            }
+    //             $rekap->save();
+    //         }
 
-            /**
-             * =====================================================
-             * 3. KURANGI TOTAL_TRANSAKSI SEKALI SAJA
-             * =====================================================
-             */
-            foreach ($details as $rows) {
+    //         /**
+    //          * =====================================================
+    //          * 3. KURANGI TOTAL_TRANSAKSI SEKALI SAJA
+    //          * =====================================================
+    //          */
+    //         foreach ($details as $rows) {
 
-                $rekap = TransaksiKasirHarian::where([
-                    'toko_id'         => $tokoId,
-                    'tanggal'         => $tanggal->toDateString(),
-                    'jenis_barang_id' => 0,
-                ])->first();
+    //             $rekap = TransaksiKasirHarian::where([
+    //                 'toko_id'         => $tokoId,
+    //                 'tanggal'         => $tanggal->toDateString(),
+    //                 'jenis_barang_id' => 0,
+    //             ])->first();
 
-                if (!$rekap) continue;
+    //             if (!$rekap) continue;
 
-                // transaksi cuma dikurangin SEKALI per rekap
-                if ($rekap->total_transaksi > 0) {
-                    $rekap->total_transaksi -= 1;
-                    $rekap->save();
-                }
-            }
+    //             // transaksi cuma dikurangin SEKALI per rekap
+    //             if ($rekap->total_transaksi > 0) {
+    //                 $rekap->total_transaksi -= 1;
+    //                 $rekap->save();
+    //             }
+    //         }
 
-            /**
-             * =====================================================
-             * 5. DELETE DETAIL & HEADER
-             * =====================================================
-             */
-            foreach ($details as $detail) {
-                $detail->deleted_by = $data['deleted_by'] ?? null;
-                $detail->save();
-                $detail->delete();
-            }
+    //         /**
+    //          * =====================================================
+    //          * 5. DELETE DETAIL & HEADER
+    //          * =====================================================
+    //          */
+    //         foreach ($details as $detail) {
+    //             $detail->deleted_by = $data['deleted_by'] ?? null;
+    //             $detail->save();
+    //             $detail->delete();
+    //         }
 
-            if ($header) {
-                $header->deleted_by = $data['deleted_by'] ?? null;
-                $header->save();
-                $header->delete();
-            }
+    //         if ($header) {
+    //             $header->deleted_by = $data['deleted_by'] ?? null;
+    //             $header->save();
+    //             $header->delete();
+    //         }
 
-            return true;
-        });
-    }
+    //         return true;
+    //     });
+    // }
 }

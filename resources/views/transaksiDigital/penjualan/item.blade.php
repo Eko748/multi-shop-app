@@ -77,7 +77,7 @@
         let delete_button = '';
 
         // if (hasPermission('GET /transaksi-nonfisik/detail')) {
-            detail_button = `
+        detail_button = `
                 <button onClick="openDetailModal('${encodeURIComponent(JSON.stringify(data))}')" class="action_button btn btn-outline-secondary btn-md" title="Detail data ${data.nota}" data-id="${data?.id}" data-container="body" data-toggle="tooltip" data-placement="top">
                     <span class="text-dark">Detail</span>
                     <div class="icon text-info">
@@ -88,7 +88,7 @@
         // }
 
         // if (hasPermission('GET /transaksi-nonfisik/print')) {
-            print_button = `
+        print_button = `
                 <button onClick="openPrintPreview('${data.id}')"
                     class="action_button btn btn-outline-secondary btn-md"
                     title="Cetak Nota ${data.nota}"
@@ -103,7 +103,7 @@
         // }
 
         // if (hasPermission('DELETE /transaksi-nonfisik/delete')) {
-            delete_button = `
+        delete_button = `
                 <button onClick="deleteData('${encodeURIComponent(JSON.stringify(data))}')" class="action_button btn btn-outline-secondary btn-md" title="Hapus data ${data.nota}" data-id="${data?.id}" data-container="body" data-toggle="tooltip" data-placement="top">
                     <span class="text-dark">Hapus</span>
                     <div class="icon text-danger">
@@ -357,42 +357,66 @@
         let data = JSON.parse(decodeURIComponent(encodedData));
 
         swal({
-            title: `Hapus Data ${title} ${data?.nota}`,
-            text: "Apakah anda yakin?",
-            type: "warning",
+            title: `Hapus ${title}`,
+            html: `
+                    <p class="font-weight-bold">Transaksi ${data.nota} akan dihapus!</p>
+                    <hr>
+                    <div class="px-4" style="gap: 0.5rem;">
+                        <div class="form-group">
+                            <label for="input-pin" class="form-control-label d-flex justify-content-start">PIN<span class="text-danger ml-1">*</span></label>
+                            <input type="text" id="input-pin" class="swal-content__input form-control mb-2" placeholder="Masukkan PIN Toko">
+                        </div>
+                        <div class="form-group">
+                            <label for="input-message" class="form-control-label d-flex justify-content-start">Pesan<span class="text-danger ml-1">*</span></label>
+                            <textarea id="input-message" class="swal-content__input form-control mb-2" placeholder="Masukkan Pesan" rows="4"></textarea>
+                        </div>
+                    </div>
+                `,
+            type: "question",
             showCancelButton: true,
-            confirmButtonText: "Ya, Hapus!",
-            cancelButtonText: "Tidak, Batal!",
+            confirmButtonText: "Konfirmasi",
+            cancelButtonText: "Batal",
             confirmButtonColor: '#dc3545',
             cancelButtonColor: '#6c757d',
             reverseButtons: true,
             confirmButtonClass: "btn btn-danger",
-            cancelButtonClass: "btn btn-secondary",
+            cancelButtonClass: "btn btn-secondary"
         }).then(async (result) => {
+            const pin = document.getElementById('input-pin')?.value;
+            const message = document.getElementById('input-message')?.value;
+
+            if (!pin) {
+                notificationAlert("error", "Gagal", "PIN tidak boleh kosong!");
+                return;
+            }
+            if (!message) {
+                notificationAlert("error", "Gagal", "Pesan tidak boleh kosong!");
+                return;
+            }
+
             let postDataRest = await renderAPI(
-                'DELETE',
-                `{{ route('td.penjualanNonfisik.delete') }}`, {
-                    public_id: data.id,
-                    toko_id: {{ auth()->user()->toko_id }},
-                    deleted_by: '{{ auth()->user()->id }}'
-                }
-            ).then(function(response) {
-                return response;
-            }).catch(function(error) {
-                let resp = error.response;
-                return resp;
-            });
+                    'DELETE',
+                    '{{ route('td.penjualanNonfisik.delete') }}', {
+                        public_id: data.id,
+                        deleted_by: {{ auth()->user()->id }},
+                        toko_id: {{ auth()->user()->toko_id }},
+                        message: message,
+                        pin: pin
+                    }
+                ).then(response => response)
+                .catch(error => error.response);
+
+            swal.close();
 
             if (postDataRest.status == 200) {
-                setTimeout(function() {
-                    getListData(defaultLimitPage, currentPage, defaultAscending,
-                        defaultSearch, customFilter);
-                    getCountData();
-                    getListData2(defaultLimitPage2, currentPage2, defaultAscending2,
-                        defaultSearch2, customFilter2);
+                setTimeout(() => {
+                    getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
+                        customFilter);
                 }, 500);
-                notificationAlert('success', 'Pemberitahuan', postDataRest.data
-                    .message);
+                notificationAlert('success', 'Pemberitahuan', postDataRest.data.message);
+            } else {
+                notificationAlert('error', 'Gagal', postDataRest.data?.message ||
+                    'Terjadi kesalahan.');
             }
         }).catch(swal.noop);
     }

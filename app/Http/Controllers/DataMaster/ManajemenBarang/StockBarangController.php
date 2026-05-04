@@ -17,6 +17,7 @@ use Illuminate\Validation\Rule;
 use App\Enums\StatusStockBarang;
 use App\Helpers\AssetGenerate;
 use App\Helpers\LogAktivitasGenerate;
+use App\Helpers\PinCheck;
 use App\Helpers\RupiahGenerate;
 use App\Helpers\TextGenerate;
 use App\Models\LevelHarga;
@@ -154,26 +155,23 @@ class StockBarangController extends Controller
 
     public function refreshStock(Request $request)
     {
-        $request->validate([
-            'id' => 'required|integer',
-            'id_barang' => 'required|integer',
-            'pin' => 'required|integer',
-            'toko_id' => 'required|integer',
-            'user_id' => 'required|string',
-            'message' => 'nullable|string',
-        ]);
-
-        $toko = Toko::find($request->toko_id);
-        if (!$toko) {
-            return $this->error(404, 'Data toko tidak ditemukan.');
-        }
-
-        if ((int) $toko->pin !== (int) $request->pin) {
-            return $this->error(403, 'PIN yang Anda masukkan salah.');
-        }
-
-        DB::beginTransaction();
         try {
+            $validated = $request->validate([
+                'id' => 'required|integer',
+                'id_barang' => 'required|integer',
+                'user_id' => 'required|integer|exists:users,id',
+                'pin' => 'required|integer',
+                'toko_id' => 'required|integer|exists:toko,id',
+                'message' => 'required|string',
+            ]);
+
+            $pinCheck = PinCheck::validate($validated['toko_id'], $validated['pin']);
+
+            if (! $pinCheck['status']) {
+                return $this->error(403, $pinCheck['message']);
+            }
+
+            DB::beginTransaction();
             $stok = StockBarang::lockForUpdate()->find($request->id);
             if (!$stok) {
                 return $this->error(404, 'Data stok tidak ditemukan.');
@@ -198,6 +196,7 @@ class StockBarangController extends Controller
                 StockBarangBermasalah::create([
                     'stock_barang_batch_id' => $batch->id,
                     'status' => 'mati',
+                    'toko_id' => $validated['toko_id'],
                     'qty' => $batch->qty_sisa,
                 ]);
 

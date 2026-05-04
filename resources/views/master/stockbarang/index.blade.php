@@ -610,8 +610,8 @@
                         '{{ route('sb.refreshStock') }}', {
                             id: data.id,
                             id_barang: data.id_barang,
-                            toko_id: '{{ auth()->user()->toko_id }}',
-                            user_id: '{{ auth()->user()->id }}',
+                            toko_id: {{ auth()->user()->toko_id }},
+                            user_id: {{ auth()->user()->id }},
                             message: message,
                             pin: pin
                         }

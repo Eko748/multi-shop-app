@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Helpers\KasGenerate;
-use App\Models\TransaksiKasirHarian;
 use App\Helpers\KasRekapHelper;
 use App\Helpers\NotaGenerate;
 use App\Models\Kas;
@@ -13,7 +12,7 @@ use App\Models\LabaRugi;
 use App\Models\LabaRugiTahunan;
 use App\Models\PenjualanNonFisik;
 use App\Models\PenjualanNonFisikDetail;
-use App\Services\DompetSaldoService;
+use App\Models\TransaksiKasirHarian;
 use App\Repositories\PenjualanNonFisikDetailRepository;
 use App\Repositories\PenjualanNonFisikRepository;
 use App\Traits\PaginateResponse;
@@ -24,8 +23,11 @@ use Illuminate\Validation\ValidationException;
 class PenjualanNonFisikService
 {
     use PaginateResponse;
+
     protected $repository;
+
     protected $repository2;
+
     protected $service;
 
     public function __construct(PenjualanNonFisikRepository $repository, PenjualanNonFisikDetailRepository $repository2, DompetSaldoService $service)
@@ -42,11 +44,11 @@ class PenjualanNonFisikService
         return [
             'hpp' => [
                 'total' => $totals['hpp'],
-                'format' => 'Rp ' . number_format($totals['hpp'], 0, ',', '.')
+                'format' => 'Rp '.number_format($totals['hpp'], 0, ',', '.'),
             ],
             'harga_jual' => [
                 'total' => $totals['harga_jual'],
-                'format' => 'Rp ' . number_format($totals['harga_jual'], 0, ',', '.')
+                'format' => 'Rp '.number_format($totals['harga_jual'], 0, ',', '.'),
             ],
         ];
     }
@@ -62,11 +64,11 @@ class PenjualanNonFisikService
                 'dompul' => $item->dompetKategori->nama,
                 'total_item' => $item->total_item,
                 'total_hpp' => $item->total_hpp,
-                'format_total_hpp' => 'Rp ' . number_format($item->total_hpp, 0, ',', '.'),
+                'format_total_hpp' => 'Rp '.number_format($item->total_hpp, 0, ',', '.'),
                 'total_harga_jual' => $item->total_harga_jual,
-                'format_total_harga_jual' => 'Rp ' . number_format($item->total_harga_jual, 0, ',', '.'),
+                'format_total_harga_jual' => 'Rp '.number_format($item->total_harga_jual, 0, ',', '.'),
                 'total_bayar' => $item->total_bayar,
-                'format_total_bayar' => 'Rp ' . number_format($item->total_bayar, 0, ',', '.'),
+                'format_total_bayar' => 'Rp '.number_format($item->total_bayar, 0, ',', '.'),
                 'created_at' => $item->created_at ?? null,
                 'created_by' => $item->createdBy->nama ?? 'System',
                 'updated_at' => $item->updated_at ?? null,
@@ -78,9 +80,9 @@ class PenjualanNonFisikService
         return [
             'data' => [
                 'item' => $data,
-                'total' => $this->getTotalHarga($filter)
+                'total' => $this->getTotalHarga($filter),
             ],
-            'pagination' => !empty($filter->limit) ? $this->setPaginate($query) : null,
+            'pagination' => ! empty($filter->limit) ? $this->setPaginate($query) : null,
         ];
     }
 
@@ -90,10 +92,10 @@ class PenjualanNonFisikService
         $itemFormatted = [
             'id' => $item->public_id,
             'nota' => $item->nota,
-            'total_bayar' => 'Rp ' . number_format($item->total_bayar, 0, ',', '.'),
-            'total_kembalian' => 'Rp ' . number_format($item->total_bayar - $item->total_harga_jual, 0, ',', '.'),
-            'total_hpp' => 'Rp ' . number_format($item->total_hpp, 0, ',', '.'),
-            'total_harga_jual' => 'Rp ' . number_format($item->total_harga_jual, 0, ',', '.'),
+            'total_bayar' => 'Rp '.number_format($item->total_bayar, 0, ',', '.'),
+            'total_kembalian' => 'Rp '.number_format($item->total_bayar - $item->total_harga_jual, 0, ',', '.'),
+            'total_hpp' => 'Rp '.number_format($item->total_hpp, 0, ',', '.'),
+            'total_harga_jual' => 'Rp '.number_format($item->total_harga_jual, 0, ',', '.'),
             'created_at' => $item->created_at ?? null,
             'created_by' => $item->createdBy->nama,
             'nama_toko' => $item->createdBy->toko->nama_toko,
@@ -104,16 +106,17 @@ class PenjualanNonFisikService
         $query = $this->repository2->getAll($filter);
         $data = collect($query->items())->map(function ($detail) {
             $format_total = $detail->qty * (float) $detail->harga_jual;
+
             return [
                 'id' => $detail->public_id,
                 'item' => $detail->item->nama ?? null,
                 'tipe' => $detail->item->tipe->nama ?? null,
                 'hpp' => $detail->hpp,
-                'format_hpp' => 'Rp ' . number_format($detail->hpp, 0, ',', '.'),
+                'format_hpp' => 'Rp '.number_format($detail->hpp, 0, ',', '.'),
                 'harga_jual' => (float) $detail->harga_jual,
-                'format_harga_jual' => 'Rp ' . number_format($detail->harga_jual, 0, ',', '.'),
+                'format_harga_jual' => 'Rp '.number_format($detail->harga_jual, 0, ',', '.'),
                 'total_harga_jual' => $format_total,
-                'format_total_harga_jual' => 'Rp ' . number_format($format_total, 0, ',', '.'),
+                'format_total_harga_jual' => 'Rp '.number_format($format_total, 0, ',', '.'),
                 'qty' => $detail->qty,
             ];
         });
@@ -121,9 +124,9 @@ class PenjualanNonFisikService
         return [
             'data' => [
                 'item' => $itemFormatted,
-                'detail' => $data
+                'detail' => $data,
             ],
-            'pagination' => $this->setPaginate($query)
+            'pagination' => $this->setPaginate($query),
         ];
     }
 
@@ -140,7 +143,7 @@ class PenjualanNonFisikService
 
         return [
             'data' => $data,
-            'pagination' => $this->setPaginate($query)
+            'pagination' => $this->setPaginate($query),
         ];
     }
 
@@ -161,13 +164,13 @@ class PenjualanNonFisikService
             // =========================
             if ((float) $data['total_bayar'] < $data['total_harga_jual']) {
                 throw ValidationException::withMessages([
-                    'total_bayar' => "Total bayar tidak mencukupi."
+                    'total_bayar' => 'Total bayar tidak mencukupi.',
                 ]);
             }
 
             if ((float) $data['total_hpp'] > $data['saldo']) {
                 throw ValidationException::withMessages([
-                    'saldo' => "Saldo tidak mencukupi."
+                    'saldo' => 'Saldo tidak mencukupi.',
                 ]);
             }
 
@@ -175,14 +178,14 @@ class PenjualanNonFisikService
             // HEADER
             // =========================
             $penjualan = $this->repository->create([
-                'toko_id'            => $data['toko_id'],
-                'nota'               => NotaGenerate::nonfisik($data['toko_id']),
-                'tanggal'            => now(),
+                'toko_id' => $data['toko_id'],
+                'nota' => NotaGenerate::nonfisik($data['toko_id']),
+                'tanggal' => now(),
                 'dompet_kategori_id' => $data['dompet_kategori_id'],
-                'total_bayar'        => $data['total_bayar'],
-                'total_hpp'          => $data['total_hpp'],
-                'total_harga_jual'   => $data['total_harga_jual'],
-                'created_by'         => $data['created_by'],
+                'total_bayar' => $data['total_bayar'],
+                'total_hpp' => $data['total_hpp'],
+                'total_harga_jual' => $data['total_harga_jual'],
+                'created_by' => $data['created_by'],
             ]);
 
             // =========================
@@ -191,12 +194,12 @@ class PenjualanNonFisikService
             foreach ($data['items'] as $item) {
                 $this->repository2->create([
                     'penjualan_nonfisik_id' => $penjualan->id,
-                    'item_nonfisik_id'      => $item['id'],
-                    'qty'                   => $item['qty'],
-                    'hpp'                   => $item['hpp'],
-                    'harga_jual'            => $item['harga_jual'],
-                    'toko_id'               => $data['toko_id'],
-                    'created_by'            => $data['created_by'],
+                    'item_nonfisik_id' => $item['id'],
+                    'qty' => $item['qty'],
+                    'hpp' => $item['hpp'],
+                    'harga_jual' => $item['harga_jual'],
+                    'toko_id' => $data['toko_id'],
+                    'created_by' => $data['created_by'],
                 ]);
             }
 
@@ -211,33 +214,35 @@ class PenjualanNonFisikService
                 ->where('tipe_kas', 'kecil')
                 ->first();
 
-            if (!$kas) {
-                throw new \Exception("Kas kecil untuk jenis_barang_id 0 belum dibuat.");
+            if (! $kas) {
+                throw new \Exception('Kas kecil untuk jenis_barang_id 0 belum dibuat.');
             }
 
             $rekap = TransaksiKasirHarian::firstOrNew([
-                'toko_id'         => $data['toko_id'],
-                'tanggal'         => Carbon::parse($penjualan->tanggal)->toDateString(),
+                'toko_id' => $data['toko_id'],
+                'tanggal' => Carbon::parse($penjualan->tanggal)->toDateString(),
                 'jenis_barang_id' => $jenisBarangId,
-                'kas_id'          => $kas->id,
+                'kas_id' => $kas->id,
             ]);
 
-            if (!$rekap->exists) {
-                $rekap->kas_id            = $kas->id;
-                $rekap->total_transaksi   = 1;
-                $rekap->total_qty         = $data['total_qty'] ?? 1;
-                $rekap->total_nominal     = $data['total_harga_jual'];
-                $rekap->total_bayar       = $data['total_bayar'];
-                $rekap->total_diskon      = 0;
-                $rekap->total_hpp         = $data['total_hpp'];
-                $rekap->total_hpp_batch   = $data['total_hpp'];
-                $rekap->total_harga_beli  = $data['total_hpp'];
+            $totalQty = collect($data['items'])->sum('qty');
+
+            if (! $rekap->exists) {
+                $rekap->kas_id = $kas->id;
+                $rekap->total_transaksi = 1;
+                $rekap->total_qty = $totalQty;
+                $rekap->total_nominal = $data['total_harga_jual'];
+                $rekap->total_bayar = $data['total_bayar'];
+                $rekap->total_diskon = 0;
+                $rekap->total_hpp = $data['total_hpp'];
+                $rekap->total_hpp_batch = $data['total_hpp'];
+                $rekap->total_harga_beli = $data['total_hpp'];
             } else {
                 $rekap->total_transaksi += 1;
-                $rekap->total_qty       += $data['total_qty'] ?? 1;
-                $rekap->total_nominal   += $data['total_harga_jual'];
-                $rekap->total_bayar     += $data['total_bayar'];
-                $rekap->total_hpp       += $data['total_hpp'];
+                $rekap->total_qty += $totalQty;
+                $rekap->total_nominal += $data['total_harga_jual'];
+                $rekap->total_bayar += $data['total_bayar'];
+                $rekap->total_hpp += $data['total_hpp'];
                 $rekap->total_hpp_batch += $data['total_hpp'];
                 $rekap->total_harga_beli += $data['total_hpp'];
             }
@@ -257,17 +262,17 @@ class PenjualanNonFisikService
                 beban: $data['total_hpp'],
                 sumber: $rekap
             );
+
             return $penjualan;
         });
     }
-
 
     public function update($id, array $data)
     {
         return $this->repository->update($id, $data);
     }
 
-        public function delete(string $publicId, array $data): bool
+    public function delete(string $publicId, array $data): bool
     {
         return DB::transaction(function () use ($publicId, $data) {
 

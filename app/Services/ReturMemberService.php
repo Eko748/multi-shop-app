@@ -392,7 +392,7 @@ class ReturMemberService
                 'qty_retur'   => $returQty,
                 'kompensasi'  => $kompensasi,
                 'harga'       => $item->nominal,
-                'hpp'         => $item->hpp,
+                'hpp'         => $item->stockBarangBatch->harga_beli,
                 'stok_detail_id'         => $stokDetailId,
             ];
         });

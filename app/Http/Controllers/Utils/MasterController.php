@@ -8,15 +8,14 @@ use App\Models\Barang;
 use App\Models\Brand;
 use App\Models\DetailStockBarang;
 use App\Models\DetailToko;
-use App\Models\JenisBarang;
 use App\Models\HutangTipe;
-use App\Models\PemasukanTipe;
-use App\Models\PengeluaranTipe;
-use App\Models\PiutangTipe;
+use App\Models\JenisBarang;
 use App\Models\Kasbon;
 use App\Models\Member;
 use App\Models\Pemasukan;
-use App\Models\Piutang;
+use App\Models\PemasukanTipe;
+use App\Models\PengeluaranTipe;
+use App\Models\PiutangTipe;
 use App\Models\Role;
 use App\Models\StockBarang;
 use App\Models\Supplier;
@@ -34,28 +33,28 @@ class MasterController extends Controller
 
         $query = Toko::query();
 
-        if (!empty($request['is_admin'])) {
+        if (! empty($request['is_admin'])) {
             $query->where('id', '!=', 1);
         }
 
-        if (!empty($request['super_admin'])) {
+        if (! empty($request['super_admin'])) {
             $query->where('id', '=', 1);
         }
 
-        if (!empty($request['is_delete'])) {
+        if (! empty($request['is_delete'])) {
             $query->where('id', '!=', $request['is_delete']);
         }
 
-        if (!empty($request['not_self'])) {
+        if (! empty($request['not_self'])) {
             $query->where('id', '!=', $request['not_self']);
         }
 
-        if (!empty($request['search'])) {
+        if (! empty($request['search'])) {
             $searchTerm = trim(strtolower($request['search']));
 
             $query->where(function ($query) use ($searchTerm) {
-                $query->orWhereRaw("LOWER(nama_toko) LIKE ?", ["%$searchTerm%"]);
-                $query->orWhereRaw("LOWER(singkatan) LIKE ?", ["%$searchTerm%"]);
+                $query->orWhereRaw('LOWER(nama_toko) LIKE ?', ["%$searchTerm%"]);
+                $query->orWhereRaw('LOWER(singkatan) LIKE ?', ["%$searchTerm%"]);
             });
         }
 
@@ -67,19 +66,19 @@ class MasterController extends Controller
             'total' => $data->total(),
             'per_page' => $data->perPage(),
             'current_page' => $data->currentPage(),
-            'total_pages' => $data->lastPage()
+            'total_pages' => $data->lastPage(),
         ];
 
         $data = [
             'data' => $data->items(),
-            'meta' => $paginationMeta
+            'meta' => $paginationMeta,
         ];
 
         if (empty($data['data'])) {
             return response()->json([
                 'status_code' => 400,
                 'errors' => true,
-                'message' => 'Tidak ada data'
+                'message' => 'Tidak ada data',
             ], 400);
         }
 
@@ -96,7 +95,7 @@ class MasterController extends Controller
             'status_code' => 200,
             'errors' => false,
             'message' => 'Berhasil',
-            'pagination' => $data['meta']
+            'pagination' => $data['meta'],
         ], 200);
     }
 
@@ -107,23 +106,23 @@ class MasterController extends Controller
 
         $query = PengeluaranTipe::query();
 
-        if (!empty($request['is_admin'])) {
+        if (! empty($request['is_admin'])) {
             $query->where('id', '!=', 1);
         }
 
-        if (!empty($request['super_admin'])) {
+        if (! empty($request['super_admin'])) {
             $query->where('id', '=', 1);
         }
 
-        if (!empty($request['is_delete'])) {
+        if (! empty($request['is_delete'])) {
             $query->where('id', '!=', $request['is_delete']);
         }
 
-        if (!empty($request['search'])) {
+        if (! empty($request['search'])) {
             $searchTerm = trim(strtolower($request['search']));
 
             $query->where(function ($query) use ($searchTerm) {
-                $query->orWhereRaw("LOWER(tipe) LIKE ?", ["%$searchTerm%"]);
+                $query->orWhereRaw('LOWER(tipe) LIKE ?', ["%$searchTerm%"]);
             });
         }
 
@@ -135,19 +134,19 @@ class MasterController extends Controller
             'total' => $data->total(),
             'per_page' => $data->perPage(),
             'current_page' => $data->currentPage(),
-            'total_pages' => $data->lastPage()
+            'total_pages' => $data->lastPage(),
         ];
 
         $data = [
             'data' => $data->items(),
-            'meta' => $paginationMeta
+            'meta' => $paginationMeta,
         ];
 
         if (empty($data['data'])) {
             return response()->json([
                 'status_code' => 400,
                 'errors' => true,
-                'message' => 'Tidak ada data'
+                'message' => 'Tidak ada data',
             ], 400);
         }
 
@@ -163,7 +162,7 @@ class MasterController extends Controller
             'status_code' => 200,
             'errors' => false,
             'message' => 'Berhasil',
-            'pagination' => $data['meta']
+            'pagination' => $data['meta'],
         ], 200);
     }
 
@@ -179,23 +178,23 @@ class MasterController extends Controller
             $query->where('id', '!=', 1);
         }
 
-        if (!empty($request['is_admin'])) {
+        if (! empty($request['is_admin'])) {
             $query->where('id', '!=', 1);
         }
 
-        if (!empty($request['super_admin'])) {
+        if (! empty($request['super_admin'])) {
             $query->where('id', '=', 1);
         }
 
-        if (!empty($request['is_delete'])) {
+        if (! empty($request['is_delete'])) {
             $query->where('id', '!=', $request['is_delete']);
         }
 
-        if (!empty($request['search'])) {
+        if (! empty($request['search'])) {
             $searchTerm = trim(strtolower($request['search']));
 
             $query->where(function ($query) use ($searchTerm) {
-                $query->orWhereRaw("LOWER(tipe) LIKE ?", ["%$searchTerm%"]);
+                $query->orWhereRaw('LOWER(tipe) LIKE ?', ["%$searchTerm%"]);
             });
         }
 
@@ -207,19 +206,19 @@ class MasterController extends Controller
             'total' => $data->total(),
             'per_page' => $data->perPage(),
             'current_page' => $data->currentPage(),
-            'total_pages' => $data->lastPage()
+            'total_pages' => $data->lastPage(),
         ];
 
         $data = [
             'data' => $data->items(),
-            'meta' => $paginationMeta
+            'meta' => $paginationMeta,
         ];
 
         if (empty($data['data'])) {
             return response()->json([
                 'status_code' => 400,
                 'errors' => true,
-                'message' => 'Tidak ada data'
+                'message' => 'Tidak ada data',
             ], 400);
         }
 
@@ -235,7 +234,7 @@ class MasterController extends Controller
             'status_code' => 200,
             'errors' => false,
             'message' => 'Berhasil',
-            'pagination' => $data['meta']
+            'pagination' => $data['meta'],
         ], 200);
     }
 
@@ -247,11 +246,11 @@ class MasterController extends Controller
         $query = HutangTipe::query()
             ->whereNotIn('id', [1, 2]);
 
-        if (!empty($request['search'])) {
+        if (! empty($request['search'])) {
             $searchTerm = trim(strtolower($request['search']));
 
             $query->where(function ($query) use ($searchTerm) {
-                $query->orWhereRaw("LOWER(tipe) LIKE ?", ["%$searchTerm%"]);
+                $query->orWhereRaw('LOWER(tipe) LIKE ?', ["%$searchTerm%"]);
             });
         }
 
@@ -263,19 +262,19 @@ class MasterController extends Controller
             'total' => $data->total(),
             'per_page' => $data->perPage(),
             'current_page' => $data->currentPage(),
-            'total_pages' => $data->lastPage()
+            'total_pages' => $data->lastPage(),
         ];
 
         $data = [
             'data' => $data->items(),
-            'meta' => $paginationMeta
+            'meta' => $paginationMeta,
         ];
 
         if (empty($data['data'])) {
             return response()->json([
                 'status_code' => 400,
                 'errors' => true,
-                'message' => 'Tidak ada data'
+                'message' => 'Tidak ada data',
             ], 400);
         }
 
@@ -291,7 +290,7 @@ class MasterController extends Controller
             'status_code' => 200,
             'errors' => false,
             'message' => 'Berhasil',
-            'pagination' => $data['meta']
+            'pagination' => $data['meta'],
         ], 200);
     }
 
@@ -302,23 +301,23 @@ class MasterController extends Controller
 
         $query = PiutangTipe::query()->whereNot('id', 1);
 
-        if (!empty($request['is_admin'])) {
+        if (! empty($request['is_admin'])) {
             $query->where('id', '!=', 1);
         }
 
-        if (!empty($request['super_admin'])) {
+        if (! empty($request['super_admin'])) {
             $query->where('id', '=', 1);
         }
 
-        if (!empty($request['is_delete'])) {
+        if (! empty($request['is_delete'])) {
             $query->where('id', '!=', $request['is_delete']);
         }
 
-        if (!empty($request['search'])) {
+        if (! empty($request['search'])) {
             $searchTerm = trim(strtolower($request['search']));
 
             $query->where(function ($query) use ($searchTerm) {
-                $query->orWhereRaw("LOWER(tipe) LIKE ?", ["%$searchTerm%"]);
+                $query->orWhereRaw('LOWER(tipe) LIKE ?', ["%$searchTerm%"]);
             });
         }
 
@@ -330,19 +329,19 @@ class MasterController extends Controller
             'total' => $data->total(),
             'per_page' => $data->perPage(),
             'current_page' => $data->currentPage(),
-            'total_pages' => $data->lastPage()
+            'total_pages' => $data->lastPage(),
         ];
 
         $data = [
             'data' => $data->items(),
-            'meta' => $paginationMeta
+            'meta' => $paginationMeta,
         ];
 
         if (empty($data['data'])) {
             return response()->json([
                 'status_code' => 400,
                 'errors' => true,
-                'message' => 'Tidak ada data'
+                'message' => 'Tidak ada data',
             ], 400);
         }
 
@@ -358,7 +357,7 @@ class MasterController extends Controller
             'status_code' => 200,
             'errors' => false,
             'message' => 'Berhasil',
-            'pagination' => $data['meta']
+            'pagination' => $data['meta'],
         ], 200);
     }
 
@@ -371,11 +370,11 @@ class MasterController extends Controller
 
         $query = Member::where('toko_id', $toko_id);
 
-        if (!empty($request['search'])) {
+        if (! empty($request['search'])) {
             $searchTerm = trim(strtolower($request['search']));
             $query->where(function ($query) use ($searchTerm) {
-                $query->orWhereRaw("LOWER(nama) LIKE ?", ["%$searchTerm%"]);
-                $query->orWhereRaw("LOWER(no_hp) LIKE ?", ["%$searchTerm%"]);
+                $query->orWhereRaw('LOWER(nama) LIKE ?', ["%$searchTerm%"]);
+                $query->orWhereRaw('LOWER(no_hp) LIKE ?', ["%$searchTerm%"]);
             });
         }
 
@@ -385,20 +384,17 @@ class MasterController extends Controller
             'total' => $data->total(),
             'per_page' => $data->perPage(),
             'current_page' => $data->currentPage(),
-            'total_pages' => $data->lastPage()
+            'total_pages' => $data->lastPage(),
         ];
 
         $items = $data->items();
 
-        if (empty($items)) {
-            return response()->json([
-                'status_code' => 400,
-                'errors' => true,
-                'message' => 'Tidak ada data'
-            ], 400);
-        }
+        $guest = [
+            'id' => 'guest',
+            'text' => 'Guest',
+        ];
 
-        $mappedData = array_map(function ($item) {
+        $mappedData = collect($items)->map(function ($item) {
             $alamat = trim($item['alamat'] ?? '');
             $noHp = trim($item['no_hp'] ?? '');
             $noHp = strtolower($noHp) === 'none' ? '' : $noHp;
@@ -416,19 +412,14 @@ class MasterController extends Controller
                 'id' => $item['id'],
                 'text' => $info ? "{$item['nama']} ({$info})" : $item['nama'],
             ];
-        }, $items);
-
-        array_unshift($mappedData, [
-            'id' => 'guest',
-            'text' => 'Guest'
-        ]);
+        })->prepend($guest)->values();
 
         return response()->json([
             'data' => $mappedData,
             'status_code' => 200,
             'errors' => false,
             'message' => 'Berhasil',
-            'pagination' => $paginationMeta
+            'pagination' => $paginationMeta,
         ], 200);
     }
 
@@ -439,16 +430,16 @@ class MasterController extends Controller
 
         $query = Barang::query();
 
-        if (!empty($request['jenis_barang_id'])) {
+        if (! empty($request['jenis_barang_id'])) {
             $query->where('jenis_barang_id', $request['jenis_barang_id']);
         }
 
-        if (!empty($request['search'])) {
+        if (! empty($request['search'])) {
             $searchTerm = trim(strtolower($request['search']));
 
             $query->where(function ($query) use ($searchTerm) {
-                $query->orWhereRaw("LOWER(nama) LIKE ?", ["%$searchTerm%"])
-                    ->orWhereRaw("LOWER(barcode) LIKE ?", ["%$searchTerm%"]);
+                $query->orWhereRaw('LOWER(nama) LIKE ?', ["%$searchTerm%"])
+                    ->orWhereRaw('LOWER(barcode) LIKE ?', ["%$searchTerm%"]);
             });
         }
 
@@ -458,19 +449,19 @@ class MasterController extends Controller
             'total' => $data->total(),
             'per_page' => $data->perPage(),
             'current_page' => $data->currentPage(),
-            'total_pages' => $data->lastPage()
+            'total_pages' => $data->lastPage(),
         ];
 
         $data = [
             'data' => $data->items(),
-            'meta' => $paginationMeta
+            'meta' => $paginationMeta,
         ];
 
         if (empty($data['data'])) {
             return response()->json([
                 'status_code' => 400,
                 'errors' => true,
-                'message' => 'Tidak ada data'
+                'message' => 'Tidak ada data',
             ], 400);
         }
 
@@ -484,18 +475,17 @@ class MasterController extends Controller
             }
 
             return [
-                'id'   => $item['id'] ?? null,
+                'id' => $item['id'] ?? null,
                 'text' => $text,
             ];
         }, $data['data']);
-
 
         return response()->json([
             'data' => $mappedData,
             'status_code' => 200,
             'errors' => false,
             'message' => 'Berhasil',
-            'pagination' => $data['meta']
+            'pagination' => $data['meta'],
         ], 200);
     }
 
@@ -506,12 +496,12 @@ class MasterController extends Controller
 
         $query = Supplier::query();
 
-        if (!empty($request['search'])) {
+        if (! empty($request['search'])) {
             $searchTerm = trim(strtolower($request['search']));
 
             $query->where(function ($query) use ($searchTerm) {
-                $query->orWhereRaw("LOWER(nama) LIKE ?", ["%$searchTerm%"]);
-                $query->orWhereRaw("LOWER(telepon) LIKE ?", ["%$searchTerm%"]);
+                $query->orWhereRaw('LOWER(nama) LIKE ?', ["%$searchTerm%"]);
+                $query->orWhereRaw('LOWER(telepon) LIKE ?', ["%$searchTerm%"]);
             });
         }
 
@@ -521,26 +511,26 @@ class MasterController extends Controller
             'total' => $data->total(),
             'per_page' => $data->perPage(),
             'current_page' => $data->currentPage(),
-            'total_pages' => $data->lastPage()
+            'total_pages' => $data->lastPage(),
         ];
 
         $data = [
             'data' => $data->items(),
-            'meta' => $paginationMeta
+            'meta' => $paginationMeta,
         ];
 
         if (empty($data['data'])) {
             return response()->json([
                 'status_code' => 400,
                 'errors' => true,
-                'message' => 'Tidak ada data'
+                'message' => 'Tidak ada data',
             ], 400);
         }
 
         $mappedData = array_map(function ($item) {
             return [
                 'id' => $item['id'],
-                'text' => $item['nama'] . ' / ' . $item['telepon'],
+                'text' => $item['nama'].' / '.$item['telepon'],
             ];
         }, $data['data']);
 
@@ -549,7 +539,7 @@ class MasterController extends Controller
             'status_code' => 200,
             'errors' => false,
             'message' => 'Berhasil',
-            'pagination' => $data['meta']
+            'pagination' => $data['meta'],
         ], 200);
     }
 
@@ -579,12 +569,12 @@ class MasterController extends Controller
                 ->select('detail_toko.id_barang', 'barang.nama_barang', 'detail_toko.qty', 'dt_barang.qrcode', 'dt_barang.id as id_detail');
         }
 
-        if (!empty($request['search'])) {
+        if (! empty($request['search'])) {
             $searchTerm = trim(strtolower($request['search']));
 
             $query->where(function ($query) use ($searchTerm) {
-                $query->orWhereRaw("LOWER(barang.nama_barang) LIKE ?", ["%$searchTerm%"]);
-                $query->orWhereRaw("LOWER(dt_barang.qrcode) LIKE ?", ["%$searchTerm%"]);
+                $query->orWhereRaw('LOWER(barang.nama_barang) LIKE ?', ["%$searchTerm%"]);
+                $query->orWhereRaw('LOWER(dt_barang.qrcode) LIKE ?', ["%$searchTerm%"]);
             });
         } else {
             return response()->json([
@@ -600,25 +590,25 @@ class MasterController extends Controller
             'total' => $data->total(),
             'per_page' => $data->perPage(),
             'current_page' => $data->currentPage(),
-            'total_pages' => $data->lastPage()
+            'total_pages' => $data->lastPage(),
         ];
 
         $data = [
             'data' => $data->items(),
-            'meta' => $paginationMeta
+            'meta' => $paginationMeta,
         ];
 
         if (empty($data['data'])) {
             return response()->json([
                 'status_code' => 400,
                 'errors' => true,
-                'message' => 'Tidak ada data'
+                'message' => 'Tidak ada data',
             ], 400);
         }
 
         $mappedData = array_map(function ($item) {
             return [
-                'id' => $item['qrcode'] . '/' . $item['id_detail'],
+                'id' => $item['qrcode'].'/'.$item['id_detail'],
                 'text' => "{$item['nama_barang']} / Sisa Stock: ({$item['qty']}) / Supplier: {$item['nama_supplier']} / QRcode : {$item['qrcode']}",
             ];
         }, $data['data']);
@@ -628,7 +618,7 @@ class MasterController extends Controller
             'status_code' => 200,
             'errors' => false,
             'message' => 'Berhasil',
-            'pagination' => $data['meta']
+            'pagination' => $data['meta'],
         ], 200);
     }
 
@@ -639,7 +629,7 @@ class MasterController extends Controller
 
         $id_toko = $request->id_toko;
 
-        if (!$id_toko) {
+        if (! $id_toko) {
             return response()->json([
                 'status_code' => 400,
                 'errors' => true,
@@ -660,15 +650,15 @@ class MasterController extends Controller
                 )
                 ->groupBy('detail_stock.id_barang', 'barang.nama_barang', 'barang.barcode', 'dpb.qrcode')
                 ->havingRaw('SUM(detail_stock.qty_now) > 0')
-                ->orderByRaw('stock ' . $meta['orderBy']);
+                ->orderByRaw('stock '.$meta['orderBy']);
 
-            if (!empty($request['search'])) {
+            if (! empty($request['search'])) {
                 $searchTerm = trim(strtolower($request['search']));
 
                 $query->where(function ($q) use ($searchTerm) {
-                    $q->orWhereRaw("LOWER(barang.nama_barang) LIKE ?", ["%$searchTerm%"])
-                        ->orWhereRaw("LOWER(barang.barcode) LIKE ?", ["%$searchTerm%"])
-                        ->orWhereRaw("LOWER(dpb.qrcode) LIKE ?", ["%$searchTerm%"]);
+                    $q->orWhereRaw('LOWER(barang.nama_barang) LIKE ?', ["%$searchTerm%"])
+                        ->orWhereRaw('LOWER(barang.barcode) LIKE ?', ["%$searchTerm%"])
+                        ->orWhereRaw('LOWER(dpb.qrcode) LIKE ?', ["%$searchTerm%"]);
                 });
             } else {
                 return response()->json([
@@ -694,7 +684,7 @@ class MasterController extends Controller
                 $qrcode = $item->qrcode ?? '-';
 
                 return [
-                    'id' => $qrcode . '/' . $item->id_barang,
+                    'id' => $qrcode.'/'.$item->id_barang,
                     'text' => "{$namaBarang} ~ [Stok: ({$item->stock})]",
                 ];
             });
@@ -716,15 +706,15 @@ class MasterController extends Controller
                     'dt_barang.qrcode'
                 );
 
-            if (!empty($request['search'])) {
+            if (! empty($request['search'])) {
                 $searchTerm = trim(strtolower($request['search']));
 
                 $query->where(function ($query) use ($searchTerm) {
-                    $query->orWhereRaw("LOWER(dt_barang.qrcode) LIKE ?", ["%$searchTerm%"])
-                        ->orWhereRaw("LOWER(barang.nama_barang) LIKE ?", ["%$searchTerm%"])
+                    $query->orWhereRaw('LOWER(dt_barang.qrcode) LIKE ?', ["%$searchTerm%"])
+                        ->orWhereRaw('LOWER(barang.nama_barang) LIKE ?', ["%$searchTerm%"])
                         ->orWhere(function ($subQuery) use ($searchTerm) {
                             $subQuery->where('barang.is_old', true)
-                                ->whereRaw("LOWER(barang.barcode) LIKE ?", ["%$searchTerm%"]);
+                                ->whereRaw('LOWER(barang.barcode) LIKE ?', ["%$searchTerm%"]);
                         });
                 });
             } else {
@@ -749,7 +739,7 @@ class MasterController extends Controller
                 $supplierName = $item->nama_supplier ?? 'Tidak ada';
 
                 return [
-                    'id' => $item->qrcode . '/' . $item->id_barang,
+                    'id' => $item->qrcode.'/'.$item->id_barang,
                     'text' => "{$item->nama_barang} / Sisa Stock: ({$item->qty}) / Supplier: {$supplierName} / QRcode: {$item->qrcode}",
                 ];
             });
@@ -759,7 +749,7 @@ class MasterController extends Controller
             'total' => $data->total(),
             'per_page' => $data->perPage(),
             'current_page' => $data->currentPage(),
-            'total_pages' => $data->lastPage()
+            'total_pages' => $data->lastPage(),
         ];
 
         return response()->json([
@@ -767,7 +757,7 @@ class MasterController extends Controller
             'status_code' => 200,
             'errors' => false,
             'message' => 'Berhasil',
-            'pagination' => $paginationMeta
+            'pagination' => $paginationMeta,
         ], 200);
     }
 
@@ -775,7 +765,7 @@ class MasterController extends Controller
     {
         $toko_id = $request->toko_id;
 
-        if (!$toko_id) {
+        if (! $toko_id) {
             return response()->json([
                 'status_code' => 400,
                 'errors' => true,
@@ -812,12 +802,12 @@ class MasterController extends Controller
                 ->where('detail_stock.qty_now', '>', 0)
                 ->where(function ($q) use ($searchTerm, $isNameSearch) {
                     // 🔸 Barcode dan QRCode harus presisi (exact match)
-                    $q->orWhereRaw("LOWER(barang.barcode) = ?", [strtolower($searchTerm)])
-                        ->orWhereRaw("LOWER(dpb.qrcode) = ?", [strtolower($searchTerm)]);
+                    $q->orWhereRaw('LOWER(barang.barcode) = ?', [strtolower($searchTerm)])
+                        ->orWhereRaw('LOWER(dpb.qrcode) = ?', [strtolower($searchTerm)]);
 
                     // 🔸 Nama barang masih fleksibel (LIKE)
                     if ($isNameSearch) {
-                        $q->orWhereRaw("LOWER(barang.nama_barang) LIKE ?", ["%$searchTerm%"]);
+                        $q->orWhereRaw('LOWER(barang.nama_barang) LIKE ?', ["%$searchTerm%"]);
                     }
                 })
                 ->groupBy('detail_stock.id_barang', 'barang.nama_barang', 'barang.barcode')
@@ -854,12 +844,12 @@ class MasterController extends Controller
                 ->whereNull('barang.deleted_at')
                 ->where(function ($q) use ($searchTerm, $isNameSearch) {
                     // 🔸 Barcode dan QRCode harus presisi
-                    $q->orWhereRaw("LOWER(dpb.qrcode) = ?", [strtolower($searchTerm)])
-                        ->orWhereRaw("LOWER(barang.barcode) = ?", [strtolower($searchTerm)]);
+                    $q->orWhereRaw('LOWER(dpb.qrcode) = ?', [strtolower($searchTerm)])
+                        ->orWhereRaw('LOWER(barang.barcode) = ?', [strtolower($searchTerm)]);
 
                     // 🔸 Nama barang tetap fleksibel
                     if ($isNameSearch) {
-                        $q->orWhereRaw("LOWER(barang.nama_barang) LIKE ?", ["%$searchTerm%"]);
+                        $q->orWhereRaw('LOWER(barang.nama_barang) LIKE ?', ["%$searchTerm%"]);
                     }
                 })
                 ->select(
@@ -882,16 +872,18 @@ class MasterController extends Controller
                 $first = $group->first();
                 $totalQty = $group->sum('qty');
                 $qrcodes = $group->pluck('qrcode')->unique()->implode(',');
+
                 return [
                     'id_barang' => $first->id_barang,
                     'nama_barang' => $first->nama_barang,
                     'qty' => $totalQty,
-                    'qrcodes' => $qrcodes
+                    'qrcodes' => $qrcodes,
                 ];
             });
 
             $results = $grouped->map(function ($item) {
                 $stokInfo = "[Stok: {$item['qty']}]";
+
                 return [
                     'id' => "{$item['qrcodes']}/{$item['id_barang']}",
                     'text' => "{$item['nama_barang']} ~ {$stokInfo}",
@@ -931,14 +923,14 @@ class MasterController extends Controller
             $query = Kasbon::with('member')->whereIn('id_member', $memberIds);
         }
 
-        if (!empty($request['search'])) {
+        if (! empty($request['search'])) {
             $searchTerm = trim(strtolower($request['search']));
 
             $query->where(function ($query) use ($searchTerm) {
-                $query->orWhereRaw("LOWER(id_member) LIKE ?", ["%$searchTerm%"]);
+                $query->orWhereRaw('LOWER(id_member) LIKE ?', ["%$searchTerm%"]);
                 $query->orWhereHas('member', function ($query) use ($searchTerm) {
-                    $query->whereRaw("LOWER(nama_member) LIKE ?", ["%$searchTerm%"]);
-                    $query->whereRaw("LOWER(no_hp) LIKE ?", ["%$searchTerm%"]);
+                    $query->whereRaw('LOWER(nama_member) LIKE ?', ["%$searchTerm%"]);
+                    $query->whereRaw('LOWER(no_hp) LIKE ?', ["%$searchTerm%"]);
                 });
             });
         }
@@ -949,19 +941,19 @@ class MasterController extends Controller
             'total' => $data->total(),
             'per_page' => $data->perPage(),
             'current_page' => $data->currentPage(),
-            'total_pages' => $data->lastPage()
+            'total_pages' => $data->lastPage(),
         ];
 
         $data = [
             'data' => $data->items(),
-            'meta' => $paginationMeta
+            'meta' => $paginationMeta,
         ];
 
         if (empty($data['data'])) {
             return response()->json([
                 'status_code' => 400,
                 'errors' => true,
-                'message' => 'Tidak ada data'
+                'message' => 'Tidak ada data',
             ], 400);
         }
 
@@ -982,7 +974,7 @@ class MasterController extends Controller
             'status_code' => 200,
             'errors' => false,
             'message' => 'Berhasil',
-            'pagination' => $data['meta']
+            'pagination' => $data['meta'],
         ], 200);
     }
 
@@ -997,11 +989,11 @@ class MasterController extends Controller
             $query->where('id', 4);
         }
 
-        if (!empty($request['search'])) {
+        if (! empty($request['search'])) {
             $searchTerm = trim(strtolower($request['search']));
 
             $query->where(function ($query) use ($searchTerm) {
-                $query->orWhereRaw("LOWER(name) LIKE ?", ["%$searchTerm%"]);
+                $query->orWhereRaw('LOWER(name) LIKE ?', ["%$searchTerm%"]);
             });
         }
 
@@ -1013,19 +1005,19 @@ class MasterController extends Controller
             'total' => $data->total(),
             'per_page' => $data->perPage(),
             'current_page' => $data->currentPage(),
-            'total_pages' => $data->lastPage()
+            'total_pages' => $data->lastPage(),
         ];
 
         $data = [
             'data' => $data->items(),
-            'meta' => $paginationMeta
+            'meta' => $paginationMeta,
         ];
 
         if (empty($data['data'])) {
             return response()->json([
                 'status_code' => 400,
                 'errors' => true,
-                'message' => 'Tidak ada data'
+                'message' => 'Tidak ada data',
             ], 400);
         }
 
@@ -1041,7 +1033,7 @@ class MasterController extends Controller
             'status_code' => 200,
             'errors' => false,
             'message' => 'Berhasil',
-            'pagination' => $data['meta']
+            'pagination' => $data['meta'],
         ], 200);
     }
 
@@ -1052,11 +1044,11 @@ class MasterController extends Controller
 
         $query = JenisBarang::query();
 
-        if (!empty($request['search'])) {
+        if (! empty($request['search'])) {
             $searchTerm = trim(strtolower($request['search']));
 
             $query->where(function ($query) use ($searchTerm) {
-                $query->orWhereRaw("LOWER(nama_jenis_barang) LIKE ?", ["%$searchTerm%"]);
+                $query->orWhereRaw('LOWER(nama_jenis_barang) LIKE ?', ["%$searchTerm%"]);
             });
         }
 
@@ -1068,19 +1060,19 @@ class MasterController extends Controller
             'total' => $data->total(),
             'per_page' => $data->perPage(),
             'current_page' => $data->currentPage(),
-            'total_pages' => $data->lastPage()
+            'total_pages' => $data->lastPage(),
         ];
 
         $data = [
             'data' => $data->items(),
-            'meta' => $paginationMeta
+            'meta' => $paginationMeta,
         ];
 
         if (empty($data['data'])) {
             return response()->json([
                 'status_code' => 400,
                 'errors' => true,
-                'message' => 'Tidak ada data'
+                'message' => 'Tidak ada data',
             ], 400);
         }
 
@@ -1096,7 +1088,7 @@ class MasterController extends Controller
             'status_code' => 200,
             'errors' => false,
             'message' => 'Berhasil',
-            'pagination' => $data['meta']
+            'pagination' => $data['meta'],
         ], 200);
     }
 
@@ -1107,11 +1099,11 @@ class MasterController extends Controller
 
         $query = Brand::query();
 
-        if (!empty($request['search'])) {
+        if (! empty($request['search'])) {
             $searchTerm = trim(strtolower($request['search']));
 
             $query->where(function ($query) use ($searchTerm) {
-                $query->orWhereRaw("LOWER(nama_brand) LIKE ?", ["%$searchTerm%"]);
+                $query->orWhereRaw('LOWER(nama_brand) LIKE ?', ["%$searchTerm%"]);
             });
         }
 
@@ -1123,19 +1115,19 @@ class MasterController extends Controller
             'total' => $data->total(),
             'per_page' => $data->perPage(),
             'current_page' => $data->currentPage(),
-            'total_pages' => $data->lastPage()
+            'total_pages' => $data->lastPage(),
         ];
 
         $data = [
             'data' => $data->items(),
-            'meta' => $paginationMeta
+            'meta' => $paginationMeta,
         ];
 
         if (empty($data['data'])) {
             return response()->json([
                 'status_code' => 400,
                 'errors' => true,
-                'message' => 'Tidak ada data'
+                'message' => 'Tidak ada data',
             ], 400);
         }
 
@@ -1151,7 +1143,7 @@ class MasterController extends Controller
             'status_code' => 200,
             'errors' => false,
             'message' => 'Berhasil',
-            'pagination' => $data['meta']
+            'pagination' => $data['meta'],
         ], 200);
     }
 }

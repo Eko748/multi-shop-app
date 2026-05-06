@@ -345,7 +345,7 @@
 
                 rows.each(function() {
                     const row = $(this);
-                    const supplier_id = row.data('supplier');
+                    const supplier_id = data.supplier_id;
                     const id = parseInt(row.data('id'));
                     const barang_id = row.data('barang');
                     const hpp = parseFloat(row.data('hpp')) || 0;
@@ -375,6 +375,7 @@
                     groupedData[supplier_id].push({
                         id,
                         barang_id,
+                        supplier_id,
                         kompensasi,
                         qty_refund,
                         qty_barang,
@@ -385,13 +386,13 @@
                         hpp,
                         harga_jual,
                         retur_id: data.id,
-                        updated_by: '{{ auth()->user()->id }}'
+                        updated_by: {{ auth()->user()->id }}
                     });
                 });
 
                 const retur = Object.keys(groupedData).map(supplier_id => ({
                     supplier_id,
-                    detail: groupedData[supplier_id]
+                    detail: groupedData[supplier_id],
                 }));
 
                 formData = {
@@ -512,7 +513,8 @@
                 'PUT',
                 `{{ route('retur.supplier.verify') }}`, {
                     id: data.id,
-                    updated_by: '{{ auth()->user()->id }}'
+                    updated_by: {{ auth()->user()->id }},
+                    toko_id: {{ auth()->user()->toko_id }},
                 }
             ).then(res => res).catch(err => err.response);
 
@@ -681,7 +683,7 @@
             const supplierRow = `
             <tr class="supplier-row table-active font-weight-bold" data-supplier="${data.supplier_id}">
                 <td colspan="9">
-                    <i class="fa fa-truck mr-1"></i> Supplier: ${data.nama_supplier}
+                    <i class="fa fa-truck mr-1"></i> Supplier: ${data.supplier.nama}
                 </td>
             </tr>`;
 
@@ -693,7 +695,7 @@
                 itemRows += `
                 <tr class="item-row"
                     data-id="${d.id}"
-                    data-supplier="${supplier.id}"
+                    data-supplier="${d.supplier_id}"
                     data-barang="${d.barang_id}"
                     data-hpp="${d.hpp}"
                     data-harga_jual="${d.harga_jual}">

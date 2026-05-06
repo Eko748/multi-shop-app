@@ -108,6 +108,7 @@ class ReturSupplierService
                 'id' => $item->id,
                 'no_retur' => "R-{$item->id}",
                 'supplier' => $item->supplier->nama ?? '-',
+                'supplier_id' => $item->supplier_id ?? '-',
                 'tipe_retur' => $item->tipe_retur === 'member' ? 'Retur Member' : 'Pembelian Barang',
                 'tanggal' => $item->tanggal,
                 'qty' => $item->qty,

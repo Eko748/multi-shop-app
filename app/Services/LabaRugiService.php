@@ -318,7 +318,7 @@ class LabaRugiService
                 'II. HPP',
                 [
                     ['2.1 HPP Pendapatan Umum', RupiahGenerate::build($hppPenjualan)],
-                    ['2.1 HPP Pendapatan Retur', RupiahGenerate::build($hppReturSuplier)],
+                    ['2.2 HPP Pendapatan Retur', RupiahGenerate::build($hppReturSuplier)],
                     ['Total HPP', RupiahGenerate::build($total_hpp)],
                 ],
             ],

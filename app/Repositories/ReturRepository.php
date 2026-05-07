@@ -7,10 +7,13 @@ use App\Models\ReturSupplier;
 
 class ReturRepository
 {
-    public function getReturData(int $month, int $year): array
+    public function getReturData(int $month, int $year, int $tokoId): array
     {
         $returMemberQuery = ReturMemberDetail::whereYear('created_at', $year)
-            ->whereMonth('created_at', '<=', $month);
+            ->whereMonth('created_at', '<=', $month)
+            ->whereHas('retur', function ($q) use ($tokoId) {
+                $q->where('toko_id', $tokoId);
+            });
 
         $returMember = $returMemberQuery
             ->selectRaw('
@@ -20,9 +23,9 @@ class ReturRepository
             ->first();
 
         $returSupplierQuery = ReturSupplier::where('status', 'proses')
-            ->where('tipe_retur', 'pembelian')
             ->whereYear('tanggal', $year)
-            ->whereMonth('tanggal', '<=', $month);
+            ->whereMonth('tanggal', '<=', $month)
+            ->where('toko_id', $tokoId);
 
         $returSupplier = $returSupplierQuery
             ->selectRaw('
@@ -31,19 +34,20 @@ class ReturRepository
             ')
             ->first();
 
-        $totalReturMember   = (float) ($returMember->total_hpp ?? 0);
+        $totalReturMember = (float) ($returMember->total_hpp ?? 0);
         $totalReturSupplier = (float) ($returSupplier->total_hpp ?? 0);
-        $stockReturMember   = (float) ($returMember->total_qty ?? 0);
+        $stockReturMember = (float) ($returMember->total_qty ?? 0);
         $stockReturSupplier = (float) ($returSupplier->total_qty ?? 0);
 
         $penjualanRetur = $totalReturMember + $totalReturSupplier;
-        $stockRetur     = $stockReturMember + $stockReturSupplier;
+        $stockRetur = $stockReturMember + $stockReturSupplier;
 
         return [
-            'total_retur'    => $penjualanRetur,
-            'stock_retur'    => $stockRetur,
-            'retur_member'   => $totalReturMember,
-            'retur_supplier' => $totalReturSupplier,
+            'total_retur' => $penjualanRetur,
+            'stock_retur_member' => $stockReturMember,
+            'stock_retur_suplier' => $stockReturSupplier,
+            'retur_member' => $totalReturMember,
+            'retur_suplier' => $totalReturSupplier,
         ];
     }
 }

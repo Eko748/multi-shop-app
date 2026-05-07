@@ -72,17 +72,18 @@
     }
 
     async function handleData(data) {
-        const edit_button = `
-            <button onClick="openEditModal('${encodeURIComponent(JSON.stringify(data))}')"
-                class="action_button btn btn-outline-secondary btn-md"
-                title="Edit retur ${data.no_retur}"
-                data-id="${data?.id}" data-container="body" data-toggle="tooltip" data-placement="top">
-                <span class="text-dark">Edit</span>
-                <div class="icon text-warning">
-                    <i class="mb-1 fa fa-edit"></i>
-                </div>
-            </button>
-        `;
+        const edit_button = data.status == 'proses' ?
+            `
+                <button onClick="openEditModal('${encodeURIComponent(JSON.stringify(data))}')"
+                    class="action_button btn btn-outline-secondary btn-md"
+                    title="Edit retur ${data.no_retur}"
+                    data-id="${data?.id}" data-container="body" data-toggle="tooltip" data-placement="top">
+                    <span class="text-dark">Edit</span>
+                    <div class="icon text-warning">
+                        <i class="mb-1 fa fa-edit"></i>
+                    </div>
+                </button>
+            ` : '';
 
         const detail_button = `
             <button onClick="openDetailModal('${encodeURIComponent(JSON.stringify(data))}')"

@@ -3,20 +3,18 @@
 namespace App\Services;
 
 use App\Helpers\RupiahGenerate;
-use App\Repositories\Distribusi\PengirimanBarangRepo;
 use App\Models\JenisBarang;
 use App\Models\Kas;
 use App\Models\KasSaldoHistory;
-use App\Repositories\{
-    HutangRepository,
-    PiutangRepository,
-    PengeluaranRepository,
-    PemasukanRepository,
-    ReturRepository,
-    StokRepository,
-    NeracaPenyesuaianRepository,
-    StockProblemRepository
-};
+use App\Repositories\Distribusi\PengirimanBarangRepo;
+use App\Repositories\HutangRepository;
+use App\Repositories\NeracaPenyesuaianRepository;
+use App\Repositories\PemasukanRepository;
+use App\Repositories\PengeluaranRepository;
+use App\Repositories\PiutangRepository;
+use App\Repositories\ReturRepository;
+use App\Repositories\StockProblemRepository;
+use App\Repositories\StokRepository;
 use Carbon\Carbon;
 
 class NeracaKeuanganService
@@ -43,7 +41,7 @@ class NeracaKeuanganService
 
         $hutangItems = $this->hutangRepo->getActiveHutang($month, $year, $tokoId);
         $ekuitasItems = $this->generateEkuitas($month, $year, $tokoId);
-        $returData = $this->returRepo->getReturData($month, $year);
+        $returData = $this->returRepo->getReturData($month, $year, $tokoId);
         $piutangData = $this->piutangRepo->getActivePiutang($month, $year, $tokoId);
         $penyesuaianNeraca = $this->neracaRepo->getTotalPenyesuaian();
         $stokProblem = $this->stokProblemRepo->getStockProblem($tokoId);
@@ -82,10 +80,10 @@ class NeracaKeuanganService
         $modal = (int) $this->pemasukanRepo->getModal($month, $year, $tokoId);
 
         $items[] = [
-            "kode"   => "IV.1",
-            "nama"   => "Modal",
-            "nilai"  => $modal,
-            "format" => RupiahGenerate::build($modal),
+            'kode' => 'IV.1',
+            'nama' => 'Modal',
+            'nilai' => $modal,
+            'format' => RupiahGenerate::build($modal),
         ];
 
         // ==========================
@@ -95,10 +93,10 @@ class NeracaKeuanganService
             $this->labaRugiService->hitungLabaRugiTahunSebelumnya($year, $tokoId);
 
         $items[] = [
-            "kode"   => "IV.2",
-            "nama"   => "Laba (Rugi) Tahun Sebelumnya",
-            "nilai"  => $labaTahunSebelumnya,
-            "format" => RupiahGenerate::build($labaTahunSebelumnya),
+            'kode' => 'IV.2',
+            'nama' => 'Laba (Rugi) Tahun Sebelumnya',
+            'nilai' => $labaTahunSebelumnya,
+            'format' => RupiahGenerate::build($labaTahunSebelumnya),
         ];
 
         // ==========================
@@ -116,12 +114,12 @@ class NeracaKeuanganService
             $nilai = (int) ($labaRugiPerBulan[$i] ?? 0);
 
             $items[] = [
-                "kode"   => "IV.$counter",
-                "nama"   => $i == $month
+                'kode' => "IV.$counter",
+                'nama' => $i == $month
                     ? "Laba (Rugi) Berjalan Periode $namaPeriode"
                     : "Laba (Rugi) Ditahan Periode $namaPeriode",
-                "nilai"  => $nilai,
-                "format" => RupiahGenerate::build($nilai),
+                'nilai' => $nilai,
+                'format' => RupiahGenerate::build($nilai),
             ];
 
             $counter++;
@@ -135,14 +133,14 @@ class NeracaKeuanganService
         $kasList = Kas::query()
             ->when(
                 $tokoId !== null && $tokoId !== 'all',
-                fn($q) => $q->where('toko_id', $tokoId)
+                fn ($q) => $q->where('toko_id', $tokoId)
             )
             ->orderBy('jenis_barang_id')
             ->get();
 
         $jenisBarangMap = JenisBarang::pluck('nama_jenis_barang', 'id')->toArray();
 
-        $jenisBarangMap[0] = "Dompet Digital";
+        $jenisBarangMap[0] = 'Dompet Digital';
 
         $allJenisBarangIds = array_keys($jenisBarangMap);
 
@@ -167,11 +165,11 @@ class NeracaKeuanganService
             }
 
             $kasBesarItems[] = [
-                'kode'   => 'I.1.' . $counter,
-                'nama'   => 'Kas Besar - ' . $jenisNama,
-                'nilai'  => (int) $saldoBesar,
+                'kode' => 'I.1.'.$counter,
+                'nama' => 'Kas Besar - '.$jenisNama,
+                'nilai' => (int) $saldoBesar,
                 'format' => RupiahGenerate::build($saldoBesar),
-                'sub'    => 'I.1',
+                'sub' => 'I.1',
             ];
             $totalKasBesar += $saldoBesar;
 
@@ -183,11 +181,11 @@ class NeracaKeuanganService
             }
 
             $kasKecilItems[] = [
-                'kode'   => 'I.2.' . $counter,
-                'nama'   => 'Kas Kecil - ' . $jenisNama,
-                'nilai'  => (int) $saldoKecil,
+                'kode' => 'I.2.'.$counter,
+                'nama' => 'Kas Kecil - '.$jenisNama,
+                'nilai' => (int) $saldoKecil,
                 'format' => RupiahGenerate::build($saldoKecil),
-                'sub'    => 'I.2',
+                'sub' => 'I.2',
             ];
             $totalKasKecil += $saldoKecil;
 
@@ -197,18 +195,18 @@ class NeracaKeuanganService
         return [
             'kasBesar' => [
                 'parent' => [
-                    'kode'   => 'I.1',
-                    'nama'   => 'Kas Besar',
-                    'nilai'  => (int) $totalKasBesar,
+                    'kode' => 'I.1',
+                    'nama' => 'Kas Besar',
+                    'nilai' => (int) $totalKasBesar,
                     'format' => RupiahGenerate::build($totalKasBesar),
                 ],
                 'items' => $kasBesarItems,
             ],
             'kasKecil' => [
                 'parent' => [
-                    'kode'   => 'I.2',
-                    'nama'   => 'Kas Kecil',
-                    'nilai'  => (int) $totalKasKecil,
+                    'kode' => 'I.2',
+                    'nama' => 'Kas Kecil',
+                    'nilai' => (int) $totalKasKecil,
                     'format' => RupiahGenerate::build($totalKasKecil),
                 ],
                 'items' => $kasKecilItems,
@@ -231,7 +229,7 @@ class NeracaKeuanganService
 
         // hitung bulan sebelumnya
         $prevMonth = $month - 1;
-        $prevYear  = $year;
+        $prevYear = $year;
 
         if ($prevMonth === 0) {
             $prevMonth = 12;
@@ -265,46 +263,46 @@ class NeracaKeuanganService
      * DATA DASAR
      * =============================== */
         $asetPeralatanBesar = [
-            "kode"   => "II.1",
-            "nama"   => "Peralatan Besar",
-            "nilai"  => $pengeluaranAset['besar'],
-            "format" => RupiahGenerate::build($pengeluaranAset['besar']),
+            'kode' => 'II.1',
+            'nama' => 'Peralatan Besar',
+            'nilai' => $pengeluaranAset['besar'],
+            'format' => RupiahGenerate::build($pengeluaranAset['besar']),
         ];
 
         $asetPeralatanKecil = [
-            "kode"   => "II.2",
-            "nama"   => "Peralatan Kecil",
-            "nilai"  => $pengeluaranAset['kecil'],
-            "format" => RupiahGenerate::build($pengeluaranAset['kecil']),
+            'kode' => 'II.2',
+            'nama' => 'Peralatan Kecil',
+            'nilai' => $pengeluaranAset['kecil'],
+            'format' => RupiahGenerate::build($pengeluaranAset['kecil']),
         ];
 
         $stokPerJenisItems = [];
         $totalStokJenis = 0;
-        $totalQtyJenis  = 0;
+        $totalQtyJenis = 0;
 
         $stokPerJenis = $this->stokRepo->getStokPerJenis($tokoId, $month, $year);
 
         foreach ($stokPerJenis as $index => $item) {
-            $qty   = (int) $item['total_qty'];
+            $qty = (int) $item['total_qty'];
             $nilai = (int) $item['total_harga'];
 
             $stokPerJenisItems[] = [
-                "kode"   => "I.4." . ($index + 1),
-                "nama"   => $item['nama_jenis_barang'] . " (" . number_format($qty, 0, ',', '.') . ")",
-                "nilai"  => $nilai,
-                "format" => RupiahGenerate::build($nilai),
-                "sub"    => "I.4",
+                'kode' => 'I.4.'.($index + 1),
+                'nama' => $item['nama_jenis_barang'].' ('.number_format($qty, 0, ',', '.').')',
+                'nilai' => $nilai,
+                'format' => RupiahGenerate::build($nilai),
+                'sub' => 'I.4',
             ];
 
-            $totalQtyJenis  += $qty;
+            $totalQtyJenis += $qty;
             $totalStokJenis += $nilai;
         }
 
         $stokBarangParent = [
-            "kode"   => "I.4",
-            "nama"   => "Stok Barang Jualan (" . number_format($totalQtyJenis, 0, ',', '.') . ")",
-            "nilai"  => $totalStokJenis,
-            "format" => RupiahGenerate::build($totalStokJenis)
+            'kode' => 'I.4',
+            'nama' => 'Stok Barang Jualan ('.number_format($totalQtyJenis, 0, ',', '.').')',
+            'nilai' => $totalStokJenis,
+            'format' => RupiahGenerate::build($totalStokJenis),
         ];
 
         $piutangKasbon = 0;
@@ -316,18 +314,18 @@ class NeracaKeuanganService
             (int) $piutangJangkaTotal;
 
         $piutangParent = [
-            "kode"   => "I.3",
-            "nama"   => "Piutang",
-            "nilai"  => $piutangTotal,
-            "format" => RupiahGenerate::build($piutangTotal),
+            'kode' => 'I.3',
+            'nama' => 'Piutang',
+            'nilai' => $piutangTotal,
+            'format' => RupiahGenerate::build($piutangTotal),
         ];
 
         $piutangKasbonItem = [
-            "kode"   => "I.3.3",
-            "nama"   => "Kasbon Member",
-            "nilai"  => $piutangKasbon,
-            "format" => RupiahGenerate::build($piutangKasbon),
-            "sub"    => "I.3",
+            'kode' => 'I.3.3',
+            'nama' => 'Kasbon Member',
+            'nilai' => $piutangKasbon,
+            'format' => RupiahGenerate::build($piutangKasbon),
+            'sub' => 'I.3',
         ];
 
         $piutangItems = [];
@@ -335,21 +333,22 @@ class NeracaKeuanganService
 
         foreach ($piutangData as $item) {
             $piutangItems[] = [
-                "kode"   => "I.3." . $idx++,
-                "nama"   => $item['nama'],
-                "nilai"  => $item['nilai'],
-                "format" => $item['format'],
-                "sub"    => "I.3",
+                'kode' => 'I.3.'.$idx++,
+                'nama' => $item['nama'],
+                'nilai' => $item['nilai'],
+                'format' => $item['format'],
+                'sub' => 'I.3',
             ];
         }
 
-        $piutangKasbonItem['kode'] = "I.3." . $idx++;
+        $piutangKasbonItem['kode'] = 'I.3.'.$idx++;
         $piutangItems[] = $piutangKasbonItem;
 
         $sisaDompetSaldo = $this->dompetSaldoService->sumSisaSaldo($month, $year, $tokoId);
         $hppDompetSaldoNilai = (int) ($sisaDompetSaldo['saldo'] ?? 0);
 
-        $returTotal = (int) ($returData['total_retur'] ?? 0);
+        $returMemberTotal = (int) ($returData['retur_member'] ?? 0);
+        $returSuplierTotal = (int) ($returData['retur_suplier'] ?? 0);
         $pengirimanTotal = (int) ($pengirimanData['total_harga'] ?? 0);
         $penyesuaian = (int) $penyesuaianNeraca;
 
@@ -362,16 +361,17 @@ class NeracaKeuanganService
             $piutangTotal +
             $totalStokJenis +
             $hppDompetSaldoNilai +
-            $returTotal +
+            $returMemberTotal +
+            $returSuplierTotal +
             $pengirimanTotal +
             $penyesuaian;
 
         $asetTetapTotal = (int) $asetPeralatanBesar['nilai'] + (int) $asetPeralatanKecil['nilai'];
         $totalAktiva = $asetLancarTotal + $asetTetapTotal;
 
-        $totalHutang  = array_sum(array_column($hutangItems, 'nilai'));
+        $totalHutang = array_sum(array_column($hutangItems, 'nilai'));
         $totalEkuitas = array_sum(array_column($ekuitasItems, 'nilai'));
-        $totalPasiva  = $totalHutang + $totalEkuitas;
+        $totalPasiva = $totalHutang + $totalEkuitas;
 
         $asetLancarItems = array_merge(
             [$kasData['kasBesar']['parent']],
@@ -384,28 +384,34 @@ class NeracaKeuanganService
                 $stokBarangParent,
                 ...$stokPerJenisItems,
                 [
-                    "kode"   => "I.5",
-                    "nama"   => "Stok Dompet Digital",
-                    "nilai"  => $sisaDompetSaldo,
-                    "format" => $sisaDompetSaldo['format'],
+                    'kode' => 'I.5',
+                    'nama' => 'Stok Dompet Digital',
+                    'nilai' => $sisaDompetSaldo,
+                    'format' => $sisaDompetSaldo['format'],
                 ],
                 [
-                    "kode"   => "I.6",
-                    "nama"   => "Stok Barang Retur ({$returData['stock_retur']})",
-                    "nilai"  => $returTotal,
-                    "format" => RupiahGenerate::build($returTotal),
+                    'kode' => 'I.6',
+                    'nama' => "Stok Barang Retur ({$returData['stock_retur_member']})",
+                    'nilai' => $returMemberTotal,
+                    'format' => RupiahGenerate::build($returMemberTotal),
                 ],
                 [
-                    "kode"   => "I.7",
-                    "nama"   => "Stok Pengiriman Barang ({$pengirimanData['total_qty']})",
-                    "nilai"  => $pengirimanTotal,
-                    "format" => RupiahGenerate::build($pengirimanTotal)
+                    'kode' => 'I.7',
+                    'nama' => "Stok Pengiriman Barang Retur ({$returData['stock_retur_suplier']})",
+                    'nilai' => $returSuplierTotal,
+                    'format' => RupiahGenerate::build($returSuplierTotal),
                 ],
                 [
-                    "kode"   => "I.8",
-                    "nama"   => "Penyesuaian",
-                    "nilai"  => $penyesuaian,
-                    "format" => RupiahGenerate::build($penyesuaian)
+                    'kode' => 'I.8',
+                    'nama' => "Stok Pengiriman Barang ({$pengirimanData['total_qty']})",
+                    'nilai' => $pengirimanTotal,
+                    'format' => RupiahGenerate::build($pengirimanTotal),
+                ],
+                [
+                    'kode' => 'I.8',
+                    'nama' => 'Penyesuaian',
+                    'nilai' => $penyesuaian,
+                    'format' => RupiahGenerate::build($penyesuaian),
                 ],
             ]
         );
@@ -415,39 +421,39 @@ class NeracaKeuanganService
         return [
             [
                 'kategori' => 'AKTIVA',
-                'total'    => $totalAktiva,
-                'format'   => RupiahGenerate::build($totalAktiva),
+                'total' => $totalAktiva,
+                'format' => RupiahGenerate::build($totalAktiva),
                 'subkategori' => [
                     [
-                        'judul'  => 'I. ASET LANCAR',
-                        'total'  => $asetLancarTotal,
-                        'item'   => $asetLancarItems,
+                        'judul' => 'I. ASET LANCAR',
+                        'total' => $asetLancarTotal,
+                        'item' => $asetLancarItems,
                         'format' => RupiahGenerate::build($asetLancarTotal),
                     ],
                     [
-                        'judul'  => 'II. ASET TETAP',
-                        'total'  => $asetTetapTotal,
-                        'item'   => $asetTetapItems,
+                        'judul' => 'II. ASET TETAP',
+                        'total' => $asetTetapTotal,
+                        'item' => $asetTetapItems,
                         'format' => RupiahGenerate::build($asetTetapTotal),
                     ],
                 ],
             ],
             [
                 'kategori' => 'PASIVA',
-                'total'    => $totalPasiva,
-                'format'   => RupiahGenerate::build($totalPasiva),
+                'total' => $totalPasiva,
+                'format' => RupiahGenerate::build($totalPasiva),
                 'subkategori' => [
                     [
-                        'judul'  => 'III. HUTANG',
-                        'total'  => $totalHutang,
-                        'item'   => $hutangItems,
-                        'format' => RupiahGenerate::build($totalHutang)
+                        'judul' => 'III. HUTANG',
+                        'total' => $totalHutang,
+                        'item' => $hutangItems,
+                        'format' => RupiahGenerate::build($totalHutang),
                     ],
                     [
-                        'judul'  => 'IV. EKUITAS',
-                        'total'  => $totalEkuitas,
-                        'item'   => $ekuitasItems,
-                        'format' => RupiahGenerate::build($totalEkuitas)
+                        'judul' => 'IV. EKUITAS',
+                        'total' => $totalEkuitas,
+                        'item' => $ekuitasItems,
+                        'format' => RupiahGenerate::build($totalEkuitas),
                     ],
                 ],
             ],

@@ -8,15 +8,14 @@ use App\Helpers\RupiahGenerate;
 use App\Helpers\TextGenerate;
 use App\Models\Hutang;
 use App\Models\Kas;
-use App\Models\KasTransaksi;
 use App\Models\KasSaldoHistory;
+use App\Models\KasTransaksi;
 use App\Models\LabaRugi;
 use App\Models\LabaRugiTahunan;
 use App\Models\PembelianBarang;
 use App\Models\Piutang;
-use App\Models\TransaksiKasirHarian;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class KasService
 {
@@ -51,8 +50,8 @@ class KasService
         $saldo,
         $hargaBeli,
         $item,
-        $kategori = 'Saldo Digital',
-        $keterangan = 'Top-up Saldo',
+        $kategori,
+        $keterangan,
         $sumber,
         $tanggal = null
     ) {
@@ -63,7 +62,6 @@ class KasService
 
         return self::coreTopupKas($kas, $saldo, $hargaBeli, $item, $kategori, $keterangan, $sumber, $tanggal);
     }
-
 
     /*===============================
     * FITUR MUTASI KAS (TRANSFER)
@@ -194,12 +192,12 @@ class KasService
             $labaRugi = LabaRugi::firstOrCreate(
                 [
                     'toko_id' => $tokoId,
-                    'tahun'   => $tahunNow,
-                    'bulan'   => $bulanNow,
+                    'tahun' => $tahunNow,
+                    'bulan' => $bulanNow,
                 ],
                 [
-                    'pendapatan'  => 0,
-                    'beban'       => 0,
+                    'pendapatan' => 0,
+                    'beban' => 0,
                     'laba_bersih' => 0,
                 ]
             );
@@ -221,11 +219,11 @@ class KasService
             $labaRugiTahunan = LabaRugiTahunan::firstOrCreate(
                 [
                     'toko_id' => $tokoId,
-                    'tahun'   => $tahunNow,
+                    'tahun' => $tahunNow,
                 ],
                 [
-                    'pendapatan'  => 0,
-                    'beban'       => 0,
+                    'pendapatan' => 0,
+                    'beban' => 0,
                     'laba_bersih' => 0,
                 ]
             );
@@ -248,7 +246,7 @@ class KasService
         return KasTransaksi::create([
             'kas_id' => $kas->id,
             'tipe' => $tipe[1] ?? $tipe[0],
-            'kode_transaksi' => 'KS-' . time() . rand(100, 999),
+            'kode_transaksi' => 'KS-'.time().rand(100, 999),
             'total_nominal' => $total_nominal,
             'kategori' => $kategori,
             'keterangan' => $keterangan,
@@ -306,7 +304,7 @@ class KasService
         $transaksiKas[] = KasTransaksi::create([
             'kas_id' => $kas->id,
             'tipe' => 'out',
-            'kode_transaksi' => 'KS-' . time() . rand(100, 999),
+            'kode_transaksi' => 'KS-'.time().rand(100, 999),
             'total_nominal' => $nominalUtama,
             'kategori' => $kategori,
             'keterangan' => $keterangan,
@@ -361,7 +359,7 @@ class KasService
                 $transaksiKas[] = KasTransaksi::create([
                     'kas_id' => $kas->id,
                     'tipe' => $tipeSelisih,
-                    'kode_transaksi' => 'KS-' . time() . rand(100, 999),
+                    'kode_transaksi' => 'KS-'.time().rand(100, 999),
                     'total_nominal' => $labaNominal,
                     'kategori' => $kategori,
                     'keterangan' => 'Selisih Top-up',
@@ -373,7 +371,6 @@ class KasService
             }
         }
 
-
         // 4️⃣ update history saldo akhir
         KasSaldoHistory::where('kas_id', $kas->id)
             ->where('tahun', $tahunNow)
@@ -383,13 +380,153 @@ class KasService
         return $transaksiKas;
     }
 
+    public static function returSupplier(
+        Kas $kas,
+        float $refundNominal,
+        float $hppNominal,
+        $item,
+        $kategori,
+        $keterangan,
+        $sumber,
+        $tanggal
+    ) {
+        $fTanggal = Carbon::parse($tanggal ?? now());
+
+        $tahunNow = $fTanggal->year;
+        $bulanNow = $fTanggal->month;
+
+        /*------------------------------------------
+        | 1. CEK BULAN TERAKHIR UNTUK CLOSING
+        -------------------------------------------*/
+        $lastHistory = KasSaldoHistory::where('kas_id', $kas->id)
+            ->orderBy('tahun', 'desc')
+            ->orderBy('bulan', 'desc')
+            ->first();
+
+        if ($lastHistory && (
+            $lastHistory->bulan != $bulanNow ||
+            $lastHistory->tahun != $tahunNow
+        )) {
+
+            // Tutup bulan sebelumnya
+            $lastHistory->update([
+                'saldo_akhir' => $kas->saldo,
+            ]);
+
+            // Saldo awal bulan baru
+            $kas->saldo_awal = $kas->saldo;
+            $kas->save();
+        }
+
+        /*------------------------------------------
+        | 2. HISTORY BULAN BERJALAN
+        -------------------------------------------*/
+        KasSaldoHistory::firstOrCreate(
+            [
+                'kas_id' => $kas->id,
+                'tahun' => $tahunNow,
+                'bulan' => $bulanNow,
+            ],
+            [
+                'saldo_awal' => $kas->saldo_awal,
+                'saldo_akhir' => $kas->saldo,
+            ]
+        );
+
+        /*------------------------------------------
+        | 3. UPDATE SALDO KAS
+        | Kas selalu bertambah sesuai refund diterima
+        -------------------------------------------*/
+        $kas->saldo += $refundNominal;
+        $kas->save();
+
+        /*------------------------------------------
+        | 4. UPDATE HISTORY SALDO AKHIR
+        -------------------------------------------*/
+        KasSaldoHistory::where('kas_id', $kas->id)
+            ->where('tahun', $tahunNow)
+            ->where('bulan', $bulanNow)
+            ->update([
+                'saldo_akhir' => $kas->saldo,
+            ]);
+
+        /*------------------------------------------
+        | 5. LABA RUGI BULANAN
+        |
+        | Pendapatan = uang refund diterima
+        | Beban      = HPP barang
+        -------------------------------------------*/
+        $labaRugi = LabaRugi::firstOrCreate(
+            [
+                'toko_id' => $kas->toko_id,
+                'tahun' => $tahunNow,
+                'bulan' => $bulanNow,
+            ],
+            [
+                'pendapatan' => 0,
+                'beban' => 0,
+                'laba_bersih' => 0,
+            ]
+        );
+
+        $labaRugi->pendapatan += $refundNominal;
+        $labaRugi->beban += $hppNominal;
+
+        $labaRugi->laba_bersih =
+            $labaRugi->pendapatan - $labaRugi->beban;
+
+        $labaRugi->save();
+
+        /*------------------------------------------
+        | 6. LABA RUGI TAHUNAN
+        -------------------------------------------*/
+        $labaRugiTahunan = LabaRugiTahunan::firstOrCreate(
+            [
+                'toko_id' => $kas->toko_id,
+                'tahun' => $tahunNow,
+            ],
+            [
+                'pendapatan' => 0,
+                'beban' => 0,
+                'laba_bersih' => 0,
+            ]
+        );
+
+        $labaRugiTahunan->pendapatan += $refundNominal;
+        $labaRugiTahunan->beban += $hppNominal;
+
+        $labaRugiTahunan->laba_bersih =
+            $labaRugiTahunan->pendapatan -
+            $labaRugiTahunan->beban;
+
+        $labaRugiTahunan->save();
+
+        /*------------------------------------------
+        | 7. TRANSAKSI KAS
+        -------------------------------------------*/
+        return KasTransaksi::create([
+            'kas_id' => $kas->id,
+            'tipe' => 'in',
+            'kode_transaksi' => 'KS-'.time().rand(100, 999),
+            'total_nominal' => $refundNominal,
+            'kategori' => $kategori,
+            'keterangan' => $keterangan,
+            'item' => $item,
+            'sumber_type' => $sumber ? get_class($sumber) : null,
+            'sumber_id' => $sumber?->id,
+            'tanggal' => $tanggal ?? now(),
+        ]);
+    }
+
     public static function updatePembelianBarang(
         PembelianBarang $pembelian,
         float $deltaNominal,
         int $userId,
         $edit = true
     ) {
-        if ($deltaNominal == 0) return;
+        if ($deltaNominal == 0) {
+            return;
+        }
 
         DB::transaction(function () use ($pembelian, $deltaNominal, $userId, $edit) {
 
@@ -428,14 +565,14 @@ class KasService
 
                 if ($kas->saldo < $deltaNominal) {
                     throw new \Exception(
-                        "Saldo kas tidak mencukupi. Saldo tersedia: " .
+                        'Saldo kas tidak mencukupi. Saldo tersedia: '.
                             RupiahGenerate::build($kas->saldo)
                     );
                 }
 
                 if ($history && $history->saldo_akhir < $deltaNominal) {
                     throw new \Exception(
-                        "Saldo akhir kas bulan berjalan tidak mencukupi. Saldo akhir: " .
+                        'Saldo akhir kas bulan berjalan tidak mencukupi. Saldo akhir: '.
                             RupiahGenerate::build($history->saldo_akhir)
                     );
                 }
@@ -466,10 +603,10 @@ class KasService
             } else {
 
                 KasSaldoHistory::create([
-                    'kas_id'      => $kas->id,
-                    'tahun'       => $tahun,
-                    'bulan'       => $bulan,
-                    'saldo_awal'  => $kas->saldo_awal,
+                    'kas_id' => $kas->id,
+                    'tahun' => $tahun,
+                    'bulan' => $bulan,
+                    'saldo_awal' => $kas->saldo_awal,
                     'saldo_akhir' => $kas->saldo,
                 ]);
             }
@@ -497,24 +634,24 @@ class KasService
              * KETERANGAN LEBIH AKURAT
              */
             $keterangan = $isNaik
-                ? "Koreksi Kas OUT"
-                : "Koreksi Kas IN";
+                ? 'Koreksi Kas OUT'
+                : 'Koreksi Kas IN';
             /**
              * KODE TRANSAKSI UNIK
              */
-            $kode = 'KS-ADJ-' . now()->format('YmdHis') . '-' . $pembelian->id;
+            $kode = 'KS-ADJ-'.now()->format('YmdHis').'-'.$pembelian->id;
 
             KasTransaksi::create([
-                'kas_id'         => $kas->id,
-                'tipe'           => $tipe,
+                'kas_id' => $kas->id,
+                'tipe' => $tipe,
                 'kode_transaksi' => $kode,
-                'total_nominal'  => abs($deltaNominal),
-                'kategori'       => $kategori,
-                'keterangan'     => $keterangan,
-                'item'           => 'kecil',
-                'sumber_type'    => PembelianBarang::class,
-                'sumber_id'      => $pembelian->id,
-                'tanggal'        => now(),
+                'total_nominal' => abs($deltaNominal),
+                'kategori' => $kategori,
+                'keterangan' => $keterangan,
+                'item' => 'kecil',
+                'sumber_type' => PembelianBarang::class,
+                'sumber_id' => $pembelian->id,
+                'tanggal' => now(),
             ]);
 
             /**
@@ -574,7 +711,6 @@ class KasService
          * Jadi tidak memanggil handleKas()
          * =============================== */
 
-
             /* ===============================
          * 3. BUAT PIUTANG DI PUSAT
          * =============================== */
@@ -585,7 +721,7 @@ class KasService
                 'status' => 'belum bayar',
                 'sumber_type' => $sumber ? get_class($sumber) : null,
                 'sumber_id' => $sumber?->id,
-                'tanggal' => $tanggal
+                'tanggal' => $tanggal,
             ]);
 
             /* ===============================
@@ -598,7 +734,7 @@ class KasService
                 'status' => 'belum bayar',
                 'sumber_type' => $sumber ? get_class($sumber) : null,
                 'sumber_id' => $sumber?->id,
-                'tanggal' => $tanggal
+                'tanggal' => $tanggal,
             ]);
 
             return true;
@@ -616,12 +752,12 @@ class KasService
         $labaRugi = LabaRugi::firstOrCreate(
             [
                 'toko_id' => $tokoId,
-                'tahun'   => $tahun,
-                'bulan'   => $bulan,
+                'tahun' => $tahun,
+                'bulan' => $bulan,
             ],
             [
-                'pendapatan'  => 0,
-                'beban'       => 0,
+                'pendapatan' => 0,
+                'beban' => 0,
                 'laba_bersih' => 0,
             ]
         );
@@ -640,11 +776,11 @@ class KasService
         $labaRugiTahunan = LabaRugiTahunan::firstOrCreate(
             [
                 'toko_id' => $tokoId,
-                'tahun'   => $tahun,
+                'tahun' => $tahun,
             ],
             [
-                'pendapatan'  => 0,
-                'beban'       => 0,
+                'pendapatan' => 0,
+                'beban' => 0,
                 'laba_bersih' => 0,
             ]
         );
@@ -837,8 +973,8 @@ class KasService
                         ? Carbon::parse($tanggal)
                         : Carbon::parse($trx->tanggal);
 
-                    $year   = $tanggalRef->year;
-                    $month  = $tanggalRef->month;
+                    $year = $tanggalRef->year;
+                    $month = $tanggalRef->month;
                     $tokoId = $kas->toko_id;
 
                     if (str_contains($trx->tipe, 'in')) {
@@ -855,12 +991,12 @@ class KasService
                     $history = KasSaldoHistory::firstOrCreate(
                         [
                             'kas_id' => $kas->id,
-                            'tahun'  => $year,
-                            'bulan'  => $month
+                            'tahun' => $year,
+                            'bulan' => $month,
                         ],
                         [
-                            'saldo_awal'  => 0,
-                            'saldo_akhir' => 0
+                            'saldo_awal' => 0,
+                            'saldo_akhir' => 0,
                         ]
                     );
 
@@ -882,7 +1018,7 @@ class KasService
                         ->orderBy('bulan')
                         ->first()
                     ) {
-                        $next->saldo_awal  = $current->saldo_akhir;
+                        $next->saldo_awal = $current->saldo_akhir;
                         $next->saldo_akhir += $deltaKas;
                         $next->save();
 
@@ -893,7 +1029,7 @@ class KasService
                         ? Carbon::parse($tanggal)
                         : Carbon::parse($trx->tanggal);
 
-                    $year  = $tanggalRef->year;
+                    $year = $tanggalRef->year;
                     $month = $tanggalRef->month;
 
                     $kas = Kas::find($trx->kas_id);
@@ -908,13 +1044,13 @@ class KasService
                     $lr = LabaRugi::firstOrCreate(
                         [
                             'toko_id' => $tokoId,
-                            'tahun'   => $year,
-                            'bulan'   => $month
+                            'tahun' => $year,
+                            'bulan' => $month,
                         ],
                         [
                             'pendapatan' => 0,
-                            'beban'      => 0,
-                            'laba_bersih' => 0
+                            'beban' => 0,
+                            'laba_bersih' => 0,
                         ]
                     );
 
@@ -930,12 +1066,12 @@ class KasService
                     $lrt = LabaRugiTahunan::firstOrCreate(
                         [
                             'toko_id' => $tokoId,
-                            'tahun'   => $year
+                            'tahun' => $year,
                         ],
                         [
                             'pendapatan' => 0,
-                            'beban'      => 0,
-                            'laba_bersih' => 0
+                            'beban' => 0,
+                            'laba_bersih' => 0,
                         ]
                     );
 
@@ -1095,23 +1231,25 @@ class KasService
                 ? Carbon::parse($tanggal)
                 : Carbon::parse($trx->tanggal);
 
-            $year   = $tanggalRef->year;
-            $month  = $tanggalRef->month;
+            $year = $tanggalRef->year;
+            $month = $tanggalRef->month;
             $tokoId = $kas->toko_id;
 
             $old = (float) $trx->total_nominal;
             $new = (float) $totalNominal;
             $diff = $new - $old;
 
-            if ($diff == 0) return true;
+            if ($diff == 0) {
+                return true;
+            }
 
             if (str_contains($trx->tipe, 'in')) {
                 $deltaKas = -$diff;
-                $deltaIn  = -$diff;
+                $deltaIn = -$diff;
                 $deltaOut = 0;
             } else {
                 $deltaKas = +$diff;
-                $deltaIn  = 0;
+                $deltaIn = 0;
                 $deltaOut = -$diff;
             }
 
@@ -1141,7 +1279,7 @@ class KasService
             );
 
             $lr->pendapatan += $deltaIn;
-            $lr->beban      += abs($deltaOut);
+            $lr->beban += abs($deltaOut);
             $lr->laba_bersih = $lr->pendapatan - $lr->beban;
             $lr->save();
 
@@ -1154,7 +1292,7 @@ class KasService
             );
 
             $lrt->pendapatan += $deltaIn;
-            $lrt->beban      += abs($deltaOut);
+            $lrt->beban += abs($deltaOut);
             $lrt->laba_bersih = $lrt->pendapatan - $lrt->beban;
             $lrt->save();
 
@@ -1172,7 +1310,7 @@ class KasService
         return DB::transaction(function () use ($mutasi) {
 
             $tanggalRef = Carbon::parse($mutasi->tanggal);
-            $year  = (int) $tanggalRef->year;
+            $year = (int) $tanggalRef->year;
             $month = (int) $tanggalRef->month;
 
             $nominal = (float) $mutasi->nominal;
@@ -1204,7 +1342,6 @@ class KasService
             return true;
         });
     }
-
 
     private static function rollbackKas(int $kasId, int $year, int $month, float $delta): void
     {
@@ -1240,7 +1377,7 @@ class KasService
                 ->orderBy('bulan')
                 ->first();
 
-            if (!$next) {
+            if (! $next) {
                 break;
             }
 
@@ -1289,7 +1426,7 @@ class KasService
             $beban
         ) {
 
-            $today    = Carbon::today();
+            $today = Carbon::today();
             $tahunNow = $today->year;
             $bulanNow = $today->month;
 
@@ -1298,12 +1435,12 @@ class KasService
                 [
                     'toko_id' => $toko_id,
                     'jenis_barang_id' => $jenis_barang_id,
-                    'tipe_kas' => $tipe_kas
+                    'tipe_kas' => $tipe_kas,
                 ],
                 [
                     'saldo_awal' => 0,
                     'saldo' => 0,
-                    'tanggal' => $today
+                    'tanggal' => $today,
                 ]
             );
 
@@ -1312,11 +1449,11 @@ class KasService
                 [
                     'kas_id' => $kas->id,
                     'tahun' => $tahunNow,
-                    'bulan' => $bulanNow
+                    'bulan' => $bulanNow,
                 ],
                 [
                     'saldo_awal' => $kas->saldo,
-                    'saldo_akhir' => $kas->saldo
+                    'saldo_akhir' => $kas->saldo,
                 ]
             );
 
@@ -1329,13 +1466,13 @@ class KasService
 
             $isNewTransaksi = false;
 
-            if (!$transaksi) {
+            if (! $transaksi) {
                 $isNewTransaksi = true;
 
                 $transaksi = KasTransaksi::create([
                     'kas_id' => $kas->id,
                     'tipe' => 'in',
-                    'kode_transaksi' => 'KS-' . time() . rand(100, 999),
+                    'kode_transaksi' => 'KS-'.time().rand(100, 999),
                     'total_nominal' => $total_nominal,
                     'kategori' => $kategori,
                     'keterangan' => $keterangan,
@@ -1357,7 +1494,6 @@ class KasService
                 ]);
             }
 
-
             // ===== SALDO KAS =====
             if ($selisihPendapatan != 0) {
                 $kas->increment('saldo', $selisihPendapatan);
@@ -1365,7 +1501,7 @@ class KasService
 
             // ===== HISTORY =====
             $historyNow->update([
-                'saldo_akhir' => $kas->saldo
+                'saldo_akhir' => $kas->saldo,
             ]);
 
             // ===== LABA RUGI =====
@@ -1375,12 +1511,12 @@ class KasService
                     [
                         'toko_id' => $toko_id,
                         'tahun' => $tahunNow,
-                        'bulan' => $bulanNow
+                        'bulan' => $bulanNow,
                     ],
                     [
                         'pendapatan' => 0,
                         'beban' => 0,
-                        'laba_bersih' => 0
+                        'laba_bersih' => 0,
                     ]
                 );
 
@@ -1390,19 +1526,19 @@ class KasService
                 $labaRugi->refresh();
 
                 $labaRugi->update([
-                    'laba_bersih' => $labaRugi->pendapatan - $labaRugi->beban
+                    'laba_bersih' => $labaRugi->pendapatan - $labaRugi->beban,
                 ]);
 
                 // ===== TAHUNAN =====
                 $labaRugiTahunan = LabaRugiTahunan::firstOrCreate(
                     [
                         'toko_id' => $toko_id,
-                        'tahun' => $tahunNow
+                        'tahun' => $tahunNow,
                     ],
                     [
                         'pendapatan' => 0,
                         'beban' => 0,
-                        'laba_bersih' => 0
+                        'laba_bersih' => 0,
                     ]
                 );
 
@@ -1412,19 +1548,13 @@ class KasService
                 $labaRugiTahunan->refresh();
 
                 $labaRugiTahunan->update([
-                    'laba_bersih' =>
-                    $labaRugiTahunan->pendapatan - $labaRugiTahunan->beban
+                    'laba_bersih' => $labaRugiTahunan->pendapatan - $labaRugiTahunan->beban,
                 ]);
             }
-
 
             return $transaksi;
         });
     }
-
-
-
-
 
     public static function tipeKasName($kas)
     {

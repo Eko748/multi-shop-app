@@ -185,7 +185,8 @@ class LabaRugiService
             ->when($tokoId ?? null, function ($q) use ($tokoId) {
                 $q->where('retur_supplier.toko_id', $tokoId);
             })
-            ->sum('retur_supplier_detail.total_hpp');
+            ->selectRaw('SUM(retur_supplier_detail.qty_refund * retur_supplier_detail.hpp) as total')
+            ->value('total');
 
         $hppPenjualan = $hppTrx - $hppretur + $hppKoreksi;
         $total_hpp = $hppPenjualan + $hppReturSuplier;

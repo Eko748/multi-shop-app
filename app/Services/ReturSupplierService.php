@@ -267,14 +267,21 @@ class ReturSupplierService
                         $batch = StockBarangBatch::find($pembelian->stock_barang_batch_id);
 
                         $stokDetail = $this->stokDetailRepo->findByPembelianWithZero($batch->id, $detail['id']);
+
                         if ($stokDetail) {
                             $updateData = [
-                                'qty_sisa' => max($stokDetail->qty_now - $qtyBarang, 0),
+                                'qty_sisa' => max($stokDetail->qty_sisa - $qtyBarang, 0),
                             ];
-                            $this->stokDetailRepo->updateWithPembelian($batch->id, $detail['id'], $updateData);
+
+                            $this->stokDetailRepo->updateWithPembelian(
+                                $batch->id,
+                                $detail['id'],
+                                $updateData
+                            );
 
                             // Kurangi stok utama juga
                             $stok = $this->stokRepo->find($stokDetail->stock_barang_id);
+
                             if ($stok) {
                                 $this->stokRepo->update($stok->id, [
                                     'stok' => max($stok->stok - $qtyBarang, 0),
@@ -377,117 +384,269 @@ class ReturSupplierService
     public function verify(array $data)
     {
         return DB::transaction(function () use ($data) {
-            // Ambil retur utama
-            $returUtama = $this->repository->find($data['id'], $data['toko_id']);
+
+            // =========================================
+            // VALIDASI DATA RETUR
+            // =========================================
+            $returUtama = $this->repository->find(
+                $data['id'],
+                $data['toko_id']
+            );
+
             if (! $returUtama) {
                 throw ValidationException::withMessages([
                     'retur_id' => "Data retur dengan ID {$data['id']} tidak ditemukan.",
                 ]);
             }
 
-            // Update status retur ke selesai
+            // =========================================
+            // UPDATE STATUS RETUR
+            // =========================================
             $utama = $this->repository->update($data['id'], [
                 'status' => 'selesai',
                 'updated_by' => $data['updated_by'],
                 'verify_date' => now(),
             ]);
 
-            // Ambil semua detail retur
+            // =========================================
+            // AMBIL DETAIL RETUR
+            // =========================================
             $detailRetur = $this->detailRepo->getByRetur($data['id']);
 
             foreach ($detailRetur as $detail) {
 
-                // ===============================
-                // CASE 1: RETUR PEMBELIAN
-                // ===============================
+                // =====================================================
+                // CASE 1 : RETUR PEMBELIAN
+                // =====================================================
                 if (
                     $returUtama->tipe_retur === 'pembelian' &&
-                    $detail->pembelian_barang_detail_id &&
-                    $detail->qty_barang > 0
+                    ! empty($detail->pembelian_barang_detail_id)
                 ) {
-                    $qtyBarang = (float) $detail->qty_barang;
 
-                    $pembelian = PembelianBarangDetail::find($detail->pembelian_barang_detail_id);
-                    $batch = StockBarangBatch::find($pembelian->stock_barang_batch_id);
+                    // =========================================
+                    // A. KEMBALIKAN STOK
+                    // =========================================
+                    if ((float) $detail->qty_barang > 0) {
 
-                    $stokDetail = $this->stokDetailRepo->findByPembelianWithZero($batch->id, $detail->pembelian_barang_detail_id);
+                        $qtyBarang = (float) $detail->qty_barang;
 
-                    if ($stokDetail) {
-                        $updateData = [
-                            'qty_sisa' => $stokDetail->qty_sisa + $qtyBarang,
-                        ];
+                        $pembelian = PembelianBarangDetail::find(
+                            $detail->pembelian_barang_detail_id
+                        );
 
-                        $this->stokDetailRepo->updateWithPembelian($batch->id, $detail->pembelian_barang_detail_id, $updateData);
+                        if ($pembelian) {
 
-                        // Update stok utama
-                        if (! empty($stokDetail->stock_barang_id)) {
-                            $stok = $this->stokRepo->find($stokDetail->stock_barang_id);
-                            if ($stok) {
-                                $this->stokRepo->update($stok->id, [
-                                    'stok' => $stok->stok + $qtyBarang,
-                                ]);
-                            }
-                        }
-                    } else {
-                        info('stokDetail tidak ditemukan:', [
-                            'pembelian_barang_detail_id' => $detail->pembelian_barang_detail_id,
-                        ]);
-                    }
-                }
+                            $batch = StockBarangBatch::find(
+                                $pembelian->stock_barang_batch_id
+                            );
 
-                // ===============================
-                // CASE 2: RETUR MEMBER
-                // ===============================
-                if (
-                    $returUtama->tipe_retur === 'member' &&
-                    $detail->retur_member_detail_id
-                ) {
-                    $memberDetail = $this->returMemberDetailRepo->find($detail->retur_member_detail_id);
+                            if ($batch) {
 
-                    if ($memberDetail) {
-                        // Ambil stock_barang_batch_id dari tabel detail_kasir
-                        if (! empty($memberDetail->detail_kasir_id)) {
-                            $detailKasir = $this->detailKasirRepo->findById($memberDetail->detail_kasir_id);
-
-                            if ($detailKasir && ! empty($detailKasir->stock_barang_batch_id)) {
-
-                                $batch = StockBarangBatch::find($detailKasir->stock_barang_batch_id);
-
-                                $qtyBarang = (float) $detail->qty_barang;
-
-                                $stokDetail = $this->stokDetailRepo->findByPembelianWithZero($batch->id, $batch->sumber_id);
+                                $stokDetail = $this->stokDetailRepo
+                                    ->findByPembelianWithZero(
+                                        $batch->id,
+                                        $detail->pembelian_barang_detail_id
+                                    );
 
                                 if ($stokDetail) {
-                                    $updateData = [
-                                        'qty_sisa' => $stokDetail->qty_sisa + $qtyBarang,
-                                    ];
 
-                                    $this->stokDetailRepo->updateWithPembelian($batch->id, $batch->sumber_id, $updateData);
+                                    // Update stok detail
+                                    $this->stokDetailRepo->updateWithPembelian(
+                                        $batch->id,
+                                        $detail->pembelian_barang_detail_id,
+                                        [
+                                            'qty_sisa' => $stokDetail->qty_sisa + $qtyBarang,
+                                        ]
+                                    );
 
-                                    $stok = $this->stokRepo->find($stokDetail->stock_barang_id);
-                                    if ($stok) {
-                                        $this->stokRepo->update($stok->id, [
-                                            'stok' => $stok->stok + $qtyBarang,
-                                        ]);
+                                    // Update stok utama
+                                    if (! empty($stokDetail->stock_barang_id)) {
+
+                                        $stok = $this->stokRepo->find(
+                                            $stokDetail->stock_barang_id
+                                        );
+
+                                        if ($stok) {
+
+                                            $this->stokRepo->update($stok->id, [
+                                                'stok' => $stok->stok + $qtyBarang,
+                                            ]);
+                                        }
                                     }
                                 }
                             }
                         }
                     }
+
+                    // =========================================
+                    // B. REFUND UANG
+                    // =========================================
+                    if ((float) $detail->qty_refund > 0) {
+
+                        $kas = Kas::where(
+                            'jenis_barang_id',
+                            $detail->barang->jenis_barang_id
+                        )
+                            ->where('tipe_kas', 'kecil')
+                            ->where('toko_id', $data['toko_id'])
+                            ->first();
+
+                        KasService::returSupplier(
+                            kas: $kas,
+                            refundNominal: $detail->qty_refund * $detail->jumlah_refund,
+                            hppNominal: $detail->qty_refund * $detail->hpp,
+                            item: 'kecil',
+                            kategori: "Retur Suplier {$returUtama->supplier->nama}",
+                            keterangan: "Retur {$detail->barang->jenis->nama_jenis_barang}",
+                            sumber: $detail,
+                            tanggal: $utama['verify_date']
+                        );
+                    }
                 }
 
-                if ($detail->qty_refund > 0) {
-                    $kas = Kas::where('jenis_barang_id', $detail->barang->jenis_barang_id)->where('tipe_kas', 'kecil')->where('toko_id', $data['toko_id'])->first();
-                    KasService::returSupplier(
-                        kas: $kas,
-                        refundNominal: $detail->total_refund,
-                        hppNominal: $detail->total_hpp,
-                        item: 'kecil',
-                        kategori: "Retur Suplier {$returUtama->supplier->nama}",
-                        keterangan: "Retur {$detail->barang->jenis->nama_jenis_barang}",
-                        sumber: $detail,
-                        tanggal: $utama['verify_date']
-                    );
+                // =====================================================
+                // CASE 2 : RETUR MEMBER
+                // =====================================================
+                if (
+                    $returUtama->tipe_retur === 'member' &&
+                    ! empty($detail->retur_member_detail_id)
+                ) {
+
+                    // =========================================
+                    // A. KEMBALIKAN STOK
+                    // =========================================
+                    if ((float) $detail->qty_barang > 0) {
+
+                        $qtyBarang = (float) $detail->qty_barang;
+
+                        // Ambil retur member detail
+                        $memberDetail = $this->returMemberDetailRepo->find(
+                            $detail->retur_member_detail_id
+                        );
+
+                        if (! $memberDetail) {
+                            throw new \Exception(
+                                'Retur member detail tidak ditemukan'
+                            );
+                        }
+
+                        // Ambil detail kasir
+                        if (empty($memberDetail->transaksi_kasir_detail_id)) {
+                            throw new \Exception(
+                                'transaksi_kasir_detail_id tidak ditemukan'
+                            );
+                        }
+
+                        $detailKasir = $this->detailKasirRepo->findById(
+                            $memberDetail->transaksi_kasir_detail_id
+                        );
+
+                        if (! $detailKasir) {
+                            throw new \Exception(
+                                'Detail kasir tidak ditemukan'
+                            );
+                        }
+
+                        // Ambil batch dari detail kasir
+                        $batch = StockBarangBatch::find(
+                            $detailKasir->stock_barang_batch_id
+                        );
+
+                        if (! $batch) {
+                            throw new \Exception(
+                                'Stock barang batch tidak ditemukan'
+                            );
+                        }
+
+                        // =====================================================
+                        // FIX YANG BENAR:
+                        // sumber_id pada batch = pembelian_barang_detail_id
+                        // =====================================================
+
+                        if (empty($batch->sumber_id)) {
+                            throw new \Exception(
+                                'sumber_id batch tidak ditemukan'
+                            );
+                        }
+
+                        $pembelianBarangDetailId = $batch->sumber_id;
+
+                        // Optional validasi morph type
+                        if (
+                            ! empty($batch->sumber_type) &&
+                            $batch->sumber_type !== PembelianBarangDetail::class
+                        ) {
+                            throw new \Exception(
+                                'Sumber batch bukan pembelian barang detail'
+                            );
+                        }
+
+                        // Cari stok detail
+                        $stokDetail = $this->stokDetailRepo
+                            ->findByPembelianWithZero(
+                                $batch->id,
+                                $pembelianBarangDetailId
+                            );
+
+                        if (! $stokDetail) {
+                            throw new \Exception(
+                                'Stock detail tidak ditemukan'
+                            );
+                        }
+
+                        // =========================================
+                        // UPDATE STOK DETAIL
+                        // =========================================
+                        $this->stokDetailRepo->updateWithPembelian(
+                            $batch->id,
+                            $pembelianBarangDetailId,
+                            [
+                                'qty_sisa' => $stokDetail->qty_sisa + $qtyBarang,
+                            ]
+                        );
+
+                        // =========================================
+                        // UPDATE STOK UTAMA
+                        // =========================================
+                        if (! empty($stokDetail->stock_barang_id)) {
+
+                            $stok = $this->stokRepo->find(
+                                $stokDetail->stock_barang_id
+                            );
+
+                            if ($stok) {
+
+                                $this->stokRepo->update($stok->id, [
+                                    'stok' => $stok->stok + $qtyBarang,
+                                ]);
+                            }
+                        }
+                    }
+
+                    // =========================================
+                    // B. REFUND UANG
+                    // =========================================
+                    if ((float) $detail->qty_refund > 0) {
+
+                        $kas = Kas::where(
+                            'jenis_barang_id',
+                            $detail->barang->jenis_barang_id
+                        )
+                            ->where('tipe_kas', 'kecil')
+                            ->where('toko_id', $data['toko_id'])
+                            ->first();
+
+                        KasService::returSupplier(
+                            kas: $kas,
+                            refundNominal: $detail->qty_refund * $detail->jumlah_refund,
+                            hppNominal: $detail->qty_refund * $detail->hpp,
+                            item: 'kecil',
+                            kategori: "Retur Suplier {$returUtama->supplier->nama}",
+                            keterangan: "Retur {$detail->barang->jenis->nama_jenis_barang}",
+                            sumber: $detail,
+                            tanggal: $utama['verify_date']
+                        );
+                    }
                 }
             }
 

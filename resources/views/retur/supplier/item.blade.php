@@ -572,23 +572,32 @@
             if (selectedId) {
                 data = await getDetailData(selectedId);
             } else {
-                notificationAlert('warning', 'Peringatan', 'ID retur tidak ditemukan.');
+                notificationAlert(
+                    'warning',
+                    'Peringatan',
+                    'ID retur tidak ditemukan.'
+                );
+                return;
             }
 
             await renderModalForm('edit', data);
 
             $('#save-btn')
-                .removeClass('btn-success')
+                .removeClass('btn-success d-none')
                 .addClass('btn-primary')
                 .prop('disabled', false)
                 .html('<i class="fa fa-edit mr-1"></i>Update');
 
             $('#modal-form').modal('show');
 
-
         } catch (e) {
             console.error(e);
-            notificationAlert('error', 'Error', 'Terjadi kesalahan saat memuat data untuk diedit.');
+
+            notificationAlert(
+                'error',
+                'Error',
+                'Terjadi kesalahan saat memuat data untuk diedit.'
+            );
         }
     }
 

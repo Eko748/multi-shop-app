@@ -63,7 +63,7 @@
     <script src="{{ asset('js/main.js') }}?v={{ filemtime(public_path('js/main.js')) }}"></script>
     @yield('js')
     @stack('scripts')
-    <script>
+    <script>    
         const allowedPermissions = @json(View::getShared()['allowedPermissions'] ?? []);
     </script>
 </body>

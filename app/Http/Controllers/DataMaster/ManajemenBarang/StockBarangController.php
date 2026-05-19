@@ -76,6 +76,8 @@ class StockBarangController extends Controller
             ]);
         }
 
+        $query->orderBy('stok', 'desc');
+
         $data = $query->paginate($meta['limit']);
 
         $paginationMeta = [

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Distribusi;
 
+use App\Helpers\AssetGenerate;
 use App\Http\Controllers\Controller;
 use App\Helpers\QrGenerator;
 use App\Models\{StockBarang, StockBarangBatch, StockBarangBermasalah, Hutang, JenisBarang, Kas, Toko};
@@ -258,8 +259,8 @@ class PengirimanBarangController extends Controller
             'tokoAsal:id,nama',
             'tokoTujuan:id,nama',
             'sender:id,nama',
-            'pengirimanBarangDetail.barang:id,nama,barcode',
-            'pengirimanBarangDetail.batch:id,parent_id,qrcode,qty_sisa,harga_beli'
+            'pengirimanBarangDetail.barang:id,nama,barcode,qrcode',
+            'pengirimanBarangDetail.batch:id,parent_id,qty_sisa,harga_beli'
         ])
             ->select('id', 'toko_asal_id', 'toko_tujuan_id', 'status', 'no_resi', 'ekspedisi', 'send_by', 'send_at')
             ->where('id', $request->id)
@@ -291,7 +292,7 @@ class PengirimanBarangController extends Controller
                 'nama' => $pb->sender->nama,
             ],
             'details'      => $pb->pengirimanBarangDetail->map(function ($d) {
-                $img = asset("storage/qrcodes/pembelian/{$d->batch->qrcode}.png");
+                $img = AssetGenerate::build("qrcodes/barang/{$d->barang->qrcode}.png");
                 return [
                     'id'        => $d->id,
                     'barang'    => [
@@ -304,7 +305,7 @@ class PengirimanBarangController extends Controller
                     'batch'     => [
                         'id'      => $d->batch->id,
                         'qrcode'  => $d->batch->qrcode,
-                        'path'  => "qrcodes/pembelian/{$d->batch->qrcode}.png",
+                        'path'  => "qrcodes/barang/{$d->barang->qrcode}.png",
                         'qty_sisa' => $d->batch->qty_sisa,
                         'harga_beli' => $d->batch->harga_beli
                     ],
@@ -665,7 +666,6 @@ class PengirimanBarangController extends Controller
                         'parent_id'       => $batchOrigin->id,
                         'supplier_id'     => $batchOrigin->supplier_id,
                         'toko_id'         => $pb->toko_tujuan_id,
-                        'qrcode'          => QrGenerator::generate()['value'],
                         'qty_masuk'       => $qtyVerified,
                         'qty_sisa'        => $qtyVerified,
                         'harga_beli'      => $batchOrigin->harga_beli,

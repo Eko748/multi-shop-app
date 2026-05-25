@@ -67,7 +67,7 @@ class PengirimanBarangService
         $query = $this->repo2->getAll($filter);
 
         $data = collect(method_exists($query, 'items') ? $query->items() : $query)->map(function ($item) {
-            $img = AssetGenerate::build("qrcodes/pembelian/{$item->batch->qrcode}.png");
+            $img = AssetGenerate::build("qrcodes/barang/{$item->barang->qrcode}.png");
             $nama = TextGenerate::smartTail($item->barang->nama);
             $stok = $item->batch->qty_sisa ?? 0;
             $tanggal = $item->batch->created_at->format('d-m-Y H:i:s');
@@ -77,7 +77,7 @@ class PengirimanBarangService
                 'barang' => $item->barang->nama,
                 'qty_send' => $item->qty_send ?? 0,
                 'qty_verified' => $item->qty_verified ?? 0,
-                'harga_beli' => RupiahGenerate::build($item->batch->harga_beli),
+                'harga_beli' => RupiahGenerate::build($item->batch->stockBarang->hpp_baru),
                 'suplier' => optional($item->batch->supplier)->nama ?? 'Tidak Ada',
                 'created_at' => $item->created_at ?? null,
                 'text' => "
@@ -86,9 +86,6 @@ class PengirimanBarangService
 
                         <div style='display: flex; flex-direction: column; line-height: 1.2;'>
                             <span style='font-weight: 550; font-size: 12px;'>{$nama}</span>
-                            <small class='text-dark'>
-                                Tanggal pembelian: {$tanggal}
-                            </small>
                         </div>
                     </div>
                 "
@@ -109,7 +106,7 @@ class PengirimanBarangService
         $query = $this->repo3->getAll($filter);
 
         $data = collect(method_exists($query, 'items') ? $query->items() : $query)->map(function ($item) {
-            $img = AssetGenerate::build("qrcodes/pembelian/{$item->batch->qrcode}.png");
+            $img = AssetGenerate::build("qrcodes/barang/{$item->barang->qrcode}.png");
             $nama = TextGenerate::smartTail($item->barang->nama);
             $stok = $item->batch->qty_sisa ?? 0;
             $tanggal = $item->created_at ? $item->created_at->format('d-m-Y H:i:s') : '-';
@@ -131,7 +128,7 @@ class PengirimanBarangService
                         <div style='display: flex; flex-direction: column; line-height: 1.2;'>
                             <span style='font-weight: 550; font-size: 12px;'>{$nama}</span>
                             <small class='text-dark'>
-                                Stok: {$stok} — Tanggal masuk: {$tanggal}
+                                Stok: {$stok}
                             </small>
                         </div>
                     </div>

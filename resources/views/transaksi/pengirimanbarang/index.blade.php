@@ -196,7 +196,8 @@
                             <thead class="bg-light font-weight-bold">
                                 <tr>
                                     <td class="text-center">Barang</td>
-                                    <td class="text-center">Harga Beli</td>
+                                    <td class="text-center">Hpp</td>
+                                    <td class="text-center">Harga Kirim</td>
                                     <td class="text-center">Qty yang dikirim</td>
                                     <td class="text-center">Aksi</td>
                                 </tr>
@@ -286,7 +287,7 @@
                         <thead class="bg-light font-weight-bold">
                             <tr>
                                 <td class="text-center">Barang / Batch</td>
-                                <td class="text-center">Harga Beli</td>
+                                <td class="text-center">Harga Kirim</td>
                                 <td class="text-center">Qty Dikirim</td>
                                 <td class="text-center">Qty Diterima</td>
                                 <td class="text-center">Qty Problem</td>
@@ -938,7 +939,7 @@
 
         async function handleRow(search) {
             try {
-                let res = await renderAPI("GET", '{{ route('sb.batch.getByQR') }}', {
+                let res = await renderAPI("GET", '{{ route('sb.batch.getHargaJual') }}', {
                     search: search,
                     toko_id: {{ auth()->user()->toko_id }}
                 });
@@ -1005,7 +1006,11 @@
             let row = `
                 <tr>
                     <td>${data.text}</td>
-                    <td class="text-right">${data.format_harga_beli}</td>
+                    <td class="text-right">${data.format_hpp}</td>
+                    <td>
+                        <input type="number" class="form-control harga_kirim"
+                            min="1" value="${data.hpp}" required>
+                    </td>
                     <td>
                         <input type="number" class="form-control qty_send"
                             min="1" max="${maxQty}" value="1" required>

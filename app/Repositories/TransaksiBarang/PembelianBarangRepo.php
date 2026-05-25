@@ -52,7 +52,7 @@ class PembelianBarangRepo
 
     public function getAll($filter)
     {
-        $query = $this->model->newQuery();
+        $query = $this->model->newQuery()->where('toko_id', $filter->toko_id);
 
         if (!empty($filter->search)) {
             $query->where(function ($q) use ($filter) {

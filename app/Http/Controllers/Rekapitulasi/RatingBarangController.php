@@ -4,11 +4,9 @@ namespace App\Http\Controllers\Rekapitulasi;
 
 use App\Http\Controllers\Controller;
 use App\Models\Barang;
-use App\Models\DetailKasir;
 use App\Models\StockBarang;
 use App\Models\Toko;
 use App\Models\TransaksiKasirDetail;
-use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -28,6 +26,7 @@ class RatingBarangController extends Controller
     public function index(Request $request)
     {
         $menu = [$this->title[0], $this->label[2]];
+
         return view('laporan.rating.index', compact('menu'));
     }
 
@@ -53,13 +52,13 @@ class RatingBarangController extends Controller
                 $selectedTokoIds = Toko::pluck('id')->toArray();
             }
 
-            $tokoMap = Toko::whereIn('id', $selectedTokoIds)->pluck('nama', 'id')->toArray();
+            $tokoMap = Toko::whereIn('id', $selectedTokoIds)->pluck('singkatan', 'id')->toArray();
             if ($userToko && array_key_exists($userToko, $tokoMap)) {
                 $tokoMap[$userToko] = $userTokoName;
             }
 
-            $hasSearch = !empty($search);
-            $hasDate = !empty($startDate) && !empty($endDate);
+            $hasSearch = ! empty($search);
+            $hasDate = ! empty($startDate) && ! empty($endDate);
             $allowShowEmptyItems = $hasSearch;
 
             $query = TransaksiKasirDetail::select(
@@ -87,7 +86,7 @@ class RatingBarangController extends Controller
                     'transaksi_kasir.toko_id'
                 );
 
-            if (!empty($jenisBarang)) {
+            if (! empty($jenisBarang)) {
                 $query->where('jenis_barang.id', $jenisBarang);
             }
 
@@ -101,10 +100,12 @@ class RatingBarangController extends Controller
 
             if ($allowShowEmptyItems) {
                 $barangQuery = StockBarang::with(['barang.jenis', 'stockBarangBatch']);
-                if (!empty($search)) {
-                    $barangQuery->where(DB::raw('LOWER(nama)'), 'like', '%' . strtolower($search) . '%');
+                if (! empty($search)) {
+                    $barangQuery->whereHas('barang', function ($q) use ($search) {
+                        $q->where(DB::raw('LOWER(nama)'), 'like', '%'.strtolower($search).'%');
+                    });
                 }
-                if (!empty($jenisBarang)) {
+                if (! empty($jenisBarang)) {
                     $barangQuery->whereHas('barang', function ($q) use ($jenisBarang) {
                         $q->where('jenis_barang_id', $jenisBarang);
                     });
@@ -146,7 +147,7 @@ class RatingBarangController extends Controller
                     $hppJual = $stockInfo ? $stockInfo->hpp_baru : 0;
                 }
 
-                if ($totalTerjual === 0 && !$allowShowEmptyItems) {
+                if ($totalTerjual === 0 && ! $allowShowEmptyItems) {
                     continue;
                 }
 
@@ -163,6 +164,7 @@ class RatingBarangController extends Controller
                     })->sum(function ($val) {
                         return $val['terjual'] ?? 0;
                     });
+
                     return [$barang => ['data' => $dataPerToko, 'total' => $totalTerjual]];
                 })
                 ->sortByDesc('total')
@@ -185,7 +187,7 @@ class RatingBarangController extends Controller
                     $finalData[$barang] = [
                         'Jumlah Item Terjual' => $firstData['terjual'],
                         'HPP Jual' => $hppJual,
-                        'Stok Sekarang' => $stockNow
+                        'Stok Sekarang' => $stockNow,
                     ];
                 } else {
                     $formattedPerToko = [];
@@ -195,7 +197,7 @@ class RatingBarangController extends Controller
                     $finalData[$barang] = [
                         'Jumlah Item Terjual Per Toko' => $formattedPerToko,
                         'HPP Jual' => $hppJual,
-                        'Stok Sekarang' => $stockNow
+                        'Stok Sekarang' => $stockNow,
                     ];
                 }
             }
@@ -219,7 +221,7 @@ class RatingBarangController extends Controller
                 'error' => true,
                 'message' => 'Failed to retrieve data',
                 'status_code' => 500,
-                'trace' => $th->getMessage()
+                'trace' => $th->getMessage(),
             ]);
         }
     }

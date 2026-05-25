@@ -12,6 +12,7 @@ use App\Traits\PaginateResponse;
 class StockBarangBatchService
 {
     use PaginateResponse;
+
     protected $repository;
 
     public function __construct(StockBarangBatchRepository $repository)
@@ -27,9 +28,9 @@ class StockBarangBatchService
             ->map(function ($item) {
 
                 // ✅ ambil langsung dari hasil query
-                $qrcode  = $item->qrcode ?? null;
-                $nama    = TextGenerate::short($item->nama ?? '-');
-                $stok    = $item->total_qty ?? 0;
+                $qrcode = $item->qrcode ?? null;
+                $nama = TextGenerate::short($item->nama ?? '-');
+                $stok = $item->total_qty ?? 0;
 
                 $tanggal = $item->created_at
                     ? \Carbon\Carbon::parse($item->created_at)->format('d-m-Y H:i:s')
@@ -53,13 +54,13 @@ class StockBarangBatchService
                     </small>
                 </div>
             </div>
-            "
+            ",
                 ];
             });
 
         return [
             'data' => $data->values(),
-            'pagination' => !empty($filter->limit) ? $this->setPaginate($query) : null,
+            'pagination' => ! empty($filter->limit) ? $this->setPaginate($query) : null,
         ];
     }
 
@@ -67,17 +68,17 @@ class StockBarangBatchService
     {
         $item = $this->repository->getByQR($filter);
 
-        if (!$item) {
+        if (! $item) {
             return [
-                'data' => null
+                'data' => null,
             ];
         }
 
         // =========================
         // SAFE ACCESS
         // =========================
-        $barang  = $item->stockBarang->barang ?? null;
-        $qrcode  = $barang->qrcode ?? null;
+        $barang = $item->stockBarang->barang ?? null;
+        $qrcode = $barang->qrcode ?? null;
 
         // =========================
         // ASSET
@@ -89,8 +90,8 @@ class StockBarangBatchService
         // =========================
         // INFO
         // =========================
-        $nama    = TextGenerate::short($barang->nama ?? '-');
-        $stok    = $item->qty_sisa ?? 0;
+        $nama = TextGenerate::short($barang->nama ?? '-');
+        $stok = $item->qty_sisa ?? 0;
         $tanggal = $item->created_at?->format('d-m-Y H:i:s') ?? '-';
 
         return [
@@ -102,7 +103,7 @@ class StockBarangBatchService
                 'format_hpp_baru' => RupiahGenerate::build($item->hpp_baru ?? 0),
 
                 'barang_id' => $barang->id ?? null,
-                'barang'    => $barang->nama ?? null,
+                'barang' => $barang->nama ?? null,
 
                 'harga_beli' => $item->harga_beli ?? 0,
                 'format_harga_beli' => RupiahGenerate::build($item->harga_beli ?? 0),
@@ -124,8 +125,8 @@ class StockBarangBatchService
                         </small>
                     </div>
                 </div>
-            "
-            ]
+            ",
+            ],
         ];
     }
 
@@ -134,7 +135,7 @@ class StockBarangBatchService
         $item = $this->repository->getDetailByQR($filter);
         $totalQty = $this->repository->getTotalQtyByQR($filter);
 
-        if (!$item) {
+        if (! $item) {
             return ['data' => null];
         }
 
@@ -152,8 +153,8 @@ class StockBarangBatchService
         }
 
         $hargaList = collect($hargaList)
-            ->filter(fn($h) => is_numeric($h) && $h > 0)
-            ->map(fn($h) => (int) $h)
+            ->filter(fn ($h) => is_numeric($h) && $h > 0)
+            ->map(fn ($h) => (int) $h)
             ->values()
             ->toArray();
 
@@ -171,12 +172,12 @@ class StockBarangBatchService
         } else {
 
             $member = Member::find($filter->member_id);
-            if (!$member) {
+            if (! $member) {
                 return ['data' => null];
             }
 
             $jenisBarangId = (int) ($item->stockBarang->barang->jenis_barang_id ?? 0);
-            $levelMap      = $member->level_map ?? [];
+            $levelMap = $member->level_map ?? [];
 
             if (isset($levelMap[$jenisBarangId])) {
                 $level = (int) $levelMap[$jenisBarangId];
@@ -189,8 +190,8 @@ class StockBarangBatchService
 
             if (empty($priceOptions)) {
                 return [
-                    'data'    => null,
-                    'message' => 'Harga member tidak tersedia untuk jenis barang ini'
+                    'data' => null,
+                    'message' => 'Harga member tidak tersedia untuk jenis barang ini',
                 ];
             }
         }
@@ -200,8 +201,8 @@ class StockBarangBatchService
         $priceOptionsFormatted = collect($priceOptions)
             ->unique()
             ->sortDesc()
-            ->map(fn($price) => [
-                'id'   => $price,
+            ->map(fn ($price) => [
+                'id' => $price,
                 'text' => RupiahGenerate::build($price),
             ])
             ->values()
@@ -212,19 +213,21 @@ class StockBarangBatchService
         $img = $qrcode
             ? AssetGenerate::build("qrcodes/barang/{$qrcode}.png")
             : '';
-        $nama    = TextGenerate::short($item->stockBarang->barang->nama);
-        $stok    = $totalQty ?? 0; // 🔥 pakai hasil SUM
+        $nama = TextGenerate::short($item->stockBarang->barang->nama);
+        $stok = $totalQty ?? 0; // 🔥 pakai hasil SUM
         $tanggal = $item->created_at?->format('d-m-Y H:i:s') ?? '-';
 
         return [
             'data' => [
-                'id'            => $item->stockBarang->barang_id ?? null,
-                'barang_id'     => $item->stockBarang->barang_id ?? null,
-                'barang'        => $nama,
-                'qrcode'        => $qrcode,
-                'qty'           => $stok,
-                'harga'         => $finalPrice,
-                'format_harga'  => RupiahGenerate::build($finalPrice),
+                'id' => $item->stockBarang->barang_id ?? null,
+                'barang_id' => $item->stockBarang->barang_id ?? null,
+                'barang' => $nama,
+                'qrcode' => $qrcode,
+                'qty' => $stok,
+                'hpp' => $item->stockBarang->hpp_baru,
+                'format_hpp' => RupiahGenerate::build($item->stockBarang->hpp_baru),
+                'harga' => $finalPrice,
+                'format_harga' => RupiahGenerate::build($finalPrice),
                 'is_member_price' => $priceOptionsFormatted,
                 'text' => "
             <div style='display:flex;align-items:center;gap:8px' class='p-1'>
@@ -236,8 +239,8 @@ class StockBarangBatchService
                     </small>
                 </div>
             </div>
-            "
-            ]
+            ",
+            ],
         ];
     }
 }

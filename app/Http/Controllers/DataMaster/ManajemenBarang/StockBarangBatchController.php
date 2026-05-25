@@ -4,10 +4,9 @@ namespace App\Http\Controllers\DataMaster\ManajemenBarang;
 
 use App\Http\Controllers\Controller;
 use App\Services\StockBarangBatchService;
-use Illuminate\Http\Request;
 use App\Traits\ApiResponse;
 use App\Traits\HasFilter;
-use Exception;
+use Illuminate\Http\Request;
 
 class StockBarangBatchController extends Controller
 {
@@ -15,6 +14,7 @@ class StockBarangBatchController extends Controller
     use HasFilter;
 
     private array $menu = [];
+
     protected $service;
 
     public function __construct(StockBarangBatchService $service)
@@ -42,7 +42,28 @@ class StockBarangBatchController extends Controller
             return $this->success($data['data'], 200, 'Berhasil', $data['pagination']);
         } catch (\Exception $e) {
             return $this->error(500, "Gagal mengambil data {$this->title[0]}", [
-                'exception' => $e->getMessage()
+                'exception' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    public function getDetailBatch(Request $request)
+    {
+        try {
+            $filter = $this->makeFilter(
+                $request,
+                30,
+                [
+                    'toko_id' => $request->input('toko_id'),
+                ]
+            );
+
+            $data = $this->service->getDetailBatch($filter);
+
+            return $this->success($data['data'], 200, 'Berhasil', $data['pagination']);
+        } catch (\Exception $e) {
+            return $this->error(500, "Gagal mengambil data {$this->title[0]}", [
+                'exception' => $e->getMessage(),
             ]);
         }
     }
@@ -60,7 +81,7 @@ class StockBarangBatchController extends Controller
             return $this->success($data['data'], 200, 'Berhasil');
         } catch (\Exception $e) {
             return $this->error(500, "Gagal mengambil data {$this->title[0]}", [
-                'exception' => $e->getMessage()
+                'exception' => $e->getMessage(),
             ]);
         }
     }
@@ -82,7 +103,7 @@ class StockBarangBatchController extends Controller
             return $this->success($data['data'], 200, 'Berhasil');
         } catch (\Exception $e) {
             return $this->error(500, "Gagal mengambil data {$this->title[0]}", [
-                'exception' => $e->getMessage()
+                'exception' => $e->getMessage(),
             ]);
         }
     }

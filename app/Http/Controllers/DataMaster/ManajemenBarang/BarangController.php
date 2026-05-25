@@ -242,7 +242,8 @@ class BarangController extends Controller
 
             return $this->error(
                 500,
-                'Terjadi kesalahan saat menyimpan data. Silakan coba lagi atau hubungi admin.'
+                'Terjadi kesalahan saat menyimpan data. Silakan coba lagi atau hubungi admin.',
+                $e->getMessage()
             );
         }
     }

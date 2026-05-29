@@ -197,7 +197,7 @@
                                 <tr>
                                     <td class="text-center">Barang</td>
                                     <td class="text-center">Hpp</td>
-                                    <td class="text-center">Harga Kirim</td>
+                                    <td class="text-center">Atur Harga Kirim</td>
                                     <td class="text-center">Qty yang dikirim</td>
                                     <td class="text-center">Aksi</td>
                                 </tr>
@@ -739,6 +739,7 @@
                         barang_id: $(this).find(".barang_id").val(),
                         stock_barang_batch_id: $(this).find(".stock_batch_id").val(),
                         qty_send: $(this).find(".qty_send").val(),
+                        harga_kirim: $(this).find(".harga_kirim").val(),
                     });
                 });
 

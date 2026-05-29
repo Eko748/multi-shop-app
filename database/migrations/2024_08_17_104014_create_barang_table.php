@@ -12,7 +12,7 @@ return new class extends Migration
         Schema::create('barang', function (Blueprint $table) {
             $table->id();
             $table->string('nama');
-            $table->string('barcode')->unique();
+            $table->string('barcode');
             $table->string('qrcode')->unique();
             $table->unsignedBigInteger('jenis_barang_id');
             $table->unsignedBigInteger('brand_id')->nullable();

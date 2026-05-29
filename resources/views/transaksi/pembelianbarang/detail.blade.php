@@ -325,37 +325,37 @@
                                 }
 
                                 .label {
-                                    width: 31mm;
+                                    width: 32mm;
                                     height: 15mm;
                                     display: flex;
                                     align-items: center;
                                     padding: 0;
                                     box-sizing: border-box;
-                                    margin-top: 1mm;
-                                    margin-bottom: 1mm;
-                                    margin-left: 2mm;
+                                    margin-top: 0.5mm;
+                                    margin-bottom: 0.5mm;
+                                    margin-left: 2.5mm;
                                 }
 
                                 .label-left {
                                     display: flex;
                                     flex-direction: column;
                                     align-items: center;
-
                                 }
 
                                 .qr-text {
-                                    font-size: 4px;
+                                    font-size: 5px;
                                     max-width: 16mm;
                                     white-space: nowrap;
                                     overflow: hidden;
                                     text-overflow: ellipsis;
+                                    font-weight: bold;
                                 }
 
                                 .label img {
                                     width: 14mm;
                                     height: 14mm;
                                     object-fit: contain;
-                                    margin-right: 1mm;
+                                    margin-right: 0.5mm;
                                 }
 
                                 .label-text {
@@ -363,22 +363,24 @@
                                     flex-direction: column;
                                     justify-content: space-between;
                                     height: 100%;
-                                    margin-top: 1mm;
+                                    margin-top: 0.5mm;
                                 }
 
                                 .label-name {
-                                    font-size: 6px;
+                                    font-size: 10px;
                                     line-height: 1.2;
+                                    font-weight: bold;
                                 }
 
                                 .label-date {
-                                    font-size: 4px;
+                                    font-size: 8px;
                                     max-width: 16mm;
                                     white-space: nowrap;
                                     overflow: hidden;
                                     text-overflow: ellipsis;
                                     text-align: left;
                                     margin-bottom: 0.5mm;
+                                    font-weight: bold;
                                 }
                             </style>
                         </head>
@@ -601,37 +603,37 @@
                                 }
 
                                 .label {
-                                    width: 31mm;
+                                    width: 32mm;
                                     height: 15mm;
                                     display: flex;
                                     align-items: center;
                                     padding: 0;
                                     box-sizing: border-box;
-                                    margin-top: 1mm;
-                                    margin-bottom: 1mm;
-                                    margin-left: 2mm;
+                                    margin-top: 0.5mm;
+                                    margin-bottom: 0.5mm;
+                                    margin-left: 2.5mm;
                                 }
 
                                 .label-left {
                                     display: flex;
                                     flex-direction: column;
                                     align-items: center;
-                                    margin-right: 1mm;
                                 }
 
                                 .qr-text {
-                                    font-size: 4px;
+                                    font-size: 5px;
                                     max-width: 16mm;
                                     white-space: nowrap;
                                     overflow: hidden;
                                     text-overflow: ellipsis;
+                                    font-weight: bold;
                                 }
 
                                 .label img {
                                     width: 14mm;
                                     height: 14mm;
                                     object-fit: contain;
-
+                                    margin-right: 0.5mm;
                                 }
 
                                 .label-text {
@@ -639,22 +641,24 @@
                                     flex-direction: column;
                                     justify-content: space-between;
                                     height: 100%;
-                                    margin-top: 1mm;
+                                    margin-top: 0.5mm;
                                 }
 
                                 .label-name {
-                                    font-size: 6px;
+                                    font-size: 10px;
                                     line-height: 1.2;
+                                    font-weight: bold;
                                 }
 
                                 .label-date {
-                                    font-size: 4px;
+                                    font-size: 8px;
                                     max-width: 16mm;
                                     white-space: nowrap;
                                     overflow: hidden;
                                     text-overflow: ellipsis;
                                     text-align: left;
                                     margin-bottom: 0.5mm;
+                                    font-weight: bold;
                                 }
                             </style>
                         </head>

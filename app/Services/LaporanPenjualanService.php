@@ -32,7 +32,9 @@ class LaporanPenjualanService
             DB::raw('COUNT(DISTINCT transaksi_kasir.id) as jml_trx'),
             DB::raw('SUM(transaksi_kasir_detail.qty) as item_qty'),
             DB::raw('SUM(transaksi_kasir_detail.subtotal) as nilai_trx'),
-            DB::raw('SUM(transaksi_kasir_detail.qty * stock_barang.hpp_baru) as nilai_hpp'),
+
+            DB::raw('SUM(transaksi_kasir_detail.qty * stock_barang_batch.harga_beli) as nilai_hpp'),
+
             DB::raw('SUM(CASE WHEN transaksi_kasir.member_id IS NOT NULL THEN transaksi_kasir_detail.subtotal ELSE 0 END) as member_nilai'),
             DB::raw('SUM(CASE WHEN transaksi_kasir.member_id IS NULL THEN transaksi_kasir_detail.subtotal ELSE 0 END) as non_member_nilai'),
             DB::raw('SUM(CASE WHEN transaksi_kasir.member_id IS NOT NULL THEN transaksi_kasir_detail.qty * stock_barang_batch.harga_beli ELSE 0 END) as member_hpp'),
@@ -83,7 +85,7 @@ class LaporanPenjualanService
             'nilai_trx' => 0,
             'nilai_hpp' => 0,
             'biaya_retur' => 0,
-            'sub_laba' => 0
+            'sub_laba' => 0,
         ];
 
         foreach ($data as $row) {
@@ -91,12 +93,12 @@ class LaporanPenjualanService
             $hpp = $row->nilai_hpp;
             $laba = $row->nilai_trx - $hpp;
 
-            if (!isset($listToko[$row->toko_id])) {
+            if (! isset($listToko[$row->toko_id])) {
 
                 $listToko[$row->toko_id] = [
                     'toko_id' => $row->toko_id,
                     'nama_toko' => $row->nama_toko,
-                    'type_barang' => []
+                    'type_barang' => [],
                 ];
             }
 
@@ -107,7 +109,7 @@ class LaporanPenjualanService
                 'item_qty' => $row->item_qty,
                 'nilai_trx' => $row->nilai_trx,
                 'nilai_hpp' => $hpp,
-                'laba' => $laba
+                'laba' => $laba,
             ];
 
             $member['jumlah'] += $row->member_trx;
@@ -138,7 +140,7 @@ class LaporanPenjualanService
             $tokoId = $row->createdBy->toko_id ?? 0;
             $namaToko = $row->createdBy->toko->nama ?? 'Unknown';
 
-            if (!isset($pnfGrouped[$tokoId])) {
+            if (! isset($pnfGrouped[$tokoId])) {
 
                 $pnfGrouped[$tokoId] = [
                     'toko_id' => $tokoId,
@@ -147,7 +149,7 @@ class LaporanPenjualanService
                     'item_qty' => 0,
                     'nilai_trx' => 0,
                     'nilai_hpp' => 0,
-                    'laba' => 0
+                    'laba' => 0,
                 ];
             }
 
@@ -162,12 +164,12 @@ class LaporanPenjualanService
 
             $laba = $pnfData['nilai_trx'] - $pnfData['nilai_hpp'];
 
-            if (!isset($listToko[$pnfData['toko_id']])) {
+            if (! isset($listToko[$pnfData['toko_id']])) {
 
                 $listToko[$pnfData['toko_id']] = [
                     'toko_id' => $pnfData['toko_id'],
                     'nama_toko' => $pnfData['nama_toko'],
-                    'type_barang' => []
+                    'type_barang' => [],
                 ];
             }
 
@@ -178,7 +180,7 @@ class LaporanPenjualanService
                 'item_qty' => $pnfData['item_qty'],
                 'nilai_trx' => $pnfData['nilai_trx'],
                 'nilai_hpp' => $pnfData['nilai_hpp'],
-                'laba' => $laba
+                'laba' => $laba,
             ];
 
             /**
@@ -210,7 +212,7 @@ class LaporanPenjualanService
             - $biayaRetur;
 
         $laporanPenjualanPeriode = $startDate && $endDate
-            ? Carbon::parse($startDate)->format('d-m-Y') . ' s/d ' . Carbon::parse($endDate)->format('d-m-Y')
+            ? Carbon::parse($startDate)->format('d-m-Y').' s/d '.Carbon::parse($endDate)->format('d-m-Y')
             : 's/d';
 
         return [
@@ -218,17 +220,17 @@ class LaporanPenjualanService
 
             'periode' => [
                 'tanggal_awal' => $startDate,
-                'tanggal_akhir' => $endDate
+                'tanggal_akhir' => $endDate,
             ],
 
             'list_toko' => array_values($listToko),
 
             'detail_laporan' => [
                 'transaksi_member' => $member,
-                'transaksi_non_member' => $nonMember
+                'transaksi_non_member' => $nonMember,
             ],
 
-            'total' => $total
+            'total' => $total,
         ];
     }
 }

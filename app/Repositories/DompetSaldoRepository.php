@@ -15,14 +15,22 @@ class DompetSaldoRepository
 
     public function sumSaldo(?int $month = null, ?int $year = null, ?int $tokoId = null)
     {
-        $query = $this->model;
+        // WAJIB: Gunakan newQuery() agar kondisi tidak menempel antar-query
+        $query = $this->model->newQuery();
 
-        if ($month && $year) {
-            $query->whereYear('created_at', $year)
-                ->whereMonth('created_at', '<=', $month);
+        if ($tokoId !== null && $tokoId !== 'all' && $tokoId != 0) {
+            $query->where('toko_id', $tokoId);
         }
 
-        return $query->where('toko_id', $tokoId)->sum('saldo');
+        if ($month && $year) {
+            // Membuat tanggal cut-off akhir bulan (Contoh April: 2026-04-30 23:59:59)
+            $endDate = \Carbon\Carbon::createFromDate($year, $month, 1)->endOfMonth()->toDateTimeString();
+
+            // Ambil semua data saldo masuk dari awal waktu sampai AKHIR BULAN TARGET
+            $query->where('created_at', '<=', $endDate);
+        }
+
+        return $query->sum('saldo');
     }
 
     public function sumHargaBeli(?int $month = null, ?int $year = null, ?int $tokoId = null)

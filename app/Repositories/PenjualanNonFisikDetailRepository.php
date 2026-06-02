@@ -37,14 +37,22 @@ class PenjualanNonFisikDetailRepository
 
     public function sumHPP(?int $month = null, ?int $year = null, ?int $tokoId = null)
     {
-        $query = $this->model->where('toko_id', $tokoId)->selectRaw('SUM(hpp * qty) as total_hpp');
+        // WAJIB: Gunakan newQuery()
+        $query = $this->model->newQuery();
 
-        if ($month && $year) {
-            $query->whereYear('created_at', $year)
-                ->whereMonth('created_at', '<=', $month);
+        if ($tokoId !== null && $tokoId !== 'all' && $tokoId != 0) {
+            $query->where('toko_id', $tokoId);
         }
 
-        return $query->value('total_hpp');
+        if ($month && $year) {
+            // Membuat tanggal cut-off akhir bulan target
+            $endDate = \Carbon\Carbon::createFromDate($year, $month, 1)->endOfMonth()->toDateTimeString();
+
+            // Ambil semua HPP keluar dari awal waktu sampai AKHIR BULAN TARGET
+            $query->where('created_at', '<=', $endDate);
+        }
+
+        return $query->selectRaw('SUM(hpp * qty) as total_hpp')->value('total_hpp') ?? 0;
     }
 
     public function sumPenjualan(?int $month = null, ?int $year = null, ?int $tokoId = null)

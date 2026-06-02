@@ -37,23 +37,47 @@ class PenjualanNonFisikDetailRepository
 
     public function sumHPP(?int $month = null, ?int $year = null, ?int $tokoId = null)
     {
-        // WAJIB: Gunakan newQuery()
-        $query = $this->model->newQuery();
+        // WAJIB: Gunakan newQuery() agar state query tidak menumpuk
+        $query = TransaksiKasirHarian::query();
 
         if ($tokoId !== null && $tokoId !== 'all' && $tokoId != 0) {
             $query->where('toko_id', $tokoId);
         }
 
-        if ($month && $year) {
-            // Membuat tanggal cut-off akhir bulan target
-            $endDate = \Carbon\Carbon::createFromDate($year, $month, 1)->endOfMonth()->toDateTimeString();
+        // Sesuai request: Filter khusus untuk kasir harian umum
+        $query->where('jenis_barang_id', 0);
 
-            // Ambil semua HPP keluar dari awal waktu sampai AKHIR BULAN TARGET
-            $query->where('created_at', '<=', $endDate);
+        if ($month && $year) {
+            // Membuat tanggal akhir bulan target (Contoh April: "2026-04-30")
+            $endDate = \Carbon\Carbon::createFromDate($year, $month, 1)->endOfMonth()->format('Y-m-d');
+
+            // Ambil semua HPP yang keluar dari awal waktu sampai AKHIR BULAN TARGET
+            $query->where('tanggal', '<=', $endDate);
         }
 
-        return $query->selectRaw('SUM(hpp * qty) as total_hpp')->value('total_hpp') ?? 0;
+        // Berdasarkan gambar tabel Anda, total_harga_beli adalah representasi HPP/Modal Keluar
+        return $query->sum('total_harga_beli') ?? 0;
     }
+
+    // public function sumHPP(?int $month = null, ?int $year = null, ?int $tokoId = null)
+    // {
+    //     // WAJIB: Gunakan newQuery()
+    //     $query = $this->model->newQuery();
+
+    //     if ($tokoId !== null && $tokoId !== 'all' && $tokoId != 0) {
+    //         $query->where('toko_id', $tokoId);
+    //     }
+
+    //     if ($month && $year) {
+    //         // Membuat tanggal cut-off akhir bulan target
+    //         $endDate = \Carbon\Carbon::createFromDate($year, $month, 1)->endOfMonth()->toDateTimeString();
+
+    //         // Ambil semua HPP keluar dari awal waktu sampai AKHIR BULAN TARGET
+    //         $query->where('created_at', '<=', $endDate);
+    //     }
+
+    //     return $query->selectRaw('SUM(hpp * qty) as total_hpp')->value('total_hpp') ?? 0;
+    // }
 
     public function sumPenjualan(?int $month = null, ?int $year = null, ?int $tokoId = null)
     {

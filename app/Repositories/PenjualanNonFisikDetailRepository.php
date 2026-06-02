@@ -17,7 +17,7 @@ class PenjualanNonFisikDetailRepository
     {
         $query = $this->model->newQuery()->where('toko_id', $filter->toko_id);
 
-        if (!empty($filter->start_date) && !empty($filter->end_date)) {
+        if (! empty($filter->start_date) && ! empty($filter->end_date)) {
             $query->whereBetween('created_at', [$filter->start_date, $filter->end_date]);
         } else {
             $query->whereDate('created_at', date('Y-m-d'));
@@ -36,14 +36,25 @@ class PenjualanNonFisikDetailRepository
 
     public function sumHPP(?int $month = null, ?int $year = null, ?int $tokoId = null)
     {
-        $query = $this->model->where('toko_id', $tokoId)->selectRaw('SUM(hpp * qty) as total_hpp');
+        $query = $this->model->newQuery();
 
-        if ($month && $year) {
-            $query->whereYear('created_at', $year)
-                ->whereMonth('created_at', '<=', $month);
+        if ($tokoId !== null && $tokoId !== 'all' && $tokoId != 0) {
+            $query->where('toko_id', $tokoId);
         }
 
-        return $query->value('total_hpp');
+        // Sesuai request Anda: jenis_barang_id = 0 untuk kasir harian general
+        $query->where('jenis_barang_id', 0);
+
+        if ($month && $year) {
+            // Tentukan batas akhir cut-off bulan target
+            $endDate = \Carbon\Carbon::createFromDate($year, $month, 1)->endOfMonth()->format('Y-m-d');
+
+            // Ambil SEMUA penjualan dari awal waktu sampai AKHIR BULAN TARGET saja
+            $query->where('tanggal', '<=', $endDate);
+        }
+
+        // Gunakan kolom total_harga_beli dari gambar tabel Anda sebagai HPP Akurat (Nilai Modal)
+        return $query->sum('total_harga_beli');
     }
 
     public function sumHargaJual()
@@ -57,23 +68,23 @@ class PenjualanNonFisikDetailRepository
     {
         $query = $this->model->with(['item.tipe']);
 
-        if (!empty($filter->search)) {
+        if (! empty($filter->search)) {
             $query->where(function ($q) use ($filter) {
-                $q->where('hpp', 'like', '%' . $filter->search . '%')
-                    ->orWhere('harga_jual', 'like', '%' . $filter->search . '%')
+                $q->where('hpp', 'like', '%'.$filter->search.'%')
+                    ->orWhere('harga_jual', 'like', '%'.$filter->search.'%')
                     ->orWhereHas('item', function ($q2) use ($filter) {
-                        $q2->where('nama', 'like', '%' . $filter->search . '%');
+                        $q2->where('nama', 'like', '%'.$filter->search.'%');
                     });
             });
         }
 
-        if (!empty($filter->penjualan_nonfisik_id)) {
+        if (! empty($filter->penjualan_nonfisik_id)) {
             $query->where('penjualan_nonfisik_id', $filter->penjualan_nonfisik_id);
         }
 
-        if (!empty($filter->nama)) {
+        if (! empty($filter->nama)) {
             $query->whereHas('item', function ($q2) use ($filter) {
-                $q2->where('nama', 'like', '%' . $filter->nama . '%');
+                $q2->where('nama', 'like', '%'.$filter->nama.'%');
             });
         }
 
@@ -91,19 +102,19 @@ class PenjualanNonFisikDetailRepository
                 SUM(td_penjualan_nonfisik_detail.harga_jual * td_penjualan_nonfisik_detail.qty) as total_harga_jual
             ');
 
-        if (!empty($filter->dompet_kategori)) {
+        if (! empty($filter->dompet_kategori)) {
             $query->where('dk.id', $filter->dompet_kategori);
         }
 
-        if (!empty($filter->search)) {
+        if (! empty($filter->search)) {
             $query->where(function ($q) use ($filter) {
-                $q->where('td_penjualan_nonfisik_detail.hpp', 'like', '%' . $filter->search . '%')
-                    ->orWhere('td_penjualan_nonfisik_detail.harga_jual', 'like', '%' . $filter->search . '%')
-                    ->orWhere('dk.nama', 'like', '%' . $filter->search . '%');
+                $q->where('td_penjualan_nonfisik_detail.hpp', 'like', '%'.$filter->search.'%')
+                    ->orWhere('td_penjualan_nonfisik_detail.harga_jual', 'like', '%'.$filter->search.'%')
+                    ->orWhere('dk.nama', 'like', '%'.$filter->search.'%');
             });
         }
 
-        return !empty($filter->limit)
+        return ! empty($filter->limit)
             ? $query->groupBy('dk.id')->paginate($filter->limit)
             : $query->groupBy('dk.id')->get();
     }
@@ -124,6 +135,7 @@ class PenjualanNonFisikDetailRepository
         if ($item) {
             $item->update($data);
         }
+
         return $item;
     }
 

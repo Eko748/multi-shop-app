@@ -13,7 +13,7 @@ class DompetSaldoRepository
         $this->model = $model;
     }
 
-    public function sumSaldo(?int $month  = null, ?int $year  = null, ?int $tokoId = null)
+    public function sumSaldo(?int $month = null, ?int $year = null, ?int $tokoId = null)
     {
         $query = $this->model;
 
@@ -25,47 +25,57 @@ class DompetSaldoRepository
         return $query->where('toko_id', $tokoId)->sum('saldo');
     }
 
-    public function sumHargaBeli(?int $month  = null, ?int $year  = null, ?int $tokoId = null)
+    public function sumHargaBeli(?int $month = null, ?int $year = null, ?int $tokoId = null)
     {
-        $query = $this->model;
+        // Gunakan newQuery() agar kondisi query sebelumnya tidak menumpuk/terbawa
+        $query = $this->model->newQuery();
 
-        if ($month && $year) {
-            $query->whereYear('created_at', $year)
-                ->whereMonth('created_at', '<=', $month);
+        if ($tokoId !== null && $tokoId !== 'all' && $tokoId != 0) {
+            $query->where('toko_id', $tokoId);
         }
 
-        return $query->where('toko_id', $tokoId)->sum('harga_beli');
+        if ($month && $year) {
+            // Ambil tanggal terakhir di bulan target (Contoh: 2026-05-31 23:59:59)
+            $endDate = \Carbon\Carbon::createFromDate($year, $month, 1)->endOfMonth()->toDateTimeString();
+
+            // Menggunakan '<=' agar batch dari tahun-tahun sebelumnya juga ikut terhitung sebagai modal awal
+            $query->where('created_at', '<=', $endDate);
+        }
+
+        // Menghitung total nilai barang yang PERNAH MASUK sampai bulan target
+        // Pastikan rumusnya mencerminkan total aset awal (qty_awal * harga_beli) jika tersedia
+        return $query->sum('harga_beli');
     }
 
     public function getAll($filter)
     {
         $query = $this->model::with('dompetKategori');
 
-        if (!empty($filter->search)) {
+        if (! empty($filter->search)) {
             $query->where(function ($q) use ($filter) {
-                $q->where('saldo', 'like', '%' . $filter->search . '%')
-                    ->orWhere('harga_beli', 'like', '%' . $filter->search . '%')
+                $q->where('saldo', 'like', '%'.$filter->search.'%')
+                    ->orWhere('harga_beli', 'like', '%'.$filter->search.'%')
                     ->orWhereHas('dompetKategori', function ($q2) use ($filter) {
-                        $q2->where('nama', 'like', '%' . $filter->search . '%');
+                        $q2->where('nama', 'like', '%'.$filter->search.'%');
                     });
             });
         }
 
-        if (!empty($filter->saldo)) {
+        if (! empty($filter->saldo)) {
             $query->where('saldo', $filter->saldo);
         }
 
-        if (!empty($filter->month)) {
+        if (! empty($filter->month)) {
             $query->whereMonth('created_at', $filter->month);
         }
 
-        if (!empty($filter->year)) {
+        if (! empty($filter->year)) {
             $query->whereYear('created_at', $filter->year);
         }
 
         $query->orderByDesc('created_at');
 
-        return !empty($filter->limit)
+        return ! empty($filter->limit)
             ? $query->paginate($filter->limit)
             : $query->get();
     }
@@ -77,17 +87,17 @@ class DompetSaldoRepository
             ->selectRaw('dompet_kategori_id, SUM(saldo) as total_saldo, SUM(harga_beli) as total_harga_beli')
             ->groupBy('dompet_kategori_id');
 
-        if (!empty($filter->search)) {
+        if (! empty($filter->search)) {
             $query->where(function ($q) use ($filter) {
-                $q->where('saldo', 'like', '%' . $filter->search . '%')
-                    ->orWhere('harga_beli', 'like', '%' . $filter->search . '%')
+                $q->where('saldo', 'like', '%'.$filter->search.'%')
+                    ->orWhere('harga_beli', 'like', '%'.$filter->search.'%')
                     ->orWhereHas('dompetKategori', function ($q2) use ($filter) {
-                        $q2->where('nama', 'like', '%' . $filter->search . '%');
+                        $q2->where('nama', 'like', '%'.$filter->search.'%');
                     });
             });
         }
 
-        return !empty($filter->limit)
+        return ! empty($filter->limit)
             ? $query->paginate($filter->limit)
             : $query->get();
     }
@@ -108,7 +118,7 @@ class DompetSaldoRepository
 
         if ($search) {
             $query->where(function ($q) use ($search) {
-                $q->where('saldo', 'like', '%' . $search . '%');
+                $q->where('saldo', 'like', '%'.$search.'%');
             });
         }
 
@@ -131,6 +141,7 @@ class DompetSaldoRepository
         if ($item) {
             $item->update($data);
         }
+
         return $item;
     }
 
@@ -140,6 +151,7 @@ class DompetSaldoRepository
         if ($item) {
             $item->update($data);
         }
+
         return $item ? $item->delete() : false;
     }
 }

@@ -10,7 +10,7 @@ class StockProblemRepository
     {
         $stokProblem = StockBarangBermasalah::where('toko_id', $toko_id)
             ->whereYear('created_at', $year)
-            ->whereMonth('created_at', '<=', $month)
+            ->whereMonth('created_at', $month)
             ->with('batch')
             ->whereIn('status', ['hilang', 'mati'])
             ->get()

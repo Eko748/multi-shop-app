@@ -268,6 +268,7 @@ Route::prefix('transaksi-barang')->as('tb.')->group(function () {
         Route::get('detail', [TransaksiKasirController::class, 'detail'])->name('detail');
         Route::post('post', [TransaksiKasirController::class, 'post'])->name('post')->middleware('permission:POST /transaksi-barang/kasir/post');
         Route::delete('delete', [TransaksiKasirController::class, 'delete'])->name('delete')->middleware('permission:DELETE /transaksi-barang/kasir/delete');
+        Route::delete('delete-detail', [TransaksiKasirController::class, 'deleteDetail'])->name('deleteDetail')->middleware('permission:DELETE /transaksi-barang/kasir/delete');
         Route::get('get-harga', [TransaksiKasirController::class, 'getHarga'])->name('getHarga');
         Route::get('print', [TransaksiKasirController::class, 'print'])->name('print');
     });

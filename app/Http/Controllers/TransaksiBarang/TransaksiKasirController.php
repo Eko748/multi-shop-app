@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\TransaksiBarang;
 
 use App\Helpers\PinCheck;
-use App\Helpers\RupiahGenerate;
 use App\Http\Controllers\Controller;
 use App\Models\Barang;
 use App\Models\DetailKasir;
@@ -17,29 +16,28 @@ use App\Models\Member;
 use App\Models\Promo;
 use App\Models\StockBarang;
 use App\Models\Toko;
-use App\Models\TransaksiKasir;
-use App\Models\TransaksiKasirDetail;
-use App\Models\User;
 use App\Services\TransaksiBarang\TransaksiKasirService;
+use App\Traits\ApiResponse;
+use App\Traits\HasFilter;
 use Carbon\Carbon;
+use Endroid\QrCode\Encoding\Encoding;
+use Endroid\QrCode\Label\Font\NotoSans;
+use Endroid\QrCode\Label\Label;
+use Endroid\QrCode\QrCode;
+use Endroid\QrCode\Writer\PngWriter;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Endroid\QrCode\QrCode;
-use Endroid\QrCode\Writer\PngWriter;
-use Endroid\QrCode\Encoding\Encoding;
-use Endroid\QrCode\Label\Label;
-use Endroid\QrCode\Label\Font\NotoSans;
-use App\Traits\{ApiResponse, HasFilter};
 use Illuminate\Validation\ValidationException;
-use Exception;
 
 class TransaksiKasirController extends Controller
 {
     use ApiResponse, HasFilter;
 
     private array $menu = [];
+
     protected $service;
 
     public function __construct(TransaksiKasirService $service)
@@ -74,7 +72,7 @@ class TransaksiKasirController extends Controller
             return $this->success($data['data'], 200, 'Berhasil', $data['pagination']);
         } catch (Exception $e) {
             return $this->error(500, "Gagal mengambil data {$this->title[0]}", [
-                'exception' => $e->getMessage()
+                'exception' => $e->getMessage(),
             ]);
         }
     }
@@ -158,17 +156,48 @@ class TransaksiKasirController extends Controller
 
             $pinCheck = PinCheck::validate($validated['toko_id'], $validated['pin']);
 
-            if (!$pinCheck['status']) {
+            if (! $pinCheck['status']) {
                 return $this->error(403, $pinCheck['message']);
             }
 
             $deleted = $this->service->delete($validated['public_id'], $validated);
 
-            if (!$deleted) {
+            if (! $deleted) {
                 return $this->error(404, 'Data not found');
             }
 
             return $this->success(null, 200, 'Data berhasil dihapus');
+        } catch (ValidationException $e) {
+            return $this->error(422, 'Validation Error', $e->errors());
+        } catch (Exception $e) {
+            return $this->error(500, 'Internal Server Error', $e->getMessage());
+        }
+    }
+
+    public function deleteDetail(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                // Validasi diarahkan ke ID / public_id milik DETAIL transaksi
+                'transaksi_kasir_detail_id' => 'required|integer|exists:transaksi_kasir_detail,id',
+                'deleted_by' => 'required|integer|exists:users,id',
+                'toko_id' => 'required|integer|exists:toko,id',
+            ]);
+
+            // $pinCheck = PinCheck::validate($validated['toko_id'], $validated['pin']);
+
+            // if (! $pinCheck['status']) {
+            //     return $this->error(403, $pinCheck['message']);
+            // }
+
+            // Panggil service delete per detail
+            $result = $this->service->deleteDetail($validated['transaksi_kasir_detail_id'], $validated);
+
+            if (! $result) {
+                return $this->error(404, 'Detail data tidak ditemukan atau sudah dihapus');
+            }
+
+            return $this->success(null, 200, $result['message']);
         } catch (ValidationException $e) {
             return $this->error(422, 'Validation Error', $e->errors());
         } catch (Exception $e) {
@@ -189,11 +218,11 @@ class TransaksiKasirController extends Controller
         $idToko = $request->input('id_toko');
 
         // Pastikan format benar
-        if (!str_contains($idBarangParam, '/')) {
+        if (! str_contains($idBarangParam, '/')) {
             return response()->json(['error' => 'Format id_barang tidak valid. Gunakan format qrcode1,qrcode2/.../id_barang.'], 400);
         }
 
-        list($qrCodeString, $idBarang) = explode('/', $idBarangParam, 2);
+        [$qrCodeString, $idBarang] = explode('/', $idBarangParam, 2);
         $qrCodes = array_filter(explode(',', $qrCodeString)); // pisahkan jadi array
 
         try {
@@ -207,12 +236,12 @@ class TransaksiKasirController extends Controller
             }
 
             $barang = Barang::find($idBarang);
-            if (!$barang) {
+            if (! $barang) {
                 return response()->json(['error' => 'Barang tidak ditemukan.'], 404);
             }
 
             $stock = 0;
-            if ((int)$idToko === 1) {
+            if ((int) $idToko === 1) {
                 $stock = DetailStockBarang::whereIn('id_detail_pembelian', function ($query) use ($qrCodes) {
                     $query->select('id')
                         ->from('detail_pembelian_barang')
@@ -233,9 +262,9 @@ class TransaksiKasirController extends Controller
             // Jika Guest
             if ($memberId === 'Guest') {
                 $filteredHarga = collect($levelHarga)
-                    ->sortByDesc(fn($harga) => (int) explode(' : ', $harga)[1])
+                    ->sortByDesc(fn ($harga) => (int) explode(' : ', $harga)[1])
                     ->values()
-                    ->map(fn($harga) => intval(explode(' : ', $harga)[1]));
+                    ->map(fn ($harga) => intval(explode(' : ', $harga)[1]));
 
                 return response()->json([
                     'filteredHarga' => $filteredHarga,
@@ -247,7 +276,7 @@ class TransaksiKasirController extends Controller
 
             // Member validasi
             $member = Member::find($memberId);
-            if (!$member) {
+            if (! $member) {
                 return response()->json(['error' => 'Member tidak ditemukan.'], 404);
             }
 
@@ -256,7 +285,8 @@ class TransaksiKasirController extends Controller
 
             // Ambil level id yang cocok
             $levelIds = collect($levelInfo)->map(function ($info) use ($jenisBarangId) {
-                list($infoJenisBarangId, $infoLevelId) = explode(' : ', $info);
+                [$infoJenisBarangId, $infoLevelId] = explode(' : ', $info);
+
                 return intval($infoJenisBarangId) === intval($jenisBarangId) ? intval($infoLevelId) : null;
             })->filter();
 
@@ -264,8 +294,8 @@ class TransaksiKasirController extends Controller
 
             // Filter harga
             $filteredHarga = collect($levelHarga)->filter(function ($harga) use ($levelNames) {
-                return $levelNames->contains(fn($levelName) => str_contains($harga, $levelName));
-            })->map(fn($harga) => intval(explode(' : ', $harga)[1]))->values();
+                return $levelNames->contains(fn ($levelName) => str_contains($harga, $levelName));
+            })->map(fn ($harga) => intval(explode(' : ', $harga)[1]))->values();
 
             $response = count($filteredHarga) === 1 ? $filteredHarga->first() : $filteredHarga;
 
@@ -277,7 +307,7 @@ class TransaksiKasirController extends Controller
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Terjadi kesalahan pada server: ' . $e->getMessage(),
+                'error' => 'Terjadi kesalahan pada server: '.$e->getMessage(),
                 'status_code' => 500,
             ], 500);
         }
@@ -288,9 +318,9 @@ class TransaksiKasirController extends Controller
         try {
             DB::beginTransaction();
 
-            $idBarangs = array_values(array_filter($request->input('id_barang', []), fn($v) => !empty($v)));
-            $qtys = array_values(array_filter($request->input('qty', []), fn($v) => !empty($v)));
-            $hargaBarangs = array_values(array_filter($request->input('harga', []), fn($v) => !empty($v)));
+            $idBarangs = array_values(array_filter($request->input('id_barang', []), fn ($v) => ! empty($v)));
+            $qtys = array_values(array_filter($request->input('qty', []), fn ($v) => ! empty($v)));
+            $hargaBarangs = array_values(array_filter($request->input('harga', []), fn ($v) => ! empty($v)));
 
             $maxCount = max(count($idBarangs), count($qtys), count($hargaBarangs));
             $idBarangs = $this->fillArrayToMatchCount($idBarangs, $maxCount);
@@ -327,7 +357,9 @@ class TransaksiKasirController extends Controller
             foreach ($idBarangs as $index => $id_barang) {
                 $qty = (float) $qtys[$index];
                 $harga_barang = (float) $hargaBarangs[$index];
-                if (!$qty || !$harga_barang) continue;
+                if (! $qty || ! $harga_barang) {
+                    continue;
+                }
 
                 $parts = explode('/', $id_barang);
                 $barcodeStr = $parts[0];
@@ -376,7 +408,9 @@ class TransaksiKasirController extends Controller
                         ->get();
 
                     foreach ($stocks as $stock) {
-                        if ($sisaQty <= 0) break;
+                        if ($sisaQty <= 0) {
+                            break;
+                        }
 
                         $ambilQty = min($sisaQty, $stock->qty_now);
                         $sisaQty -= $ambilQty;
@@ -384,12 +418,14 @@ class TransaksiKasirController extends Controller
                         $tglFormat = $tglTransaksi->format('dmY');
                         $qrValue = "{$tglFormat}TK{$user->id_toko}MM{$kasir->id_member}ID{$kasir->id}-{$counter}-{$subCounter}";
                         $qrPath = "qrcodes/trx_kasir/{$kasir->id}-{$counter}-{$subCounter}.png";
-                        $qrFullPath = storage_path("app/public/" . $qrPath);
+                        $qrFullPath = storage_path('app/public/'.$qrPath);
 
-                        if (!file_exists(dirname($qrFullPath))) mkdir(dirname($qrFullPath), 0755, true);
+                        if (! file_exists(dirname($qrFullPath))) {
+                            mkdir(dirname($qrFullPath), 0755, true);
+                        }
 
                         $qr = QrCode::create($qrValue)->setEncoding(new Encoding('UTF-8'))->setSize(200)->setMargin(10);
-                        $writer = new PngWriter();
+                        $writer = new PngWriter;
                         $writer->write($qr, null, Label::create($qrValue)->setFont(new NotoSans(12)))->saveToFile($qrFullPath);
 
                         $stockInfo = StockBarang::where('id_barang', $id_barang_final)->first();
@@ -436,7 +472,9 @@ class TransaksiKasirController extends Controller
                         ->get();
 
                     foreach ($detailTokos as $detailToko) {
-                        if ($sisaQty <= 0) break;
+                        if ($sisaQty <= 0) {
+                            break;
+                        }
 
                         $ambilQty = min($sisaQty, $detailToko->qty);
                         $sisaQty -= $ambilQty;
@@ -444,12 +482,14 @@ class TransaksiKasirController extends Controller
                         $tglFormat = $tglTransaksi->format('dmY');
                         $qrValue = "{$tglFormat}TK{$user->id_toko}MM{$kasir->id_member}ID{$kasir->id}-{$counter}-{$subCounter}";
                         $qrPath = "qrcodes/trx_kasir/{$kasir->id}-{$counter}-{$subCounter}.png";
-                        $qrFullPath = storage_path("app/public/" . $qrPath);
+                        $qrFullPath = storage_path('app/public/'.$qrPath);
 
-                        if (!file_exists(dirname($qrFullPath))) mkdir(dirname($qrFullPath), 0755, true);
+                        if (! file_exists(dirname($qrFullPath))) {
+                            mkdir(dirname($qrFullPath), 0755, true);
+                        }
 
                         $qr = QrCode::create($qrValue)->setEncoding(new Encoding('UTF-8'))->setSize(200)->setMargin(10);
-                        $writer = new PngWriter();
+                        $writer = new PngWriter;
                         $writer->write($qr, null, Label::create($qrValue)->setFont(new NotoSans(12)))->saveToFile($qrFullPath);
 
                         $stockInfo = StockBarang::where('id_barang', $id_barang_final)->first();
@@ -488,9 +528,10 @@ class TransaksiKasirController extends Controller
 
             if ($detailInserted === 0) {
                 DB::rollBack();
+
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Minimal harus ada satu barang dalam transaksi.'
+                    'message' => 'Minimal harus ada satu barang dalam transaksi.',
                 ], 422);
             }
 
@@ -499,11 +540,12 @@ class TransaksiKasirController extends Controller
             $toko = \App\Models\Toko::find($user->id_toko);
 
             // Kalau tidak menerima kasbon (false)
-            if (!$toko->kasbon && $kasir->jml_bayar < $totalTransaksi) {
+            if (! $toko->kasbon && $kasir->jml_bayar < $totalTransaksi) {
                 DB::rollBack();
+
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Toko ini tidak menerima kasbon, jumlah bayar minimal harus >= SubTotal Transaksi.'
+                    'message' => 'Toko ini tidak menerima kasbon, jumlah bayar minimal harus >= SubTotal Transaksi.',
                 ], 422);
             }
 
@@ -521,19 +563,21 @@ class TransaksiKasirController extends Controller
                 $sisaBayar = $totalTransaksi - $kasir->jml_bayar;
 
                 Kasbon::create([
-                    'id_kasir'   => $kasir->id,
-                    'id_member'  => $kasir->id_member,
-                    'utang'      => $sisaBayar,
+                    'id_kasir' => $kasir->id,
+                    'id_member' => $kasir->id_member,
+                    'utang' => $sisaBayar,
                     'utang_sisa' => $sisaBayar,
-                    'status'     => 'BL',
+                    'status' => 'BL',
                 ]);
             }
 
             DB::commit();
+
             return response()->json(['status' => 'success', 'message' => 'Data berhasil disimpan', 'data' => $kasir]);
         } catch (\Throwable $th) {
             DB::rollBack();
             Log::error('Gagal simpan transaksi', ['error' => $th->getMessage()]);
+
             return response()->json(['status' => 'error', 'message' => 'Gagal menyimpan transaksi', 'error' => $th->getMessage()], 500);
         }
     }

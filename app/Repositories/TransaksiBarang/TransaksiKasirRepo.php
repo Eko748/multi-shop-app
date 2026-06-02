@@ -156,7 +156,7 @@ class TransaksiKasirRepo
                             <div style='display: flex; flex-direction: column; line-height: 1.2;'>
                                 <span style='font-weight: 550; font-size: 12px;'>{$barang}</span>
                                 <small class='text-dark'>
-                                    {$qrcode} {$retur}
+                                    <span id='copy-qrcode-{$item->id}' class='font-weight-bold'>{$qrcode}</span> {$retur}
                                 </small>
                             </div>
                         </div>

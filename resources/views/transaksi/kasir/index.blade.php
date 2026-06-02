@@ -440,10 +440,10 @@
                     <div class="d-flex justify-content-center flex-column flex-sm-row align-items-center align-items-sm-start mx-3" style="gap: 0.5rem;">
                         ${hasButtons
                             ? `
-                                            ${element.print_button || ''}
-                                            ${element.detail_button || ''}
-                                            ${element.delete_button || ''}
-                                           `
+                                                                            ${element.print_button || ''}
+                                                                            ${element.detail_button || ''}
+                                                                            ${element.delete_button || ''}
+                                                                           `
                             : `<i class="text-muted">Tidak ada aksi</span>`
                         }
                     </div>
@@ -546,14 +546,145 @@
             }).catch(swal.noop);
         }
 
-        async function openDetailKasir(id) {
-            $('#kasir-detail-body').html(`
-                <div class="text-center py-5">
-                    <div class="spinner-border text-primary" role="status"></div>
-                    <p class="mt-3">Memuat data...</p>
-                </div>
-            `);
+        async function deleteDetailData(encodedData) {
+            let data = JSON.parse(decodeURIComponent(encodedData));
 
+            // Proteksi agar input PIN/Alasan di dalam SweetAlert tidak bentrok dengan modal Bootstrap
+            if ($.fn.modal) {
+                $.fn.modal.Constructor.prototype._enforceFocus = function() {};
+            }
+            $(document).off('focusin.modal');
+
+            swal({
+                title: `Hapus Item Transaksi`,
+                focusConfirm: false,
+                closeOnClickOutside: false, // Menghindari modal tertutup mendadak saat kursor bergerak
+                allowOutsideClick: false,
+                html: `
+            <p class="font-weight-bold">Produk <span class="text-danger">${data.nama_barang}</span> pada nota ${data.nota} akan dihapus!</p>
+            <p><small class="text-muted">Seluruh stok pecahan batch produk ini pada nota tersebut akan di-rollback.</small></p>
+        `,
+                type: "warning",
+                showCancelButton: true,
+                confirmButtonText: "Ya, Hapus Item",
+                cancelButtonText: "Batal",
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                reverseButtons: true,
+                confirmButtonClass: "btn btn-danger",
+                cancelButtonClass: "btn btn-secondary",
+                onOpen: function() {
+                    setTimeout(() => {
+                        const pinInput = document.getElementById('input-pin');
+                        if (pinInput) pinInput.focus();
+                    }, 200);
+                }
+            }).then(async (result) => {
+                if (result === false || (result && result.dismiss === 'cancel')) {
+                    return;
+                }
+
+                // 1. Hit API Backend untuk hapus detail item
+                let postDataRest = await renderAPI(
+                    'DELETE',
+                    '{{ route('tb.kasir.deleteDetail') }}', {
+                        transaksi_kasir_detail_id: data.id,
+                        deleted_by: {{ auth()->user()->id }},
+                        toko_id: {{ auth()->user()->toko_id }},
+                    }
+                ).then(response => response).catch(error => error.response);
+
+                swal.close();
+
+                if (postDataRest.status == 200) {
+                    // Tampilkan notifikasi sukses
+                    notificationAlert('success', 'Pemberitahuan', postDataRest.data.message);
+
+                    // 2. Refresh list data tabel utama (layer paling belakang)
+                    getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
+                        customFilter);
+
+                    try {
+                        // 3. AMBIL DATA TERBARU via fungsi reusable API tanpa memicu spinner utama openDetailKasir
+                        const updatedResult = await fetchDetailKasir(data.parent_id);
+
+                        if (updatedResult && updatedResult.kasir) {
+                            const ksr = updatedResult.kasir;
+                            const detail = updatedResult.detail_kasir;
+                            const grouped = updatedResult.grouped_details;
+
+                            // 4. LANGSUNG RENDER ULANG isian body modal dengan data yang baru
+                            $('#kasir-detail-body').html(generateKasirDetailHTML(ksr, detail, grouped));
+
+                            // 5. Pasang ulang listener tombol QR Code
+                            initCopyQrButtons();
+                        } else {
+                            // Jika setelah dihapus data kasir/nota ikut hilang (karena item terakhir)
+                            $('#kasir-detail-body').html(
+                                `<p class="text-danger text-center">Data tidak ditemukan atau nota telah dihapus.</p>`
+                            );
+                        }
+                    } catch (err) {
+                        $('#kasir-detail-body').html(
+                            `<p class="text-danger text-center">Gagal memperbarui data modal.</p>`);
+                    }
+
+                } else {
+                    notificationAlert('error', 'Gagal', postDataRest.data?.message ||
+                        'Terjadi kesalahan sistem.');
+                }
+            }).catch(swal.noop);
+        }
+
+        function initCopyQrButtons() {
+            document.querySelectorAll('.copy-btn').forEach(function(button) {
+                button.addEventListener('click', function() {
+                    const targetId = this.getAttribute('data-target');
+                    const textToCopy = document.getElementById(targetId)?.innerText;
+
+                    if (!textToCopy) return;
+
+                    navigator.clipboard.writeText(textToCopy).then(function() {
+                        notyf.success('QR Code berhasil disalin');
+                    }).catch(function(err) {
+                        notyf.error('Gagal menyalin QR Code');
+                    });
+                });
+            });
+        }
+
+        async function openDetailKasir(id) {
+            // Tampilkan loading spinner terlebih dahulu
+            $('#kasir-detail-body').html(`
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-3">Memuat data...</p>
+        </div>
+    `);
+
+            try {
+                // REUSABLE CALL: Memanggil fungsi pemisah data API
+                const result = await fetchDetailKasir(id);
+
+                if (result && result.kasir) {
+                    const ksr = result.kasir;
+                    const detail = result.detail_kasir;
+                    const grouped = result.grouped_details;
+
+                    // Render HTML utama modal detail
+                    $('#kasir-detail-body').html(generateKasirDetailHTML(ksr, detail, grouped));
+
+                    // Re-bind event listener untuk tombol salin QR Code
+                    initCopyQrButtons();
+                } else {
+                    $('#kasir-detail-body').html(`<p class="text-danger text-center">Data tidak ditemukan.</p>`);
+                }
+            } catch (err) {
+                $('#kasir-detail-body').html(`<p class="text-danger text-center">Gagal mengambil data.</p>`);
+            }
+        }
+
+        async function fetchDetailKasir(id) {
             try {
                 let res = await renderAPI(
                     'GET',
@@ -561,31 +692,10 @@
                         id: id
                     }
                 );
-                let result = res?.data?.data ?? {};
-
-                if (result.kasir) {
-                    const ksr = result.kasir;
-                    const detail = result.detail_kasir;
-                    const grouped = result.grouped_details;
-
-                    $('#kasir-detail-body').html(generateKasirDetailHTML(ksr, detail, grouped));
-                    document.querySelectorAll('.copy-btn').forEach(function(button) {
-                        button.addEventListener('click', function() {
-                            const targetId = this.getAttribute('data-target');
-                            const textToCopy = document.getElementById(targetId).innerText;
-
-                            navigator.clipboard.writeText(textToCopy).then(function() {
-                                notyf.success('QR Code berhasil disalin');
-                            }).catch(function(err) {
-                                notyf.error('Gagal menyalin QR Code');
-                            });
-                        });
-                    });
-                } else {
-                    $('#kasir-detail-body').html(`<p class="text-danger text-center">Data tidak ditemukan.</p>`);
-                }
+                return res?.data?.data ?? null;
             } catch (err) {
-                $('#kasir-detail-body').html(`<p class="text-danger text-center">Gagal mengambil data.</p>`);
+                console.error("Error fetching detail kasir:", err);
+                throw err; // Lempar error agar bisa ditangkap oleh fungsi yang memanggilnya
             }
         }
 
@@ -611,108 +721,133 @@
             let html = `
     <div class="col-md-7 mb-4">
         <div class="info-wrapper p-3 border rounded bg-light">
-                    <div class="row">
-    <div class="col-12 col-xl-6 col-lg-12 col-md-12">
-        <div class="info-row d-flex">
-            <p class="label mr-2">No Nota</p>
-            <p class="value">: ${noNota}</p>
-        </div>
-    </div>
+            <div class="row">
+                <div class="col-12 col-xl-6 col-lg-12 col-md-12">
+                    <div class="info-row d-flex">
+                        <p class="label mr-2">No Nota</p>
+                        <p class="value">: ${noNota}</p>
+                    </div>
+                </div>
 
-    <div class="col-12 col-xl-6 col-lg-12 col-md-12">
-        <div class="info-row d-flex">
-            <p class="label mr-2">Tanggal Transaksi</p>
-            <p class="value">: ${tanggal}</p>
-        </div>
-    </div>
+                <div class="col-12 col-xl-6 col-lg-12 col-md-12">
+                    <div class="info-row d-flex">
+                        <p class="label mr-2">Tanggal Transaksi</p>
+                        <p class="value">: ${tanggal}</p>
+                    </div>
+                </div>
 
-    <div class="col-12 col-xl-6 col-lg-12 col-md-12">
-        <div class="info-row d-flex">
-            <p class="label mr-2">Kasir</p>
-            <p class="value">: ${kasirNama}</p>
-        </div>
-    </div>
+                <div class="col-12 col-xl-6 col-lg-12 col-md-12">
+                    <div class="info-row d-flex">
+                        <p class="label mr-2">Kasir</p>
+                        <p class="value">: ${kasirNama}</p>
+                    </div>
+                </div>
 
-    <div class="col-12 col-xl-6 col-lg-12 col-md-12">
-        <div class="info-row d-flex">
-            <p class="label mr-2">Total Qty</p>
-            <p class="value">: ${totalItem} Qty</p>
-        </div>
-    </div>
+                <div class="col-12 col-xl-6 col-lg-12 col-md-12">
+                    <div class="info-row d-flex">
+                        <p class="label mr-2">Total Qty</p>
+                        <p class="value">: ${totalItem} Qty</p>
+                    </div>
+                </div>
 
-    <div class="col-12 col-xl-6 col-lg-12 col-md-12">
-        <div class="info-row d-flex">
-            <p class="label mr-2">Nominal Transaksi</p>
-            <p class="value">: ${totalNilai}</p>
-        </div>
-    </div>
+                <div class="col-12 col-xl-6 col-lg-12 col-md-12">
+                    <div class="info-row d-flex">
+                        <p class="label mr-2">Nominal Transaksi</p>
+                        <p class="value">: ${totalNilai}</p>
+                    </div>
+                </div>
 
-    <div class="col-12 col-xl-6 col-lg-12 col-md-12">
-        <div class="info-row d-flex">
-            <p class="label mr-2">Total Potongan</p>
-            <p class="value">: ${totalDiskon}</p>
-        </div>
-    </div>
+                <div class="col-12 col-xl-6 col-lg-12 col-md-12">
+                    <div class="info-row d-flex">
+                        <p class="label mr-2">Total Potongan</p>
+                        <p class="value">: ${totalDiskon}</p>
+                    </div>
+                </div>
 
-    <div class="col-12 col-xl-6 col-lg-12 col-md-12">
-        <div class="info-row d-flex">
-            <p class="label mr-2">Jumlah Bayar</p>
-            <p class="value">: ${jmlBayar}</p>
-        </div>
-    </div>
+                <div class="col-12 col-xl-6 col-lg-12 col-md-12">
+                    <div class="info-row d-flex">
+                        <p class="label mr-2">Jumlah Bayar</p>
+                        <p class="value">: ${jmlBayar}</p>
+                    </div>
+                </div>
 
-    <div class="col-12 col-xl-6 col-lg-12 col-md-12">
-        <div class="info-row d-flex">
-            <p class="label mr-2">Kembalian</p>
-            <p class="value">: ${kembalian}</p>
-        </div>
-    </div>
-</div>
+                <div class="col-12 col-xl-6 col-lg-12 col-md-12">
+                    <div class="info-row d-flex">
+                        <p class="label mr-2">Kembalian</p>
+                        <p class="value">: ${kembalian}</p>
+                    </div>
+                </div>
+            </div>
 
-
-        <div class="table-responsive table-scroll-wrapper mt-3">
-            <table class="table table-striped m-0">
-                <thead>
-                    <tr>
-                        <th class="text-center">No</th>
-                        <th>Nama Barang</th>
-                        <th class="text-center">Qty</th>
-                        <th class="text-right">Harga</th>
-                        <th class="text-right">Total</th>
-                    </tr>
-                </thead>
-                <tbody>
+            <div class="table-responsive table-scroll-wrapper mt-3">
+                <table class="table table-striped m-0">
+                    <thead>
+                        <tr>
+                            <th class="text-center" style="width: 50px;">No</th>
+                            <th>Nama Barang</th>
+                            <th class="text-center" style="width: 70px;">Qty</th>
+                            <th class="text-right">Harga</th>
+                            <th class="text-right">Total</th>
+                            <th class="text-center" style="width: 60px;">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
     `;
 
             detail_kasir.forEach((dtks, idx) => {
+                // Ambil nama barang untuk keperluan text / fallback text alert hapus
+                const namaBarang = dtks.barang?.nama_barang ?? 'Produk';
+                const parentId = dtks.id;
+
+                // Encode parameter ke JSON string agar aman dikirim via attribute HTML
+                const params = encodeURIComponent(JSON.stringify({
+                    parent_id: ksr.public_id,
+                    id: dtks.id,
+                    nama_barang: namaBarang,
+                    nota: noNota
+                }));
+
                 html += `
             <tr>
                 <td class="text-center">${idx + 1}</td>
-                <td style="
-                    max-width: 280px;
-                    width: 280px;
-                    overflow: hidden;
-                    vertical-align: top;
-                ">
-                    <div style="
-                        max-width: 100%;
-                        overflow: hidden;
-                    ">
-                        ${dtks.text ?? '-'}
-                    </div>
-                </td>
+                <td style="max-width: 280px; width: 280px; vertical-align: top;">
+    <div class="d-flex justify-content-between align-items-start" style="max-width: 100%;">
+
+        <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pr-2;" title="${dtks.text ?? '-'}">
+            ${dtks.text ?? '-'}
+        </div>
+
+        <span id="qr-text-${dtks.id}" class="d-none">${dtks.text ?? '-'}</span>
+
+        <button type="button"
+                class="btn btn-sm btn-outline-secondary copy-btn py-0 px-1 ml-1"
+                data-target="copy-qrcode-${dtks.id}"
+                title="Salin QR Code"
+                style="font-size: 0.75rem; line-height: 1.5;">
+            <i class="fa fa-copy"></i>
+        </button>
+
+    </div>
+</td>
                 <td class="text-center">${dtks.qty ?? 0}</td>
                 <td class="text-right">${dtks.harga ?? 0}</td>
                 <td class="text-right">${dtks.subtotal ?? 0}</td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-outline-danger"
+                            onclick="deleteDetailData('${params}')"
+                            title="Hapus Produk Ini">
+                        <i class="fa fa-trash"></i>
+                    </button>
+                </td>
             </tr>
         `;
             });
 
             html += `
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
+            </div>
         </div>
-                </div>
     </div>`;
 
             return html;
@@ -802,7 +937,7 @@
                         <tr class="bg-light"><td colspan="3"><b>Total</b></td><td class="text-right"><b>${total}</b></td></tr>
                         <tr class="bg-success text-white"><td colspan="3">Dibayar</td><td class="text-right">${jmlBayar}</td></tr>
                         ${kembalian != 0 ? `
-                                                                                    <tr class="bg-info text-white"><td colspan="3">Kembalian</td><td class="text-right">${kembalian}</td></tr>` : ''}
+                                                                                                                    <tr class="bg-info text-white"><td colspan="3">Kembalian</td><td class="text-right">${kembalian}</td></tr>` : ''}
                     </tfoot>
                 </table>
 

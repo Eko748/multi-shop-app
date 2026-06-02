@@ -44,7 +44,7 @@ class NeracaKeuanganService
         $returData = $this->returRepo->getReturData($month, $year, $tokoId);
         $piutangData = $this->piutangRepo->getActivePiutang($month, $year, $tokoId);
         $penyesuaianNeraca = $this->neracaRepo->getTotalPenyesuaian();
-        $stokProblem = $this->stokProblemRepo->getStockProblem($tokoId);
+        $stokProblem = $this->stokProblemRepo->getStockProblem($month, $year, $tokoId);
         $pengirimanData = $this->pengirimanBarangRepo->getStokPengirimanBarang($month, $year, $tokoId);
         // Kas besar/kecil via service
         $kasData = $this->generateKas($tokoId, $month, $year);

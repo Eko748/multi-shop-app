@@ -37,6 +37,18 @@ class PenjualanNonFisikDetailRepository
 
     public function sumHPP(?int $month = null, ?int $year = null, ?int $tokoId = null)
     {
+        $query = $this->model->where('toko_id', $tokoId)->selectRaw('SUM(hpp * qty) as total_hpp');
+
+        if ($month && $year) {
+            $query->whereYear('created_at', $year)
+                ->whereMonth('created_at', '<=', $month);
+        }
+
+        return $query->value('total_hpp');
+    }
+
+    public function sumPenjualan(?int $month = null, ?int $year = null, ?int $tokoId = null)
+    {
         $query = TransaksiKasirHarian::query();
 
         if ($tokoId !== null && $tokoId !== 'all' && $tokoId != 0) {

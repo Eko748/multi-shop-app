@@ -35,20 +35,24 @@ class StokRepository
         $targetMonthEnd = Carbon::createFromDate($year, $month, 1)->endOfMonth();
 
         // 2. Ambil data StockBarangBatch yang ada saat ini (Kondisi Real-time)
-        // Filter hanya batch yang sudah lahir/dibuat sebelum atau pada bulan target
+        // Filter toko DAN pastikan data barang-nya masih aktif/belum dihapus
         $currentBatches = StockBarangBatch::whereHas('stockBarang', function ($q) use ($tokoId) {
             $q->when(
                 $tokoId !== null && $tokoId !== 'all' && $tokoId != 0,
                 fn ($x) => $x->where('toko_id', $tokoId)
             );
+
+            // TAMBAHAN: Pastikan relasi ke barang ada (mengeliminasi barang yang kena soft delete)
+            $q->whereHas('barang');
         })
             ->with(['stockBarang.barang.jenis'])
             ->where('created_at', '<=', $targetMonthEnd)
             ->get()
+            // Di-filter lagi untuk memastikan relasi tidak null saat di-group (antisipasi jika tidak pakai soft deletes)
+            ->filter(fn ($item) => $item->stockBarang && $item->stockBarang->barang && $item->stockBarang->barang->jenis)
             ->groupBy(fn ($item) => $item->stockBarang->barang->jenis->id);
 
         // 3. Ambil data penjualan (TransaksiKasirHarian) yang terjadi SETELAH bulan target
-        // Karena penjualan setelah bulan target inilah yang membuat stok saat ini "berkurang/bocor"
         $salesAfterTargetMonth = TransaksiKasirHarian::when(
             $tokoId !== null && $tokoId !== 'all' && $tokoId != 0,
             fn ($x) => $x->where('toko_id', $tokoId)
@@ -59,7 +63,6 @@ class StokRepository
             ->groupBy('jenis_barang_id');
 
         // 4. Gabungkan data untuk menghitung nilai masa lalu (Backtracking)
-        // Kita gunakan master data jenis barang dari batch saat ini sebagai acuan loop
         return $currentBatches->map(function ($group, $jenisBarangId) use ($salesAfterTargetMonth) {
             $first = $group->first();
             $jenis = $first->stockBarang->barang->jenis;

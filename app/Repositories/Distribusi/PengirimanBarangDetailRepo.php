@@ -41,9 +41,9 @@ public function sumHargaBeli($filter)
     }
 
     return $query->selectRaw("
-            SUM(pengiriman_barang_detail.qty_send * batches.harga_beli) as total_send,
-            SUM(pengiriman_barang_detail.qty_verified * batches.harga_beli) as total_verified,
-            SUM((pengiriman_barang_detail.qty_send - pengiriman_barang_detail.qty_verified) * batches.harga_beli) as total_selisih
+            SUM(pengiriman_barang_detail.qty_send * pengiriman_barang_detail.harga_kirim) as total_send,
+            SUM(pengiriman_barang_detail.qty_verified * pengiriman_barang_detail.harga_kirim) as total_verified,
+            SUM((pengiriman_barang_detail.qty_send - pengiriman_barang_detail.qty_verified) * pengiriman_barang_detail.harga_kirim) as total_selisih
         ")
         ->first();
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Distribusi;
 
 use App\Helpers\AssetGenerate;
+use App\Helpers\RupiahGenerate;
 use App\Http\Controllers\Controller;
 use App\Models\Hutang;
 use App\Models\JenisBarang;
@@ -62,16 +63,26 @@ class PengirimanBarangController extends Controller
         $query = PengirimanBarang::query()
             ->select('pengiriman_barang.*')
             ->selectRaw("
-                CASE
-                    WHEN status = 'pending'
-                        THEN (SELECT COALESCE(SUM(qty_send), 0)
-                            FROM pengiriman_barang_detail_temp
-                            WHERE pengiriman_barang_id = pengiriman_barang.id)
-                    ELSE (SELECT COALESCE(SUM(qty_send), 0)
-                        FROM pengiriman_barang_detail
-                        WHERE pengiriman_barang_id = pengiriman_barang.id)
-                END AS qty_total
-            ");
+        CASE
+            WHEN status = 'pending'
+                THEN (SELECT COALESCE(SUM(qty_send), 0)
+                    FROM pengiriman_barang_detail_temp
+                    WHERE pengiriman_barang_id = pengiriman_barang.id)
+            ELSE (SELECT COALESCE(SUM(qty_send), 0)
+                FROM pengiriman_barang_detail
+                WHERE pengiriman_barang_id = pengiriman_barang.id)
+        END AS qty_total,
+
+        CASE
+            WHEN status = 'pending'
+                THEN (SELECT COALESCE(SUM(qty_send * harga_kirim), 0)
+                    FROM pengiriman_barang_detail_temp
+                    WHERE pengiriman_barang_id = pengiriman_barang.id)
+            ELSE (SELECT COALESCE(SUM(qty_send * harga_kirim), 0)
+                FROM pengiriman_barang_detail
+                WHERE pengiriman_barang_id = pengiriman_barang.id)
+        END AS harga_total
+    ");
 
         if ($id_toko != 1) {
 
@@ -164,6 +175,7 @@ class PengirimanBarangController extends Controller
                 'tgl_kirim' => $item->send_at ? $item->send_at->format('d-m-Y H:i:s') : null,
                 'tgl_terima' => $item->verified_at ? $item->verified_at->format('d-m-Y H:i:s') : null,
                 'total_item' => $item->qty_total,
+                'total_harga' => RupiahGenerate::build($item->harga_total),
                 'toko_group_id' => $item->toko_group_id ?? null,
                 'toko_group_nama' => $item->tokoGroup->nama ?? null,
             ];
@@ -418,48 +430,71 @@ class PengirimanBarangController extends Controller
             }
 
             // ===============================
-            // 🔥 PROCESS DETAIL
+            // 🔥 PROCESS DETAIL (FIFO - Menggunakan stock_barang_id)
             // ===============================
 
             foreach ($request->details as $row) {
+                $barangId = $row['barang_id'];
+                $qtyPerluKirim = $row['qty_send'];
 
-                $batchOrigin = StockBarangBatch::lockForUpdate()
-                    ->where('id', $row['stock_barang_batch_id'])
-                    ->where('toko_id', $request->toko_asal_id)
+                // 1. Cari dulu data Master StockBarang berdasarkan barang_id
+                $stockGlobal = StockBarang::where('barang_id', $barangId)
+                    ->lockForUpdate()
                     ->first();
 
-                if (! $batchOrigin) {
-                    throw new \Exception('Batch asal tidak ditemukan');
+                if (! $stockGlobal) {
+                    throw new \Exception("Data master stok untuk Barang ID {$barangId} tidak ditemukan");
                 }
 
-                if ($batchOrigin->qty_sisa < $row['qty_send']) {
-                    throw new \Exception('Stok batch asal tidak mencukupi');
+                if ($stockGlobal->stok < $qtyPerluKirim) {
+                    throw new \Exception("Stok global untuk Barang ID {$barangId} tidak mencukupi");
                 }
 
-                $batchOrigin->qty_sisa -= $row['qty_send'];
-                $batchOrigin->save();
+                // 2. Ambil semua batch di toko asal yang memiliki stock_barang_id tersebut
+                // Diurutkan berdasarkan id ASC (FIFO) dan qty_sisa > 0
+                $batches = StockBarangBatch::where('stock_barang_id', $stockGlobal->id)
+                    ->where('toko_id', $request->toko_asal_id)
+                    ->where('qty_sisa', '>', 0)
+                    ->orderBy('id', 'asc') // Urutan FIFO
+                    ->lockForUpdate()
+                    ->get();
 
-                $stockOrigin = $batchOrigin->stockBarang;
-
-                if (! $stockOrigin) {
-                    throw new \Exception('Data stok toko asal tidak ditemukan');
+                // 3. Validasi apakah total stok dari seluruh batch di toko tersebut mencukupi
+                $totalTersediaDiBatch = $batches->sum('qty_sisa');
+                if ($totalTersediaDiBatch < $qtyPerluKirim) {
+                    throw new \Exception("Stok batch di toko asal tidak mencukupi untuk Barang ID {$barangId}. (Tersedia: {$totalTersediaDiBatch}, Diminta: {$qtyPerluKirim})");
                 }
 
-                if ($stockOrigin->stok < $row['qty_send']) {
-                    throw new \Exception('Stok toko asal tidak mencukupi');
+                // 4. Kurangi Stok Global (karena total batch sudah divalidasi cukup)
+                $stockGlobal->stok -= $qtyPerluKirim;
+                $stockGlobal->save();
+
+                // 5. Jalankan Loop FIFO untuk memotong qty_sisa di tiap batch
+                foreach ($batches as $batch) {
+                    if ($qtyPerluKirim <= 0) {
+                        break; // Jika kebutuhan kirim sudah terpenuhi, keluar dari loop batch
+                    }
+
+                    // Tentukan berapa banyak yang diambil dari batch saat ini
+                    $diambil = min($batch->qty_sisa, $qtyPerluKirim);
+
+                    // Potong stok di level Batch
+                    $batch->qty_sisa -= $diambil;
+                    $batch->save();
+
+                    // Kurangi sisa kebutuhan kirim untuk loop batch berikutnya
+                    $qtyPerluKirim -= $diambil;
+
+                    // 6. Catat ke PengirimanBarangDetail per Batch yang terpotong
+                    PengirimanBarangDetail::create([
+                        'pengiriman_barang_id' => $pengiriman->id,
+                        'barang_id' => $barangId,
+                        'stock_barang_batch_id' => $batch->id, // Menyimpan ID Batch yang benar hasil FIFO
+                        'harga_kirim' => $row['harga_kirim'],
+                        'qty_send' => $diambil,
+                        'qty_verified' => 0,
+                    ]);
                 }
-
-                $stockOrigin->stok -= $row['qty_send'];
-                $stockOrigin->save();
-
-                PengirimanBarangDetail::create([
-                    'pengiriman_barang_id' => $pengiriman->id,
-                    'barang_id' => $row['barang_id'],
-                    'stock_barang_batch_id' => $row['stock_barang_batch_id'],
-                    'harga_kirim' => $row['harga_kirim'],
-                    'qty_send' => $row['qty_send'],
-                    'qty_verified' => 0,
-                ]);
             }
 
             DB::commit();
@@ -651,6 +686,13 @@ class PengirimanBarangController extends Controller
 
             $hutangGrouped = [];
 
+            // 🌟 Variabel untuk menampung total nilai se-pengiriman
+            $totalHargaKirimSemuaBarang = 0;
+            $totalHppMurniSemuaBarang = 0;
+
+            // Asumsi jenis_barang_id diambil dari salah satu atau barang pertama untuk pencatatan laba/rugi global
+            $globalJenisBarangId = null;
+
             foreach ($request->details as $row) {
                 $detail = PengirimanBarangDetail::where('id', $row['id'])
                     ->where('pengiriman_barang_id', $pb->id)
@@ -698,8 +740,17 @@ class PengirimanBarangController extends Controller
                     $currentHppBaru = $stockGlobal->hpp_baru;
                     $hargaBeliMurni = $currentHppBaru ?? $currentHppAwal ?? 0;
 
+                    // 🌟 Hitung akumulasi untuk laba/rugi nanti di luar loop
+                    $totalHargaKirimSemuaBarang += ($hargaKirim * $qtyVerified);
+                    $totalHppMurniSemuaBarang += ($hargaBeliMurni * $qtyVerified);
+
+                    $jenisBarangId = $detail->barang->jenis_barang_id;
+                    if (! $globalJenisBarangId) {
+                        $globalJenisBarangId = $jenisBarangId; // Set master jenis barang untuk pencatatan kas global
+                    }
+
                     // Buat Batch Baru untuk Toko B
-                    $batchNew = StockBarangBatch::create([
+                    StockBarangBatch::create([
                         'stock_barang_id' => $stockGlobal->id,
                         'parent_id' => $batchOrigin->id,
                         'supplier_id' => $batchOrigin->supplier_id,
@@ -714,7 +765,6 @@ class PengirimanBarangController extends Controller
                     ]);
 
                     $totalBiaya = $qtyVerified * $hargaKirim;
-                    $jenisBarangId = $detail->barang->jenis_barang_id;
                     $tipeKas = $request->tipe_kas ?? 'kecil';
 
                     $kas = Kas::firstOrCreate(
@@ -740,9 +790,8 @@ class PengirimanBarangController extends Controller
                         $hutangGrouped[$jenisBarangId] += $sisaHutang;
                     }
 
-                    // Eksekusi Kas Riil
+                    // Eksekusi Kas Riil (Nilai Pokok Transaksi Pengiriman)
                     if ($kasMampu > 0) {
-                        // Toko B keluar uang sebesar harga_kirim
                         KasService::out(
                             toko_id: $pb->toko_tujuan_id,
                             jenis_barang_id: $jenisBarangId,
@@ -755,7 +804,6 @@ class PengirimanBarangController extends Controller
                             tanggal: $pb->verified_at
                         );
 
-                        // Toko A terima uang pokok sebesar harga_kirim
                         KasService::in(
                             toko_id: $pb->toko_asal_id,
                             jenis_barang_id: $jenisBarangId,
@@ -768,42 +816,6 @@ class PengirimanBarangController extends Controller
                             tanggal: $pb->verified_at
                         );
                     }
-
-                    // =========================================================================
-                    // 🔥 LOGIKA BARU: PENYEIMBANG PASIVA TOKO A SECARA DINAMIS
-                    // =========================================================================
-                    $nominalSelisih = ($hargaKirim - $hargaBeliMurni) * $qtyVerified;
-
-                    if ($nominalSelisih > 0) {
-                        // JIKA HARGA KIRIM LEBIH BESAR DARI HARGA BELI -> TOKO A UNTUNG (KAS IN)
-                        KasService::in(
-                            toko_id: $pb->toko_asal_id,
-                            jenis_barang_id: $jenisBarangId,
-                            tipe_kas: 'kecil',
-                            total_nominal: $nominalSelisih,
-                            item: 'kecil',
-                            kategori: 'Pengiriman Barang',
-                            keterangan: 'Pendapatan Pengiriman',
-                            sumber: $pb,
-                            tanggal: $pb->verified_at,
-                            laba: true
-                        );
-                    } elseif ($nominalSelisih < 0) {
-                        // JIKA HARGA KIRIM LEBIH KECIL DARI HARGA BELI -> TOKO A RUGI (KAS OUT)
-                        KasService::out(
-                            toko_id: $pb->toko_asal_id,
-                            jenis_barang_id: $jenisBarangId,
-                            tipe_kas: 'kecil',
-                            total_nominal: abs($nominalSelisih), // Mengubah nilai minus jadi positif untuk nominal kas
-                            item: 'kecil',
-                            kategori: 'Pengiriman Barang',
-                            keterangan: 'Beban Pengiriman',
-                            sumber: $pb,
-                            tanggal: $pb->verified_at,
-                            laba: true
-                        );
-                    }
-                    // =========================================================================
                 }
 
                 if ($qtyProblem > 0) {
@@ -814,6 +826,44 @@ class PengirimanBarangController extends Controller
                     ]);
                 }
             }
+
+            // =========================================================================
+            // 🔥 LOGIKA BARU: PENYEIMBANG PASIVA TOKO A DIJADIKAN SATU (TOTAL GLOBAL)
+            // =========================================================================
+            if ($totalHargaKirimSemuaBarang > 0 && $globalJenisBarangId) {
+                $nominalSelisihGlobal = $totalHargaKirimSemuaBarang - $totalHppMurniSemuaBarang;
+
+                if ($nominalSelisihGlobal > 0) {
+                    // JIKA TOTAL HARGA KIRIM > TOTAL HPP MURNI -> TOKO A UNTUNG SECARA KESELURUHAN
+                    KasService::in(
+                        toko_id: $pb->toko_asal_id,
+                        jenis_barang_id: $globalJenisBarangId,
+                        tipe_kas: 'kecil',
+                        total_nominal: $nominalSelisihGlobal,
+                        item: 'kecil',
+                        kategori: 'Pengiriman Barang',
+                        keterangan: 'Pendapatan Pengiriman (Total '.count($request->details).' Item)',
+                        sumber: $pb,
+                        tanggal: $pb->verified_at,
+                        laba: true
+                    );
+                } elseif ($nominalSelisihGlobal < 0) {
+                    // JIKA TOTAL HARGA KIRIM < TOTAL HPP MURNI -> TOKO A RUGI SECARA KESELURUHAN
+                    KasService::out(
+                        toko_id: $pb->toko_asal_id,
+                        jenis_barang_id: $globalJenisBarangId,
+                        tipe_kas: 'kecil',
+                        total_nominal: abs($nominalSelisihGlobal),
+                        item: 'kecil',
+                        kategori: 'Pengiriman Barang',
+                        keterangan: 'Beban Pengiriman (Total '.count($request->details).' Item)',
+                        sumber: $pb,
+                        tanggal: $pb->verified_at,
+                        laba: true
+                    );
+                }
+            }
+            // =========================================================================
 
             // Pemrosesan Hutang Piutang
             foreach ($hutangGrouped as $jenisBarangId => $totalHutang) {

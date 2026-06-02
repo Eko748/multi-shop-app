@@ -121,7 +121,7 @@
                 @endif
 
                 {{-- Transaksi --}}
-                @if (hasAnyMenu([17, 19, 20]))
+                @if (hasAnyMenu([17, 18, 19]))
                     <li class="nav-item pcoded-hasmenu">
                         <a href="javascript:void(0)"
                             class="nav-link {{ request()->routeIs('transaksi.*') ? $nav_link : '' }}">
@@ -133,11 +133,11 @@
                                 <li><a class="dropdown-item" href="{{ route('transaksi.pembelianbarang.index') }}"><i
                                             class="fa fa-shopping-cart"></i> Pembelian Barang</a></li>
                             @endif
-                            @if (hasMenu(19))
+                            @if (hasMenu(18))
                                 <li><a class="dropdown-item" href="{{ route('transaksi.kasir.index') }}"><i
                                             class="fa fa-cash-register"></i> Transaksi Kasir</a></li>
                             @endif
-                            @if (hasMenu(20))
+                            @if (hasMenu(19))
                                 <li><a class="dropdown-item" href="{{ route('transaksi.index') }}"><i
                                             class="fa fa-money-bill"></i> Kasbon Member</a></li>
                             @endif
@@ -145,7 +145,7 @@
                     </li>
                 @endif
 
-                @if (hasAnyMenu([38, 39]))
+                @if (hasAnyMenu([37, 38]))
                     <li class="nav-item pcoded-hasmenu">
                         <a href="javascript:void(0)"
                             class="nav-link {{ request()->routeIs('td.*') ? $nav_link : '' }}">
@@ -153,11 +153,11 @@
                             <span class="pcoded-mtext">Transaksi Digital</span>
                         </a>
                         <ul class="pcoded-submenu">
-                            @if (hasMenu(38))
+                            @if (hasMenu(37))
                                 <li><a href="{{ route('td.dompetDigital.index') }}" class="dropdown-item"><i
                                             class="icon feather icon-file-text"></i> Dompet Digital</a></li>
                             @endif
-                            @if (hasMenu(39))
+                            @if (hasMenu(38))
                                 <li><a href="{{ route('td.penjualanNonfisik.index') }}" class="dropdown-item"><i
                                             class="icon feather icon-credit-card"></i> Transaksi Non Fisik</a></li>
                             @endif
@@ -165,7 +165,7 @@
                     </li>
                 @endif
 
-                @if (hasAnyMenu([40, 41]))
+                @if (hasAnyMenu([39, 40]))
                     <li class="nav-item pcoded-hasmenu">
                         <a href="javascript:void(0)"
                             class="nav-link {{ request()->routeIs('retur.*') ? $nav_link : '' }}">
@@ -173,11 +173,11 @@
                             <span class="pcoded-mtext">Retur</span>
                         </a>
                         <ul class="pcoded-submenu">
-                            @if (hasMenu(40))
+                            @if (hasMenu(39))
                                 <li><a href="{{ route('retur.member.index') }}" class="dropdown-item"><i
                                             class="feather icon-rotate-cw"></i> Retur dari Member</a></li>
                             @endif
-                            @if (hasMenu(41))
+                            @if (hasMenu(40))
                                 <li><a href="{{ route('retur.supplier.index') }}" class="dropdown-item"><i
                                             class="feather icon-corner-down-left"></i> Retur ke Suplier</a></li>
                             @endif
@@ -185,7 +185,7 @@
                     </li>
                 @endif
 
-                @if (hasAnyMenu([21, 22, 23, 24, 25, 26, 27, 28]))
+                @if (hasAnyMenu([20, 21, 22, 23, 24, 25, 26, 27]))
                     <li class="nav-item pcoded-hasmenu">
                         <a href="javascript:void(0)"
                             class="nav-link {{ request()->routeIs('laporan.*') ? $nav_link : '' }}">
@@ -193,35 +193,35 @@
                             <span class="pcoded-mtext">Rekapitulasi</span>
                         </a>
                         <ul class="pcoded-submenu">
-                            @if (hasMenu(21))
+                            @if (hasMenu(20))
                                 <li><a class="dropdown-item" href="{{ route('laporan.penjualan.index') }}"><i
                                             class="fa fa-book"></i> Laporan Penjualan</a></li>
                             @endif
-                            @if (hasMenu(22))
+                            @if (hasMenu(21))
                                 <li><a class="dropdown-item" href="{{ route('laporan.kasir.index') }}"><i
                                             class="fa fa-book"></i> Laporan Kasir</a></li>
                             @endif
-                            @if (hasMenu(23))
+                            @if (hasMenu(22))
                                 <li><a class="dropdown-item" href="{{ route('laporan.pembelian.index') }}"><i
                                             class="fa fa-book"></i> Rekap Pembelian</a></li>
                             @endif
-                            @if (hasMenu(24))
+                            @if (hasMenu(23))
                                 <li><a class="dropdown-item" href="{{ route('laporan.pengiriman.index') }}"><i
                                             class="fa fa-truck"></i> Rekap Pengiriman</a></li>
                             @endif
-                            @if (hasMenu(25))
+                            @if (hasMenu(24))
                                 <li><a class="dropdown-item" href="{{ route('laporan.rating.index') }}"><i
                                             class="fa fa-star"></i> Rating Barang</a></li>
                             @endif
-                            @if (hasMenu(26))
+                            @if (hasMenu(25))
                                 <li><a class="dropdown-item" href="{{ route('laporan.ratingmember.index') }}"><i
                                             class="fa fa-star"></i> Rating Member</a></li>
                             @endif
-                            @if (hasMenu(27))
+                            @if (hasMenu(26))
                                 <li><a class="dropdown-item" href="{{ route('laporan.asetbarang.index') }}"><i
                                             class="fa fa-box"></i> Aset Barang Jualan</a></li>
                             @endif
-                            @if (hasMenu(28))
+                            @if (hasMenu(27))
                                 <li><a class="dropdown-item" href="{{ route('laporan.asetbarangreture.index') }}"><i
                                             class="fa fa-box"></i> Aset Barang Retur</a></li>
                             @endif
@@ -229,7 +229,7 @@
                     </li>
                 @endif
 
-                @if (hasAnyMenu([29, 30, 31]))
+                @if (hasAnyMenu([28, 29, 30]))
                     <li class="nav-item pcoded-hasmenu">
                         <a href="javascript:void(0)"
                             class="nav-link {{ request()->routeIs('laporankeuangan.*') ? $nav_link : '' }}">
@@ -237,15 +237,15 @@
                             <span class="pcoded-mtext">Laporan Keuangan</span>
                         </a>
                         <ul class="pcoded-submenu">
-                            @if (hasMenu(29))
+                            @if (hasMenu(28))
                                 <li><a href="{{ route('laporankeuangan.aruskas.index') }}" class="dropdown-item"><i
                                             class="icon feather icon-file-text"></i> Arus Kas</a></li>
                             @endif
-                            @if (hasMenu(30))
+                            @if (hasMenu(29))
                                 <li><a href="{{ route('laporankeuangan.labarugi.index') }}" class="dropdown-item"><i
                                             class="icon feather icon-file-minus"></i> Laba Rugi</a></li>
                             @endif
-                            @if (hasMenu(31))
+                            @if (hasMenu(30))
                                 <li><a href="{{ route('laporankeuangan.neraca.index') }}" class="dropdown-item"><i
                                             class="icon feather icon-book"></i> Neraca</a></li>
                             @endif
@@ -253,7 +253,7 @@
                     </li>
                 @endif
 
-                @if (hasAnyMenu([33, 34, 35, 36, 37]))
+                @if (hasAnyMenu([32, 33, 34, 35, 36]))
                     <li class="nav-item pcoded-hasmenu">
                         <a href="javascript:void(0)"
                             class="nav-link {{ request()->routeIs('keuangan.*') ? $nav_link : '' }}">
@@ -261,19 +261,19 @@
                             <span class="pcoded-mtext">Jurnal Keuangan</span>
                         </a>
                         <ul class="pcoded-submenu">
-                            @if (hasMenu(33))
+                            @if (hasMenu(32))
                                 <li><a href="{{ route('keuangan.pemasukan.index') }}" class="dropdown-item"><i
                                             class="icon feather icon-file-plus"></i> Pemasukan Lainnya</a></li>
                             @endif
-                            @if (hasMenu(34))
+                            @if (hasMenu(33))
                                 <li><a href="{{ route('keuangan.pengeluaran.index') }}" class="dropdown-item"><i
                                             class="icon feather icon-file-minus"></i> Pengeluaran Lainnya</a></li>
                             @endif
-                            @if (hasMenu(35))
+                            @if (hasMenu(34))
                                 <li><a href="{{ route('keuangan.piutang.index') }}" class="dropdown-item"><i
                                             class="icon feather icon-file-plus"></i> Piutang</a></li>
                             @endif
-                            @if (hasMenu(37))
+                            @if (hasMenu(35))
                                 <li><a href="{{ route('keuangan.hutang.index') }}" class="dropdown-item"><i
                                             class="icon feather icon-file-minus"></i> Hutang</a></li>
                             @endif

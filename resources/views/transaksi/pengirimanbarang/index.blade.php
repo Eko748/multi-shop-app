@@ -85,11 +85,12 @@
                                                 <th class="text-wrap align-top">Tgl Kirim</th>
                                                 <th class="text-wrap align-top">Tgl Terima</th>
                                                 <th class="text-wrap align-top">No. Resi</th>
-                                                <th class="text-wrap align-top">Qty</th>
                                                 <th class="text-wrap align-top">Toko Tujuan</th>
                                                 <th class="text-wrap align-top">Toko Asal</th>
                                                 <th class="text-wrap align-top">Pengirim</th>
-                                                <th class="text-wrap align-top">Action</th>
+                                                <th class="text-wrap align-top">Qty</th>
+                                                <th class="text-wrap align-top text-right">Total Harga</th>
+                                                <th class="text-wrap align-top text-right">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody id="listData">
@@ -512,7 +513,7 @@
             let action_buttons = '';
             if (edit_button || detail_button || delete_button) {
                 action_buttons = `
-                <div class="d-flex justify-content-start">
+                <div class="d-flex justify-content-end">
                     ${edit_button ? `<div class="hovering p-1">${edit_button}</div>` : ''}
                     ${detail_button ? `<div class="hovering p-1">${detail_button}</div>` : ''}
                     ${delete_button ? `<div class="hovering p-1">${delete_button}</div>` : ''}
@@ -533,6 +534,7 @@
                 tgl_terima: data?.tgl_terima ?? '<span class="badge badge-secondary"><i>Belum diterima</i></span>',
                 total_item: data?.total_item ?? '-',
                 toko_tujuan: data?.toko_tujuan ?? '-',
+                total_harga: data?.total_harga ?? '-',
                 action_buttons,
             };
         }
@@ -553,11 +555,12 @@
                     <td class="${classCol}">${element.tgl_kirim}</td>
                     <td class="${classCol}">${element.tgl_terima}</td>
                     <td class="${classCol}">${element.no_resi}</td>
-                    <td class="${classCol}">${element.total_item}</td>
                     <td class="${classCol}">${element.toko_tujuan}</td>
                     <td class="${classCol}">${element.toko_asal}</td>
                     <td class="${classCol}">${element.nama_pengirim}</td>
-                    <td class="${classCol}">${element.action_buttons}</td>
+                    <td class="${classCol}">${element.total_item}</td>
+                    <td class="${classCol} text-right">${element.total_harga}</td>
+                    <td class="${classCol} text-right">${element.action_buttons}</td>
                 </tr>`;
             });
 

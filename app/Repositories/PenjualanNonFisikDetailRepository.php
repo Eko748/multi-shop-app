@@ -37,7 +37,7 @@ class PenjualanNonFisikDetailRepository
 
     public function sumHPP(?int $month = null, ?int $year = null, ?int $tokoId = null)
     {
-        $query = TransaksiKasirHarian::newQuery();
+        $query = TransaksiKasirHarian::query();
 
         if ($tokoId !== null && $tokoId !== 'all' && $tokoId != 0) {
             $query->where('toko_id', $tokoId);

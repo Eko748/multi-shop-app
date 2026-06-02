@@ -8,11 +8,9 @@ use App\Models\KasTransaksi;
 use App\Models\LabaRugi;
 use App\Models\LabaRugiTahunan;
 use App\Models\Pemasukan;
-use App\Models\PembelianBarang;
 use App\Models\PembelianBarangDetailAdjustment;
 use App\Models\Pengeluaran;
 use App\Models\PengeluaranTipe;
-use App\Models\PenjualanNonFisikDetail;
 use App\Models\ReturMember;
 use App\Models\ReturSupplierDetail;
 use App\Models\StockBarangBermasalah;
@@ -60,133 +58,123 @@ class LabaRugiService
 
     public function hitungDetailLabaRugi($month, $year, $tokoId = 'all', $isNeraca = false)
     {
-        // Helper closure untuk filter toko
+        // 1. Tentukan rentang waktu berdasarkan kebutuhan (Neraca vs Laba Rugi Bulanan)
+        $startDate = \Carbon\Carbon::createFromDate($year, $month, 1)->startOfMonth()->toDateTimeString();
+        $endDate = \Carbon\Carbon::createFromDate($year, $month, 1)->endOfMonth()->toDateTimeString();
+        $endOfDateOnly = \Carbon\Carbon::createFromDate($year, $month, 1)->endOfMonth()->format('Y-m-d');
+
+        // Scope Global Filter Toko untuk KasTransaksi
         $filterToko = function ($query) use ($tokoId) {
             $query->whereHas('kas', function ($q) use ($tokoId) {
-                if ($tokoId !== 'all') {
+                if ($tokoId !== 'all' && $tokoId !== null && $tokoId != 0) {
                     $q->where('toko_id', $tokoId);
                 }
             });
+        };
+
+        // Helper Filter untuk query non-KasTransaksi
+        $applyTokoDirect = function ($query, $column = 'toko_id') use ($tokoId) {
+            if ($tokoId !== 'all' && $tokoId !== null && $tokoId != 0) {
+                $query->where($column, $tokoId);
+            }
+        };
+
+        // Helper Filter Tanggal (Jika Neraca = Akumulatif dari awal, Jika LabaRugi = Hanya bulan itu)
+        $applyDateFilter = function ($query, $column) use ($isNeraca, $startDate, $endDate) {
+            if ($isNeraca) {
+                $query->where($column, '<=', $endDate);
+            } else {
+                $query->whereBetween($column, [$startDate, $endDate]);
+            }
+        };
+
+        $applyDateFilterOnly = function ($query, $column) use ($isNeraca, $endOfDateOnly, $month, $year) {
+            if ($isNeraca) {
+                $query->where($column, '<=', $endOfDateOnly);
+            } else {
+                $query->whereYear($column, $year)->whereMonth($column, $month);
+            }
         };
 
         // ============================
         // PENDAPATAN
         // ============================
 
-        $penjualanUmum = KasTransaksi::where('tipe', 'in')
+        $penjualanUmumQuery = KasTransaksi::where('tipe', 'in')
             ->where('sumber_type', TransaksiKasirHarian::class)
-            ->whereMonth('tanggal', $month)
-            ->whereYear('tanggal', $year)
-            ->where($filterToko)
-            ->sum('total_nominal');
+            ->where($filterToko);
+        $applyDateFilter($penjualanUmumQuery, 'tanggal');
+        $penjualanUmum = $penjualanUmumQuery->sum('total_nominal');
 
-        $penjualanNF = KasTransaksi::where('tipe', 'in')
-            ->where('sumber_type', PenjualanNonFisikDetail::class)
-            ->whereMonth('tanggal', $month)
-            ->whereYear('tanggal', $year)
-            ->where($filterToko)
-            ->sum('total_nominal');
-
-        $lainnya = KasTransaksi::where('tipe', 'in')
+        $lainnyaQuery = KasTransaksi::where('tipe', 'in')
             ->where('sumber_type', Pemasukan::class)
-            ->whereMonth('tanggal', $month)
-            ->whereYear('tanggal', $year)
             ->where($filterToko)
             ->whereHasMorph('sumber', [Pemasukan::class], function ($q) {
                 $q->whereNotIn('pemasukan_tipe_id', [1, 2]);
-            })
-            ->sum('total_nominal');
+            });
+        $applyDateFilter($lainnyaQuery, 'tanggal');
+        $lainnya = $lainnyaQuery->sum('total_nominal');
 
-        $nilaiReturMember = KasTransaksi::where('tipe', 'out')
+        $nilaiReturMemberQuery = KasTransaksi::where('tipe', 'out')
             ->where('sumber_type', ReturMember::class)
-            ->whereMonth('tanggal', $month)
-            ->whereYear('tanggal', $year)
-            ->where($filterToko)
-            ->sum('total_nominal');
+            ->where($filterToko);
+        $applyDateFilter($nilaiReturMemberQuery, 'tanggal');
+        $nilaiReturMember = $nilaiReturMemberQuery->sum('total_nominal');
 
-        $nilaiReturSuplier = KasTransaksi::where('tipe', 'in')
+        $nilaiReturSuplierQuery = KasTransaksi::where('tipe', 'in')
             ->where('sumber_type', ReturSupplierDetail::class)
-            ->whereMonth('tanggal', $month)
-            ->whereYear('tanggal', $year)
-            ->where($filterToko)
-            ->sum('total_nominal');
+            ->where($filterToko);
+        $applyDateFilter($nilaiReturSuplierQuery, 'tanggal');
+        $nilaiReturSuplier = $nilaiReturSuplierQuery->sum('total_nominal');
 
-        $pendapatanNonTransaksi = DompetSaldo::whereMonth('created_at', $month)
-            ->whereYear('created_at', $year)
-            ->where($filterToko)
-            ->get()
-            ->filter(fn ($row) => $row->harga_beli < $row->saldo) // hanya yang harga_beli < saldo
-            ->sum(fn ($row) => $row->saldo - $row->harga_beli); // hitung selisih dan sum
+        $pendapatanNonTransaksiQuery = DompetSaldo::where($filterToko);
+        $applyDateFilter($pendapatanNonTransaksiQuery, 'created_at');
+        $pendapatanNonTransaksi = $pendapatanNonTransaksiQuery->get()
+            ->filter(fn ($row) => $row->harga_beli < $row->saldo)
+            ->sum(fn ($row) => $row->saldo - $row->harga_beli);
 
         $pendapatanLainnya = $lainnya + $pendapatanNonTransaksi;
-
-        $penjualanUmum += $penjualanNF -= $nilaiReturMember;
+        $penjualanUmum -= $nilaiReturMember;
         $totalPendapatan = $penjualanUmum + $pendapatanLainnya + $nilaiReturSuplier;
 
         // ============================
-        // HPP (sementara 0)
+        // HPP (Eager Loading dioptimasi via Join/Sum langsung)
         // ============================
-        $hppTrx = KasTransaksi::where('tipe', 'in')
-            ->where('sumber_type', TransaksiKasirHarian::class)
-            ->whereMonth('tanggal', $month)
-            ->whereYear('tanggal', $year)
+
+        $hppTrxQuery = KasTransaksi::where('kas_transaksi.tipe', 'in')
+            ->where('kas_transaksi.sumber_type', TransaksiKasirHarian::class)
             ->where($filterToko)
-            ->with('sumber')
-            ->get()
-            ->sum(fn ($kt) => (int) $kt->sumber->total_harga_beli ?? 0);
+            ->join('transaksi_kasir_harian', 'kas_transaksi.sumber_id', '=', 'transaksi_kasir_harian.id');
+        $applyDateFilter($hppTrxQuery, 'kas_transaksi.tanggal');
+        $hppTrx = $hppTrxQuery->sum('transaksi_kasir_harian.total_harga_beli');
 
-        $hppKoreksi = PembelianBarangDetailAdjustment::whereMonth('created_at', $month)
-            ->whereYear('created_at', $year)
-            ->where('toko_id', $tokoId)
-            ->get()
-            ->sum(fn ($kt) => (int) $kt->nominal_laba_rugi ?? 0);
+        $hppKoreksiQuery = PembelianBarangDetailAdjustment::query();
+        $applyTokoDirect($hppKoreksiQuery, 'toko_id');
+        $applyDateFilter($hppKoreksiQuery, 'created_at');
+        $hppKoreksi = $hppKoreksiQuery->sum('nominal_laba_rugi');
 
-        // $hppKoreksiOUT = KasTransaksi::where('tipe', 'out')
-        //     ->where('sumber_type', PembelianBarang::class)
-        //     ->where('keterangan', 'Koreksi Kas OUT')
-        //     ->whereMonth('tanggal', $month)
-        //     ->whereYear('tanggal', $year)
-        //     ->where($filterToko)
-        //     ->with('sumber')
-        //     ->get()
-        //     ->sum(fn($kt) => (int) $kt->total_nominal ?? 0);
-
-        $hppretur = (int) KasTransaksi::where('kas_transaksi.tipe', 'out')
+        $hppreturQuery = KasTransaksi::where('kas_transaksi.tipe', 'out')
             ->where('kas_transaksi.sumber_type', ReturMember::class)
-            ->whereMonth('kas_transaksi.tanggal', $month)
-            ->whereYear('kas_transaksi.tanggal', $year)
             ->where($filterToko)
-            ->join('retur_member', function ($join) {
-                $join->on('retur_member.id', '=', 'kas_transaksi.sumber_id')
-                    ->where('kas_transaksi.sumber_type', ReturMember::class);
-            })
+            ->join('retur_member', 'retur_member.id', '=', 'kas_transaksi.sumber_id')
             ->join('retur_member_detail', 'retur_member_detail.retur_id', '=', 'retur_member.id')
-            ->where('retur_member_detail.qty_refund', '>', 0)
-            ->sum('retur_member_detail.total_hpp');
+            ->where('retur_member_detail.qty_refund', '>', 0);
+        $applyDateFilter($hppreturQuery, 'kas_transaksi.tanggal');
+        $hppretur = $hppreturQuery->sum('retur_member_detail.total_hpp');
 
-        $hppSelisihTopup = KasTransaksi::where('tipe', 'out')
+        $hppSelisihTopupQuery = KasTransaksi::where('tipe', 'out')
             ->where('sumber_type', DompetSaldo::class)
-            ->whereMonth('tanggal', $month)
-            ->whereYear('tanggal', $year)
-            ->where($filterToko)
             ->where('keterangan', 'Selisih Top-up')
-            ->sum('total_nominal');
+            ->where($filterToko);
+        $applyDateFilter($hppSelisihTopupQuery, 'tanggal');
+        $hppSelisihTopup = $hppSelisihTopupQuery->sum('total_nominal');
 
-        $hppReturSuplier = (int) ReturSupplierDetail::query()
-            ->join(
-                'retur_supplier',
-                'retur_supplier.id',
-                '=',
-                'retur_supplier_detail.retur_supplier_id'
-            )
-            ->whereMonth('retur_supplier.verify_date', $month)
-            ->whereYear('retur_supplier.verify_date', $year)
-            ->where('retur_supplier_detail.qty_refund', '>', 0)
-            ->when($tokoId ?? null, function ($q) use ($tokoId) {
-                $q->where('retur_supplier.toko_id', $tokoId);
-            })
-            ->selectRaw('SUM(retur_supplier_detail.qty_refund * retur_supplier_detail.hpp) as total')
-            ->value('total');
+        $hppReturSuplierQuery = ReturSupplierDetail::query()
+            ->join('retur_supplier', 'retur_supplier.id', '=', 'retur_supplier_detail.retur_supplier_id')
+            ->where('retur_supplier_detail.qty_refund', '>', 0);
+        $applyTokoDirect($hppReturSuplierQuery, 'retur_supplier.toko_id');
+        $applyDateFilterOnly($hppReturSuplierQuery, 'retur_supplier.verify_date');
+        $hppReturSuplier = $hppReturSuplierQuery->selectRaw('SUM(retur_supplier_detail.qty_refund * retur_supplier_detail.hpp) as total')->value('total') ?? 0;
 
         $hppPenjualan = $hppTrx - $hppretur + $hppKoreksi;
         $total_hpp = $hppPenjualan + $hppReturSuplier;
@@ -195,78 +183,61 @@ class LabaRugiService
         // BEBAN OPERASIONAL
         // ============================
 
-        $pengeluaran = KasTransaksi::where('tipe', 'out')
+        $pengeluaranQuery = KasTransaksi::where('tipe', 'out')
             ->where('sumber_type', Pengeluaran::class)
-            ->whereMonth('kas_transaksi.tanggal', $month)
-            ->whereYear('kas_transaksi.tanggal', $year)
             ->where($filterToko)
-            ->join('pengeluaran', 'kas_transaksi.sumber_id', '=', 'pengeluaran.id')
-            ->selectRaw('pengeluaran.pengeluaran_tipe_id, SUM(kas_transaksi.total_nominal) as total')
+            ->join('pengeluaran', 'kas_transaksi.sumber_id', '=', 'pengeluaran.id');
+        $applyDateFilter($pengeluaranQuery, 'kas_transaksi.tanggal');
+
+        $pengeluaran = $pengeluaranQuery->selectRaw('pengeluaran.pengeluaran_tipe_id, SUM(kas_transaksi.total_nominal) as total')
             ->groupBy('pengeluaran.pengeluaran_tipe_id')
             ->get()
             ->keyBy('pengeluaran_tipe_id');
 
         $bebanOperasional = [];
         $totalBeban = 0;
-
         $jenisList = PengeluaranTipe::where('id', '!=', 11)->get();
 
         foreach ($jenisList as $index => $jenis) {
-
-            $nilai = isset($pengeluaran[$jenis->id])
-                ? (int) $pengeluaran[$jenis->id]->total
-                : 0;
-
-            $label = '3.'.($index + 1).' '.$jenis->tipe;
-
+            $nilai = isset($pengeluaran[$jenis->id]) ? (int) $pengeluaran[$jenis->id]->total : 0;
             $bebanOperasional[] = [
-                'label' => $label,
+                'label' => '3.'.($index + 1).' '.$jenis->tipe,
                 'value' => $nilai,
             ];
-
             $totalBeban += $nilai;
         }
 
         // ============================
-        // STOK HILANG / BARANG BERMASALAH
+        // STOK HILANG
         // ============================
 
-        $stockBermasalah = StockBarangBermasalah::query()
-            ->join('stock_barang_batch as batch', 'batch.id', '=', 'stock_barang_bermasalah.stock_barang_batch_id')
-            ->whereMonth('stock_barang_bermasalah.created_at', $month)
-            ->whereYear('stock_barang_bermasalah.created_at', $year)
-            ->where('batch.toko_id', $tokoId)
-            ->selectRaw('SUM(stock_barang_bermasalah.qty * batch.harga_beli) as total')
-            ->value('total');
+        $stockBermasalahQuery = StockBarangBermasalah::query()
+            ->join('stock_barang_batch as batch', 'batch.id', '=', 'stock_barang_bermasalah.stock_barang_batch_id');
+        $applyTokoDirect($stockBermasalahQuery, 'batch.toko_id');
+        $applyDateFilter($stockBermasalahQuery, 'stock_barang_bermasalah.created_at');
+        $stockBermasalah = $stockBermasalahQuery->selectRaw('SUM(stock_barang_bermasalah.qty * batch.harga_beli) as total')->value('total') ?? 0;
 
         $nextNumber = count($jenisList) + 1;
-
-        // 3.11 = HPP Selisih Topup
         $bebanOperasional[] = [
-            'label' => '3.'.($nextNumber).' Selisih Top-up Saldo Digital',
+            'label' => '3.'.$nextNumber.' Selisih Top-up Saldo Digital',
             'value' => $hppSelisihTopup,
         ];
-
         $totalBeban += $hppSelisihTopup;
 
-        // 3.12 = Stok Barang Bermasalah
-        $nextNumber++; // +1 untuk nomor berikutnya
-
+        $nextNumber++;
         $bebanOperasional[] = [
-            'label' => '3.'.($nextNumber).' Stok Barang Bermasalah',
+            'label' => '3.'.$nextNumber.' Stok Barang Bermasalah',
             'value' => $stockBermasalah,
         ];
-
         $totalBeban += $stockBermasalah;
 
-        // Total Beban Operasional
         $bebanOperasional[] = [
             'label' => 'Total Beban Operasional',
             'value' => $totalBeban,
         ];
 
         // ============================
-        // LABA RUGI
+        // KEPUTUSAN AKHIR LABA RUGI
         // ============================
         $total_labarugi = $totalPendapatan - $total_hpp - $totalBeban;
 
@@ -274,22 +245,17 @@ class LabaRugiService
             return (int) $total_labarugi;
         }
 
-        $totalPendapatan = (int) $totalPendapatan;
-        $total_hpp = (int) $total_hpp;
-        $totalBeban = (int) $totalBeban;
-        $total_labarugi = (int) $total_labarugi;
-
         return $this->getDetailLaporan(
-            $penjualanUmum,
-            $pendapatanLainnya,
-            $hppReturSuplier,
-            $totalPendapatan,
-            $hppPenjualan,
-            $nilaiReturSuplier,
-            $total_hpp,
+            (int) $penjualanUmum,
+            (int) $pendapatanLainnya,
+            (int) $hppReturSuplier,
+            (int) $totalPendapatan,
+            (int) $hppPenjualan,
+            (int) $nilaiReturSuplier,
+            (int) $total_hpp,
             $bebanOperasional,
-            $total_labarugi,
-            $pendapatanNonTransaksi
+            (int) $total_labarugi,
+            (int) $pendapatanNonTransaksi
         );
     }
 

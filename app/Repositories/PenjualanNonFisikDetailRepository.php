@@ -3,6 +3,7 @@
 namespace App\Repositories;
 
 use App\Models\PenjualanNonFisikDetail;
+use App\Models\TransaksiKasirHarian;
 
 class PenjualanNonFisikDetailRepository
 {
@@ -36,7 +37,7 @@ class PenjualanNonFisikDetailRepository
 
     public function sumHPP(?int $month = null, ?int $year = null, ?int $tokoId = null)
     {
-        $query = $this->model->newQuery();
+        $query = TransaksiKasirHarian::newQuery();
 
         if ($tokoId !== null && $tokoId !== 'all' && $tokoId != 0) {
             $query->where('toko_id', $tokoId);

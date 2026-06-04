@@ -122,13 +122,15 @@
                                             </button>
                                         </div>
                                         <div class="col-6 col-xl-3 col-lg-3 mt-2">
-                                            <button type="button" class="btn btn-danger w-100" id="btn-export-pdf" onclick="exportPDF()">
+                                            <button type="button" class="btn btn-danger w-100" id="btn-export-pdf"
+                                                onclick="exportPDF()">
                                                 <i class="fa fa-file-pdf mr-2"></i>PDF
                                             </button>
                                         </div>
 
                                         <div class="col-6 col-xl-3 col-lg-3 mt-2">
-                                            <button type="button" class="btn btn-success w-100" id="btn-export-excel" onclick="exportExcel()">
+                                            <button type="button" class="btn btn-success w-100" id="btn-export-excel"
+                                                onclick="exportExcel()">
                                                 <i class="fa fa-file-excel mr-2"></i>Excel
                                             </button>
                                         </div>
@@ -164,8 +166,8 @@
     <script src="{{ asset('js/flatpickr.js') }}"></script>
     <script src="{{ asset('js/month-select.js') }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jspdf"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@latest/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@latest/dist/jspdf.plugin.autotable.min.js"></script>
 @endsection
 
 @section('js')
@@ -610,7 +612,11 @@
 
         function exportPDF() {
 
-            const doc = new jspdf.jsPDF(
+            const {
+                jsPDF
+            } = window.jspdf;
+
+            const doc = new jsPDF(
                 'l',
                 'mm',
                 'a4'
@@ -641,11 +647,8 @@
                             item.nama,
                             item.format
                         ]);
-
                     });
-
                 });
-
             });
 
             doc.autoTable({
@@ -656,11 +659,12 @@
                         'Nilai'
                     ]
                 ],
-                body
+                body: body
             });
 
             doc.save('Neraca.pdf');
         }
+
         async function initPageLoad() {
             await setInputFilter();
             await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter);

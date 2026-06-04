@@ -110,19 +110,19 @@
                                             <input type="text" id="bulan_tahun" class="form-control"
                                                 placeholder="Pilih Bulan & Tahun" readonly>
                                         </div>
-                                        <div class="col-12 col-xl-8 col-lg-8 mb-2" style="gap: 0.5rem">
-                                            <button form="custom-filter" class="btn btn-info w-100" id="tb-filter"
+                                        <div class="col-12 col-xl-8 col-lg-8 d-flex mb-2" style="gap: 0.5rem">
+                                            <button form="custom-filter" class="btn btn-info" id="tb-filter"
                                                 type="submit">
                                                 <i class="fa fa-magnifying-glass mr-2"></i>Cari
                                             </button>
-                                            <button type="button" class="btn btn-secondary w-100" id="tb-reset">
+                                            <button type="button" class="btn btn-secondary" id="tb-reset">
                                                 <i class="fa fa-rotate mr-2"></i>Reset
                                             </button>
-                                            <button type="button" class="btn btn-danger w-100" id="btn-export-pdf"
+                                            <button type="button" class="btn btn-danger" id="btn-export-pdf"
                                                 onclick="exportPDF()">
                                                 <i class="fa fa-file-pdf mr-2"></i>PDF
                                             </button>
-                                            <button type="button" class="btn btn-success w-100" id="btn-export-excel"
+                                            <button type="button" class="btn btn-success" id="btn-export-excel"
                                                 onclick="exportExcel()">
                                                 <i class="fa fa-file-excel mr-2"></i>Excel
                                             </button>
@@ -854,7 +854,7 @@
                         cellWidth: 50,
                         halign: 'right'
                     }
-                }
+                },
 
                 didParseCell: function(data) {
 

@@ -89,7 +89,7 @@ public function getStokPerJenis($tokoId, int $month, int $year)
         $problemGroup = $problemsUntilTargetMonth->get($jenisBarangId);
         $qtyBermasalah = $problemGroup ? $problemGroup->sum('qty') : 0;
         // Menghitung nilai kerugian barang bermasalah berdasarkan harga_beli batch-nya masing-masing
-        $hargaBeliBermasalah = $problemGroup ? $problemGroup->sum(fn ($p) => $p->qty * $p->stockBarangBatch->harga_beli) : 0;
+        $hargaBeliBermasalah = $problemGroup ? $problemGroup->sum(fn ($p) => $p->qty * $p->batch->harga_beli) : 0;
 
         // RUMUS BARU: Total Masuk - Total Terjual - Total Bermasalah
         $sisaQtyBulanTarget = $totalQtyMasuk - $qtyTerjual - $qtyBermasalah;

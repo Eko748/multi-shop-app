@@ -121,6 +121,17 @@
                                                 <i class="fa fa-rotate mr-2"></i>Reset
                                             </button>
                                         </div>
+                                        <div class="col-6 col-xl-3 col-lg-3 mt-2">
+                                            <button type="button" class="btn btn-danger w-100" id="btn-export-pdf" onclick="exportPDF()">
+                                                <i class="fa fa-file-pdf mr-2"></i>PDF
+                                            </button>
+                                        </div>
+
+                                        <div class="col-6 col-xl-3 col-lg-3 mt-2">
+                                            <button type="button" class="btn btn-success w-100" id="btn-export-excel" onclick="exportExcel()">
+                                                <i class="fa fa-file-excel mr-2"></i>Excel
+                                            </button>
+                                        </div>
                                     </form>
                                 </div>
                             </div>
@@ -152,6 +163,9 @@
     <script src="{{ asset('js/pagination.js') }}"></script>
     <script src="{{ asset('js/flatpickr.js') }}"></script>
     <script src="{{ asset('js/month-select.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable"></script>
 @endsection
 
 @section('js')
@@ -163,6 +177,7 @@
         let defaultAscending = 0;
         let defaultSearch = '';
         let customFilter = {};
+        let neracaData = [];
 
         function setInputFilter() {
             const now = new Date();
@@ -254,6 +269,8 @@
 
             if (getDataRest && getDataRest.status == 200 && Array.isArray(getDataRest.data.data)) {
                 let handleDataArray = getDataRest.data.data;
+                neracaData = handleDataArray;
+
                 let note = getDataRest.data.note;
                 await setListData(handleDataArray);
                 $('#note').html(`
@@ -391,9 +408,9 @@
                     // - bukan childnya orang lain (sub falsy)
                     // - ada entry di childrenMap untuk kode itu (ada child yang sub === kode)
                     const aIsParent = !!(a.kode && !a.sub && Object.prototype.hasOwnProperty.call(aChildrenMap, a
-                    .kode));
+                        .kode));
                     const pIsParent = !!(p.kode && !p.sub && Object.prototype.hasOwnProperty.call(pChildrenMap, p
-                    .kode));
+                        .kode));
 
                     const aBadge = Number(a.nilai) < 0 ? 'text-danger' : '';
                     const pBadge = Number(p.nilai) < 0 ? 'text-danger' : '';
@@ -541,6 +558,109 @@
             return monthNames[monthName] || '';
         }
 
+        function exportExcel() {
+
+            let rows = [];
+
+            neracaData.forEach(kategori => {
+
+                rows.push({
+                    Kategori: kategori.kategori,
+                    Nama: '',
+                    Nilai: kategori.total
+                });
+
+                kategori.subkategori.forEach(sub => {
+
+                    rows.push({
+                        Kategori: '',
+                        Nama: sub.judul,
+                        Nilai: sub.total
+                    });
+
+                    sub.item.forEach(item => {
+
+                        rows.push({
+                            Kategori: '',
+                            Nama: item.nama,
+                            Nilai: item.nilai
+                        });
+
+                    });
+
+                });
+
+            });
+
+            const ws = XLSX.utils.json_to_sheet(rows);
+
+            const wb = XLSX.utils.book_new();
+
+            XLSX.utils.book_append_sheet(
+                wb,
+                ws,
+                'Neraca'
+            );
+
+            XLSX.writeFile(
+                wb,
+                'Neraca.xlsx'
+            );
+        }
+
+        function exportPDF() {
+
+            const doc = new jspdf.jsPDF(
+                'l',
+                'mm',
+                'a4'
+            );
+
+            let body = [];
+
+            neracaData.forEach(kategori => {
+
+                body.push([
+                    kategori.kategori,
+                    '',
+                    kategori.format
+                ]);
+
+                kategori.subkategori.forEach(sub => {
+
+                    body.push([
+                        '',
+                        sub.judul,
+                        sub.format
+                    ]);
+
+                    sub.item.forEach(item => {
+
+                        body.push([
+                            '',
+                            item.nama,
+                            item.format
+                        ]);
+
+                    });
+
+                });
+
+            });
+
+            doc.autoTable({
+                head: [
+                    [
+                        'Kategori',
+                        'Nama Akun',
+                        'Nilai'
+                    ]
+                ],
+                body
+            });
+
+            doc.save('Neraca.pdf');
+        }
         async function initPageLoad() {
             await setInputFilter();
             await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter);

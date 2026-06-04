@@ -69,7 +69,7 @@ public function getStokPerJenis($tokoId, int $month, int $year)
         ->where('created_at', '<=', $targetMonthEnd)
         ->get()
         // Dikelompokkan berdasarkan jenis_barang_id agar strukturnya sama dengan data penjualan
-        ->groupBy(fn ($item) => $item->stockBarangBatch->stockBarang->barang->jenis->id);
+        ->groupBy(fn ($item) => $item->batch->stockBarang->barang->jenis->id);
 
     // 5. Hitung Nilai Aset Bulan Target (Backtracking Semesta)
     return $batches->map(function ($group, $jenisBarangId) use ($salesUntilTargetMonth, $problemsUntilTargetMonth) {

@@ -110,25 +110,18 @@
                                             <input type="text" id="bulan_tahun" class="form-control"
                                                 placeholder="Pilih Bulan & Tahun" readonly>
                                         </div>
-                                        <div class="col-6 col-xl-2 col-lg-2">
+                                        <div class="col-12 col-xl-8 col-lg-8 mb-2" style="gap: 0.5rem">
                                             <button form="custom-filter" class="btn btn-info w-100" id="tb-filter"
                                                 type="submit">
                                                 <i class="fa fa-magnifying-glass mr-2"></i>Cari
                                             </button>
-                                        </div>
-                                        <div class="col-6 col-xl-2 col-lg-2">
                                             <button type="button" class="btn btn-secondary w-100" id="tb-reset">
                                                 <i class="fa fa-rotate mr-2"></i>Reset
                                             </button>
-                                        </div>
-                                        <div class="col-6 col-xl-2 col-lg-2 mt-2">
                                             <button type="button" class="btn btn-danger w-100" id="btn-export-pdf"
                                                 onclick="exportPDF()">
                                                 <i class="fa fa-file-pdf mr-2"></i>PDF
                                             </button>
-                                        </div>
-
-                                        <div class="col-6 col-xl-2 col-lg-2 mt-2">
                                             <button type="button" class="btn btn-success w-100" id="btn-export-excel"
                                                 onclick="exportExcel()">
                                                 <i class="fa fa-file-excel mr-2"></i>Excel
@@ -762,7 +755,7 @@
 
                         const nama =
                             item.sub ?
-                            `↳ ${item.nama}` :
+                            `   |- ${item.nama}` :
                             item.nama;
 
                         body.push([
@@ -855,13 +848,13 @@
                         cellWidth: 35
                     },
                     1: {
-                        cellWidth: 95
+                        cellWidth: 'auto'
                     },
                     2: {
-                        cellWidth: 45,
+                        cellWidth: 50,
                         halign: 'right'
                     }
-                },
+                }
 
                 didParseCell: function(data) {
 

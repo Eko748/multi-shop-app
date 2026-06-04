@@ -3,9 +3,8 @@
 namespace App\Repositories;
 
 use App\Models\StockBarangBatch;
-use App\Models\StockBarangBermasalah;
-use App\Models\TransaksiKasirHarian;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class StokRepository
 {
@@ -30,77 +29,114 @@ class StokRepository
             ->first();
     }
 
-public function getStokPerJenis($tokoId, int $month, int $year)
-{
-    // 1. Tentukan batas akhir dari bulan target (Contoh: 2026-05-31 23:59:59)
-    $targetMonthEnd = Carbon::createFromDate($year, $month, 1)->endOfMonth();
+    public function getStokPerJenis($tokoId, int $month, int $year)
+    {
+        $now = Carbon::now();
 
-    // 2. Ambil SEMUA data StockBarangBatch yang masuk sampai bulan target
-    $batches = StockBarangBatch::whereHas('stockBarang', function ($q) use ($tokoId) {
-        $q->when(
-            $tokoId !== null && $tokoId !== 'all' && $tokoId != 0,
-            fn ($x) => $x->where('toko_id', $tokoId)
-        );
-    })
-        ->with(['stockBarang.barang.jenis'])
-        ->where('created_at', '<=', $targetMonthEnd)
-        ->get()
-        ->groupBy(fn ($item) => $item->stockBarang->barang->jenis->id);
+        // Cek apakah filter yang dipilih adalah bulan dan tahun saat ini
+        $isCurrentMonth = ($now->month === $month && $now->year === $year);
 
-    // 3. Ambil data penjualan (TransaksiKasirHarian) dari AWAL sampai BULAN TARGET
-    $salesUntilTargetMonth = TransaksiKasirHarian::when(
-        $tokoId !== null && $tokoId !== 'all' && $tokoId != 0,
-        fn ($x) => $x->where('toko_id', $tokoId)
-    )
-        ->where('jenis_barang_id', '!=', 0)
-        ->where('tanggal', '<=', $targetMonthEnd->format('Y-m-d'))
-        ->get()
-        ->groupBy('jenis_barang_id');
+        // =========================================================================
+        // JIKA AKSES BULAN INI (REAL-TIME): Sangat Ringan & Cepat
+        // =========================================================================
+        if ($isCurrentMonth) {
+            return DB::table('stock_barang_batch')
+                ->join('stock_barang', 'stock_barang_batch.stock_barang_id', '=', 'stock_barang.id')
+                ->join('barang', 'stock_barang.barang_id', '=', 'barang.id')
+                ->join('jenis_barang', 'barang.jenis_barang_id', '=', 'jenis_barang.id')
+                ->select(
+                    'jenis_barang.id as id_jenis_barang',
+                    'jenis_barang.nama_jenis_barang',
+                    DB::raw('SUM(stock_barang_batch.qty_sisa) as total_qty'),
+                    DB::raw('SUM(stock_barang_batch.qty_sisa * stock_barang_batch.harga_beli) as total_harga')
+                )
+                ->when($tokoId !== null && $tokoId !== 'all' && $tokoId != 0, function ($q) use ($tokoId) {
+                    return $q->where('stock_barang.toko_id', $tokoId);
+                })
+                ->groupBy('jenis_barang.id', 'jenis_barang.nama_jenis_barang')
+                ->get();
+        }
 
-    // 4. Ambil data StockBarangBermasalah dari AWAL sampai BULAN TARGET
-    // Filter berdasarkan tanggal temuan (created_at) dan toko_id
-    $problemsUntilTargetMonth = StockBarangBermasalah::whereHas('batch.stockBarang', function ($q) use ($tokoId) {
-        $q->when(
-            $tokoId !== null && $tokoId !== 'all' && $tokoId != 0,
-            fn ($x) => $x->where('toko_id', $tokoId)
-        );
-    })
-        ->with(['batch.stockBarang.barang.jenis'])
-        ->where('created_at', '<=', $targetMonthEnd)
-        ->get()
-        // Dikelompokkan berdasarkan jenis_barang_id agar strukturnya sama dengan data penjualan
-        ->groupBy(fn ($item) => $item->batch->stockBarang->barang->jenis->id);
+        // =========================================================================
+        // JIKA AKSES BULAN LALU: Jalankan Logika Backtracking Semesta
+        // =========================================================================
+        $targetMonthEnd = Carbon::createFromDate($year, $month, 1)->endOfMonth()->format('Y-m-d H:i:s');
+        $targetDateEnd = Carbon::createFromDate($year, $month, 1)->endOfMonth()->format('Y-m-d');
 
-    // 5. Hitung Nilai Aset Bulan Target (Backtracking Semesta)
-    return $batches->map(function ($group, $jenisBarangId) use ($salesUntilTargetMonth, $problemsUntilTargetMonth) {
-        $first = $group->first();
-        $jenis = $first->stockBarang->barang->jenis;
+        // 1. Ambil TOTAL MASUK per Jenis Barang sampai bulan target
+        $batches = DB::table('stock_barang_batch')
+            ->join('stock_barang', 'stock_barang_batch.stock_barang_id', '=', 'stock_barang.id')
+            ->join('barang', 'stock_barang.barang_id', '=', 'barang.id')
+            ->join('jenis_barang', 'barang.jenis_barang_id', '=', 'jenis_barang.id')
+            ->select(
+                'jenis_barang.id as id_jenis_barang',
+                'jenis_barang.nama_jenis_barang',
+                DB::raw('SUM(stock_barang_batch.qty_masuk) as total_qty_masuk'),
+                DB::raw('SUM(stock_barang_batch.qty_masuk * stock_barang_batch.harga_beli) as total_harga_masuk')
+            )
+            ->where('stock_barang_batch.created_at', '<=', $targetMonthEnd)
+            ->when($tokoId !== null && $tokoId !== 'all' && $tokoId != 0, function ($q) use ($tokoId) {
+                return $q->where('stock_barang.toko_id', $tokoId);
+            })
+            ->groupBy('jenis_barang.id', 'jenis_barang.nama_jenis_barang')
+            ->get()
+            ->keyBy('id_jenis_barang');
 
-        // TOTAL MASUK (Awal mula aset)
-        $totalQtyMasuk = $group->sum('qty_masuk');
-        $totalHargaMasuk = $group->sum(fn ($i) => $i->qty_masuk * $i->harga_beli);
+        // 2. Ambil TOTAL TERJUAL per Jenis Barang sampai bulan target
+        $sales = DB::table('transaksi_kasir_harian')
+            ->select(
+                'jenis_barang_id',
+                DB::raw('SUM(total_qty) as total_qty_terjual'),
+                DB::raw('SUM(total_harga_beli) as total_harga_terjual')
+            )
+            ->where('jenis_barang_id', '!=', 0)
+            ->where('tanggal', '<=', $targetDateEnd)
+            ->when($tokoId !== null && $tokoId !== 'all' && $tokoId != 0, function ($q) use ($tokoId) {
+                return $q->where('toko_id', $tokoId);
+            })
+            ->groupBy('jenis_barang_id')
+            ->get()
+            ->keyBy('jenis_barang_id');
 
-        // TOTAL TERJUAL (Sampai bulan target)
-        $salesGroup = $salesUntilTargetMonth->get($jenisBarangId);
-        $qtyTerjual = $salesGroup ? $salesGroup->sum('total_qty') : 0;
-        $hargaBeliTerjual = $salesGroup ? $salesGroup->sum('total_harga_beli') : 0;
+        // 3. Ambil TOTAL BERMASALAH per Jenis Barang sampai bulan target
+        $problems = DB::table('stock_barang_bermasalah')
+            ->join('stock_barang_batch', 'stock_barang_bermasalah.stock_barang_batch_id', '=', 'stock_barang_batch.id')
+            ->join('stock_barang', 'stock_barang_batch.stock_barang_id', '=', 'stock_barang.id')
+            ->join('barang', 'stock_barang.barang_id', '=', 'barang.id')
+            ->select(
+                'barang.jenis_barang_id',
+                DB::raw('SUM(stock_barang_bermasalah.qty) as total_qty_bermasalah'),
+                DB::raw('SUM(stock_barang_bermasalah.qty * stock_barang_batch.harga_beli) as total_harga_bermasalah')
+            )
+            ->where('stock_barang_bermasalah.created_at', '<=', $targetMonthEnd)
+            ->when($tokoId !== null && $tokoId !== 'all' && $tokoId != 0, function ($q) use ($tokoId) {
+                return $q->where('stock_barang.toko_id', $tokoId);
+            })
+            ->groupBy('barang.jenis_barang_id')
+            ->get()
+            ->keyBy('jenis_barang_id');
 
-        // TOTAL BERMASALAH (Sampai bulan target)
-        $problemGroup = $problemsUntilTargetMonth->get($jenisBarangId);
-        $qtyBermasalah = $problemGroup ? $problemGroup->sum('qty') : 0;
-        // Menghitung nilai kerugian barang bermasalah berdasarkan harga_beli batch-nya masing-masing
-        $hargaBeliBermasalah = $problemGroup ? $problemGroup->sum(fn ($p) => $p->qty * $p->batch->harga_beli) : 0;
+        // 4. Gabungkan hasil kalkulasi backtracking di memori PHP
+        return $batches->map(function ($batch) use ($sales, $problems) {
+            $sale = $sales->get($batch->id_jenis_barang);
+            $problem = $problems->get($batch->id_jenis_barang);
 
-        // RUMUS BARU: Total Masuk - Total Terjual - Total Bermasalah
-        $sisaQtyBulanTarget = $totalQtyMasuk - $qtyTerjual - $qtyBermasalah;
-        $sisaHargaBulanTarget = $totalHargaMasuk - $hargaBeliTerjual - $hargaBeliBermasalah;
+            $qtyTerjual = $sale ? $sale->total_qty_terjual : 0;
+            $hargaTerjual = $sale ? $sale->total_harga_terjual : 0;
 
-        return [
-            'id_jenis_barang' => $jenis->id,
-            'nama_jenis_barang' => $jenis->nama_jenis_barang,
-            'total_qty' => max(0, $sisaQtyBulanTarget),
-            'total_harga' => max(0, $sisaHargaBulanTarget),
-        ];
-    })->values();
-}
+            $qtyBermasalah = $problem ? $problem->total_qty_bermasalah : 0;
+            $hargaBermasalah = $problem ? $problem->total_harga_bermasalah : 0;
+
+            // Rumus Backtracking: Total Masuk - Terjual - Bermasalah
+            $sisaQty = $batch->total_qty_masuk - $qtyTerjual - $qtyBermasalah;
+            $sisaHarga = $batch->total_harga_masuk - $hargaTerjual - $hargaBermasalah;
+
+            return [
+                'id_jenis_barang' => $batch->id_jenis_barang,
+                'nama_jenis_barang' => $batch->nama_jenis_barang,
+                'total_qty' => max(0, $sisaQty),
+                'total_harga' => max(0, $sisaHarga),
+            ];
+        })->values();
+    }
 }

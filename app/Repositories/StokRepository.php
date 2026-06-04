@@ -51,11 +51,12 @@ class StokRepository
                     DB::raw('SUM(stock_barang_batch.qty_sisa * stock_barang_batch.harga_beli) as total_harga')
                 )
                 ->when($tokoId !== null && $tokoId !== 'all' && $tokoId != 0, function ($q) use ($tokoId) {
-                    // Diarahkan ke tabel stock_barang_batch
                     return $q->where('stock_barang_batch.toko_id', $tokoId);
                 })
                 ->groupBy('jenis_barang.id', 'jenis_barang.nama_jenis_barang')
-                ->get();
+                ->get()
+                ->map(fn ($item) => (array) $item) // KONVERSI KE ARRAY AGAR TIDAK ERROR stdClass
+                ->values();
         }
 
         // =========================================================================
@@ -77,7 +78,6 @@ class StokRepository
             )
             ->where('stock_barang_batch.created_at', '<=', $targetMonthEnd)
             ->when($tokoId !== null && $tokoId !== 'all' && $tokoId != 0, function ($q) use ($tokoId) {
-                // Diarahkan ke tabel stock_barang_batch
                 return $q->where('stock_barang_batch.toko_id', $tokoId);
             })
             ->groupBy('jenis_barang.id', 'jenis_barang.nama_jenis_barang')
@@ -112,7 +112,6 @@ class StokRepository
             )
             ->where('stock_barang_bermasalah.created_at', '<=', $targetMonthEnd)
             ->when($tokoId !== null && $tokoId !== 'all' && $tokoId != 0, function ($q) use ($tokoId) {
-                // Diarahkan ke tabel stock_barang_batch
                 return $q->where('stock_barang_batch.toko_id', $tokoId);
             })
             ->groupBy('barang.jenis_barang_id')
@@ -121,7 +120,6 @@ class StokRepository
 
         // 4. Gabungkan hasil kalkulasi backtracking di memori PHP
         return $batches->map(function ($batch) use ($sales, $problems) {
-            // Menggunakan panah (->) karena $batch adalah stdClass Object, bukan array
             $sale = $sales->get($batch->id_jenis_barang);
             $problem = $problems->get($batch->id_jenis_barang);
 
@@ -131,7 +129,7 @@ class StokRepository
             $qtyBermasalah = $problem ? $problem->total_qty_bermasalah : 0;
             $hargaBermasalah = $problem ? $problem->total_harga_bermasalah : 0;
 
-            // Rumus Backtracking: Total Masuk - Terjual - Bermasalah
+            // Rumus Backtracking
             $sisaQty = $batch->total_qty_masuk - $qtyTerjual - $qtyBermasalah;
             $sisaHarga = $batch->total_harga_masuk - $hargaTerjual - $hargaBermasalah;
 
@@ -141,6 +139,6 @@ class StokRepository
                 'total_qty' => max(0, $sisaQty),
                 'total_harga' => max(0, $sisaHarga),
             ];
-        })->values();
+        })->map(fn ($item) => (array) $item)->values(); // KONVERSI KE ARRAY JUGA DI SINI
     }
 }

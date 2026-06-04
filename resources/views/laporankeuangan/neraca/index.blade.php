@@ -106,29 +106,29 @@
                                 </div>
                                 <div class="col-12 col-xl-6 col-lg-8 mb-2">
                                     <form id="custom-filter" class="row justify-content-end">
-                                        <div class="col-12 col-xl-6 col-lg-6 mb-2">
+                                        <div class="col-12 col-xl-4 col-lg-4 mb-2">
                                             <input type="text" id="bulan_tahun" class="form-control"
                                                 placeholder="Pilih Bulan & Tahun" readonly>
                                         </div>
-                                        <div class="col-6 col-xl-3 col-lg-3">
+                                        <div class="col-6 col-xl-2 col-lg-2">
                                             <button form="custom-filter" class="btn btn-info w-100" id="tb-filter"
                                                 type="submit">
                                                 <i class="fa fa-magnifying-glass mr-2"></i>Cari
                                             </button>
                                         </div>
-                                        <div class="col-6 col-xl-3 col-lg-3">
+                                        <div class="col-6 col-xl-2 col-lg-2">
                                             <button type="button" class="btn btn-secondary w-100" id="tb-reset">
                                                 <i class="fa fa-rotate mr-2"></i>Reset
                                             </button>
                                         </div>
-                                        <div class="col-6 col-xl-3 col-lg-3 mt-2">
+                                        <div class="col-6 col-xl-2 col-lg-2 mt-2">
                                             <button type="button" class="btn btn-danger w-100" id="btn-export-pdf"
                                                 onclick="exportPDF()">
                                                 <i class="fa fa-file-pdf mr-2"></i>PDF
                                             </button>
                                         </div>
 
-                                        <div class="col-6 col-xl-3 col-lg-3 mt-2">
+                                        <div class="col-6 col-xl-2 col-lg-2 mt-2">
                                             <button type="button" class="btn btn-success w-100" id="btn-export-excel"
                                                 onclick="exportExcel()">
                                                 <i class="fa fa-file-excel mr-2"></i>Excel
@@ -166,6 +166,7 @@
     <script src="{{ asset('js/flatpickr.js') }}"></script>
     <script src="{{ asset('js/month-select.js') }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style/dist/xlsx.bundle.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@latest/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@latest/dist/jspdf.plugin.autotable.min.js"></script>
 @endsection
@@ -562,39 +563,128 @@
 
         function exportExcel() {
 
-            let rows = [];
+            const periode = $('#bulan_tahun').val() || 'Juni 2026';
+
+            const now = new Date();
+
+            const printedAt =
+                String(now.getDate()).padStart(2, '0') + '-' +
+                String(now.getMonth() + 1).padStart(2, '0') + '-' +
+                now.getFullYear() + ' ' +
+                String(now.getHours()).padStart(2, '0') + ':' +
+                String(now.getMinutes()).padStart(2, '0') + ':' +
+                String(now.getSeconds()).padStart(2, '0');
+
+            const data = [];
+
+            // Header laporan
+            data.push(['LAPORAN NERACA']);
+            data.push([`Periode: ${periode}`]);
+            data.push([`Dicetak pada: ${printedAt}`]);
+            data.push([]);
+
+            // Header tabel
+            data.push([
+                'Kategori',
+                'Nama Akun',
+                'Nilai'
+            ]);
 
             neracaData.forEach(kategori => {
 
-                rows.push({
-                    Kategori: kategori.kategori,
-                    Nama: '',
-                    Nilai: kategori.total
-                });
+                data.push([
+                    kategori.kategori,
+                    '',
+                    kategori.format
+                ]);
 
                 kategori.subkategori.forEach(sub => {
 
-                    rows.push({
-                        Kategori: '',
-                        Nama: sub.judul,
-                        Nilai: sub.total
+                    data.push([
+                        '',
+                        sub.judul,
+                        sub.format
+                    ]);
+
+                    const childrenMap = {};
+
+                    sub.item.forEach(item => {
+                        if (item.sub) {
+                            childrenMap[item.sub] = true;
+                        }
                     });
 
                     sub.item.forEach(item => {
 
-                        rows.push({
-                            Kategori: '',
-                            Nama: item.nama,
-                            Nilai: item.nilai
-                        });
+                        const isParent =
+                            item.kode &&
+                            !item.sub &&
+                            childrenMap[item.kode];
 
+                        const nama =
+                            item.sub ?
+                            `↳ ${item.nama}` :
+                            item.nama;
+
+                        data.push([
+                            '',
+                            isParent ?
+                            `${nama} (${item.format})` :
+                            nama,
+                            isParent ?
+                            '-' :
+                            item.format
+                        ]);
                     });
-
                 });
-
             });
 
-            const ws = XLSX.utils.json_to_sheet(rows);
+            const ws = XLSX.utils.aoa_to_sheet(data);
+
+            // Lebar kolom
+            ws['!cols'] = [{
+                    wch: 20
+                },
+                {
+                    wch: 70
+                },
+                {
+                    wch: 25
+                }
+            ];
+
+            // Merge Judul
+            ws['!merges'] = [{
+                    s: {
+                        r: 0,
+                        c: 0
+                    },
+                    e: {
+                        r: 0,
+                        c: 2
+                    }
+                },
+                {
+                    s: {
+                        r: 1,
+                        c: 0
+                    },
+                    e: {
+                        r: 1,
+                        c: 2
+                    }
+                },
+                {
+                    s: {
+                        r: 2,
+                        c: 0
+                    },
+                    e: {
+                        r: 2,
+                        c: 2
+                    }
+                }
+            ];
 
             const wb = XLSX.utils.book_new();
 
@@ -604,9 +694,12 @@
                 'Neraca'
             );
 
+            const fileName =
+                `Laporan Neraca Periode ${periode} - Dicetak ${printedAt}.xlsx`;
+
             XLSX.writeFile(
                 wb,
-                'Neraca.xlsx'
+                fileName
             );
         }
 
@@ -616,11 +709,23 @@
                 jsPDF
             } = window.jspdf;
 
-            const doc = new jsPDF(
-                'l',
-                'mm',
-                'a4'
-            );
+            const doc = new jsPDF({
+                orientation: 'portrait',
+                unit: 'mm',
+                format: 'a4'
+            });
+
+            const periode = $('#bulan_tahun').val() || 'Juni 2026';
+
+            const now = new Date();
+
+            const printedAt =
+                String(now.getDate()).padStart(2, '0') + '-' +
+                String(now.getMonth() + 1).padStart(2, '0') + '-' +
+                now.getFullYear() + ' ' +
+                String(now.getHours()).padStart(2, '0') + ':' +
+                String(now.getMinutes()).padStart(2, '0') + ':' +
+                String(now.getSeconds()).padStart(2, '0');
 
             let body = [];
 
@@ -640,18 +745,75 @@
                         sub.format
                     ]);
 
+                    const childrenMap = {};
+
                     sub.item.forEach(item => {
+                        if (item.sub) {
+                            childrenMap[item.sub] = true;
+                        }
+                    });
+
+                    sub.item.forEach(item => {
+
+                        const isParent =
+                            item.kode &&
+                            !item.sub &&
+                            childrenMap[item.kode];
+
+                        const nama =
+                            item.sub ?
+                            `↳ ${item.nama}` :
+                            item.nama;
 
                         body.push([
                             '',
-                            item.nama,
+                            isParent ?
+                            `${nama} (${item.format})` :
+                            nama,
+                            isParent ?
+                            '-' :
                             item.format
                         ]);
+
                     });
                 });
             });
 
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(16);
+
+            doc.text(
+                'LAPORAN NERACA',
+                105,
+                15, {
+                    align: 'center'
+                }
+            );
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(11);
+
+            doc.text(
+                `Periode: ${periode}`,
+                105,
+                22, {
+                    align: 'center'
+                }
+            );
+
+            doc.setDrawColor(150);
+
+            doc.line(
+                12,
+                27,
+                198,
+                27
+            );
+
             doc.autoTable({
+
+                startY: 35,
+
                 head: [
                     [
                         'Kategori',
@@ -659,10 +821,137 @@
                         'Nilai'
                     ]
                 ],
-                body: body
+
+                body,
+
+                theme: 'grid',
+
+                margin: {
+                    top: 35,
+                    left: 12,
+                    right: 12,
+                    bottom: 18
+                },
+
+                headStyles: {
+                    fillColor: [0, 102, 51],
+                    textColor: [255, 255, 255],
+                    fontStyle: 'bold',
+                    halign: 'center',
+                    valign: 'middle',
+                    fontSize: 10
+                },
+
+                styles: {
+                    font: 'helvetica',
+                    fontSize: 9,
+                    cellPadding: 2.5,
+                    overflow: 'linebreak',
+                    lineWidth: 0.1
+                },
+
+                columnStyles: {
+                    0: {
+                        cellWidth: 35
+                    },
+                    1: {
+                        cellWidth: 95
+                    },
+                    2: {
+                        cellWidth: 45,
+                        halign: 'right'
+                    }
+                },
+
+                didParseCell: function(data) {
+
+                    if (data.section !== 'body') {
+                        return;
+                    }
+
+                    const row = data.row.raw;
+
+                    if (!row) {
+                        return;
+                    }
+
+                    const kategori = row[0];
+                    const nama = row[1];
+
+                    if (
+                        kategori === 'AKTIVA' ||
+                        kategori === 'PASIVA'
+                    ) {
+
+                        data.cell.styles.fillColor = [235, 235, 235];
+
+                        data.cell.styles.fontStyle =
+                            'bold';
+
+                        data.cell.styles.fontSize =
+                            10;
+                    }
+
+                    if (
+                        nama &&
+                        (
+                            nama.includes('ASET LANCAR') ||
+                            nama.includes('ASET TETAP') ||
+                            nama.includes('HUTANG') ||
+                            nama.includes('EKUITAS')
+                        )
+                    ) {
+
+                        data.cell.styles.fillColor = [220, 240, 220];
+
+                        data.cell.styles.fontStyle =
+                            'bold';
+                    }
+                },
+
+                didDrawPage: function(data) {
+
+                    const pageWidth =
+                        doc.internal.pageSize.getWidth();
+
+                    const pageHeight =
+                        doc.internal.pageSize.getHeight();
+
+                    const pageNumber =
+                        doc.internal.getCurrentPageInfo().pageNumber;
+
+                    doc.setFontSize(8);
+
+                    doc.setFont(
+                        'helvetica',
+                        'normal'
+                    );
+
+                    doc.text(
+                        `Halaman ${pageNumber}`,
+                        12,
+                        pageHeight - 8
+                    );
+
+                    doc.setFont(
+                        'helvetica',
+                        'italic'
+                    );
+
+                    doc.text(
+                        `Dicetak pada tanggal: ${printedAt}`,
+                        pageWidth - 12,
+                        pageHeight - 8, {
+                            align: 'right'
+                        }
+                    );
+                }
             });
 
-            doc.save('Neraca.pdf');
+            const fileName =
+                `Laporan Neraca Periode ${periode} - Dicetak ${printedAt}.pdf`;
+
+            doc.save(fileName);
         }
 
         async function initPageLoad() {

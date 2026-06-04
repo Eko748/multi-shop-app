@@ -23,7 +23,7 @@
             const data = getDataRest.data.data;
             $('#countData').html(`
                 <p id="countData" class="mb-0" style="color: #212529; font-weight: bold; font-size: 2.25rem;">
-                    ${data.format}
+                    ${data}
                 </p>
             `)
         } else {

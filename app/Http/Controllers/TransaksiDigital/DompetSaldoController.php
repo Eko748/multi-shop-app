@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\TransaksiDigital;
 
+use App\Helpers\RupiahGenerate;
 use App\Http\Controllers\Controller;
 use App\Services\DompetSaldoService;
 use Illuminate\Http\Request;
@@ -50,7 +51,7 @@ class DompetSaldoController extends Controller
         try {
             $data = $this->service->sumSisaSaldo(null, null, $request->toko_id);
 
-            return $this->success($data, 200, 'Berhasil');
+            return $this->success(RupiahGenerate::build($data), 200, 'Berhasil');
         } catch (\Exception $e) {
             return $this->error(500, "Gagal mengambil data {$this->title[0]}", [
                 'exception' => $e->getMessage()

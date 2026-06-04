@@ -34,9 +34,9 @@ class StokRepository
         // 1. Tentukan batas akhir dari bulan target (Contoh: 2026-05-31 23:59:59)
         $targetMonthEnd = Carbon::createFromDate($year, $month, 1)->endOfMonth();
 
-        // 2. Ambil data StockBarangBatch yang ada saat ini (Kondisi Real-time)
-        // Filter hanya batch yang sudah lahir/dibuat sebelum atau pada bulan target
-        $currentBatches = StockBarangBatch::whereHas('stockBarang', function ($q) use ($tokoId) {
+        // 2. Ambil SEMUA data StockBarangBatch yang masuk sampai bulan target
+        // Menggunakan qty_masuk (bukan qty_sisa), dikelompokkan per jenis_barang_id
+        $batches = StockBarangBatch::whereHas('stockBarang', function ($q) use ($tokoId) {
             $q->when(
                 $tokoId !== null && $tokoId !== 'all' && $tokoId != 0,
                 fn ($x) => $x->where('toko_id', $tokoId)
@@ -47,43 +47,44 @@ class StokRepository
             ->get()
             ->groupBy(fn ($item) => $item->stockBarang->barang->jenis->id);
 
-        // 3. Ambil data penjualan (TransaksiKasirHarian) yang terjadi SETELAH bulan target
-        // Karena penjualan setelah bulan target inilah yang membuat stok saat ini "berkurang/bocor"
-        $salesAfterTargetMonth = TransaksiKasirHarian::when(
+        // 3. Ambil data penjualan (TransaksiKasirHarian) dari AWAL sampai BULAN TARGET SAJA
+        // Penjualan setelah bulan target diabaikan (karena tidak boleh mengurangi aset bulan target)
+        $salesUntilTargetMonth = TransaksiKasirHarian::when(
             $tokoId !== null && $tokoId !== 'all' && $tokoId != 0,
             fn ($x) => $x->where('toko_id', $tokoId)
         )
             ->where('jenis_barang_id', '!=', 0)
-            ->where('tanggal', '>', $targetMonthEnd->format('Y-m-d'))
+            ->where('tanggal', '<=', $targetMonthEnd->format('Y-m-d'))
             ->get()
             ->groupBy('jenis_barang_id');
 
-        // 4. Gabungkan data untuk menghitung nilai masa lalu (Backtracking)
-        // Kita gunakan master data jenis barang dari batch saat ini sebagai acuan loop
-        return $currentBatches->map(function ($group, $jenisBarangId) use ($salesAfterTargetMonth) {
+        // 4. Hitung Nilai Aset Bulan Target
+        return $batches->map(function ($group, $jenisBarangId) use ($salesUntilTargetMonth) {
             $first = $group->first();
             $jenis = $first->stockBarang->barang->jenis;
 
-            // KONDISI SEKARANG: Stok sisa saat ini di database
-            $currentQtySisa = $group->sum('qty_sisa');
-            $currentHargaSisa = $group->sum(fn ($i) => $i->qty_sisa * $i->harga_beli);
+            // TOTAL MASUK: Total semua barang yang pernah masuk sampai bulan target
+            $totalQtyMasuk = $group->sum('qty_masuk');
 
-            // KONDISI MASA DEPAN (PENAMBAL): Penjualan yang terjadi setelah bulan target
-            $salesGroup = $salesAfterTargetMonth->get($jenisBarangId);
-            $qtyTerjualSetelahnya = $salesGroup ? $salesGroup->sum('total_qty') : 0;
-            $hargaBeliTerjualSetelahnya = $salesGroup ? $salesGroup->sum('total_harga_beli') : 0;
+            // Menghitung total harga beli awal (qty_masuk * harga_beli)
+            $totalHargaMasuk = $group->sum(fn ($i) => $i->qty_masuk * $i->harga_beli);
 
-            // RUMUS BACKTRACKING: Kondisi Sekarang + Penjualan setelahnya
-            $totalQtyBulanLalu = $currentQtySisa + $qtyTerjualSetelahnya;
-            $totalHargaBulanLalu = $currentHargaSisa + $hargaBeliTerjualSetelahnya;
+            // TOTAL TERJUAL: Total penjualan dari awal sampai bulan target
+            $salesGroup = $salesUntilTargetMonth->get($jenisBarangId);
+            $qtyTerjual = $salesGroup ? $salesGroup->sum('total_qty') : 0;
+            $hargaBeliTerjual = $salesGroup ? $salesGroup->sum('total_harga_beli') : 0;
+
+            // RUMUS BARU: Total Masuk - Total Terjual (Sampai Bulan Target)
+            // Otomatis transaksi bulan setelahnya tidak mengganggu nilai ini
+            $sisaQtyBulanTarget = $totalQtyMasuk - $qtyTerjual;
+            $sisaHargaBulanTarget = $totalHargaMasuk - $hargaBeliTerjual;
 
             return [
                 'id_jenis_barang' => $jenis->id,
                 'nama_jenis_barang' => $jenis->nama_jenis_barang,
-                'total_qty' => $totalQtyBulanLalu,
-                'total_harga' => $totalHargaBulanLalu,
+                'total_qty' => max(0, $sisaQtyBulanTarget), // max(0) untuk menghindari angka minus jika data transaksional tidak sinkron
+                'total_harga' => max(0, $sisaHargaBulanTarget),
             ];
-        })
-            ->values();
+        })->values();
     }
 }

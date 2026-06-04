@@ -121,6 +121,7 @@ class StokRepository
 
         // 4. Gabungkan hasil kalkulasi backtracking di memori PHP
         return $batches->map(function ($batch) use ($sales, $problems) {
+            // Menggunakan panah (->) karena $batch adalah stdClass Object, bukan array
             $sale = $sales->get($batch->id_jenis_barang);
             $problem = $problems->get($batch->id_jenis_barang);
 

@@ -51,7 +51,8 @@ class StokRepository
                     DB::raw('SUM(stock_barang_batch.qty_sisa * stock_barang_batch.harga_beli) as total_harga')
                 )
                 ->when($tokoId !== null && $tokoId !== 'all' && $tokoId != 0, function ($q) use ($tokoId) {
-                    return $q->where('stock_barang.toko_id', $tokoId);
+                    // Diarahkan ke tabel stock_barang_batch
+                    return $q->where('stock_barang_batch.toko_id', $tokoId);
                 })
                 ->groupBy('jenis_barang.id', 'jenis_barang.nama_jenis_barang')
                 ->get();
@@ -76,7 +77,8 @@ class StokRepository
             )
             ->where('stock_barang_batch.created_at', '<=', $targetMonthEnd)
             ->when($tokoId !== null && $tokoId !== 'all' && $tokoId != 0, function ($q) use ($tokoId) {
-                return $q->where('stock_barang.toko_id', $tokoId);
+                // Diarahkan ke tabel stock_barang_batch
+                return $q->where('stock_barang_batch.toko_id', $tokoId);
             })
             ->groupBy('jenis_barang.id', 'jenis_barang.nama_jenis_barang')
             ->get()
@@ -110,7 +112,8 @@ class StokRepository
             )
             ->where('stock_barang_bermasalah.created_at', '<=', $targetMonthEnd)
             ->when($tokoId !== null && $tokoId !== 'all' && $tokoId != 0, function ($q) use ($tokoId) {
-                return $q->where('stock_barang.toko_id', $tokoId);
+                // Diarahkan ke tabel stock_barang_batch
+                return $q->where('stock_barang_batch.toko_id', $tokoId);
             })
             ->groupBy('barang.jenis_barang_id')
             ->get()

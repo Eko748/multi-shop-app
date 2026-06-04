@@ -28,10 +28,7 @@ class DompetSaldoService
     public function sumSisaSaldo(?int $month = null, ?int $year  = null, ?int $tokoId = null)
     {
         $data = $this->repository->sumSaldo($month, $year, $tokoId) - $this->repository2->sumHPP($month, $year, $tokoId);
-        return [
-            'saldo' => $data,
-            'format' => 'Rp ' . number_format($data, 0, ',', '.')
-        ];
+        return $data;
     }
 
     public function sumHPP(?int $month  = null, ?int $year = null, ?int $tokoId = null)

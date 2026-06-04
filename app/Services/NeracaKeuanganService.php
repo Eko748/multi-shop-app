@@ -345,7 +345,7 @@ class NeracaKeuanganService
         $piutangItems[] = $piutangKasbonItem;
 
         $sisaDompetSaldo = $this->dompetSaldoService->sumSisaSaldo($month, $year, $tokoId);
-        $hppDompetSaldoNilai = (int) ($sisaDompetSaldo['saldo'] ?? 0);
+        $hppDompetSaldoNilai = (int) ($sisaDompetSaldo ?? 0);
 
         $returMemberTotal = (int) ($returData['retur_member'] ?? 0);
         $returSuplierTotal = (int) ($returData['retur_suplier'] ?? 0);
@@ -385,9 +385,9 @@ class NeracaKeuanganService
                 ...$stokPerJenisItems,
                 [
                     'kode' => 'I.5',
-                    'nama' => 'Stok Dompet Digital',
+                    'nama' => 'Stok Saldo Dompet Digital',
                     'nilai' => $sisaDompetSaldo,
-                    'format' => $sisaDompetSaldo['format'],
+                    'format' => RupiahGenerate::build($sisaDompetSaldo),
                 ],
                 [
                     'kode' => 'I.6',

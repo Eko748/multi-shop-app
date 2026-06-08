@@ -16,7 +16,6 @@ return new class extends Migration
             $table->unsignedBigInteger('pengiriman_barang_id');
             $table->unsignedBigInteger('barang_id');
             $table->unsignedBigInteger('stock_barang_batch_id');
-            $table->decimal('harga_kirim', 18, 6)->default(0);
             $table->integer('qty_send');
             $table->integer('qty_verified');
             $table->timestamps();

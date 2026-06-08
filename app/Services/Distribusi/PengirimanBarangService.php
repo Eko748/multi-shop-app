@@ -10,15 +10,20 @@ use App\Models\PengirimanBarang;
 use App\Models\PengirimanBarangDetail;
 use App\Models\PengirimanBarangDetailTemp;
 use App\Models\StockBarangBatch;
-use App\Repositories\Distribusi\{PengirimanBarangDetailRepo, PengirimanBarangDetailTempRepo, PengirimanBarangRepo};
+use App\Repositories\Distribusi\PengirimanBarangDetailRepo;
+use App\Repositories\Distribusi\PengirimanBarangDetailTempRepo;
+use App\Repositories\Distribusi\PengirimanBarangRepo;
 use App\Traits\PaginateResponse;
 use Illuminate\Support\Facades\DB;
 
 class PengirimanBarangService
 {
     use PaginateResponse;
+
     protected $repository;
+
     protected $repo2;
+
     protected $repo3;
 
     public function __construct(PengirimanBarangRepo $repository, PengirimanBarangDetailRepo $repo2, PengirimanBarangDetailTempRepo $repo3)
@@ -40,6 +45,7 @@ class PengirimanBarangService
                 'completed_debt' => 'Sukses - Hutang',
                 default => $item->status,
             };
+
             return [
                 'id' => $item->id,
                 'nota' => $item->nota,
@@ -58,7 +64,7 @@ class PengirimanBarangService
             'data' => [
                 'item' => $data,
             ],
-            'pagination' => $this->setPaginate($query)
+            'pagination' => $this->setPaginate($query),
         ];
     }
 
@@ -88,16 +94,16 @@ class PengirimanBarangService
                             <span style='font-weight: 550; font-size: 12px;'>{$nama}</span>
                         </div>
                     </div>
-                "
+                ",
             ];
         });
 
         return [
             'data' => [
                 'item' => $data,
-                'total' => $this->repo2->sumHargaBeli($filter)
+                'total' => $this->repo2->sumHargaBeli($filter),
             ],
-            'pagination' => $this->setPaginate($query)
+            'pagination' => $this->setPaginate($query),
         ];
     }
 
@@ -108,7 +114,10 @@ class PengirimanBarangService
         $data = collect(method_exists($query, 'items') ? $query->items() : $query)->map(function ($item) {
             $img = AssetGenerate::build("qrcodes/barang/{$item->barang->qrcode}.png");
             $nama = TextGenerate::smartTail($item->barang->nama);
-            $stok = $item->batch->qty_sisa ?? 0;
+
+            // 1. AMANKAN DISINI (Gunakan ?->)
+            $stok = $item->batch?->qty_sisa ?? 0;
+            $hargaBeli = $item->batch?->harga_beli ?? 0;
             $tanggal = $item->created_at ? $item->created_at->format('d-m-Y H:i:s') : '-';
 
             return [
@@ -117,31 +126,33 @@ class PengirimanBarangService
                 'barang' => $item->barang->nama,
                 'qty_send' => $item->qty_send ?? 0,
                 'qty_verified' => $item->qty_verified ?? 0,
-                'harga_beli' => RupiahGenerate::build($item->batch->harga_beli),
-                'suplier' => optional($item->batch->supplier)->nama ?? 'Tidak Ada',
+
+                // 2. AMANKAN DISINI JUGA
+                'harga_beli' => RupiahGenerate::build($hargaBeli),
+                'suplier' => $item->batch?->supplier?->nama ?? 'Tidak Ada',
+
                 'created_at' => $item->created_at ?? null,
                 'stock_barang_batch_id' => $item->stock_barang_batch_id ?? null,
                 'text' => "
-                    <div style='display: flex; align-items: center; gap: 8px;' class='p-1'>
-                        <img src='{$img}' width='28' height='28' style='border-radius: 3px;'>
-
-                        <div style='display: flex; flex-direction: column; line-height: 1.2;'>
-                            <span style='font-weight: 550; font-size: 12px;'>{$nama}</span>
-                            <small class='text-dark'>
-                                Stok: {$stok}
-                            </small>
-                        </div>
+                <div style='display: flex; align-items: center; gap: 8px;' class='p-1'>
+                    <img src='{$img}' width='28' height='28' style='border-radius: 3px;'>
+                    <div style='display: flex; flex-direction: column; line-height: 1.2;'>
+                        <span style='font-weight: 550; font-size: 12px;'>{$nama}</span>
+                        <small class='text-dark'>
+                            Stok: {$stok}
+                        </small>
                     </div>
-                "
+                </div>
+            ",
             ];
         });
 
         return [
             'data' => [
                 'item' => $data,
-                'total' => $this->repo3->sumHargaBeli($filter)
+                'total' => $this->repo3->sumHargaBeli($filter),
             ],
-            'pagination' => $this->setPaginate($query)
+            'pagination' => $this->setPaginate($query),
         ];
     }
 
@@ -162,13 +173,13 @@ class PengirimanBarangService
 
             $pengiriman = PengirimanBarang::lockForUpdate()->find($id);
 
-            if (!$pengiriman) {
+            if (! $pengiriman) {
                 return false;
             }
 
             // ❌ Tidak boleh hapus jika sudah success
             if ($pengiriman->status === 'success') {
-                throw new \Exception("Data dengan status success tidak dapat dihapus.");
+                throw new \Exception('Data dengan status success tidak dapat dihapus.');
             }
 
             // ==================================================
@@ -249,7 +260,7 @@ class PengirimanBarangService
             'data' => [
                 'item' => $data,
             ],
-            'pagination' => $this->setPaginate($query)
+            'pagination' => $this->setPaginate($query),
         ];
     }
 }

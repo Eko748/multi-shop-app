@@ -209,6 +209,7 @@ Route::prefix('stock-barang')->as('sb.')->group(function () {
         Route::get('get-detail-batch', [StockBarangBatchController::class, 'getDetailBatch'])->name('getDetailBatch');
         Route::get('get-by-qrcode', [StockBarangBatchController::class, 'getByQR'])->name('getByQR');
         Route::get('get-harga-jual', [StockBarangBatchController::class, 'getHargaJual'])->name('getHargaJual');
+        // Route::get('get-harga-beli', [StockBarangBatchController::class, 'getHargaBeli'])->name('getHargaBeli');
     });
 });
 

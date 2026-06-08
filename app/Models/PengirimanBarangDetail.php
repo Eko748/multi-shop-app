@@ -22,6 +22,7 @@ class PengirimanBarangDetail extends Model
 
     public function batch()
     {
-        return $this->belongsTo(StockBarangBatch::class, 'stock_barang_batch_id');
+        // Tambahkan parameter ketiga 'id' secara eksplisit
+        return $this->belongsTo(StockBarangBatch::class, 'stock_barang_batch_id', 'id');
     }
 }

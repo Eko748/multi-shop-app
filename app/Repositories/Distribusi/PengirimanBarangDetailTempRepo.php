@@ -16,7 +16,7 @@ class PengirimanBarangDetailTempRepo
 
     public function getAll($filter)
     {
-        $query = $this->model::query()->where('pengiriman_barang_id', $filter->id);
+        $query = $this->model::query()->where('pengiriman_barang_id', $filter->id)->with(['barang', 'batch.supplier']);
 
         if (!empty($filter->search)) {
             $query->whereHas('barang', function ($q) use ($filter) {

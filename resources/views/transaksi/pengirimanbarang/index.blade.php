@@ -89,7 +89,6 @@
                                                 <th class="text-wrap align-top">Toko Asal</th>
                                                 <th class="text-wrap align-top">Pengirim</th>
                                                 <th class="text-wrap align-top">Qty</th>
-                                                <th class="text-wrap align-top text-right">Total Harga</th>
                                                 <th class="text-wrap align-top text-right">Action</th>
                                             </tr>
                                         </thead>
@@ -198,7 +197,6 @@
                                 <tr>
                                     <td class="text-center">Barang</td>
                                     <td class="text-center">Hpp</td>
-                                    <td class="text-center">Atur Harga Kirim</td>
                                     <td class="text-center">Qty yang dikirim</td>
                                     <td class="text-center">Aksi</td>
                                 </tr>
@@ -288,7 +286,7 @@
                         <thead class="bg-light font-weight-bold">
                             <tr>
                                 <td class="text-center">Barang / Batch</td>
-                                <td class="text-center">Harga Kirim</td>
+                                <td class="text-center">Harga</td>
                                 <td class="text-center">Qty Dikirim</td>
                                 <td class="text-center">Qty Diterima</td>
                                 <td class="text-center">Qty Problem</td>
@@ -534,7 +532,6 @@
                 tgl_terima: data?.tgl_terima ?? '<span class="badge badge-secondary"><i>Belum diterima</i></span>',
                 total_item: data?.total_item ?? '-',
                 toko_tujuan: data?.toko_tujuan ?? '-',
-                total_harga: data?.total_harga ?? '-',
                 action_buttons,
             };
         }
@@ -559,7 +556,6 @@
                     <td class="${classCol}">${element.toko_asal}</td>
                     <td class="${classCol}">${element.nama_pengirim}</td>
                     <td class="${classCol}">${element.total_item}</td>
-                    <td class="${classCol} text-right">${element.total_harga}</td>
                     <td class="${classCol} text-right">${element.action_buttons}</td>
                 </tr>`;
             });
@@ -742,7 +738,6 @@
                         barang_id: $(this).find(".barang_id").val(),
                         stock_barang_batch_id: $(this).find(".stock_batch_id").val(),
                         qty_send: $(this).find(".qty_send").val(),
-                        harga_kirim: $(this).find(".harga_kirim").val(),
                     });
                 });
 
@@ -943,7 +938,7 @@
 
         async function handleRow(search) {
             try {
-                let res = await renderAPI("GET", '{{ route('sb.batch.getHargaJual') }}', {
+                let res = await renderAPI("GET", '{{ route('sb.batch.getByQR') }}', {
                     search: search,
                     toko_id: {{ auth()->user()->toko_id }}
                 });
@@ -1010,11 +1005,7 @@
             let row = `
                 <tr>
                     <td>${data.text}</td>
-                    <td class="text-right">${data.format_hpp}</td>
-                    <td>
-                        <input type="number" class="form-control harga_kirim"
-                            min="1" value="${data.hpp}" required>
-                    </td>
+                    <td class="text-right">${data.format_hpp_baru}</td>
                     <td>
                         <input type="number" class="form-control qty_send"
                             min="1" max="${maxQty}" value="1" required>
@@ -1308,7 +1299,6 @@
 
             } catch (error) {
                 console.error(error);
-                alert("Terjadi kesalahan saat membuka data edit");
             }
         }
 

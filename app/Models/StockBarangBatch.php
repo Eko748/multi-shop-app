@@ -20,6 +20,11 @@ class StockBarangBatch extends Model
         return $this->belongsTo(Toko::class, 'toko_id', 'id');
     }
 
+    public function supplier()
+    {
+        return $this->belongsTo(Supplier::class, 'supplier_id', 'id');
+    }
+
     public function pembelianBarangDetail()
     {
         return $this->belongsTo(PembelianBarangDetail::class, 'pembelian_barang_detail_id', 'id');

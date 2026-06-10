@@ -78,15 +78,15 @@ Route::prefix('toko')->as('toko.')->group(function () {
 });
 
 Route::prefix('role')->as('role.')->group(function () {
-    Route::post('post', [RoleController::class, 'post'])->name('post')->middleware('permission:POST /role/post');
-    Route::put('put', [RoleController::class, 'update'])->name('update')->middleware('permission:PUT /role/put');
-    Route::delete('delete', [RoleController::class, 'delete'])->name('delete')->middleware('permission:DELETE /role/delete');
+    Route::post('post', [RoleController::class, 'post'])->name('post')->middleware('permission:POST /role');
+    Route::put('put', [RoleController::class, 'update'])->name('update')->middleware('permission:PUT /role');
+    Route::delete('delete', [RoleController::class, 'delete'])->name('delete')->middleware('permission:DELETE /role');
 });
 
 Route::prefix('level-harga')->as('levelHarga.')->group(function () {
-    Route::post('post', [LevelHargaController::class, 'post'])->name('post')->middleware('permission:POST /level-harga/post');
-    Route::put('put', [LevelHargaController::class, 'update'])->name('update')->middleware('permission:PUT /level-harga/put');
-    Route::delete('delete', [LevelHargaController::class, 'delete'])->name('delete')->middleware('permission:DELETE /level-harga/delete');
+    Route::post('post', [LevelHargaController::class, 'post'])->name('post')->middleware('permission:POST /level-harga');
+    Route::put('put', [LevelHargaController::class, 'update'])->name('update')->middleware('permission:PUT /level-harga');
+    Route::delete('delete', [LevelHargaController::class, 'delete'])->name('delete')->middleware('permission:DELETE /level-harga');
 });
 
 Route::prefix('member')->as('member.')->group(function () {

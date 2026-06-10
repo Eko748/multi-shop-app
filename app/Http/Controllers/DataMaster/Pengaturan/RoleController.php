@@ -3,28 +3,27 @@
 namespace App\Http\Controllers\DataMaster\Pengaturan;
 
 use App\Http\Controllers\Controller;
-use App\Helpers\ActivityLogger;
-use App\Models\LevelUser;
 use App\Models\Permission;
 use App\Models\Role;
-use App\Models\User;
+use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
-use PhpParser\Node\Expr\Cast\String_;
 
-class LevelUserController extends Controller
+class RoleController extends Controller
 {
+    use ApiResponse;
+
     private array $menu = [];
 
     public function __construct()
     {
         $this->menu;
         $this->title = [
-            'Data Level User',
+            'Role',
             'Tambah Data',
             'Edit Data',
-            'Atur Hak Akses'
+            'Atur Hak Akses',
         ];
     }
 
@@ -37,12 +36,12 @@ class LevelUserController extends Controller
 
         // $query->where('id', '!=', 1);
 
-        if (!empty($request['search'])) {
+        if (! empty($request['search'])) {
             $searchTerm = trim(strtolower($request['search']));
 
             $query->where(function ($query) use ($searchTerm) {
-                $query->orWhereRaw("LOWER(nama_level) LIKE ?", ["%$searchTerm%"]);
-                $query->orWhereRaw("LOWER(informasi) LIKE ?", ["%$searchTerm%"]);
+                $query->orWhereRaw('LOWER(nama_level) LIKE ?', ["%$searchTerm%"]);
+                $query->orWhereRaw('LOWER(informasi) LIKE ?', ["%$searchTerm%"]);
             });
         }
 
@@ -59,19 +58,19 @@ class LevelUserController extends Controller
             'total' => $data->total(),
             'per_page' => $data->perPage(),
             'current_page' => $data->currentPage(),
-            'total_pages' => $data->lastPage()
+            'total_pages' => $data->lastPage(),
         ];
 
         $data = [
             'data' => $data->items(),
-            'meta' => $paginationMeta
+            'meta' => $paginationMeta,
         ];
 
         if (empty($data['data'])) {
             return response()->json([
                 'status_code' => 400,
                 'errors' => true,
-                'message' => 'Tidak ada data'
+                'message' => 'Tidak ada data',
             ], 400);
         }
 
@@ -88,7 +87,7 @@ class LevelUserController extends Controller
             'status_code' => 200,
             'errors' => true,
             'message' => 'Sukses',
-            'pagination' => $data['meta']
+            'pagination' => $data['meta'],
         ], 200);
     }
 
@@ -96,19 +95,12 @@ class LevelUserController extends Controller
     {
         $menu = [$this->title[0], $this->label[0]];
 
-        return view('master.leveluser.index', compact('menu'));
+        return view('master.role.index', compact('menu'));
     }
 
-    public function create()
+    public function post(Request $request)
     {
-        $menu = [$this->title[0], $this->label[0], $this->title[1]];
-
-        return view('master.leveluser.create', compact('menu'));
-    }
-
-    public function store(Request $request)
-    {
-        $validatedData = $request->validate([
+        $request->validate([
             'nama_level' => 'required|max:255',
             'informasi' => 'required|max:255',
         ], [
@@ -116,96 +108,136 @@ class LevelUserController extends Controller
             'informasi.required' => 'Informasi tidak boleh kosong.',
         ]);
 
-        ActivityLogger::log('Tambah Level User', $request->all());
-
         try {
+            DB::beginTransaction();
 
-            Role::create([
+            $role = Role::create([
                 'name' => $request->nama_level,
                 'informasi' => $request->informasi,
+                'guard_name' => 'web',
             ]);
-        } catch (\Throwable $th) {
-            return redirect()->back()->with('error', $th->getMessage())->withInput();
+
+            $this->saveLogAktivitas(
+                logName: $this->title[0],
+                subjectType: Role::class,
+                subjectId: $role->id,
+                event: 'Tambah Data',
+                properties: [
+                    'changes' => [
+                        'new' => Arr::except($role->toArray(), ['id', 'created_at', 'updated_at']),
+                    ],
+                ],
+                description: "Role {$role->name} (ID {$role->id}) ditambahkan.",
+                userId: $request->user_id ?? null,
+                message: $request->message ?? '(Sistem) Penambahan role baru.'
+            );
+
+            DB::commit();
+
+            return $this->success(null, 200, 'Data berhasil disimpan!');
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return $this->error(500, 'Terjadi kesalahan saat menyimpan data: '.$e->getMessage());
         }
-
-        return redirect()->route('master.leveluser.index')->with('success', 'Sukses menambahkan User Baru');
     }
 
-    public function edit(string $id)
+    public function update(Request $request)
     {
-        $menu = [$this->title[0], $this->label[0], $this->title[2]];
-
-        $leveluser = Role::findOrFail($id);
-
-        return view('master.leveluser.edit', compact('menu', 'leveluser'));
-    }
-
-    public function update(Request $request, string $id)
-    {
-        $leveluser = Role::findOrFail($id);
-
-        ActivityLogger::log('Update Level User', ['id' => $id]);
-
         try {
+            $request->validate([
+                'nama_level' => 'required|max:255',
+                'informasi' => 'required|max:255',
+            ], [
+                'nama_level.required' => 'Nama Level User tidak boleh kosong.',
+                'informasi.required' => 'Informasi tidak boleh kosong.',
+            ]);
 
-            $leveluser->update([
+            $data = Role::findOrFail($request->id);
+
+            $updateData = [
                 'name' => $request->nama_level,
                 'informasi' => $request->informasi,
-            ]);
-        } catch (\Throwable $th) {
-            return redirect()->back()->with('error', $th->getMessage())->withInput();
-        }
+            ];
 
-        return redirect()->route('master.leveluser.index')->with('success', 'Sukses Mengubah Data Level User');
+            $changedData = [];
+            foreach ($updateData as $key => $value) {
+                $oldValue = $originalData[$key] ?? null;
+                if ((string) $oldValue !== (string) $value) {
+                    $changedData['old'][$key] = $oldValue;
+                    $changedData['new'][$key] = $value;
+                }
+            }
+
+            $updated = $data->update($updateData);
+
+            if (! $updated) {
+                throw new \Exception('Gagal memperbarui data role');
+            }
+
+            if (! empty($changedData)) {
+                $this->saveLogAktivitas(
+                    logName: $this->title[0],
+                    subjectType: Role::class,
+                    subjectId: $data->id,
+                    event: 'Edit Data',
+                    properties: ['changes' => $changedData],
+                    description: "Role {$data->name} (ID {$data->id}) diperbarui.",
+                    userId: $request->user_id ?? null,
+                    message: $request->message ?? '(Sistem) Perubahan data role.'
+                );
+            }
+
+            DB::commit();
+
+            return $this->success($updateData, 201, 'Data berhasil diperbarui');
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return $this->error(500, 'Internal Server Error', $e->getMessage());
+        }
     }
 
-
-    public function delete(string $id)
+    public function delete(Request $request)
     {
-        $leveluser = Role::findOrFail($id);
-
-        // Cek apakah ada user yang masih pakai role ini
-        $relatedUsers = User::where('id_level', $id)->exists();
-
-        if ($relatedUsers) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Edit User yang terkait dengan Role ini terlebih dahulu sebelum menghapus.'
-            ], 400);
-        }
-
-        ActivityLogger::log('Delete Level User', ['id' => $id]);
+        $data = Role::findOrFail($request->id);
 
         try {
             DB::beginTransaction();
 
-            // Hapus data dari tabel role_has_permissions
-            DB::table('role_has_permissions')->where('role_id', $id)->delete();
+            $originalData = Arr::except($data->toArray(), ['id', 'created_at', 'updated_at']);
 
-            // Hapus role-nya
-            $leveluser->delete();
+            $this->saveLogAktivitas(
+                logName: $this->title[0],
+                subjectType: Role::class,
+                subjectId: $data->id,
+                event: 'Hapus Data',
+                properties: [
+                    'changes' => [
+                        'old' => $originalData,
+                    ],
+                ],
+                description: "Role {$data->name} (ID {$data->id}) dihapus.",
+                userId: $request->user_id ?? null,
+                message: '(Sistem) Penghapusan data role.'
+            );
+
+            $data->delete();
 
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Sukses menghapus Data Level User'
-            ]);
-        } catch (\Throwable $th) {
+            return $this->success(null, 200, 'Data berhasil dihapus');
+        } catch (\Exception $e) {
             DB::rollBack();
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Gagal menghapus Data Level User: ' . $th->getMessage()
-            ], 500);
+            return $this->error(500, 'Internal Server Error', $e->getMessage());
         }
     }
-
 
     public function hakAksesUser($id)
     {
         $menu = [$this->title[3], $this->label[0]];
-        return view('master.leveluser.hak-akses', compact('id', 'menu'));
+
+        return view('master.role.hak-akses', compact('id', 'menu'));
     }
 
     public function getHakAksesUser($id)
@@ -221,6 +253,7 @@ class LevelUserController extends Controller
             ->get()
             ->map(function ($perm) use ($methodOrder) {
                 $method = $this->detectMethodFromName($perm->name);
+
                 return [
                     'id' => $perm->id,
                     'name' => $perm->name,
@@ -237,8 +270,8 @@ class LevelUserController extends Controller
             $menuName = $items->first()['menu_name'] ?? 'Tanpa Kategori';
 
             $sortedPermissions = $items->sortBy([
-                fn($a, $b) => $a['method_order'] <=> $b['method_order'],
-                fn($a, $b) => $a['name'] <=> $b['name'],
+                fn ($a, $b) => $a['method_order'] <=> $b['method_order'],
+                fn ($a, $b) => $a['name'] <=> $b['name'],
             ]);
 
             return [
@@ -261,7 +294,7 @@ class LevelUserController extends Controller
                 'level' => $level,
                 'permissions_grouped' => $permissionsGrouped,
                 'assigned_permissions' => $assignedPermissions,
-            ]
+            ],
         ]);
     }
 
@@ -295,7 +328,7 @@ class LevelUserController extends Controller
 
         return response()->json([
             'status' => 200,
-            'message' => 'Hak akses berhasil diperbarui.'
+            'message' => 'Hak akses berhasil diperbarui.',
         ]);
     }
 }

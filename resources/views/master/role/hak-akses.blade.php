@@ -84,7 +84,7 @@
                 <div class="col-xl-12">
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
-                            <a href="{{ route('master.leveluser.index') }}" class="btn btn-danger">
+                            <a href="{{ route('master.role.index') }}" class="btn btn-danger">
                                 <i class="fa fa-arrow-left"></i> Kembali
                             </a>
                             <h5 class="mb-0 text-right">Pengaturan Hak Akses <span id="nama_level_user"></span></h5>

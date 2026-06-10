@@ -75,8 +75,8 @@
                                                 class="fa fa-cogs"></i> Hak Akses</a></li>
                                 @endif
                                 @if (hasMenu(11))
-                                    <li><a class="dropdown-item" href="{{ route('master.leveluser.index') }}"><i
-                                                class="fa fa-user-shield"></i> Level User</a></li>
+                                    <li><a class="dropdown-item" href="{{ route('master.role.index') }}"><i
+                                                class="fa fa-user-shield"></i> Role</a></li>
                                 @endif
                                 @if (hasMenu(12))
                                     <li><a class="dropdown-item" href="{{ route('master.levelharga.index') }}"><i

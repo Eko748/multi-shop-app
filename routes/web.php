@@ -8,7 +8,7 @@ use App\Http\Controllers\TransaksiDigital\{DompetController, TransaksiNonFisikCo
 use App\Http\Controllers\DataMaster\Entitas\{MemberController, SupplierController, TokoController, UserController};
 use App\Http\Controllers\DataMaster\Log\LogAktivitasController;
 use App\Http\Controllers\DataMaster\ManajemenBarang\{BarangController, BrandController, JenisBarangController, StockBarangController};
-use App\Http\Controllers\DataMaster\Pengaturan\{LevelHargaController, LevelUserController, PermissionController, PromoController};
+use App\Http\Controllers\DataMaster\Pengaturan\{LevelHargaController, RoleController, PermissionController, PromoController};
 use App\Http\Controllers\Distribusi\{PengirimanBarangController, PlanOrderController};
 use App\Http\Controllers\JurnalKeuangan\{HutangController, MutasiController, PemasukanController, PengeluaranController, PiutangController};
 use App\Http\Controllers\Rekapitulasi\{AsetBarangJualanController, AsetBarangReturController, LaporanKasirController, LaporanPembelianBarangController, LaporanPengirimanBarangController, LaporanPenjualanController, RatingBarangController, RatingMemberController};
@@ -54,8 +54,8 @@ Route::middleware(['auth'])->group(function () {
     // Permission Controller
     Route::get('permission', [PermissionController::class, 'index'])->name('master.permission.index')->middleware('permission:GET /permission');
 
-    // Level User Controller
-    Route::get('level-user', [LevelUserController::class, 'index'])->name('master.leveluser.index')->middleware('permission:GET /level-user');
+    // Role Controller
+    Route::get('role', [RoleController::class, 'index'])->name('master.role.index')->middleware('permission:GET /level-user');
 
     // Level Harga Controller
     Route::get('level-harga', [LevelHargaController::class, 'index'])->name('master.levelharga.index')->middleware('permission:GET /level-harga');
@@ -132,14 +132,15 @@ Route::post('levelharga/store', [LevelHargaController::class, 'store'])->name('m
 Route::get('levelharga/edit/{id}', [LevelHargaController::class, 'edit'])->name('master.levelharga.edit');
 Route::put('levelharga/update/{id}', [LevelHargaController::class, 'update'])->name('master.levelharga.update');
 Route::delete('levelharga/delete/{id}', [LevelHargaController::class, 'delete'])->name('master.levelharga.delete');
-Route::get('leveluser/create', [LevelUserController::class, 'create'])->name('master.leveluser.create');
-Route::post('leveluser/store', [LevelUserController::class, 'store'])->name('master.leveluser.store');
-Route::get('leveluser/edit/{id}', [LevelUserController::class, 'edit'])->name('master.leveluser.edit');
-Route::put('leveluser/update/{id}', [LevelUserController::class, 'update'])->name('master.leveluser.update');
-Route::delete('leveluser/delete/{id}', [LevelUserController::class, 'delete'])->name('master.leveluser.delete');
-Route::get('leveluser/permission/{id}', [LevelUserController::class, 'hakAksesUser'])->name('master.leveluser.permission');
-Route::get('leveluser/permission/get/{id}', [LevelUserController::class, 'getHakAksesUser'])->name('master.leveluser.permission.get');
-Route::post('leveluser/permission/store/{id}', [LevelUserController::class, 'createHakAksesUser'])->name('master.leveluser.permission.store');
+Route::get('leveluser/create', [RoleController::class, 'create'])->name('master.leveluser.create');
+Route::post('leveluser/store', [RoleController::class, 'store'])->name('master.leveluser.store');
+Route::get('leveluser/edit/{id}', [RoleController::class, 'edit'])->name('master.leveluser.edit');
+Route::put('leveluser/update/{id}', [RoleController::class, 'update'])->name('master.leveluser.update');
+Route::delete('leveluser/delete/{id}', [RoleController::class, 'delete'])->name('master.leveluser.delete');
+
+Route::get('role/permission/{id}', [RoleController::class, 'hakAksesUser'])->name('master.leveluser.permission');
+Route::get('role/permission/get/{id}', [RoleController::class, 'getHakAksesUser'])->name('master.leveluser.permission.get');
+Route::post('role/permission/store/{id}', [RoleController::class, 'createHakAksesUser'])->name('master.leveluser.permission.store');
 
 Route::post('promo/store', [PromoController::class, 'store'])->name('master.promo.store')->middleware('permission:POST /promo/store');
 Route::put('promo/update', [PromoController::class, 'update'])->name('master.promo.update')->middleware('permission:PUT /promo/update');

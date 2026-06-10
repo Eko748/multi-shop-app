@@ -14,7 +14,7 @@ use App\Http\Controllers\DataMaster\ManajemenBarang\JenisBarangController;
 use App\Http\Controllers\DataMaster\ManajemenBarang\StockBarangBatchController;
 use App\Http\Controllers\DataMaster\ManajemenBarang\StockBarangController;
 use App\Http\Controllers\DataMaster\Pengaturan\LevelHargaController;
-use App\Http\Controllers\DataMaster\Pengaturan\LevelUserController;
+use App\Http\Controllers\DataMaster\Pengaturan\RoleController;
 use App\Http\Controllers\DataMaster\Pengaturan\PermissionController;
 use App\Http\Controllers\DataMaster\Pengaturan\PromoController;
 use App\Http\Controllers\Distribusi\PengirimanBarangController;
@@ -75,6 +75,18 @@ Route::prefix('toko')->as('toko.')->group(function () {
     Route::post('post', [TokoController::class, 'post'])->name('post')->middleware('permission:POST /toko/post');
     Route::put('put', [TokoController::class, 'update'])->name('update')->middleware('permission:PUT /toko/put');
     Route::delete('delete', [TokoController::class, 'delete'])->name('delete')->middleware('permission:DELETE /toko/delete');
+});
+
+Route::prefix('role')->as('role.')->group(function () {
+    Route::post('post', [RoleController::class, 'post'])->name('post')->middleware('permission:POST /role/post');
+    Route::put('put', [RoleController::class, 'update'])->name('update')->middleware('permission:PUT /role/put');
+    Route::delete('delete', [RoleController::class, 'delete'])->name('delete')->middleware('permission:DELETE /role/delete');
+});
+
+Route::prefix('level-harga')->as('levelHarga.')->group(function () {
+    Route::post('post', [LevelHargaController::class, 'post'])->name('post')->middleware('permission:POST /level-harga/post');
+    Route::put('put', [LevelHargaController::class, 'update'])->name('update')->middleware('permission:PUT /level-harga/put');
+    Route::delete('delete', [LevelHargaController::class, 'delete'])->name('delete')->middleware('permission:DELETE /level-harga/delete');
 });
 
 Route::prefix('member')->as('member.')->group(function () {
@@ -338,7 +350,7 @@ Route::get('/getmember', [MemberController::class, 'getmember'])->name('master.g
 Route::get('/getsupplier', [SupplierController::class, 'getsupplier'])->name('master.getsupplier');
 Route::get('/getjenisbarang', [JenisBarangController::class, 'getjenisbarang'])->name('master.getjenisbarang');
 Route::get('/getbrand', [BrandController::class, 'getbrand'])->name('master.getbrand');
-Route::get('/getleveluser', [LevelUserController::class, 'getleveluser'])->name('master.getleveluser');
+Route::get('/getleveluser', [RoleController::class, 'getleveluser'])->name('master.getleveluser');
 Route::get('/getlevelharga', [LevelHargaController::class, 'getlevelharga'])->name('master.getlevelharga');
 Route::get('/getpromo', [PromoController::class, 'getpromo'])->name('master.getpromo');
 Route::get('/getbarangs', [BarangController::class, 'getbarangs'])->name('master.getbarangs');

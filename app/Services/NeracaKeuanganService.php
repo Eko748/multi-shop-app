@@ -139,7 +139,6 @@ class NeracaKeuanganService
             ->get();
 
         $jenisBarangMap = JenisBarang::pluck('nama_jenis_barang', 'id')->toArray();
-
         $jenisBarangMap[0] = 'Dompet Digital';
 
         $allJenisBarangIds = array_keys($jenisBarangMap);
@@ -150,13 +149,15 @@ class NeracaKeuanganService
         $totalKasBesar = 0;
         $totalKasKecil = 0;
 
-        $counter = 1;
+        // Pisahkan counter agar penomoran kode (I.1.x) tetap urut dan rapi
+        $counterBesar = 1;
+        $counterKecil = 1;
 
         foreach ($allJenisBarangIds as $jenisBarangId) {
-
             $jenisNama = $jenisBarangMap[$jenisBarangId];
             $kasGroup = $kasList->where('jenis_barang_id', $jenisBarangId);
 
+            // --- PROSES KAS BESAR ---
             $kasBesar = $kasGroup->where('tipe_kas', 'besar')->first();
             $saldoBesar = 0;
 
@@ -164,15 +165,20 @@ class NeracaKeuanganService
                 $saldoBesar = $this->getSaldoAkhirKas($kasBesar->id, $month, $year);
             }
 
-            $kasBesarItems[] = [
-                'kode' => 'I.1.'.$counter,
-                'nama' => 'Kas Besar - '.$jenisNama,
-                'nilai' => (int) $saldoBesar,
-                'format' => RupiahGenerate::build($saldoBesar),
-                'sub' => 'I.1',
-            ];
-            $totalKasBesar += $saldoBesar;
+            // HANYA MASUKKAN JIKA SALDO LEBIH DARI 0
+            if ($saldoBesar > 0) {
+                $kasBesarItems[] = [
+                    'kode' => 'I.1.'.$counterBesar,
+                    'nama' => 'Kas Besar - '.$jenisNama,
+                    'nilai' => (int) $saldoBesar,
+                    'format' => RupiahGenerate::build($saldoBesar),
+                    'sub' => 'I.1',
+                ];
+                $totalKasBesar += $saldoBesar;
+                $counterBesar++; // Counter maju hanya jika data ditambahkan
+            }
 
+            // --- PROSES KAS KECIL ---
             $kasKecil = $kasGroup->where('tipe_kas', 'kecil')->first();
             $saldoKecil = 0;
 
@@ -180,16 +186,18 @@ class NeracaKeuanganService
                 $saldoKecil = $this->getSaldoAkhirKas($kasKecil->id, $month, $year);
             }
 
-            $kasKecilItems[] = [
-                'kode' => 'I.2.'.$counter,
-                'nama' => 'Kas Kecil - '.$jenisNama,
-                'nilai' => (int) $saldoKecil,
-                'format' => RupiahGenerate::build($saldoKecil),
-                'sub' => 'I.2',
-            ];
-            $totalKasKecil += $saldoKecil;
-
-            $counter++;
+            // HANYA MASUKKAN JIKA SALDO LEBIH DARI 0
+            if ($saldoKecil > 0) {
+                $kasKecilItems[] = [
+                    'kode' => 'I.2.'.$counterKecil,
+                    'nama' => 'Kas Kecil - '.$jenisNama,
+                    'nilai' => (int) $saldoKecil,
+                    'format' => RupiahGenerate::build($saldoKecil),
+                    'sub' => 'I.2',
+                ];
+                $totalKasKecil += $saldoKecil;
+                $counterKecil++; // Counter maju hanya jika data ditambahkan
+            }
         }
 
         return [

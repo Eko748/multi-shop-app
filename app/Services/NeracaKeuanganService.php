@@ -418,7 +418,7 @@ class NeracaKeuanganService
                     'format' => RupiahGenerate::build($pengirimanTotal),
                 ],
                 [
-                    'kode' => 'I.8',
+                    'kode' => 'I.9',
                     'nama' => 'Penyesuaian',
                     'nilai' => $penyesuaian,
                     'format' => RupiahGenerate::build($penyesuaian),

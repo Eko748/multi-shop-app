@@ -312,15 +312,14 @@ class NeracaKeuanganService
             'nilai' => $totalStokJenis,
             'format' => RupiahGenerate::build($totalStokJenis),
         ];
+        $piutangKasbon = 0; // Nilai kasbon Anda
 
-        $piutangKasbon = 0;
-
+        // Hitung total piutang jangka dari array (angka 0 tidak memengaruhi hasil)
         $piutangJangkaTotal = array_sum(array_column($piutangData, 'nilai'));
 
-        $piutangTotal =
-            (int) $piutangKasbon +
-            (int) $piutangJangkaTotal;
+        $piutangTotal = (int) $piutangKasbon + (int) $piutangJangkaTotal;
 
+        // 1. Parent Piutang (Tetap dibuat sebagai penampung utama)
         $piutangParent = [
             'kode' => 'I.3',
             'nama' => 'Piutang',
@@ -328,29 +327,32 @@ class NeracaKeuanganService
             'format' => RupiahGenerate::build($piutangTotal),
         ];
 
-        $piutangKasbonItem = [
-            'kode' => 'I.3.3',
-            'nama' => 'Kasbon Member',
-            'nilai' => $piutangKasbon,
-            'format' => RupiahGenerate::build($piutangKasbon),
-            'sub' => 'I.3',
-        ];
-
         $piutangItems = [];
         $idx = 1;
 
+        // 2. Looping data piutang (Hanya ambil yang nilainya > 0)
         foreach ($piutangData as $item) {
+            if ((int) $item['nilai'] > 0) {
+                $piutangItems[] = [
+                    'kode' => 'I.3.'.$idx++, // $idx hanya bertambah jika data dimasukkan
+                    'nama' => $item['nama'],
+                    'nilai' => (int) $item['nilai'],
+                    'format' => $item['format'],
+                    'sub' => 'I.3',
+                ];
+            }
+        }
+
+        // 3. Proses Kasbon Member (Hanya masukkan ke array jika nilainya > 0)
+        if ((int) $piutangKasbon > 0) {
             $piutangItems[] = [
-                'kode' => 'I.3.'.$idx++,
-                'nama' => $item['nama'],
-                'nilai' => $item['nilai'],
-                'format' => $item['format'],
+                'kode' => 'I.3.'.$idx++, // Melanjutkan nomor urut terakhir yang valid
+                'nama' => 'Kasbon Member',
+                'nilai' => (int) $piutangKasbon,
+                'format' => RupiahGenerate::build($piutangKasbon),
                 'sub' => 'I.3',
             ];
         }
-
-        $piutangKasbonItem['kode'] = 'I.3.'.$idx++;
-        $piutangItems[] = $piutangKasbonItem;
 
         $sisaDompetSaldo = $this->dompetSaldoService->sumSisaSaldo($month, $year, $tokoId);
         $hppDompetSaldoNilai = (int) ($sisaDompetSaldo ?? 0);

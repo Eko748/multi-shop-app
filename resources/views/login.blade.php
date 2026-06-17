@@ -8,7 +8,7 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
     <meta name="author" content="GSS">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Login | {{ env('APP_NAME') ?? 'GSS' }}</title>
+    <title>Login</title>
     <link rel="shortcut icon" type="image/x-icon" href="{{ asset('images/logo/logo.png') }}">
     <link rel="stylesheet" href="{{ asset('css/login/slick.css') }}" />
     <link rel="stylesheet" href="{{ asset('css/login/aos.css') }}" />
@@ -258,7 +258,7 @@
                                 style="width: 90%" />
                         </center> --}}
                         <p class="font-urbanis text-base font-medium text-bgray-600 pt-2 dark:text-bgray-50">
-                            <b>MASUK KE APLIKASI {{ env('APP_NAME') ?? 'GSS' }}</b>
+                            <b>MASUK KE APLIKASI</b>
                         </p>
                         @if ($errors->any())
                             @foreach ($errors->all() as $error)
@@ -297,7 +297,7 @@
                         Masuk
                     </button>
                     <p class="text-bgray-600 dark:text-white text-center text-sm mt-6">
-                        &copy; {{ now()->year }} {{ env('APP_NAME') ?? 'GSS' }}<br>All Right Reserved
+                        &copy; {{ now()->year }}<br>All Right Reserved
                     </p>
                 </div>
             </div>

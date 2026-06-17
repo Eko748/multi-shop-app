@@ -9,10 +9,12 @@
     <meta name="keywords" content="">
     <meta name="author" content="GSS" />
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title') | @if (auth()->user()->role_id == 1)
-            {{ env('APP_NAME') ?? 'GSS' }}
+    <title>
+        @yield('title') |
+        @if (auth()->user()->toko && auth()->user()->toko->singkatan)
+            {{ auth()->user()->toko->singkatan }}
         @else
-            {{ Auth::user()->toko->singkatan }}
+            {{ env('APP_NAME', 'GSS') }}
         @endif
     </title>
     <link rel="shortcut icon" type="image/x-icon" href="{{ asset('images/logo/logo.png') }}">
@@ -63,7 +65,7 @@
     <script src="{{ asset('js/main.js') }}?v={{ filemtime(public_path('js/main.js')) }}"></script>
     @yield('js')
     @stack('scripts')
-    <script>    
+    <script>
         const allowedPermissions = @json(View::getShared()['allowedPermissions'] ?? []);
     </script>
 </body>

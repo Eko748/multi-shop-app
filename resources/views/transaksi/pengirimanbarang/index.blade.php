@@ -398,20 +398,15 @@
         let detailID = null;
 
         async function downloadPDF(encodedHeaderData) {
-            // 1. Decode kembali data header pengiriman yang dilempar dari tombol
             const headerData = JSON.parse(decodeURIComponent(encodedHeaderData));
 
-            // Tampilkan loading statis/spinner jika diperlukan di sini
             console.log("Mengambil data detail untuk Resi:", headerData.no_resi);
 
             try {
-                // 2. Hitung/Panggil API Detail Pengiriman berdasarkan ID data terkait
                 let response = await renderAPI(
                     'GET',
                     '{{ route('distribusi.pengiriman.detail') }}', {
-                        id: headerData.id,
-                        limit: 500,
-                        toko_id: {{ auth()->user()->id }},
+                        id: headerData.id
                     }
                 ).then(function(res) {
                     return res;
@@ -419,15 +414,14 @@
                     return err.response;
                 });
 
-                if (!response && !response.status === 200) {
+                if (!response || response.status !== 'OK' || !response.data?.item) {
                     notificationAlert('error', 'Gagal', 'Gagal mengambil data detail pengiriman atau data kosong.');
                     return;
                 }
 
-                const detailItems = response.data.data.item;
-                const totalSummary = response.data.data.total;
+                const detailItems = response.data.item;
+                const totalSummary = response.data.total;
 
-                // 3. Inisialisasi jsPDF
                 const {
                     jsPDF
                 } = window.jspdf;
@@ -437,33 +431,32 @@
                     format: 'a4'
                 });
 
-                // --- STYLING & HEADER PDF ---
+                // --- HEADER NOTA ---
                 doc.setFont("helvetica", "bold");
                 doc.setFontSize(16);
                 doc.text("NOTA DETAIL PENGIRIMAN", 14, 20);
 
                 doc.setLineWidth(0.5);
-                doc.line(14, 23, 196, 23); // Garis Pembatas Header
+                doc.line(14, 23, 196, 23);
 
-                // Informasi Header Pengiriman (Dari Data Parameter)
                 doc.setFontSize(10);
                 doc.setFont("helvetica", "normal");
 
-                // Kolom Kiri
+                // Informasi Pengiriman (Kiri)
                 doc.text(`No. Resi       : ${headerData.no_resi ?? '-'}`, 14, 30);
                 doc.text(`Ekspedisi     : ${headerData.ekspedisi ?? '-'}`, 14, 36);
                 doc.text(`Toko Asal     : ${headerData.toko_asal ?? '-'}`, 14, 42);
                 doc.text(`Pengirim      : ${headerData.nama_pengirim ?? '-'}`, 14, 48);
 
-                // Kolom Kanan
+                // Informasi Pengiriman (Kanan)
                 doc.text(`Toko Tujuan   : ${headerData.toko_tujuan ?? '-'}`, 110, 30);
                 doc.text(`Tgl Kirim     : ${headerData.tgl_kirim ?? '-'}`, 110, 36);
                 doc.text(
                     `Tgl Terima    : ${headerData.tgl_terima ? headerData.tgl_terima.replace(/<\/?[^>]+(>|$)/g, "") : '-'}`,
-                    110, 42); // strip html tags jika ada
+                    110, 42);
                 doc.text(`Status        : ${headerData.status ?? '-'}`, 110, 48);
 
-                // 4. Mapping Data Item untuk AutoTable
+                // --- MAPPING DATA TABEL ---
                 const tableBody = detailItems.map((row, index) => [
                     index + 1,
                     row.barang,
@@ -473,23 +466,52 @@
                     row.harga_beli
                 ]);
 
-                // Tambahkan baris total di paling bawah tabel jika diperlukan
+                // --- PERBAIKAN STRUKTUR TOTAL AMOUNT ---
+                // Menyejajarkan 'TOTAL AMOUNT' tepat di kolom Supplier, total_send di Qty Kirim, dan total_verified di Qty Verif
                 if (totalSummary) {
+                    // Konversi nilai total dari string berpresisi float (misal: "3572930.000000") menjadi angka desimal rapi
+                    const formattedSend = parseFloat(totalSummary.total_send).toLocaleString('id-ID');
+                    const formattedVerified = parseFloat(totalSummary.total_verified).toLocaleString('id-ID');
+
                     tableBody.push([{
+                            content: '',
+                            colSpan: 1
+                        }, // Kolom No kosong
+                        {
+                            content: '',
+                            colSpan: 1
+                        }, // Kolom Nama Barang kosong
+                        {
                             content: 'TOTAL AMOUNT',
-                            colSpan: 3,
                             styles: {
                                 halign: 'right',
                                 fontStyle: 'bold'
                             }
-                        },
-                        parseFloat(totalSummary.total_send).toLocaleString('id-ID'),
-                        parseFloat(totalSummary.total_verified).toLocaleString('id-ID'),
-                        `-`
+                        }, // Kolom Supplier
+                        {
+                            content: formattedSend,
+                            styles: {
+                                halign: 'center',
+                                fontStyle: 'bold'
+                            }
+                        }, // Kolom Qty Kirim
+                        {
+                            content: formattedVerified,
+                            styles: {
+                                halign: 'center',
+                                fontStyle: 'bold'
+                            }
+                        }, // Kolom Qty Verif
+                        {
+                            content: '-',
+                            styles: {
+                                halign: 'right'
+                            }
+                        } // Kolom Harga Beli
                     ]);
                 }
 
-                // 5. Generate Tabel dengan AutoTable
+                // --- GENERATE TABEL DENGAN FOOTER DINAMIS ---
                 doc.autoTable({
                     startY: 55,
                     head: [
@@ -504,29 +526,58 @@
                     },
                     styles: {
                         fontSize: 9,
-                        cellPadding: 2
+                        cellPadding: 2.5
                     },
                     columnStyles: {
                         0: {
                             cellWidth: 10,
                             halign: 'center'
                         },
+                        2: {
+                            cellWidth: 25
+                        },
                         3: {
-                            cellWidth: 20,
+                            cellWidth: 22,
                             halign: 'center'
                         },
                         4: {
-                            cellWidth: 20,
+                            cellWidth: 22,
                             halign: 'center'
                         },
                         5: {
                             cellWidth: 30,
                             halign: 'right'
                         }
+                    },
+                    didDrawPage: function(data) {
+                        // Konfigurasi Footer di Setiap Halaman
+                        doc.setFont("helvetica", "normal");
+                        doc.setFontSize(8);
+                        doc.setTextColor(120, 120, 120);
+
+                        const pageHeight = doc.internal.pageSize.height;
+                        const pageWidth = doc.internal.pageSize.width;
+
+                        // 1. Footer Kiri: Nomor Halaman (Halaman X dari Y)
+                        const pageNumber = doc.internal.getCurrentPageInfo().pageNumber;
+                        doc.text(`Halaman ${pageNumber}`, 14, pageHeight - 10);
+
+                        // 2. Footer Kanan: Tanggal Dicetak (Format Lokal Indonesia)
+                        const options = {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        };
+                        const todayStr = new Date().toLocaleDateString('id-ID', options);
+
+                        doc.text(`Dicetak pada: ${todayStr}`, pageWidth - 14, pageHeight - 10, {
+                            align: 'right'
+                        });
                     }
                 });
 
-                // 6. Save PDF Berdasarkan Nomor Resi
                 doc.save(`Detail_Pengiriman_${headerData.no_resi}.pdf`);
 
             } catch (error) {
@@ -654,10 +705,10 @@
                 // Encode data header (row pengiriman) untuk dikirim ke fungsi download
                 let encodedHeaderData = encodeURIComponent(JSON.stringify(data));
                 download_button = `
-        <button class="p-1 btn action_button text-danger" onClick="downloadPDF('${encodedHeaderData}')">
-            <span class="text-dark" title="Download PDF: ${data.no_resi}">PDF</span>
+        <button class="p-1 btn action_button text-success" onClick="downloadPDF('${encodedHeaderData}')">
+            <span class="text-dark" title="Download PDF: ${data.no_resi}">Unduh</span>
             <div class="icon">
-                <i class="fa fa-file-pdf"></i>
+                <i class="fa fa-download"></i>
             </div>
         </button>`;
             }

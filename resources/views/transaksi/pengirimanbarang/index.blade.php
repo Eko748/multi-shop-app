@@ -418,7 +418,6 @@
                 }
 
                 const detailItems = response.data.data.item;
-                const totalSummary = response.data.data.total;
 
                 const {
                     jsPDF
@@ -454,58 +453,65 @@
                     110, 42);
                 doc.text(`Status        : ${headerData.status ?? '-'}`, 110, 48);
 
-                // --- MAPPING DATA TABEL (Tanpa Harga Beli) ---
-                const tableBody = detailItems.map((row, index) => [
-                    index + 1,
-                    row.barang,
-                    row.suplier,
-                    row.qty_send,
-                    row.qty_verified
+                // --- HITUNG MANUAL TOTAL QTY & MAPPING DATA TABEL ---
+                let totalQtySend = 0;
+                let totalQtyVerified = 0;
+
+                const tableBody = detailItems.map((row, index) => {
+                    // Ambil angka qty dan bersihkan jika tipenya string agar bisa dijumlahkan
+                    const qtySend = parseInt(row.qty_send) || 0;
+                    const qtyVerified = parseInt(row.qty_verified) || 0;
+
+                    totalQtySend += qtySend;
+                    totalQtyVerified += qtyVerified;
+
+                    return [
+                        index + 1,
+                        row.barang,
+                        row.suplier,
+                        qtySend.toLocaleString('id-ID'),
+                        qtyVerified.toLocaleString('id-ID')
+                    ];
+                });
+
+                // --- STRUKTUR BARIS TOTAL MANDIRI (5 KOLOM PAS) ---
+                tableBody.push([{
+                        content: '',
+                        colSpan: 1
+                    }, // Kolom 1: No
+                    {
+                        content: '',
+                        colSpan: 1
+                    }, // Kolom 2: Nama Barang
+                    {
+                        content: 'Total',
+                        styles: {
+                            halign: 'right',
+                            fontStyle: 'bold'
+                        }
+                    }, // Kolom 3: Supplier (Teks "Total")
+                    {
+                        content: totalQtySend.toLocaleString('id-ID'),
+                        styles: {
+                            halign: 'center',
+                            fontStyle: 'bold'
+                        }
+                    }, // Kolom 4: Total Qty Kirim
+                    {
+                        content: totalQtyVerified.toLocaleString('id-ID'),
+                        styles: {
+                            halign: 'center',
+                            fontStyle: 'bold'
+                        }
+                    } // Kolom 5: Total Qty Verif
                 ]);
-
-                // --- STRUKTUR BARIS TOTAL (Hanya 5 Kolom) ---
-                if (totalSummary) {
-                    const formattedSend = parseFloat(totalSummary.total_send).toLocaleString('id-ID');
-                    const formattedVerified = parseFloat(totalSummary.total_verified).toLocaleString('id-ID');
-
-                    tableBody.push([{
-                            content: '',
-                            colSpan: 1
-                        }, // Kolom 1: No (Kosong)
-                        {
-                            content: '',
-                            colSpan: 1
-                        }, // Kolom 2: Nama Barang (Kosong)
-                        {
-                            content: 'Total',
-                            styles: {
-                                halign: 'right',
-                                fontStyle: 'bold'
-                            }
-                        }, // Kolom 3: Supplier (Teks "Total")
-                        {
-                            content: formattedSend,
-                            styles: {
-                                halign: 'center',
-                                fontStyle: 'bold'
-                            }
-                        }, // Kolom 4: Tepat di Qty Kirim
-                        {
-                            content: formattedVerified,
-                            styles: {
-                                halign: 'center',
-                                fontStyle: 'bold'
-                            }
-                        } // Kolom 5: Tepat di Qty Verif
-                    ]);
-                }
 
                 // --- GENERATE TABEL ---
                 doc.autoTable({
                     startY: 55,
                     head: [
                         ['No', 'Nama Barang', 'Supplier', 'Qty Kirim', 'Qty Verif']
-                    ], // Menghapus 'Harga Beli'
+                    ],
                     body: tableBody,
                     theme: 'striped',
                     headStyles: {
@@ -521,7 +527,7 @@
                         0: {
                             cellWidth: 15,
                             halign: 'center'
-                        }, // Lebar kolom No sedikit disesuaikan
+                        },
                         2: {
                             cellWidth: 35
                         },

@@ -414,13 +414,13 @@
                     return err.response;
                 });
 
-                if (!response || response.status !== 'OK' || !response.data?.item) {
+                if (!response || response.status !== 200) {
                     notificationAlert('error', 'Gagal', 'Gagal mengambil data detail pengiriman atau data kosong.');
                     return;
                 }
 
-                const detailItems = response.data.item;
-                const totalSummary = response.data.total;
+                const detailItems = response.data.data.item;
+                const totalSummary = response.data.data.total;
 
                 const {
                     jsPDF

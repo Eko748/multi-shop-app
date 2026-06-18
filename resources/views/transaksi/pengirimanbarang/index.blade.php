@@ -400,8 +400,6 @@
         async function downloadPDF(encodedHeaderData) {
             const headerData = JSON.parse(decodeURIComponent(encodedHeaderData));
 
-            console.log("Mengambil data detail untuk Resi:", headerData.no_resi);
-
             try {
                 let response = await renderAPI(
                     'GET',
@@ -456,67 +454,58 @@
                     110, 42);
                 doc.text(`Status        : ${headerData.status ?? '-'}`, 110, 48);
 
-                // --- MAPPING DATA TABEL ---
+                // --- MAPPING DATA TABEL (Tanpa Harga Beli) ---
                 const tableBody = detailItems.map((row, index) => [
                     index + 1,
                     row.barang,
                     row.suplier,
                     row.qty_send,
-                    row.qty_verified,
-                    row.harga_beli
+                    row.qty_verified
                 ]);
 
-                // --- PERBAIKAN STRUKTUR TOTAL AMOUNT ---
-                // Menyejajarkan 'TOTAL AMOUNT' tepat di kolom Supplier, total_send di Qty Kirim, dan total_verified di Qty Verif
+                // --- STRUKTUR BARIS TOTAL (Hanya 5 Kolom) ---
                 if (totalSummary) {
-                    // Konversi nilai total dari string berpresisi float (misal: "3572930.000000") menjadi angka desimal rapi
                     const formattedSend = parseFloat(totalSummary.total_send).toLocaleString('id-ID');
                     const formattedVerified = parseFloat(totalSummary.total_verified).toLocaleString('id-ID');
 
                     tableBody.push([{
                             content: '',
                             colSpan: 1
-                        }, // Kolom No kosong
+                        }, // Kolom 1: No (Kosong)
                         {
                             content: '',
                             colSpan: 1
-                        }, // Kolom Nama Barang kosong
+                        }, // Kolom 2: Nama Barang (Kosong)
                         {
-                            content: 'TOTAL AMOUNT',
+                            content: 'Total',
                             styles: {
                                 halign: 'right',
                                 fontStyle: 'bold'
                             }
-                        }, // Kolom Supplier
+                        }, // Kolom 3: Supplier (Teks "Total")
                         {
                             content: formattedSend,
                             styles: {
                                 halign: 'center',
                                 fontStyle: 'bold'
                             }
-                        }, // Kolom Qty Kirim
+                        }, // Kolom 4: Tepat di Qty Kirim
                         {
                             content: formattedVerified,
                             styles: {
                                 halign: 'center',
                                 fontStyle: 'bold'
                             }
-                        }, // Kolom Qty Verif
-                        {
-                            content: '-',
-                            styles: {
-                                halign: 'right'
-                            }
-                        } // Kolom Harga Beli
+                        } // Kolom 5: Tepat di Qty Verif
                     ]);
                 }
 
-                // --- GENERATE TABEL DENGAN FOOTER DINAMIS ---
+                // --- GENERATE TABEL ---
                 doc.autoTable({
                     startY: 55,
                     head: [
-                        ['No', 'Nama Barang', 'Supplier', 'Qty Kirim', 'Qty Verif', 'Harga Beli']
-                    ],
+                        ['No', 'Nama Barang', 'Supplier', 'Qty Kirim', 'Qty Verif']
+                    ], // Menghapus 'Harga Beli'
                     body: tableBody,
                     theme: 'striped',
                     headStyles: {
@@ -530,27 +519,23 @@
                     },
                     columnStyles: {
                         0: {
-                            cellWidth: 10,
+                            cellWidth: 15,
                             halign: 'center'
-                        },
+                        }, // Lebar kolom No sedikit disesuaikan
                         2: {
-                            cellWidth: 25
+                            cellWidth: 35
                         },
                         3: {
-                            cellWidth: 22,
+                            cellWidth: 30,
                             halign: 'center'
                         },
                         4: {
-                            cellWidth: 22,
-                            halign: 'center'
-                        },
-                        5: {
                             cellWidth: 30,
-                            halign: 'right'
+                            halign: 'center'
                         }
                     },
                     didDrawPage: function(data) {
-                        // Konfigurasi Footer di Setiap Halaman
+                        // Footer Dinamis
                         doc.setFont("helvetica", "normal");
                         doc.setFontSize(8);
                         doc.setTextColor(120, 120, 120);
@@ -558,11 +543,11 @@
                         const pageHeight = doc.internal.pageSize.height;
                         const pageWidth = doc.internal.pageSize.width;
 
-                        // 1. Footer Kiri: Nomor Halaman (Halaman X dari Y)
+                        // Footer Kiri: Nomor Halaman
                         const pageNumber = doc.internal.getCurrentPageInfo().pageNumber;
                         doc.text(`Halaman ${pageNumber}`, 14, pageHeight - 10);
 
-                        // 2. Footer Kanan: Tanggal Dicetak (Format Lokal Indonesia)
+                        // Footer Kanan: Tanggal Cetak Waktu Lokal
                         const options = {
                             year: 'numeric',
                             month: 'long',
@@ -581,7 +566,6 @@
                 doc.save(`Detail_Pengiriman_${headerData.no_resi}.pdf`);
 
             } catch (error) {
-                console.error("Error generating PDF:", error);
                 notificationAlert('error', 'Gagal', 'Terjadi kesalahan sistem saat mengunduh PDF.');
             }
         }

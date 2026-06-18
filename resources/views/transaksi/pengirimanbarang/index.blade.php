@@ -333,6 +333,8 @@
     <script src="{{ asset('js/daterange-custom.js') }}"></script>
     <script src="{{ asset('js/pagination-multi.js') }}"></script>
     <script src="{{ asset('js/flatpickr.js') }}"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
 @endsection
 
 @section('js')
@@ -394,6 +396,143 @@
         ];
 
         let detailID = null;
+
+        async function downloadPDF(encodedHeaderData) {
+            // 1. Decode kembali data header pengiriman yang dilempar dari tombol
+            const headerData = JSON.parse(decodeURIComponent(encodedHeaderData));
+
+            // Tampilkan loading statis/spinner jika diperlukan di sini
+            console.log("Mengambil data detail untuk Resi:", headerData.no_resi);
+
+            try {
+                // 2. Hitung/Panggil API Detail Pengiriman berdasarkan ID data terkait
+                let response = await renderAPI(
+                    'GET',
+                    '{{ route('distribusi.pengiriman.detail') }}', {
+                        id: headerData.id,
+                        toko_id: {{ auth()->user()->id }},
+                    }
+                ).then(function(res) {
+                    return res;
+                }).catch(function(err) {
+                    return err.response;
+                });
+
+                if (!response || response.status !== 'OK' || !response.data?.data?.item) {
+                    notificationAlert('error', 'Gagal', 'Gagal mengambil data detail pengiriman atau data kosong.');
+                    return;
+                }
+
+                const detailItems = response.data.data.item;
+                const totalSummary = response.data.data.total;
+
+                // 3. Inisialisasi jsPDF
+                const {
+                    jsPDF
+                } = window.jspdf;
+                const doc = new jsPDF({
+                    orientation: 'p',
+                    unit: 'mm',
+                    format: 'a4'
+                });
+
+                // --- STYLING & HEADER PDF ---
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(16);
+                doc.text("NOTA DETAIL PENGIRIMAN", 14, 20);
+
+                doc.setLineWidth(0.5);
+                doc.line(14, 23, 196, 23); // Garis Pembatas Header
+
+                // Informasi Header Pengiriman (Dari Data Parameter)
+                doc.setFontSize(10);
+                doc.setFont("helvetica", "normal");
+
+                // Kolom Kiri
+                doc.text(`No. Resi       : ${headerData.no_resi ?? '-'}`, 14, 30);
+                doc.text(`Ekspedisi     : ${headerData.ekspedisi ?? '-'}`, 14, 36);
+                doc.text(`Toko Asal     : ${headerData.toko_asal ?? '-'}`, 14, 42);
+                doc.text(`Pengirim      : ${headerData.nama_pengirim ?? '-'}`, 14, 48);
+
+                // Kolom Kanan
+                doc.text(`Toko Tujuan   : ${headerData.toko_tujuan ?? '-'}`, 110, 30);
+                doc.text(`Tgl Kirim     : ${headerData.tgl_kirim ?? '-'}`, 110, 36);
+                doc.text(
+                    `Tgl Terima    : ${headerData.tgl_terima ? headerData.tgl_terima.replace(/<\/?[^>]+(>|$)/g, "") : '-'}`,
+                    110, 42); // strip html tags jika ada
+                doc.text(`Status        : ${headerData.status ?? '-'}`, 110, 48);
+
+                // 4. Mapping Data Item untuk AutoTable
+                const tableBody = detailItems.map((row, index) => [
+                    index + 1,
+                    row.barang,
+                    row.suplier,
+                    row.qty_send,
+                    row.qty_verified,
+                    row.harga_beli
+                ]);
+
+                // Tambahkan baris total di paling bawah tabel jika diperlukan
+                if (totalSummary) {
+                    tableBody.push([{
+                            content: 'TOTAL AMOUNT',
+                            colSpan: 3,
+                            styles: {
+                                halign: 'right',
+                                fontStyle: 'bold'
+                            }
+                        },
+                        parseFloat(totalSummary.total_send).toLocaleString('id-ID'),
+                        parseFloat(totalSummary.total_verified).toLocaleString('id-ID'),
+                        `-`
+                    ]);
+                }
+
+                // 5. Generate Tabel dengan AutoTable
+                doc.autoTable({
+                    startY: 55,
+                    head: [
+                        ['No', 'Nama Barang', 'Supplier', 'Qty Kirim', 'Qty Verif', 'Harga Beli']
+                    ],
+                    body: tableBody,
+                    theme: 'striped',
+                    headStyles: {
+                        fillColor: [52, 73, 94],
+                        textColor: [255, 255, 255],
+                        fontStyle: 'bold'
+                    },
+                    styles: {
+                        fontSize: 9,
+                        cellPadding: 2
+                    },
+                    columnStyles: {
+                        0: {
+                            cellWidth: 10,
+                            halign: 'center'
+                        },
+                        3: {
+                            cellWidth: 20,
+                            halign: 'center'
+                        },
+                        4: {
+                            cellWidth: 20,
+                            halign: 'center'
+                        },
+                        5: {
+                            cellWidth: 30,
+                            halign: 'right'
+                        }
+                    }
+                });
+
+                // 6. Save PDF Berdasarkan Nomor Resi
+                doc.save(`Detail_Pengiriman_${headerData.no_resi}.pdf`);
+
+            } catch (error) {
+                console.error("Error generating PDF:", error);
+                notificationAlert('error', 'Gagal', 'Terjadi kesalahan sistem saat mengunduh PDF.');
+            }
+        }
 
         async function getListData(limit = 10, page = 1, ascending = 0, search = '', customFilter = {}) {
             $('#listData').html(loadingData());
@@ -460,65 +599,79 @@
 
             let delete_button = '';
             let detail_button = '';
+            let edit_button = '';
+            let download_button = ''; // Tambahkan variabel button download
 
+            // Button Hapus
             if (id_toko == data?.toko_asal_id) {
                 delete_button = (data?.status === 'Progress' || data?.status === 'Pending') ? `
-                <button class="p-1 btn hapus-data action_button"
-                    data-container="body" data-toggle="tooltip" data-placement="top"
-                    title="Hapus Data Nomor Resi: ${data.no_resi}"
-                    data-id='${data.id}' data-name='${data.no_resi}'>
-                    <span class="text-dark">Hapus</span>
-                    <div class="icon text-danger">
-                        <i class="fa fa-trash-alt"></i>
-                    </div>
-                </button>` : '';
+        <button class="p-1 btn hapus-data action_button"
+            data-container="body" data-toggle="tooltip" data-placement="top"
+            title="Hapus Data Nomor Resi: ${data.no_resi}"
+            data-id='${data.id}' data-name='${data.no_resi}'>
+            <span class="text-dark">Hapus</span>
+            <div class="icon text-danger">
+                <i class="fa fa-trash-alt"></i>
+            </div>
+        </button>` : '';
             }
 
-            let edit_button = '';
+            // Button Verif / Edit
             if (id_toko == data?.toko_tujuan_id && data?.status == 'Progress') {
                 edit_button = `
-                <button class="p-1 btn action_button verify-data"
-                    data-id="${data.id}"
-                    title="Verifikasi Nomor Resi: ${data.no_resi}">
-                    <span class="text-dark">Verif</span>
-                    <div class="icon text-success">
-                        <i class="fa fa-circle-check"></i>
-                    </div>
-                </button>`;
+        <button class="p-1 btn action_button verify-data"
+            data-id="${data.id}"
+            title="Verifikasi Nomor Resi: ${data.no_resi}">
+            <span class="text-dark">Verif</span>
+            <div class="icon text-success">
+                <i class="fa fa-circle-check"></i>
+            </div>
+        </button>`;
             } else if (id_toko == data?.toko_asal_id && data?.status == 'Pending') {
                 edit_button = `
-                <button class="p-1 btn action_button" onClick="openEditModal('${encodeURIComponent(JSON.stringify(data))}')"
-                    data-id="${data.id}"
-                    title="Edit Nomor Resi: ${data.no_resi}">
-                    <span class="text-dark">Edit</span>
-                    <div class="icon text-warning">
-                        <i class="fa fa-edit"></i>
-                    </div>
-                </button>`;
+        <button class="p-1 btn action_button" onClick="openEditModal('${encodeURIComponent(JSON.stringify(data))}')"
+            data-id="${data.id}"
+            title="Edit Nomor Resi: ${data.no_resi}">
+            <span class="text-dark">Edit</span>
+            <div class="icon text-warning">
+                <i class="fa fa-edit"></i>
+            </div>
+        </button>`;
             }
 
+            // Button Detail & Download PDF
             if ((id_toko == data?.toko_tujuan_id || id_toko == data?.toko_asal_id) && (data?.status == 'Progress' ||
                     data?.status == 'Sukses')) {
                 detail_button = `
-                <button class="p-1 btn detail-data action_button" onClick="openDetailModal('${encodeURIComponent(JSON.stringify(data))}')">
-                    <span class="text-dark" title="Detail ${title}: ${data.no_resi}">Detail</span>
-                    <div class="icon text-info" title="Detail ${title}: ${data.no_resi}">
-                        <i class="fa fa-folder mb-1"></i>
-                    </div>
-                </button>`;
+        <button class="p-1 btn detail-data action_button" onClick="openDetailModal('${encodeURIComponent(JSON.stringify(data))}')">
+            <span class="text-dark" title="Detail ${title}: ${data.no_resi}">Detail</span>
+            <div class="icon text-info" title="Detail ${title}: ${data.no_resi}">
+                <i class="fa fa-folder mb-1"></i>
+            </div>
+        </button>`;
+
+                // Encode data header (row pengiriman) untuk dikirim ke fungsi download
+                let encodedHeaderData = encodeURIComponent(JSON.stringify(data));
+                download_button = `
+        <button class="p-1 btn action_button text-danger" onClick="downloadPDF('${encodedHeaderData}')">
+            <span class="text-dark" title="Download PDF: ${data.no_resi}">PDF</span>
+            <div class="icon">
+                <i class="fa fa-file-pdf"></i>
+            </div>
+        </button>`;
             }
 
             let action_buttons = '';
-            if (edit_button || detail_button || delete_button) {
+            if (edit_button || detail_button || download_button || delete_button) {
                 action_buttons = `
-                <div class="d-flex justify-content-end">
-                    ${edit_button ? `<div class="hovering p-1">${edit_button}</div>` : ''}
-                    ${detail_button ? `<div class="hovering p-1">${detail_button}</div>` : ''}
-                    ${delete_button ? `<div class="hovering p-1">${delete_button}</div>` : ''}
-                </div>`;
+        <div class="d-flex justify-content-end">
+            ${edit_button ? `<div class="hovering p-1">${edit_button}</div>` : ''}
+            ${detail_button ? `<div class="hovering p-1">${detail_button}</div>` : ''}
+            ${download_button ? `<div class="hovering p-1">${download_button}</div>` : ''}
+            ${delete_button ? `<div class="hovering p-1">${delete_button}</div>` : ''}
+        </div>`;
             } else {
-                action_buttons = `
-                <span class="badge badge-secondary">Tidak Ada Aksi</span>`;
+                action_buttons = `<span class="badge badge-secondary">Tidak Ada Aksi</span>`;
             }
 
             return {

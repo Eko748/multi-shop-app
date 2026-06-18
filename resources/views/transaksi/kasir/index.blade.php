@@ -221,7 +221,7 @@
         let defaultLimitPage = 30;
         let currentPage = 1;
         let totalPage = 1;
-        let defaultAscending = 0;
+        let defaultAscending = 0;    
         let defaultSearch = '';
         let customFilter = {};
         let selectOptions = [{

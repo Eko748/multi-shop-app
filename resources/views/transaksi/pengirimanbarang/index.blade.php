@@ -410,6 +410,7 @@
                     'GET',
                     '{{ route('distribusi.pengiriman.detail') }}', {
                         id: headerData.id,
+                        limit: 500,
                         toko_id: {{ auth()->user()->id }},
                     }
                 ).then(function(res) {
@@ -418,7 +419,7 @@
                     return err.response;
                 });
 
-                if (!response || response.status !== 'OK' || !response.data?.data?.item) {
+                if (!response && !response.status === 200) {
                     notificationAlert('error', 'Gagal', 'Gagal mengambil data detail pengiriman atau data kosong.');
                     return;
                 }

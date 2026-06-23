@@ -1161,8 +1161,9 @@
                     }
 
                     qtyInput.val(currentQty + 1);
-
                     showScanInfo(`✅ Qty ditambah (${currentQty + 1}/${maxQty})`, "text-success");
+
+                    $("#table-detail tbody").prepend(existingRow);
                     return;
                 }
 
@@ -1215,7 +1216,7 @@
                 </tr>
             `;
 
-            tbody.append(row);
+            tbody.prepend(row);
         }
 
         function verifyData() {

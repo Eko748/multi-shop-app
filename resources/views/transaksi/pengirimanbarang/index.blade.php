@@ -195,6 +195,7 @@
                         <table class="table table-bordered" id="table-detail">
                             <thead class="bg-light font-weight-bold">
                                 <tr>
+                                    <td class="text-center">No</td>
                                     <td class="text-center">Barang</td>
                                     <td class="text-center">Hpp</td>
                                     <td class="text-center">Qty yang dikirim</td>
@@ -1200,6 +1201,7 @@
 
             let row = `
                 <tr>
+                    <td class="row-number text-center"></td>
                     <td>${data.text}</td>
                     <td class="text-right">${data.format_hpp_baru}</td>
                     <td>
@@ -1217,6 +1219,14 @@
             `;
 
             tbody.prepend(row);
+
+            updateRowNumbers();
+        }
+
+        function updateRowNumbers() {
+            $("#table-detail tbody tr").each(function(index) {
+                $(this).find(".row-number").text(index + 1);
+            });
         }
 
         function verifyData() {
@@ -1480,7 +1490,7 @@
 
                     $("#table-detail tbody").html("");
 
-                    getDataRest.data.data.item.forEach(function(item) {
+                    getDataRest.data.data.item.reverse().forEach(function(item) {
 
                         let maxQty = item.qty_sisa + item.qty_send;
 
@@ -1505,6 +1515,7 @@
 
             let row = `
                 <tr>
+                    <td class="row-number text-center"></td>
                     <td>${data.text}</td>
                     <td class="text-right">${data.harga_beli}</td>
                     <td>
@@ -1527,7 +1538,9 @@
                 </tr>
             `;
 
-            tbody.append(row);
+            tbody.prepend(row);
+
+            updateRowNumbers();
         }
 
         async function initPageLoad() {

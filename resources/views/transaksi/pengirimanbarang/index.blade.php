@@ -643,7 +643,8 @@
             let delete_button = '';
             let detail_button = '';
             let edit_button = '';
-            let download_button = ''; // Tambahkan variabel button download
+            let download_button = '';
+            let cetak_button = '';
 
             // Button Hapus
             if (id_toko == data?.toko_asal_id) {
@@ -696,18 +697,28 @@
                 // Encode data header (row pengiriman) untuk dikirim ke fungsi download
                 let encodedHeaderData = encodeURIComponent(JSON.stringify(data));
                 download_button = `
-        <button class="p-1 btn action_button text-success" onClick="downloadPDF('${encodedHeaderData}')">
-            <span class="text-dark" title="Download PDF: ${data.no_resi}">Unduh</span>
-            <div class="icon">
-                <i class="fa fa-download"></i>
-            </div>
-        </button>`;
+                <button class="p-1 btn action_button text-success" onClick="downloadPDF('${encodedHeaderData}')">
+                    <span class="text-dark" title="Download PDF: ${data.no_resi}">Unduh</span>
+                    <div class="icon">
+                        <i class="fa fa-download"></i>
+                    </div>
+                </button>`;
+
+                cetak_button = `
+                <button class="p-1 btn action_button text-primary" onClick="cetakStruk('${encodedHeaderData}')">
+                    <span class="text-dark" title="Cetak Struk: ${data.no_resi ?? ''}">Cetak</span>
+                    <div class="icon">
+                        <i class="fa fa-print"></i>
+                    </div>
+                </button>`;
             }
 
+
             let action_buttons = '';
-            if (edit_button || detail_button || download_button || delete_button) {
+            if (edit_button || detail_button || download_button || cetak_button || delete_button) {
                 action_buttons = `
         <div class="d-flex justify-content-end">
+            ${cetak_button ? `<div class="hovering p-1">${cetak_button}</div>` : ''}
             ${edit_button ? `<div class="hovering p-1">${edit_button}</div>` : ''}
             ${detail_button ? `<div class="hovering p-1">${detail_button}</div>` : ''}
             ${download_button ? `<div class="hovering p-1">${download_button}</div>` : ''}
@@ -761,6 +772,150 @@
             $('#countPage').text(`${display_from} - ${display_to}`);
             $('[data-toggle="tooltip"]').tooltip();
             renderPagination();
+        }
+
+        async function cetakStruk(encodedHeaderData) {
+            const headerData = JSON.parse(decodeURIComponent(encodedHeaderData));
+
+            try {
+                // Menggunakan URL route yang sama persis seperti downloadPDF
+                let response = await renderAPI(
+                    'GET',
+                    '{{ route('distribusi.pengiriman.detail') }}', {
+                        id: headerData.id
+                    }
+                ).then(function(res) {
+                    return res;
+                }).catch(function(err) {
+                    return err.response;
+                });
+
+                if (!response || response.status !== 200) {
+                    notificationAlert('error', 'Gagal', 'Gagal mengambil data detail pengiriman atau data kosong.');
+                    return;
+                }
+
+                const detailItems = response.data.data.item;
+
+                // --- HITUNG MANUAL TOTAL QTY & MAPPING DATA TABEL ---
+                let totalQtySend = 0;
+                let totalQtyVerified = 0;
+
+                const detailRows = detailItems.map((row, index) => {
+                    const qtySend = parseInt(row.qty_send) || 0;
+                    const qtyVerified = parseInt(row.qty_verified) || 0;
+
+                    totalQtySend += qtySend;
+                    totalQtyVerified += qtyVerified;
+
+                    return `
+                <tr>
+                    <td class="text-center">${index + 1}</td>
+                    <td>${row.barang ?? '-'}</td>
+                    <td>${row.suplier ?? '-'}</td>
+                    <td class="text-center">${qtySend.toLocaleString('id-ID')}</td>
+                    <td class="text-center">${qtyVerified.toLocaleString('id-ID')}</td>
+                </tr>
+            `;
+                }).join("");
+
+                const hr = `<hr style="border:none;border-top:1px dashed #000;margin:6px 0;">`;
+                const doubleHr = `<hr style="border:none;border-top:2px solid #000;margin:6px 0;">`;
+
+                // Atur format tanggal cetak di bagian bawah struk
+                const options = {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                };
+                const todayStr = new Date().toLocaleDateString('id-ID', options);
+
+                // --- ROMBAK TAMPILAN SUPAYA HEADER SAMA SEPERTI DOWNLOAD PDF ---
+                const printContent = `
+        <div style="font-family: monospace; width:450px; font-size:12px;">
+            <div style="text-align:center; font-size:16px; font-weight:bold; margin-bottom:5px;">
+                NOTA DETAIL PENGIRIMAN
+            </div>
+            ${doubleHr}
+
+            <table style="width:100%; font-size:11px; margin-bottom:10px;">
+                <tr>
+                    <td style="width:50%; valign:top;">
+                        <strong>No. Resi</strong> &nbsp;&nbsp;&nbsp;&nbsp; : ${headerData.no_resi ?? '-'}<br>
+                        <strong>Ekspedisi</strong> &nbsp;&nbsp; : ${headerData.ekspedisi ?? '-'}<br>
+                        <strong>Toko Asal</strong> &nbsp;&nbsp; : ${headerData.toko_asal ?? '-'}<br>
+                        <strong>Pengirim</strong> &nbsp;&nbsp;&nbsp; : ${headerData.nama_pengirim ?? '-'}
+                    </td>
+                    <td style="width:50%; valign:top;">
+                        <strong>Toko Tujuan</strong> : ${headerData.toko_tujuan ?? '-'}<br>
+                        <strong>Tgl Kirim</strong> &nbsp;&nbsp; : ${headerData.tgl_kirim ?? '-'}<br>
+                        <strong>Tgl Terima</strong> &nbsp;: ${headerData.tgl_terima ? headerData.tgl_terima.replace(/<\/?[^>]+(>|$)/g, "") : '-'}<br>
+                        <strong>Status</strong> &nbsp;&nbsp;&nbsp;&nbsp; : ${headerData.status ?? '-'}
+                    </td>
+                </tr>
+            </table>
+
+            <table class="table-items" style="width:100%; font-size:11px;">
+                <thead>
+                    <tr style="border-bottom:1px solid #000;">
+                        <th style="width:8%; text-align:center;">No</th>
+                        <th style="text-align:left;">Nama Barang</th>
+                        <th style="text-align:left; width:25%;">Supplier</th>
+                        <th style="width:15%; text-align:center;">Qty Kirim</th>
+                        <th style="width:15%; text-align:center;">Qty Verif</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${detailRows}
+                    <tr style="font-weight:bold; border-top:1px solid #000;">
+                        <td colspan="2"></td>
+                        <td style="text-align:right;">Total:</td>
+                        <td class="text-center">${totalQtySend.toLocaleString('id-ID')}</td>
+                        <td class="text-center">${totalQtyVerified.toLocaleString('id-ID')}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            ${hr}
+            <div style="display:flex; justify-content:space-between; font-size:10px; color:#555;">
+                <div>Halaman 1</div>
+                <div>Dicetak pada: ${todayStr}</div>
+            </div>
+        </div>
+        `;
+
+                const w = window.open("", "_blank", "width=500,height=600");
+                w.document.write(`
+            <html>
+            <head>
+                <title>Print Struk Detail Pengiriman</title>
+                <style>
+                    body { font-family: monospace; padding:15px; margin:0; }
+                    table { width:100%; border-collapse:collapse; }
+                    td, th { padding:4px 2px; }
+                    .table-items tbody tr:nth-child(even) { background-color: #f9f9f9; }
+                    .text-right { text-align:right; }
+                    .text-center { text-align:center; }
+                    .text-left { text-align:left; }
+                    @media print {
+                        body { padding: 0; }
+                        @page { margin: 0.5cm; }
+                    }
+                </style>
+            </head>
+            <body onload="window.print(); window.close();">
+                ${printContent}
+            </body>
+            </html>
+        `);
+                w.document.close();
+
+            } catch (error) {
+                console.error(error);
+                notificationAlert('error', 'Gagal', 'Terjadi kesalahan sistem saat mencetak struk.');
+            }
         }
 
         async function filterList() {

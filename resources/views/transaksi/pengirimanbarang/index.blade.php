@@ -778,7 +778,6 @@
             const headerData = JSON.parse(decodeURIComponent(encodedHeaderData));
 
             try {
-                // Menggunakan URL route yang sama persis seperti downloadPDF
                 let response = await renderAPI(
                     'GET',
                     '{{ route('distribusi.pengiriman.detail') }}', {
@@ -810,19 +809,18 @@
 
                     return `
                 <tr>
-                    <td class="text-center">${index + 1}</td>
-                    <td>${row.barang ?? '-'}</td>
-                    <td>${row.suplier ?? '-'}</td>
-                    <td class="text-center">${qtySend.toLocaleString('id-ID')}</td>
-                    <td class="text-center">${qtyVerified.toLocaleString('id-ID')}</td>
+                    <td class="text-center" style="vertical-align: top;">${index + 1}</td>
+                    <td style="vertical-align: top;">${row.barang ?? '-'}</td>
+                    <td style="vertical-align: top;">${row.suplier ?? '-'}</td>
+                    <td class="text-center" style="vertical-align: top;">${qtySend.toLocaleString('id-ID')}</td>
+                    <td class="text-center" style="vertical-align: top;">${qtyVerified.toLocaleString('id-ID')}</td>
                 </tr>
             `;
                 }).join("");
 
                 const hr = `<hr style="border:none;border-top:1px dashed #000;margin:6px 0;">`;
-                const doubleHr = `<hr style="border:none;border-top:2px solid #000;margin:6px 0;">`;
+                const doubleHr = `<hr style="border:none;border-top:2px solid #000;margin:4px 0 8px 0;">`;
 
-                // Atur format tanggal cetak di bagian bawah struk
                 const options = {
                     year: 'numeric',
                     month: 'long',
@@ -832,76 +830,75 @@
                 };
                 const todayStr = new Date().toLocaleDateString('id-ID', options);
 
-                // --- ROMBAK TAMPILAN SUPAYA HEADER SAMA SEPERTI DOWNLOAD PDF ---
+                // --- STRUKTUR PRINT UNTUK KERTAS STRUK THERMAL (LEBAR TIGHT) ---
                 const printContent = `
-        <div style="font-family: monospace; width:450px; font-size:12px;">
-            <div style="text-align:center; font-size:16px; font-weight:bold; margin-bottom:5px;">
+        <div style="font-family: monospace; width: 290px; font-size: 9px; line-height: 1.2;">
+            <div style="text-align:center; font-size:12px; font-weight:bold;">
                 NOTA DETAIL PENGIRIMAN
             </div>
             ${doubleHr}
 
-            <table style="width:100%; font-size:11px; margin-bottom:10px;">
+            <table style="width:100%; font-size: 8.5px; border-collapse: collapse; margin-bottom: 6px;">
                 <tr>
-                    <td style="width:50%; valign:top;">
-                        <strong>No. Resi</strong> &nbsp;&nbsp;&nbsp;&nbsp; : ${headerData.no_resi ?? '-'}<br>
-                        <strong>Ekspedisi</strong> &nbsp;&nbsp; : ${headerData.ekspedisi ?? '-'}<br>
-                        <strong>Toko Asal</strong> &nbsp;&nbsp; : ${headerData.toko_asal ?? '-'}<br>
-                        <strong>Pengirim</strong> &nbsp;&nbsp;&nbsp; : ${headerData.nama_pengirim ?? '-'}
+                    <td style="width:50%; vertical-align: top; padding-right: 2px;">
+                        <strong>No. Resi</strong> : ${headerData.no_resi ?? '-'}<br>
+                        <strong>Ekspedisi</strong>: ${headerData.ekspedisi ?? '-'}<br>
+                        <strong>Toko Asal</strong>: ${headerData.toko_asal ?? '-'}<br>
+                        <strong>Pengirim</strong> : ${headerData.nama_pengirim ?? '-'}
                     </td>
-                    <td style="width:50%; valign:top;">
-                        <strong>Toko Tujuan</strong> : ${headerData.toko_tujuan ?? '-'}<br>
-                        <strong>Tgl Kirim</strong> &nbsp;&nbsp; : ${headerData.tgl_kirim ?? '-'}<br>
-                        <strong>Tgl Terima</strong> &nbsp;: ${headerData.tgl_terima ? headerData.tgl_terima.replace(/<\/?[^>]+(>|$)/g, "") : '-'}<br>
-                        <strong>Status</strong> &nbsp;&nbsp;&nbsp;&nbsp; : ${headerData.status ?? '-'}
+                    <td style="width:50%; vertical-align: top; padding-left: 2px;">
+                        <strong>Toko Tujuan</strong>: ${headerData.toko_tujuan ?? '-'}<br>
+                        <strong>Tgl Kirim</strong> &nbsp;&nbsp;: ${headerData.tgl_kirim ?? '-'}<br>
+                        <strong>Tgl Terima</strong> : ${headerData.tgl_terima ? headerData.tgl_terima.replace(/<\/?[^>]+(>|$)/g, "") : '-'}<br>
+                        <strong>Status</strong> &nbsp;&nbsp;&nbsp;&nbsp;: ${headerData.status ?? '-'}
                     </td>
                 </tr>
             </table>
 
-            <table class="table-items" style="width:100%; font-size:11px;">
+            <table class="table-items" style="width:100%; font-size: 8.5px; border-collapse: collapse;">
                 <thead>
-                    <tr style="border-bottom:1px solid #000;">
-                        <th style="width:8%; text-align:center;">No</th>
-                        <th style="text-align:left;">Nama Barang</th>
-                        <th style="text-align:left; width:25%;">Supplier</th>
-                        <th style="width:15%; text-align:center;">Qty Kirim</th>
-                        <th style="width:15%; text-align:center;">Qty Verif</th>
+                    <tr style="border-bottom: 1px solid #000; font-weight: bold;">
+                        <th style="width:8%; text-align:center; padding: 2px 0;">No</th>
+                        <th style="text-align:left; padding: 2px 0;">Nama Barang</th>
+                        <th style="text-align:left; width:18%; padding: 2px 0;">Supplier</th>
+                        <th style="width:14%; text-align:center; padding: 2px 0;">Qty Krm</th>
+                        <th style="width:14%; text-align:center; padding: 2px 0;">Qty Vrf</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${detailRows}
-                    <tr style="font-weight:bold; border-top:1px solid #000;">
+                    <tr style="font-weight:bold; border-top: 1px solid #000;">
                         <td colspan="2"></td>
-                        <td style="text-align:right;">Total:</td>
-                        <td class="text-center">${totalQtySend.toLocaleString('id-ID')}</td>
-                        <td class="text-center">${totalQtyVerified.toLocaleString('id-ID')}</td>
+                        <td style="text-align:right; padding-top: 4px;">Total:</td>
+                        <td class="text-center" style="padding-top: 4px;">${totalQtySend.toLocaleString('id-ID')}</td>
+                        <td class="text-center" style="padding-top: 4px;">${totalQtyVerified.toLocaleString('id-ID')}</td>
                     </tr>
                 </tbody>
             </table>
 
             ${hr}
-            <div style="display:flex; justify-content:space-between; font-size:10px; color:#555;">
-                <div>Halaman 1</div>
-                <div>Dicetak pada: ${todayStr}</div>
+            <div style="text-align: right; font-size: 8px; color: #000;">
+                Dicetak pada: ${todayStr.replace('pukul', '')}
             </div>
         </div>
         `;
 
-                const w = window.open("", "_blank", "width=500,height=600");
+                // Membuka popup window dengan width disesuaikan print struk roll
+                const w = window.open("", "_blank", "width=340,height=600");
                 w.document.write(`
             <html>
             <head>
-                <title>Print Struk Detail Pengiriman</title>
+                <title>Print Nota Detail Pengiriman</title>
                 <style>
-                    body { font-family: monospace; padding:15px; margin:0; }
-                    table { width:100%; border-collapse:collapse; }
-                    td, th { padding:4px 2px; }
-                    .table-items tbody tr:nth-child(even) { background-color: #f9f9f9; }
-                    .text-right { text-align:right; }
-                    .text-center { text-align:center; }
-                    .text-left { text-align:left; }
+                    body { font-family: monospace; padding: 5px; margin: 0; }
+                    table { width: 100%; border-collapse: collapse; }
+                    td, th { padding: 2px 1px; word-break: break-word; }
+                    .text-right { text-align: right; }
+                    .text-center { text-align: center; }
+                    .text-left { text-align: left; }
                     @media print {
-                        body { padding: 0; }
-                        @page { margin: 0.5cm; }
+                        body { padding: 0; margin: 0; }
+                        @page { margin: 0; }
                     }
                 </style>
             </head>

@@ -807,11 +807,11 @@
                     totalQtySend += qtySend;
                     totalQtyVerified += qtyVerified;
 
+                    // Kolom supplier dihapus di sini
                     return `
                 <tr>
                     <td class="text-center" style="vertical-align: top;">${index + 1}</td>
                     <td style="vertical-align: top;">${row.barang ?? '-'}</td>
-                    <td style="vertical-align: top;">${row.suplier ?? '-'}</td>
                     <td class="text-center" style="vertical-align: top;">${qtySend.toLocaleString('id-ID')}</td>
                     <td class="text-center" style="vertical-align: top;">${qtyVerified.toLocaleString('id-ID')}</td>
                 </tr>
@@ -830,7 +830,7 @@
                 };
                 const todayStr = new Date().toLocaleDateString('id-ID', options);
 
-                // --- STRUKTUR PRINT UNTUK KERTAS STRUK THERMAL (LEBAR TIGHT) ---
+                // --- STRUKTUR PRINT TANPA KOLOM SUPPLIER ---
                 const printContent = `
         <div style="font-family: monospace; width: 290px; font-size: 9px; line-height: 1.2;">
             <div style="text-align:center; font-size:12px; font-weight:bold;">
@@ -860,15 +860,14 @@
                     <tr style="border-bottom: 1px solid #000; font-weight: bold;">
                         <th style="width:8%; text-align:center; padding: 2px 0;">No</th>
                         <th style="text-align:left; padding: 2px 0;">Nama Barang</th>
-                        <th style="text-align:left; width:18%; padding: 2px 0;">Supplier</th>
-                        <th style="width:14%; text-align:center; padding: 2px 0;">Qty Krm</th>
-                        <th style="width:14%; text-align:center; padding: 2px 0;">Qty Vrf</th>
+                        <th style="width:16%; text-align:center; padding: 2px 0;">Qty Krm</th>
+                        <th style="width:16%; text-align:center; padding: 2px 0;">Qty Vrf</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${detailRows}
                     <tr style="font-weight:bold; border-top: 1px solid #000;">
-                        <td colspan="2"></td>
+                        <td></td>
                         <td style="text-align:right; padding-top: 4px;">Total:</td>
                         <td class="text-center" style="padding-top: 4px;">${totalQtySend.toLocaleString('id-ID')}</td>
                         <td class="text-center" style="padding-top: 4px;">${totalQtyVerified.toLocaleString('id-ID')}</td>
@@ -883,7 +882,6 @@
         </div>
         `;
 
-                // Membuka popup window dengan width disesuaikan print struk roll
                 const w = window.open("", "_blank", "width=340,height=600");
                 w.document.write(`
             <html>

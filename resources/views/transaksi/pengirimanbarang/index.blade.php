@@ -805,7 +805,7 @@ async function cetakStruk(encodedHeaderData) {
 
             // List barang tetap besar sesuai permintaan sebelumnya
             return `
-        <tr style="font-size: 13px; font-weight: bold;">
+        <tr style="font-size: 12px; font-weight: bold;">
             <td class="text-center" style="vertical-align: top; padding: 4px 0;">${index + 1}</td>
             <td style="vertical-align: top; padding: 4px 0;">${row.barang ?? '-'}</td>
             <td class="text-center" style="vertical-align: top; padding: 4px 0;">${qtySend.toLocaleString('id-ID')}</td>
@@ -835,13 +835,13 @@ async function cetakStruk(encodedHeaderData) {
 
         // --- STRUKTUR PRINT ---
         const printContent = `
-<div style="font-family: monospace; width: 290px; font-size: 9px; line-height: 1.2;">
+<div style="font-family: monospace; width: 290px; font-size: 12px; line-height: 1.2;">
     <div style="text-align:center; font-size:12px; font-weight:bold;">
         NOTA DETAIL PENGIRIMAN
     </div>
     ${doubleHr}
 
-    <table style="width:100%; font-size: 8.5px; border-collapse: collapse; margin-bottom: 6px;">
+    <table style="width:100%; font-size: 10px; border-collapse: collapse; margin-bottom: 6px;">
         <tr>
             <td style="width: 22%; white-space: nowrap; padding: 1px 0;"><strong>No. Resi</strong></td>
             <td style="width: 3%; padding: 1px 0;">:</td>

@@ -774,129 +774,128 @@
             renderPagination();
         }
 
-        async function cetakStruk(encodedHeaderData) {
-            const headerData = JSON.parse(decodeURIComponent(encodedHeaderData));
+async function cetakStruk(encodedHeaderData) {
+    const headerData = JSON.parse(decodeURIComponent(encodedHeaderData));
 
-            try {
-                let response = await renderAPI(
-                    'GET',
-                    '{{ route('distribusi.pengiriman.detail') }}', {
-                        id: headerData.id
-                    }
-                ).then(function(res) {
-                    return res;
-                }).catch(function(err) {
-                    return err.response;
-                });
+    try {
+        let response = await renderAPI(
+            'GET',
+            '{{ route('distribusi.pengiriman.detail') }}', {
+                id: headerData.id
+            }
+        ).then(function(res) {
+            return res;
+        }).catch(function(err) {
+            return err.response;
+        });
 
-                if (!response || response.status !== 200) {
-                    notificationAlert('error', 'Gagal', 'Gagal mengambil data detail pengiriman atau data kosong.');
-                    return;
-                }
+        if (!response || response.status !== 200) {
+            notificationAlert('error', 'Gagal', 'Gagal mengambil data detail pengiriman atau data kosong.');
+            return;
+        }
 
-                const detailItems = response.data.data.item;
+        const detailItems = response.data.data.item;
 
-                // --- HITUNG MANUAL TOTAL QTY & MAPPING DATA TABEL ---
-                let totalQtySend = 0;
+        // --- HITUNG MANUAL TOTAL QTY & MAPPING DATA TABEL ---
+        let totalQtySend = 0;
 
-                const detailRows = detailItems.map((row, index) => {
-                    const qtySend = parseInt(row.qty_send) || 0;
-                    totalQtySend += qtySend;
+        const detailRows = detailItems.map((row, index) => {
+            const qtySend = parseInt(row.qty_send) || 0;
+            totalQtySend += qtySend;
 
-                    // Hanya menampilkan kolom No, Nama Barang, dan Qty
-                    return `
-        <tr>
-            <td class="text-center" style="vertical-align: top;">${index + 1}</td>
-            <td style="vertical-align: top;">${row.barang ?? '-'}</td>
-            <td class="text-center" style="vertical-align: top;">${qtySend.toLocaleString('id-ID')}</td>
+            // Ukuran font baris item diubah ke 13px agar terlihat jauh lebih besar
+            return `
+        <tr style="font-size: 13px; font-weight: bold;">
+            <td class="text-center" style="vertical-align: top; padding: 4px 0;">${index + 1}</td>
+            <td style="vertical-align: top; padding: 4px 0;">${row.barang ?? '-'}</td>
+            <td class="text-center" style="vertical-align: top; padding: 4px 0;">${qtySend.toLocaleString('id-ID')}</td>
         </tr>
     `;
-                }).join("");
+        }).join("");
 
-                const hr = `<hr style="border:none;border-top:1px dashed #000;margin:6px 0;">`;
-                const doubleHr = `<hr style="border:none;border-top:2px solid #000;margin:4px 0 8px 0;">`;
+        const hr = `<hr style="border:none;border-top:1px dashed #000;margin:6px 0;">`;
+        const doubleHr = `<hr style="border:none;border-top:2px solid #000;margin:4px 0 8px 0;">`;
 
-                // Mengambil hanya bagian tanggal (YYYY-MM-DD atau DD-MM-YYYY) sebelum spasi jam jika ada
-                const formatHanyaTanggal = (dateStr) => {
-                    if (!dateStr || dateStr === '-') return '-';
-                    return dateStr.trim().split(' ')[0];
-                };
+        const formatHanyaTanggal = (dateStr) => {
+            if (!dateStr || dateStr === '-') return '-';
+            return dateStr.trim().split(' ')[0];
+        };
 
-                const tglKirimSaja = formatHanyaTanggal(headerData.tgl_kirim);
+        const tglKirimSaja = formatHanyaTanggal(headerData.tgl_kirim);
 
-                let tglTerimaRaw = headerData.tgl_terima ? headerData.tgl_terima.replace(/<\/?[^>]+(>|$)/g, "") : '-';
-                const tglTerimaSaja = formatHanyaTanggal(tglTerimaRaw);
+        let tglTerimaRaw = headerData.tgl_terima ? headerData.tgl_terima.replace(/<\/?[^>]+(>|$)/g, "") : '-';
+        const tglTerimaSaja = formatHanyaTanggal(tglTerimaRaw);
 
-                const options = {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                };
-                const todayStr = new Date().toLocaleDateString('id-ID', options);
+        const options = {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        };
+        const todayStr = new Date().toLocaleDateString('id-ID', options);
 
-                // --- STRUKTUR PRINT DENGAN FONT LEBIH BESAR & HEADER RAPI ---
-                const printContent = `
-<div style="font-family: monospace; width: 290px; font-size: 11px; line-height: 1.3;">
-    <div style="text-align:center; font-size:13px; font-weight:bold;">
+        // --- STRUKTUR PRINT ---
+        const printContent = `
+<div style="font-family: monospace; width: 290px; font-size: 9px; line-height: 1.2;">
+    <div style="text-align:center; font-size:12px; font-weight:bold;">
         NOTA DETAIL PENGIRIMAN
     </div>
     ${doubleHr}
 
-    <table style="width:100%; font-size: 10px; border-collapse: collapse; margin-bottom: 8px;">
+    <table style="width:100%; font-size: 8.5px; border-collapse: collapse; margin-bottom: 6px;">
         <tr>
-            <td style="width:50%; vertical-align: top; padding-right: 4px;">
+            <td style="width:50%; vertical-align: top; padding-right: 2px;">
                 <table style="width:100%; border-collapse: collapse;">
-                    <tr><td style="width:35%;">No. Resi</td><td style="width:5%;">:</td><td>${headerData.no_resi ?? '-'}</td></tr>
-                    <tr><td>Ekspedisi</td><td>:</td><td>${headerData.ekspedisi ?? '-'}</td></tr>
-                    <tr><td>Toko Asal</td><td>:</td><td>${headerData.toko_asal ?? '-'}</td></tr>
-                    <tr><td>Pengirim</td><td>:</td><td>${headerData.nama_pengirim ?? '-'}</td></tr>
+                    <tr><td style="width:35%;"><strong>No. Resi</strong></td><td style="width:5%;">:</td><td>${headerData.no_resi ?? '-'}</td></tr>
+                    <tr><td><strong>Ekspedisi</strong></td><td>:</td><td>${headerData.ekspedisi ?? '-'}</td></tr>
+                    <tr><td><strong>Toko Asal</strong></td><td>:</td><td>${headerData.toko_asal ?? '-'}</td></tr>
+                    <tr><td><strong>Pengirim</strong></td><td>:</td><td>${headerData.nama_pengirim ?? '-'}</td></tr>
                 </table>
             </td>
-            <td style="width:50%; vertical-align: top; padding-left: 4px;">
+            <td style="width:50%; vertical-align: top; padding-left: 2px;">
                 <table style="width:100%; border-collapse: collapse;">
-                    <tr><td style="width:45%;">Toko Tujuan</td><td style="width:5%;">:</td><td>${headerData.toko_tujuan ?? '-'}</td></tr>
-                    <tr><td>Tgl Kirim</td><td>:</td><td>${tglKirimSaja}</td></tr>
-                    <tr><td>Tgl Terima</td><td>:</td><td>${tglTerimaSaja}</td></tr>
-                    <tr><td>Status</td><td>:</td><td>${headerData.status ?? '-'}</td></tr>
+                    <tr><td style="width:45%;"><strong>Toko Tujuan</strong></td><td style="width:5%;">:</td><td>${headerData.toko_tujuan ?? '-'}</td></tr>
+                    <tr><td><strong>Tgl Kirim</strong></td><td>:</td><td>${tglKirimSaja}</td></tr>
+                    <tr><td><strong>Tgl Terima</strong></td><td>:</td><td>${tglTerimaSaja}</td></tr>
+                    <tr><td><strong>Status</strong></td><td>:</td><td>${headerData.status ?? '-'}</td></tr>
                 </table>
             </td>
         </tr>
     </table>
 
-    <table class="table-items" style="width:100%; font-size: 10.5px; border-collapse: collapse;">
+    <table class="table-items" style="width:100%; border-collapse: collapse;">
         <thead>
-            <tr style="border-bottom: 1px solid #000; font-weight: bold;">
+            <tr style="border-bottom: 1px solid #000; font-weight: bold; font-size: 12px;">
                 <th style="width:10%; text-align:center; padding: 3px 0;">No</th>
                 <th style="text-align:left; padding: 3px 0;">Nama Barang</th>
-                <th style="width:20%; text-align:center; padding: 3px 0;">Qty</th>
+                <th style="width:18%; text-align:center; padding: 3px 0;">Qty</th>
             </tr>
         </thead>
         <tbody>
             ${detailRows}
-            <tr style="font-weight:bold; border-top: 1px solid #000;">
+            <tr style="font-weight:bold; border-top: 1px solid #000; font-size: 13px;">
                 <td></td>
-                <td style="text-align:right; padding-top: 5px;">Total:</td>
-                <td class="text-center" style="padding-top: 5px;">${totalQtySend.toLocaleString('id-ID')}</td>
+                <td style="text-align:right; padding-top: 6px;">Total:</td>
+                <td class="text-center" style="padding-top: 6px;">${totalQtySend.toLocaleString('id-ID')}</td>
             </tr>
         </tbody>
     </table>
 
     ${hr}
-    <div style="text-align: right; font-size: 9px; color: #000;">
+    <div style="text-align: right; font-size: 8px; color: #000;">
         Dicetak pada: ${todayStr}
     </div>
 </div>
 `;
 
-                const w = window.open("", "_blank", "width=340,height=600");
-                w.document.write(`
+        const w = window.open("", "_blank", "width=340,height=600");
+        w.document.write(`
     <html>
     <head>
         <title>Print Nota Detail Pengiriman</title>
         <style>
             body { font-family: monospace; padding: 5px; margin: 0; }
             table { width: 100%; border-collapse: collapse; }
-            td, th { padding: 3px 1px; word-break: break-word; }
+            td, th { padding: 2px 1px; word-break: break-word; }
             .text-right { text-align: right; }
             .text-center { text-align: center; }
             .text-left { text-align: left; }
@@ -911,13 +910,13 @@
     </body>
     </html>
 `);
-                w.document.close();
+        w.document.close();
 
-            } catch (error) {
-                console.error(error);
-                notificationAlert('error', 'Gagal', 'Terjadi kesalahan sistem saat mencetak struk.');
-            }
-        }
+    } catch (error) {
+        console.error(error);
+        notificationAlert('error', 'Gagal', 'Terjadi kesalahan sistem saat mencetak struk.');
+    }
+}
 
         async function filterList() {
             let dateRangePickerList = initializeDateRangePicker();

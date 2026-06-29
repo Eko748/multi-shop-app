@@ -803,7 +803,7 @@ async function cetakStruk(encodedHeaderData) {
             const qtySend = parseInt(row.qty_send) || 0;
             totalQtySend += qtySend;
 
-            // Ukuran font baris item diubah ke 13px agar terlihat jauh lebih besar
+            // List barang tetap besar sesuai permintaan sebelumnya
             return `
         <tr style="font-size: 13px; font-weight: bold;">
             <td class="text-center" style="vertical-align: top; padding: 4px 0;">${index + 1}</td>
@@ -843,22 +843,40 @@ async function cetakStruk(encodedHeaderData) {
 
     <table style="width:100%; font-size: 8.5px; border-collapse: collapse; margin-bottom: 6px;">
         <tr>
-            <td style="width:50%; vertical-align: top; padding-right: 2px;">
-                <table style="width:100%; border-collapse: collapse;">
-                    <tr><td style="width:35%;"><strong>No. Resi</strong></td><td style="width:5%;">:</td><td>${headerData.no_resi ?? '-'}</td></tr>
-                    <tr><td><strong>Ekspedisi</strong></td><td>:</td><td>${headerData.ekspedisi ?? '-'}</td></tr>
-                    <tr><td><strong>Toko Asal</strong></td><td>:</td><td>${headerData.toko_asal ?? '-'}</td></tr>
-                    <tr><td><strong>Pengirim</strong></td><td>:</td><td>${headerData.nama_pengirim ?? '-'}</td></tr>
-                </table>
-            </td>
-            <td style="width:50%; vertical-align: top; padding-left: 2px;">
-                <table style="width:100%; border-collapse: collapse;">
-                    <tr><td style="width:45%;"><strong>Toko Tujuan</strong></td><td style="width:5%;">:</td><td>${headerData.toko_tujuan ?? '-'}</td></tr>
-                    <tr><td><strong>Tgl Kirim</strong></td><td>:</td><td>${tglKirimSaja}</td></tr>
-                    <tr><td><strong>Tgl Terima</strong></td><td>:</td><td>${tglTerimaSaja}</td></tr>
-                    <tr><td><strong>Status</strong></td><td>:</td><td>${headerData.status ?? '-'}</td></tr>
-                </table>
-            </td>
+            <td style="width: 22%; white-space: nowrap; padding: 1px 0;"><strong>No. Resi</strong></td>
+            <td style="width: 3%; padding: 1px 0;">:</td>
+            <td style="width: 25%; padding: 1px 0;">${headerData.no_resi ?? '-'}</td>
+
+            <td style="width: 22%; white-space: nowrap; padding: 1px 0;"><strong>Toko Tujuan</strong></td>
+            <td style="width: 3%; padding: 1px 0;">:</td>
+            <td style="width: 25%; padding: 1px 0;">${headerData.toko_tujuan ?? '-'}</td>
+        </tr>
+        <tr>
+            <td style="white-space: nowrap; padding: 1px 0;"><strong>Ekspedisi</strong></td>
+            <td style="padding: 1px 0;">:</td>
+            <td style="padding: 1px 0;">${headerData.ekspedisi ?? '-'}</td>
+
+            <td style="white-space: nowrap; padding: 1px 0;"><strong>Tgl Kirim</strong></td>
+            <td style="padding: 1px 0;">:</td>
+            <td style="padding: 1px 0;">${tglKirimSaja}</td>
+        </tr>
+        <tr>
+            <td style="white-space: nowrap; padding: 1px 0;"><strong>Toko Asal</strong></td>
+            <td style="padding: 1px 0;">:</td>
+            <td style="padding: 1px 0;">${headerData.toko_asal ?? '-'}</td>
+
+            <td style="white-space: nowrap; padding: 1px 0;"><strong>Tgl Terima</strong></td>
+            <td style="padding: 1px 0;">:</td>
+            <td style="padding: 1px 0;">${tglTerimaSaja}</td>
+        </tr>
+        <tr>
+            <td style="white-space: nowrap; padding: 1px 0;"><strong>Pengirim</strong></td>
+            <td style="padding: 1px 0;">:</td>
+            <td style="padding: 1px 0;">${headerData.nama_pengirim ?? '-'}</td>
+
+            <td style="white-space: nowrap; padding: 1px 0;"><strong>Status</strong></td>
+            <td style="padding: 1px 0;">:</td>
+            <td style="padding: 1px 0;">${headerData.status ?? '-'}</td>
         </tr>
     </table>
 

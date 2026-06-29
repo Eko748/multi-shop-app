@@ -803,7 +803,6 @@ async function cetakStruk(encodedHeaderData) {
             const qtySend = parseInt(row.qty_send) || 0;
             totalQtySend += qtySend;
 
-            // List barang tetap besar sesuai permintaan sebelumnya
             return `
         <tr style="font-size: 12px; font-weight: bold;">
             <td class="text-center" style="vertical-align: top; padding: 4px 0;">${index + 1}</td>
@@ -826,12 +825,16 @@ async function cetakStruk(encodedHeaderData) {
         let tglTerimaRaw = headerData.tgl_terima ? headerData.tgl_terima.replace(/<\/?[^>]+(>|$)/g, "") : '-';
         const tglTerimaSaja = formatHanyaTanggal(tglTerimaRaw);
 
+        // --- PENGATURAN TANGGAL & WAKTU CETAK ---
         const options = {
             year: 'numeric',
             month: 'long',
-            day: 'numeric'
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
         };
-        const todayStr = new Date().toLocaleDateString('id-ID', options);
+        // Menghilangkan kata 'pukul' jika bawaan lokal Indonesia memunculkannya
+        const todayStr = new Date().toLocaleDateString('id-ID', options).replace('pukul', '');
 
         // --- STRUKTUR PRINT ---
         const printContent = `
@@ -899,14 +902,18 @@ async function cetakStruk(encodedHeaderData) {
     </table>
 
     ${hr}
-    <div style="text-align: right; font-size: 8px; color: #000;">
+    <div style="text-align: right; font-size: 10px; color: #000;">
         Dicetak pada: ${todayStr}
     </div>
 </div>
 `;
 
-        const w = window.open("", "_blank", "width=340,height=600");
-        w.document.write(`
+const wWidth = 450;
+        const wHeight = 650;
+        const xLeft = window.screen.width / 2 - wWidth / 2;
+        const yTop = window.screen.height / 2 - wHeight / 2;
+
+        const w = window.open("", "_blank", `width=${wWidth},height=${wHeight},left=${xLeft},top=${yTop},scrollbars=yes`);        w.document.write(`
     <html>
     <head>
         <title>Print Nota Detail Pengiriman</title>

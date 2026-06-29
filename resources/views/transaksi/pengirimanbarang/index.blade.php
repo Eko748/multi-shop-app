@@ -774,70 +774,70 @@
             renderPagination();
         }
 
-async function cetakStruk(encodedHeaderData) {
-    const headerData = JSON.parse(decodeURIComponent(encodedHeaderData));
+        async function cetakStruk(encodedHeaderData) {
+            const headerData = JSON.parse(decodeURIComponent(encodedHeaderData));
 
-    try {
-        let response = await renderAPI(
-            'GET',
-            '{{ route('distribusi.pengiriman.detail') }}', {
-                id: headerData.id
-            }
-        ).then(function(res) {
-            return res;
-        }).catch(function(err) {
-            return err.response;
-        });
+            try {
+                let response = await renderAPI(
+                    'GET',
+                    '{{ route('distribusi.pengiriman.detail') }}', {
+                        id: headerData.id
+                    }
+                ).then(function(res) {
+                    return res;
+                }).catch(function(err) {
+                    return err.response;
+                });
 
-        if (!response || response.status !== 200) {
-            notificationAlert('error', 'Gagal', 'Gagal mengambil data detail pengiriman atau data kosong.');
-            return;
-        }
+                if (!response || response.status !== 200) {
+                    notificationAlert('error', 'Gagal', 'Gagal mengambil data detail pengiriman atau data kosong.');
+                    return;
+                }
 
-        const detailItems = response.data.data.item;
+                const detailItems = response.data.data.item;
 
-        // --- HITUNG MANUAL TOTAL QTY & MAPPING DATA TABEL ---
-        let totalQtySend = 0;
+                // --- HITUNG MANUAL TOTAL QTY & MAPPING DATA TABEL ---
+                let totalQtySend = 0;
 
-        const detailRows = detailItems.map((row, index) => {
-            const qtySend = parseInt(row.qty_send) || 0;
-            totalQtySend += qtySend;
+                const detailRows = detailItems.map((row, index) => {
+                    const qtySend = parseInt(row.qty_send) || 0;
+                    totalQtySend += qtySend;
 
-            return `
+                    return `
         <tr style="font-size: 12px; font-weight: bold;">
             <td class="text-center" style="vertical-align: top; padding: 4px 0;">${index + 1}</td>
             <td style="vertical-align: top; padding: 4px 0;">${row.barang ?? '-'}</td>
             <td class="text-center" style="vertical-align: top; padding: 4px 0;">${qtySend.toLocaleString('id-ID')}</td>
         </tr>
     `;
-        }).join("");
+                }).join("");
 
-        const hr = `<hr style="border:none;border-top:1px dashed #000;margin:6px 0;">`;
-        const doubleHr = `<hr style="border:none;border-top:2px solid #000;margin:4px 0 8px 0;">`;
+                const hr = `<hr style="border:none;border-top:1px dashed #000;margin:6px 0;">`;
+                const doubleHr = `<hr style="border:none;border-top:2px solid #000;margin:4px 0 8px 0;">`;
 
-        const formatHanyaTanggal = (dateStr) => {
-            if (!dateStr || dateStr === '-') return '-';
-            return dateStr.trim().split(' ')[0];
-        };
+                const formatHanyaTanggal = (dateStr) => {
+                    if (!dateStr || dateStr === '-') return '-';
+                    return dateStr.trim().split(' ')[0];
+                };
 
-        const tglKirimSaja = formatHanyaTanggal(headerData.tgl_kirim);
+                const tglKirimSaja = formatHanyaTanggal(headerData.tgl_kirim);
 
-        let tglTerimaRaw = headerData.tgl_terima ? headerData.tgl_terima.replace(/<\/?[^>]+(>|$)/g, "") : '-';
-        const tglTerimaSaja = formatHanyaTanggal(tglTerimaRaw);
+                let tglTerimaRaw = headerData.tgl_terima ? headerData.tgl_terima.replace(/<\/?[^>]+(>|$)/g, "") : '-';
+                const tglTerimaSaja = formatHanyaTanggal(tglTerimaRaw);
 
-        // --- PENGATURAN TANGGAL & WAKTU CETAK ---
-        const options = {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        };
-        // Menghilangkan kata 'pukul' jika bawaan lokal Indonesia memunculkannya
-        const todayStr = new Date().toLocaleDateString('id-ID', options).replace('pukul', '');
+                // --- PENGATURAN TANGGAL & WAKTU CETAK ---
+                const options = {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                };
+                // Menghilangkan kata 'pukul' jika bawaan lokal Indonesia memunculkannya
+                const todayStr = new Date().toLocaleDateString('id-ID', options).replace('pukul', '');
 
-        // --- STRUKTUR PRINT ---
-        const printContent = `
+                // --- STRUKTUR PRINT ---
+                const printContent = `
 <div style="font-family: monospace; width: 290px; font-size: 12px; line-height: 1.2;">
     <div style="text-align:center; font-size:12px; font-weight:bold;">
         NOTA DETAIL PENGIRIMAN
@@ -908,12 +908,14 @@ async function cetakStruk(encodedHeaderData) {
 </div>
 `;
 
-const wWidth = 450;
-        const wHeight = 650;
-        const xLeft = window.screen.width / 2 - wWidth / 2;
-        const yTop = window.screen.height / 2 - wHeight / 2;
+                const wWidth = 850;
+                const wHeight = 650;
+                const xLeft = window.screen.width / 2 - wWidth / 2;
+                const yTop = window.screen.height / 2 - wHeight / 2;
 
-        const w = window.open("", "_blank", `width=${wWidth},height=${wHeight},left=${xLeft},top=${yTop},scrollbars=yes`);        w.document.write(`
+                const w = window.open("", "_blank",
+                    `width=${wWidth},height=${wHeight},left=${xLeft},top=${yTop},scrollbars=yes`);
+                w.document.write(`
     <html>
     <head>
         <title>Print Nota Detail Pengiriman</title>
@@ -935,13 +937,13 @@ const wWidth = 450;
     </body>
     </html>
 `);
-        w.document.close();
+                w.document.close();
 
-    } catch (error) {
-        console.error(error);
-        notificationAlert('error', 'Gagal', 'Terjadi kesalahan sistem saat mencetak struk.');
-    }
-}
+            } catch (error) {
+                console.error(error);
+                notificationAlert('error', 'Gagal', 'Terjadi kesalahan sistem saat mencetak struk.');
+            }
+        }
 
         async function filterList() {
             let dateRangePickerList = initializeDateRangePicker();

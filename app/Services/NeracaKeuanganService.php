@@ -224,7 +224,7 @@ class NeracaKeuanganService
 
     private function getSaldoAkhirKas($kasId, int $month, int $year): int
     {
-        // coba bulan berjalan
+        // Cek bulan yang diminta
         $current = KasSaldoHistory::where('kas_id', $kasId)
             ->where('tahun', $year)
             ->where('bulan', $month)
@@ -235,22 +235,20 @@ class NeracaKeuanganService
             return (int) $current->saldo_akhir;
         }
 
-        // hitung bulan sebelumnya
-        $prevMonth = $month - 1;
-        $prevYear = $year;
+        // Mundur sampai Januari pada tahun yang sama
+        for ($m = $month - 1; $m >= 1; $m--) {
+            $saldo = KasSaldoHistory::where('kas_id', $kasId)
+                ->where('tahun', $year)
+                ->where('bulan', $m)
+                ->orderByDesc('id')
+                ->first();
 
-        if ($prevMonth === 0) {
-            $prevMonth = 12;
-            $prevYear--;
+            if ($saldo) {
+                return (int) $saldo->saldo_akhir;
+            }
         }
 
-        $prev = KasSaldoHistory::where('kas_id', $kasId)
-            ->where('tahun', $prevYear)
-            ->where('bulan', $prevMonth)
-            ->orderByDesc('id')
-            ->first();
-
-        return $prev ? (int) $prev->saldo_akhir : 0;
+        return 0;
     }
 
     private function composeNeracaStructure(

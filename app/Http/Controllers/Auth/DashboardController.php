@@ -301,6 +301,7 @@ class DashboardController extends Controller
             ->join('transaksi_kasir_detail', 'transaksi_kasir.id', '=', 'transaksi_kasir_detail.transaksi_kasir_id')
             ->join('toko', 'transaksi_kasir.toko_id', '=', 'toko.id')
             ->where('transaksi_kasir.total_qty', '>', 0)
+            ->whereNull('transaksi_kasir.deleted_at')
             // join subquery retur berbasis model
             ->leftJoinSub(
                 ReturMemberDetail::select(

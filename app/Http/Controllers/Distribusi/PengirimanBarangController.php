@@ -740,7 +740,8 @@ class PengirimanBarangController extends Controller
                             kategori: 'Pengiriman Barang',
                             keterangan: 'Verifikasi',
                             sumber: $pb,
-                            tanggal: $pb->verified_at
+                            tanggal: $pb->verified_at,
+                            laba: false
                         );
 
                         KasService::in(
@@ -752,7 +753,8 @@ class PengirimanBarangController extends Controller
                             kategori: 'Pengiriman Barang',
                             keterangan: 'Verifikasi',
                             sumber: $pb,
-                            tanggal: $pb->verified_at
+                            tanggal: $pb->verified_at,
+                            laba: false
                         );
                     }
 

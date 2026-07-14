@@ -630,7 +630,7 @@ class PengirimanBarangController extends Controller
         ]);
     }
 
-    public function verify(Request $request)
+public function verify(Request $request)
     {
         $request->validate([
             'details' => 'required|array',
@@ -668,13 +668,21 @@ class PengirimanBarangController extends Controller
                 throw new \Exception('Pengiriman sudah diverifikasi sebelumnya');
             }
 
-            // Pastikan toko_group_id tersedia dari data induk pengiriman barang
             $tokoGroupId = $pb->toko_group_id;
             if (! $tokoGroupId) {
                 throw new \Exception('Data toko_group_id pada transaksi pengiriman ini kosong');
             }
 
+            // Load data toko asal & tujuan untuk mendapatkan 'singkatan'
+            $tokoAsal = Toko::find($pb->toko_asal_id);
+            $tokoTujuan = Toko::find($pb->toko_tujuan_id);
+
+            if (! $tokoAsal || ! $tokoTujuan) {
+                throw new \Exception('Data Master Toko Asal/Tujuan tidak ditemukan');
+            }
+
             $hutangGrouped = [];
+            $kasMampuGrouped = []; // Penampung untuk akumulasi kas per jenisBarangId
             $waktuVerifikasi = now();
 
             foreach ($request->details as $row) {
@@ -700,7 +708,6 @@ class PengirimanBarangController extends Controller
                         throw new \Exception("Batch asal dengan ID {$detail->stock_barang_batch_id} tidak ditemukan");
                     }
 
-                    // PERBAIKAN: Menggunakan toko_group_id sesuai struktur tabel stock_barang Anda
                     $stockDestination = StockBarang::lockForUpdate()->firstOrCreate(
                         [
                             'toko_group_id' => $tokoGroupId,
@@ -731,7 +738,6 @@ class PengirimanBarangController extends Controller
                     $stockDestination->stok = $totalStokBaru;
                     $stockDestination->save();
 
-                    // Model Batch baru tetap menyimpan toko_id spesifik (karena di batch ada kolom toko_id untuk tracking detail)
                     $batchNew = StockBarangBatch::create([
                         'stock_barang_id' => $stockDestination->id,
                         'parent_id' => $batchOrigin->id,
@@ -760,39 +766,19 @@ class PengirimanBarangController extends Controller
                     $kasMampu = min($saldoKas, $totalBiaya);
                     $sisaHutang = $totalBiaya - $kasMampu;
 
+                    // Akumulasi Kas Mampu per jenis_barang_id
+                    if ($kasMampu > 0) {
+                        if (! isset($kasMampuGrouped[$jenisBarangId])) {
+                            $kasMampuGrouped[$jenisBarangId] = 0;
+                        }
+                        $kasMampuGrouped[$jenisBarangId] += $kasMampu;
+                    }
+
                     if ($sisaHutang > 0) {
                         if (! isset($hutangGrouped[$jenisBarangId])) {
                             $hutangGrouped[$jenisBarangId] = 0;
                         }
                         $hutangGrouped[$jenisBarangId] += $sisaHutang;
-                    }
-
-                    if ($kasMampu > 0) {
-                        KasService::out(
-                            toko_id: $pb->toko_tujuan_id,
-                            jenis_barang_id: $jenisBarangId,
-                            tipe_kas: $tipeKas,
-                            total_nominal: $kasMampu,
-                            item: 'kecil',
-                            kategori: 'Pengiriman Barang',
-                            keterangan: "Pembayaran PB #{$pb->id} ke Toko Asal",
-                            sumber: $pb,
-                            tanggal: $waktuVerifikasi,
-                            laba: false
-                        );
-
-                        KasService::in(
-                            toko_id: $pb->toko_asal_id,
-                            jenis_barang_id: $jenisBarangId,
-                            tipe_kas: 'kecil',
-                            total_nominal: $kasMampu,
-                            item: 'kecil',
-                            kategori: 'Pengiriman Barang',
-                            keterangan: "Penerimaan PB #{$pb->id} dari Toko Tujuan",
-                            sumber: $pb,
-                            tanggal: $waktuVerifikasi,
-                            laba: false
-                        );
                     }
 
                     if (method_exists($this, 'recalcHPPGlobal')) {
@@ -807,13 +793,46 @@ class PengirimanBarangController extends Controller
                         'qty' => $row['qty_problem'],
                     ]);
                 }
+            } // <-- Akhir dari loop barang foreach
+
+            // =======================================================
+            // EKSEKUSI KAS GABUNGAN (DI LUAR LOOP BARANG)
+            // =======================================================
+            $tipeKas = $request->tipe_kas ?? 'kecil';
+            foreach ($kasMampuGrouped as $jenisBarangId => $totalKasMampu) {
+                // Keterangan dinamis menggunakan singkatan Toko
+                KasService::out(
+                    toko_id: $pb->toko_tujuan_id,
+                    jenis_barang_id: $jenisBarangId,
+                    tipe_kas: $tipeKas,
+                    total_nominal: $totalKasMampu,
+                    item: 'kecil',
+                    kategori: 'Pengiriman Barang',
+                    keterangan: "Pembayaran ke Toko {$tokoAsal->singkatan}",
+                    sumber: $pb,
+                    tanggal: $waktuVerifikasi,
+                    laba: false
+                );
+
+                KasService::in(
+                    toko_id: $pb->toko_asal_id,
+                    jenis_barang_id: $jenisBarangId,
+                    tipe_kas: 'kecil',
+                    total_nominal: $totalKasMampu,
+                    item: 'kecil',
+                    kategori: 'Pengiriman Barang',
+                    keterangan: "Pembayaran dari Toko {$tokoTujuan->singkatan}",
+                    sumber: $pb,
+                    tanggal: $waktuVerifikasi,
+                    laba: false
+                );
             }
 
+            // =======================================================
+            // EKSEKUSI HUTANG & PIUTANG GABUNGAN
+            // =======================================================
             foreach ($hutangGrouped as $jenisBarangId => $totalHutang) {
-                $tokoAsal = Toko::find($pb->toko_asal_id);
-                $tokoTujuan = Toko::find($pb->toko_tujuan_id);
                 $jb = JenisBarang::find($jenisBarangId);
-                $tipeKas = $request->tipe_kas ?? 'kecil';
 
                 $kasAsal = Kas::firstOrCreate(['toko_id' => $pb->toko_asal_id, 'jenis_barang_id' => $jenisBarangId, 'tipe_kas' => $tipeKas], ['saldo_awal' => 0, 'saldo' => 0]);
                 $kasTujuan = Kas::firstOrCreate(['toko_id' => $pb->toko_tujuan_id, 'jenis_barang_id' => $jenisBarangId, 'tipe_kas' => $tipeKas], ['saldo_awal' => 0, 'saldo' => 0]);
@@ -886,7 +905,6 @@ class PengirimanBarangController extends Controller
             return $this->success(null, 201, 'Verifikasi Pengiriman Barang Berhasil');
         } catch (\Exception $e) {
             DB::rollBack();
-
             return $this->error(500, $e->getMessage());
         }
     }

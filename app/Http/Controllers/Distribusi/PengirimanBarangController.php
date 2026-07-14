@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Distribusi;
 
 use App\Helpers\AssetGenerate;
+use App\Helpers\TextGenerate;
 use App\Http\Controllers\Controller;
 use App\Models\Hutang;
 use App\Models\JenisBarang;
@@ -328,7 +329,7 @@ class PengirimanBarangController extends Controller
                     'id' => $d->id,
                     'barang' => [
                         'id' => $d->barang->id,
-                        'nama' => $d->barang->nama,
+                        'nama' => TextGenerate::smartTail($d->barang->nama),
                         'barcode' => $d->barang->barcode,
                     ],
                     'qty_send' => $d->qty_send,

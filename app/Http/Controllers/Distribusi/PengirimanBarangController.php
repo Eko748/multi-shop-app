@@ -800,7 +800,11 @@ public function verify(Request $request)
             // =======================================================
             $tipeKas = $request->tipe_kas ?? 'kecil';
             foreach ($kasMampuGrouped as $jenisBarangId => $totalKasMampu) {
-                // Keterangan dinamis menggunakan singkatan Toko
+                // Ambil data JenisBarang untuk mendapatkan nama jenisnya (misal: Sparepart, Aksesoris, dll)
+                $jb = JenisBarang::find($jenisBarangId);
+                $namaJenisBarang = $jb ? $jb->nama_jenis_barang : 'Umum';
+
+                // Keterangan dinamis sesuai request Anda
                 KasService::out(
                     toko_id: $pb->toko_tujuan_id,
                     jenis_barang_id: $jenisBarangId,
@@ -808,7 +812,7 @@ public function verify(Request $request)
                     total_nominal: $totalKasMampu,
                     item: 'kecil',
                     kategori: 'Pengiriman Barang',
-                    keterangan: "Pembayaran ke Toko {$tokoAsal->singkatan}",
+                    keterangan: "{$namaJenisBarang} dari Toko {$tokoAsal->nama}", // Untuk toko tujuan
                     sumber: $pb,
                     tanggal: $waktuVerifikasi,
                     laba: false
@@ -821,7 +825,7 @@ public function verify(Request $request)
                     total_nominal: $totalKasMampu,
                     item: 'kecil',
                     kategori: 'Pengiriman Barang',
-                    keterangan: "Pembayaran dari Toko {$tokoTujuan->singkatan}",
+                    keterangan: "{$namaJenisBarang} ke Toko {$tokoTujuan->nama}", // Untuk toko asal
                     sumber: $pb,
                     tanggal: $waktuVerifikasi,
                     laba: false

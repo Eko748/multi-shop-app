@@ -412,7 +412,7 @@
             let display_from = ((defaultLimitPage * (currentPage - 1)) + 1);
             let display_to = Math.min(display_from + dataList.length - 1, pagination.total);
             let tdClass = 'text-wrap align-top';
-            let tokoHeader;
+            let tokoHeader = '';
             if ({{ auth()->user()->role_id }} == 1) {
                 tokoHeader = `<th scope="col" class="text-wrap align-top" style="width:5%">Toko</th>`;
             }

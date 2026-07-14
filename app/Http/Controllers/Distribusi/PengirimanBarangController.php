@@ -52,7 +52,7 @@ class PengirimanBarangController extends Controller
         return view('transaksi.pengirimanbarang.index', compact('menu'));
     }
 
-public function get(Request $request)
+    public function get(Request $request)
     {
         try {
             $meta['orderBy'] = $request->ascending ? 'asc' : 'desc';
@@ -92,15 +92,15 @@ public function get(Request $request)
                     ELSE 3
                 END
             ")
-            ->orderBy('created_at', $meta['orderBy']);
+                ->orderBy('created_at', $meta['orderBy']);
 
             if (! empty($request['search'])) {
                 $searchTerm = trim($request['search']);
 
                 $query->where(function ($q) use ($searchTerm) {
                     $q->where('no_resi', 'LIKE', "%{$searchTerm}%")
-                      ->orWhere('ekspedisi', 'LIKE', "%{$searchTerm}%")
-                      ->orWhere('status', 'LIKE', "%{$searchTerm}%");
+                        ->orWhere('ekspedisi', 'LIKE', "%{$searchTerm}%")
+                        ->orWhere('status', 'LIKE', "%{$searchTerm}%");
 
                     $q->orWhereHas('tokoAsal', function ($subquery) use ($searchTerm) {
                         $subquery->where('nama', 'LIKE', "%{$searchTerm}%");
@@ -110,8 +110,12 @@ public function get(Request $request)
                         $subquery->where('nama', 'LIKE', "%{$searchTerm}%");
                     });
 
-                    // Catatan: Jika relasi di bawah menggunakan ->sender, pastikan di sini diganti 'sender' jika 'user' memicu error
-                    $q->orWhereHas('user', function ($subquery) use ($searchTerm) {
+                    $q->orWhereHas('sender', function ($subquery) use ($searchTerm) {
+                        $subquery->where('nama', 'LIKE', "%{$searchTerm}%");
+                    });
+
+                    // PENCARIAN BERTINGKAT: PengirimanBarang -> pengirimanBarangDetail -> barang
+                    $q->orWhereHas('pengirimanBarangDetail.barang', function ($subquery) use ($searchTerm) {
                         $subquery->where('nama', 'LIKE', "%{$searchTerm}%");
                     });
                 });
@@ -190,7 +194,7 @@ public function get(Request $request)
                 'status_code' => 500,
                 'errors' => true,
                 'message' => 'Terjadi kesalahan pada server',
-                'debug_message' => $e->getMessage() // Hapus/comment baris ini di mode produksi demi keamanan
+                'debug_message' => $e->getMessage(), // Hapus/comment baris ini di mode produksi demi keamanan
             ], 500);
         }
     }

@@ -414,7 +414,7 @@
             let tdClass = 'text-wrap align-top';
             let tokoHeader;
             if ({{ auth()->user()->role_id }} == 1) {
-                tokoHeader = `<th scope="col" class="text-wrap align-top" style="width:15%">Toko</th>`;
+                tokoHeader = `<th scope="col" class="text-wrap align-top" style="width:5%">Toko</th>`;
             }
             let getDataTable = `
             <div class="col-12">

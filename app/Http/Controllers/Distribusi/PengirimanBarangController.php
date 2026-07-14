@@ -633,8 +633,6 @@ class PengirimanBarangController extends Controller
     public function verify(Request $request)
     {
         $request->validate([
-            'id' => 'required|integer',
-            'verified_by' => 'required|integer',
             'details' => 'required|array',
             'details.*.id' => 'required|integer',
             'details.*.qty_verified' => 'required|integer|min:0',
@@ -644,32 +642,47 @@ class PengirimanBarangController extends Controller
         DB::beginTransaction();
 
         try {
-            $pb = PengirimanBarang::where('id', $request->id)
+            // 1. Validasi awal: Pastikan ada detail yang dikirim
+            if (empty($request->details)) {
+                throw new \Exception('Data detail verifikasi kosong');
+            }
+
+            // 2. Ambil detail pertama untuk mencari tahu siapa data Induk (PengirimanBarang) yang asli
+            $firstRow = $request->details[0];
+            $findDetail = PengirimanBarangDetail::find($firstRow['id']);
+
+            if (! $findDetail) {
+                throw new \Exception('Detail pengiriman tidak ditemukan di sistem');
+            }
+
+            // Cari induk yang asli berdasarkan relasi detail barangnya langsung
+            $pb = PengirimanBarang::where('id', $findDetail->pengiriman_barang_id)
                 ->lockForUpdate()
                 ->first();
 
             if (! $pb) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Data tidak ditemukan',
+                    'message' => 'Data induk pengiriman tidak ditemukan',
                 ], 404);
             }
 
             if ($pb->status === 'success') {
-                throw new \Exception('Pengiriman sudah diverifikasi');
+                throw new \Exception('Pengiriman sudah diverifikasi sebelumnya');
             }
 
             $hutangGrouped = [];
             $waktuVerifikasi = now();
 
             foreach ($request->details as $row) {
+                // Kunci detail berdasarkan ID detail murni secara spesifik
                 $detail = PengirimanBarangDetail::where('id', $row['id'])
                     ->where('pengiriman_barang_id', $pb->id)
                     ->lockForUpdate()
                     ->first();
 
                 if (! $detail) {
-                    continue;
+                    continue; // Jika id detail tidak cocok dengan id induk ini, lewati demi keamanan
                 }
 
                 $qtyVerified = $row['qty_verified'];
@@ -677,7 +690,6 @@ class PengirimanBarangController extends Controller
                 $detail->save();
 
                 if ($qtyVerified > 0) {
-                    // 1. Cari Batch Asal (Lepas filter toko_id jika rentan mis-match, fokus ke ID unik batch)
                     $batchOrigin = StockBarangBatch::where('id', $detail->stock_barang_batch_id)
                         ->lockForUpdate()
                         ->first();
@@ -686,7 +698,6 @@ class PengirimanBarangController extends Controller
                         throw new \Exception("Batch asal dengan ID {$detail->stock_barang_batch_id} tidak ditemukan");
                     }
 
-                    // 2. Kunci Master Stock Induk di Toko Tujuan
                     $stockDestination = StockBarang::lockForUpdate()->firstOrCreate(
                         [
                             'toko_id' => $pb->toko_tujuan_id,
@@ -694,35 +705,29 @@ class PengirimanBarangController extends Controller
                         ],
                         [
                             'stok' => 0,
-                            'hpp_awal' => $batchOrigin->harga_beli, // Default jika produk baru pertama kali masuk toko
+                            'hpp_awal' => $batchOrigin->harga_beli,
                             'hpp_baru' => $batchOrigin->harga_beli,
                         ]
                     );
 
-                    // Catat state stok dan HPP berjalan sebelum ditambah barang baru
                     $stokLamaTokoTujuan = $stockDestination->stok;
                     $hppLamaTokoTujuan = $stockDestination->hpp_baru;
-
-                    // 3. Hitung Rantai HPP Baru Bergerak (Moving Average) untuk Toko Tujuan
                     $totalStokBaru = $stokLamaTokoTujuan + $qtyVerified;
                     $hargaBeliMurni = $batchOrigin->harga_beli;
 
                     if ($totalStokBaru > 0) {
                         $totalNilaiUangLama = $stokLamaTokoTujuan * $hppLamaTokoTujuan;
                         $totalNilaiUangBaruMasuk = $qtyVerified * $hargaBeliMurni;
-
                         $hppBaruKalkulasi = ($totalNilaiUangLama + $totalNilaiUangBaruMasuk) / $totalStokBaru;
                     } else {
                         $hppBaruKalkulasi = $hargaBeliMurni;
                     }
 
-                    // 4. Update Induk StockBarang Toko Tujuan
                     $stockDestination->hpp_awal = $hppLamaTokoTujuan;
                     $stockDestination->hpp_baru = $hppBaruKalkulasi;
                     $stockDestination->stok = $totalStokBaru;
                     $stockDestination->save();
 
-                    // 5. Create Row Batch Baru di Toko Tujuan (Rantai HPP Terjaga)
                     $batchNew = StockBarangBatch::create([
                         'stock_barang_id' => $stockDestination->id,
                         'parent_id' => $batchOrigin->id,
@@ -731,13 +736,12 @@ class PengirimanBarangController extends Controller
                         'qty_masuk' => $qtyVerified,
                         'qty_sisa' => $qtyVerified,
                         'harga_beli' => $hargaBeliMurni,
-                        'hpp_awal' => $hppLamaTokoTujuan,    // HPP toko tujuan sebelum barang ini masuk
-                        'hpp_baru' => $hppBaruKalkulasi,    // HPP toko tujuan setelah digabung barang ini
+                        'hpp_awal' => $hppLamaTokoTujuan,
+                        'hpp_baru' => $hppBaruKalkulasi,
                         'sumber_type' => PengirimanBarangDetail::class,
                         'sumber_id' => $detail->id,
                     ]);
 
-                    // 6. Alur Keuangan / Kas Bisnis
                     $totalBiaya = $qtyVerified * $hargaBeliMurni;
                     $jenisBarangId = $detail->barang->jenis_barang_id;
                     $tipeKas = $request->tipe_kas ?? 'kecil';
@@ -787,7 +791,6 @@ class PengirimanBarangController extends Controller
                         );
                     }
 
-                    // PENTING: Panggil fungsi global penyeimbang (jika masih diperlukan fungsi internal Anda)
                     if (method_exists($this, 'recalcHPPGlobal')) {
                         $this->recalcHPPGlobal($stockDestination->fresh());
                     }
@@ -802,7 +805,6 @@ class PengirimanBarangController extends Controller
                 }
             }
 
-            // 7. Loop Distribusi Hutang & Piutang
             foreach ($hutangGrouped as $jenisBarangId => $totalHutang) {
                 $tokoAsal = Toko::find($pb->toko_asal_id);
                 $tokoTujuan = Toko::find($pb->toko_tujuan_id);
@@ -869,6 +871,7 @@ class PengirimanBarangController extends Controller
                 );
             }
 
+            // Update status sukses pada data induk yang BENAR hasil pencarian detail
             $pb->update([
                 'status' => 'success',
                 'verified_by' => $request->verified_by,

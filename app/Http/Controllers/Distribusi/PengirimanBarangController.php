@@ -812,7 +812,7 @@ public function verify(Request $request)
                     total_nominal: $totalKasMampu,
                     item: 'kecil',
                     kategori: 'Pengiriman Barang',
-                    keterangan: "{$namaJenisBarang} dari Toko {$tokoAsal->nama}", // Untuk toko tujuan
+                    keterangan: "{$namaJenisBarang} dari Toko {$tokoAsal->singkatan}", // Untuk toko tujuan
                     sumber: $pb,
                     tanggal: $waktuVerifikasi,
                     laba: false
@@ -825,7 +825,7 @@ public function verify(Request $request)
                     total_nominal: $totalKasMampu,
                     item: 'kecil',
                     kategori: 'Pengiriman Barang',
-                    keterangan: "{$namaJenisBarang} ke Toko {$tokoTujuan->nama}", // Untuk toko asal
+                    keterangan: "{$namaJenisBarang} ke Toko {$tokoTujuan->singkatan}", // Untuk toko asal
                     sumber: $pb,
                     tanggal: $waktuVerifikasi,
                     laba: false

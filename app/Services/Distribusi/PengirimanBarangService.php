@@ -83,7 +83,7 @@ class PengirimanBarangService
                 'barang' => $item->barang->nama,
                 'qty_send' => $item->qty_send ?? 0,
                 'qty_verified' => $item->qty_verified ?? 0,
-                'harga_beli' => RupiahGenerate::build($item->batch->stockBarang->hpp_baru),
+                'harga_beli' => RupiahGenerate::build($item->batch->harga_beli),
                 'suplier' => optional($item->batch->supplier)->nama ?? 'Tidak Ada',
                 'created_at' => $item->created_at ?? null,
                 'text' => "

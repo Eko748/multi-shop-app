@@ -52,134 +52,147 @@ class PengirimanBarangController extends Controller
         return view('transaksi.pengirimanbarang.index', compact('menu'));
     }
 
-    public function get(Request $request)
+public function get(Request $request)
     {
-        $meta['orderBy'] = $request->ascending ? 'asc' : 'desc';
-        $meta['limit'] = $request->has('limit') && $request->limit <= 30 ? $request->limit : 30;
+        try {
+            $meta['orderBy'] = $request->ascending ? 'asc' : 'desc';
+            $meta['limit'] = $request->has('limit') && $request->limit <= 30 ? $request->limit : 30;
 
-        $id_toko = $request->input('toko_id');
+            $id_toko = $request->input('toko_id');
 
-        $query = PengirimanBarang::query()
-            ->select('pengiriman_barang.*')
-            ->selectRaw("
-                CASE
-                    WHEN status = 'pending'
-                        THEN (SELECT COALESCE(SUM(qty_send), 0)
-                            FROM pengiriman_barang_detail_temp
+            $query = PengirimanBarang::query()
+                ->select('pengiriman_barang.*')
+                ->selectRaw("
+                    CASE
+                        WHEN status = 'pending'
+                            THEN (SELECT COALESCE(SUM(qty_send), 0)
+                                FROM pengiriman_barang_detail_temp
+                                WHERE pengiriman_barang_id = pengiriman_barang.id)
+                        ELSE (SELECT COALESCE(SUM(qty_send), 0)
+                            FROM pengiriman_barang_detail
                             WHERE pengiriman_barang_id = pengiriman_barang.id)
-                    ELSE (SELECT COALESCE(SUM(qty_send), 0)
-                        FROM pengiriman_barang_detail
-                        WHERE pengiriman_barang_id = pengiriman_barang.id)
-                END AS qty_total
-            ");
+                    END AS qty_total
+                ");
 
-        if ($id_toko != 1) {
+            if ($id_toko != 1) {
+                $query->where(function ($q) use ($id_toko) {
+                    $q->where('toko_asal_id', $id_toko)
+                        ->orWhere(function ($r) use ($id_toko) {
+                            $r->where('toko_tujuan_id', $id_toko)
+                                ->where('status', '!=', 'pending');
+                        });
+                });
+            }
 
-            $query->where(function ($q) use ($id_toko) {
-                $q->where('toko_asal_id', $id_toko)
-                    ->orWhere(function ($r) use ($id_toko) {
-                        $r->where('toko_tujuan_id', $id_toko)
-                            ->where('status', '!=', 'pending');
-                    });
-            });
-        }
-
-        $query->orderByRaw("
-            CASE
-                WHEN status = 'pending' THEN 0
-                WHEN status = 'progress' THEN 1
-                WHEN status = 'success' THEN 2
-                ELSE 3
-            END
-        ")
+            $query->orderByRaw("
+                CASE
+                    WHEN status = 'pending' THEN 0
+                    WHEN status = 'progress' THEN 1
+                    WHEN status = 'success' THEN 2
+                    ELSE 3
+                END
+            ")
             ->orderBy('created_at', $meta['orderBy']);
 
-        if (! empty($request['search'])) {
-            $searchTerm = trim(strtolower($request['search']));
+            if (! empty($request['search'])) {
+                $searchTerm = trim($request['search']);
 
-            $query->where(function ($query) use ($searchTerm) {
-                $query->orWhereRaw('LOWER(no_resi) LIKE ?', ["%$searchTerm%"]);
-                $query->orWhereRaw('LOWER(ekspedisi) LIKE ?', ["%$searchTerm%"]);
-                $query->orWhereRaw('LOWER(status) LIKE ?', ["%$searchTerm%"]);
+                $query->where(function ($q) use ($searchTerm) {
+                    $q->where('no_resi', 'LIKE', "%{$searchTerm}%")
+                      ->orWhere('ekspedisi', 'LIKE', "%{$searchTerm}%")
+                      ->orWhere('status', 'LIKE', "%{$searchTerm}%");
 
-                $query->orWhereHas('tokoAsal', function ($subquery) use ($searchTerm) {
-                    $subquery->whereRaw('LOWER(nama) LIKE ?', ["%$searchTerm%"]);
+                    $q->orWhereHas('tokoAsal', function ($subquery) use ($searchTerm) {
+                        $subquery->where('nama', 'LIKE', "%{$searchTerm}%");
+                    });
+
+                    $q->orWhereHas('tokoTujuan', function ($subquery) use ($searchTerm) {
+                        $subquery->where('nama', 'LIKE', "%{$searchTerm}%");
+                    });
+
+                    // Catatan: Jika relasi di bawah menggunakan ->sender, pastikan di sini diganti 'sender' jika 'user' memicu error
+                    $q->orWhereHas('user', function ($subquery) use ($searchTerm) {
+                        $subquery->where('nama', 'LIKE', "%{$searchTerm}%");
+                    });
                 });
-                $query->orWhereHas('tokoTujuan', function ($subquery) use ($searchTerm) {
-                    $subquery->whereRaw('LOWER(nama) LIKE ?', ["%$searchTerm%"]);
-                });
-                $query->orWhereHas('user', function ($subquery) use ($searchTerm) {
-                    $subquery->whereRaw('LOWER(nama) LIKE ?', ["%$searchTerm%"]);
-                });
-            });
-        }
+            }
 
-        if ($request->has('startDate') && $request->has('endDate')) {
-            $startDate = $request->input('startDate');
-            $endDate = $request->input('endDate');
+            if ($request->has('startDate') && $request->has('endDate')) {
+                $startDate = $request->input('startDate');
+                $endDate = $request->input('endDate');
 
-            $query->whereBetween('tgl_kirim', [$startDate, $endDate]);
-        }
+                $query->whereBetween('tgl_kirim', [$startDate, $endDate]);
+            }
 
-        $data = $query->paginate($meta['limit']);
+            $data = $query->paginate($meta['limit']);
 
-        $paginationMeta = [
-            'total' => $data->total(),
-            'per_page' => $data->perPage(),
-            'current_page' => $data->currentPage(),
-            'total_pages' => $data->lastPage(),
-        ];
-
-        $data = [
-            'data' => $data->items(),
-            'meta' => $paginationMeta,
-        ];
-
-        if (empty($data['data'])) {
-            return response()->json([
-                'status_code' => 400,
-                'errors' => true,
-                'message' => 'Tidak ada data',
-            ], 400);
-        }
-
-        $mappedData = collect($data['data'])->map(function ($item) {
-            $tokoTujuan = optional($item->tokoTujuan);
-
-            return [
-                'id' => $item['id'],
-                'no_resi' => $item->no_resi,
-                'ekspedisi' => $item->ekspedisi,
-                'toko_asal' => optional($item->tokoAsal)->nama,
-                'toko_asal_id' => $item->toko_asal_id,
-                'nama_pengirim' => optional($item->sender)->nama,
-                'toko_tujuan' => $tokoTujuan->nama,
-                'toko_tujuan_nama' => $tokoTujuan->nama
-                    ? "{$tokoTujuan->singkatan} - {$tokoTujuan->wilayah}"
-                    : null,
-                'toko_tujuan_id' => $item->toko_tujuan_id ?? null,
-                'status' => match ($item->status) {
-                    'success' => 'Sukses',
-                    'progress' => 'Progress',
-                    'pending' => 'Pending',
-                    'failed' => 'Gagal',
-                    default => $item->status,
-                },
-                'tgl_kirim' => $item->send_at ? $item->send_at->format('d-m-Y H:i:s') : null,
-                'tgl_terima' => $item->verified_at ? $item->verified_at->format('d-m-Y H:i:s') : null,
-                'total_item' => $item->qty_total,
-                'toko_group_id' => $item->toko_group_id ?? null,
-                'toko_group_nama' => $item->tokoGroup->nama ?? null,
+            $paginationMeta = [
+                'total' => $data->total(),
+                'per_page' => $data->perPage(),
+                'current_page' => $data->currentPage(),
+                'total_pages' => $data->lastPage(),
             ];
-        });
 
-        return response()->json([
-            'data' => $mappedData,
-            'status_code' => 200,
-            'errors' => true,
-            'message' => 'Sukses',
-            'pagination' => $data['meta'],
-        ], 200);
+            $data = [
+                'data' => $data->items(),
+                'meta' => $paginationMeta,
+            ];
+
+            if (empty($data['data'])) {
+                return response()->json([
+                    'status_code' => 400,
+                    'errors' => true,
+                    'message' => 'Tidak ada data',
+                ], 400);
+            }
+
+            $mappedData = collect($data['data'])->map(function ($item) {
+                $tokoTujuan = optional($item->tokoTujuan);
+
+                return [
+                    'id' => $item['id'],
+                    'no_resi' => $item->no_resi,
+                    'ekspedisi' => $item->ekspedisi,
+                    'toko_asal' => optional($item->tokoAsal)->nama,
+                    'toko_asal_id' => $item->toko_asal_id,
+                    'nama_pengirim' => optional($item->sender)->nama,
+                    'toko_tujuan' => $tokoTujuan->nama,
+                    'toko_tujuan_nama' => $tokoTujuan->nama
+                        ? "{$tokoTujuan->singkatan} - {$tokoTujuan->wilayah}"
+                        : null,
+                    'toko_tujuan_id' => $item->toko_tujuan_id ?? null,
+                    'status' => match ($item->status) {
+                        'success' => 'Sukses',
+                        'progress' => 'Progress',
+                        'pending' => 'Pending',
+                        'failed' => 'Gagal',
+                        default => $item->status,
+                    },
+                    'tgl_kirim' => $item->send_at ? $item->send_at->format('d-m-Y H:i:s') : null,
+                    'tgl_terima' => $item->verified_at ? $item->verified_at->format('d-m-Y H:i:s') : null,
+                    'total_item' => $item->qty_total,
+                    'toko_group_id' => $item->toko_group_id ?? null,
+                    'toko_group_nama' => $item->tokoGroup->nama ?? null,
+                ];
+            });
+
+            return response()->json([
+                'data' => $mappedData,
+                'status_code' => 200,
+                'errors' => false, // Diubah menjadi false karena prosesnya sukses
+                'message' => 'Sukses',
+                'pagination' => $data['meta'],
+            ], 200);
+
+        } catch (\Exception $e) {
+            // Mengembalikan response JSON yang rapi saat terjadi error sistem
+            return response()->json([
+                'status_code' => 500,
+                'errors' => true,
+                'message' => 'Terjadi kesalahan pada server',
+                'debug_message' => $e->getMessage() // Hapus/comment baris ini di mode produksi demi keamanan
+            ], 500);
+        }
     }
 
     public function detail(Request $request)

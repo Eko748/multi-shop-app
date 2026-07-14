@@ -441,7 +441,7 @@
                         </thead>
                         <thead>
                             <tr>
-                                <th colspan="${tokoHeader !== '' ? 6 : 5}" class="${tdClass} text-right">Total:</th>
+                                <th colspan="${tokoHeader !== '' ? 6 : 5}" class="${tdClass} text-right"></th>
                                 <th class="${tdClass} text-center"><span class="badge badge-primary">${total.qty || 0}</span></th>
                                 <th class="${tdClass} text-right"><span class="badge badge-primary">${total.nominal || 0}</span></th>
                                 <th></th>

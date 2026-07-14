@@ -660,12 +660,12 @@ class PengirimanBarangController extends Controller
             }
 
             $hutangGrouped = [];
-            $waktuVerifikasi = now(); // Dikunci di satu variabel agar semua timestamp sama
+            $waktuVerifikasi = now();
 
             foreach ($request->details as $row) {
                 $detail = PengirimanBarangDetail::where('id', $row['id'])
                     ->where('pengiriman_barang_id', $pb->id)
-                    ->lockForUpdate() // Kunci detail pengiriman
+                    ->lockForUpdate()
                     ->first();
 
                 if (! $detail) {
@@ -677,17 +677,16 @@ class PengirimanBarangController extends Controller
                 $detail->save();
 
                 if ($qtyVerified > 0) {
-                    // 1. Kunci Batch Asal
+                    // 1. Cari Batch Asal (Lepas filter toko_id jika rentan mis-match, fokus ke ID unik batch)
                     $batchOrigin = StockBarangBatch::where('id', $detail->stock_barang_batch_id)
-                        ->where('toko_id', $pb->toko_asal_id)
                         ->lockForUpdate()
                         ->first();
 
                     if (! $batchOrigin) {
-                        throw new \Exception('Batch asal tidak ditemukan');
+                        throw new \Exception("Batch asal dengan ID {$detail->stock_barang_batch_id} tidak ditemukan");
                     }
 
-                    // 2. Kunci dan Dapatkan Stok di Toko Tujuan secara realtime (mencegah desinkronisasi stok antar loop)
+                    // 2. Kunci Master Stock Induk di Toko Tujuan
                     $stockDestination = StockBarang::lockForUpdate()->firstOrCreate(
                         [
                             'toko_id' => $pb->toko_tujuan_id,
@@ -695,15 +694,35 @@ class PengirimanBarangController extends Controller
                         ],
                         [
                             'stok' => 0,
-                            'hpp_awal' => $batchOrigin->hpp_awal,
-                            'hpp_baru' => $batchOrigin->hpp_baru,
+                            'hpp_awal' => $batchOrigin->harga_beli, // Default jika produk baru pertama kali masuk toko
+                            'hpp_baru' => $batchOrigin->harga_beli,
                         ]
                     );
 
-                    // Tambahkan stok ke Toko Tujuan
-                    $stockDestination->increment('stok', $qtyVerified);
+                    // Catat state stok dan HPP berjalan sebelum ditambah barang baru
+                    $stokLamaTokoTujuan = $stockDestination->stok;
+                    $hppLamaTokoTujuan = $stockDestination->hpp_baru;
 
-                    // 3. Buat batch baru di Toko Tujuan
+                    // 3. Hitung Rantai HPP Baru Bergerak (Moving Average) untuk Toko Tujuan
+                    $totalStokBaru = $stokLamaTokoTujuan + $qtyVerified;
+                    $hargaBeliMurni = $batchOrigin->harga_beli;
+
+                    if ($totalStokBaru > 0) {
+                        $totalNilaiUangLama = $stokLamaTokoTujuan * $hppLamaTokoTujuan;
+                        $totalNilaiUangBaruMasuk = $qtyVerified * $hargaBeliMurni;
+
+                        $hppBaruKalkulasi = ($totalNilaiUangLama + $totalNilaiUangBaruMasuk) / $totalStokBaru;
+                    } else {
+                        $hppBaruKalkulasi = $hargaBeliMurni;
+                    }
+
+                    // 4. Update Induk StockBarang Toko Tujuan
+                    $stockDestination->hpp_awal = $hppLamaTokoTujuan;
+                    $stockDestination->hpp_baru = $hppBaruKalkulasi;
+                    $stockDestination->stok = $totalStokBaru;
+                    $stockDestination->save();
+
+                    // 5. Create Row Batch Baru di Toko Tujuan (Rantai HPP Terjaga)
                     $batchNew = StockBarangBatch::create([
                         'stock_barang_id' => $stockDestination->id,
                         'parent_id' => $batchOrigin->id,
@@ -711,18 +730,18 @@ class PengirimanBarangController extends Controller
                         'toko_id' => $pb->toko_tujuan_id,
                         'qty_masuk' => $qtyVerified,
                         'qty_sisa' => $qtyVerified,
-                        'harga_beli' => $batchOrigin->harga_beli,
-                        'hpp_awal' => $batchOrigin->hpp_awal,
-                        'hpp_baru' => $batchOrigin->hpp_baru,
+                        'harga_beli' => $hargaBeliMurni,
+                        'hpp_awal' => $hppLamaTokoTujuan,    // HPP toko tujuan sebelum barang ini masuk
+                        'hpp_baru' => $hppBaruKalkulasi,    // HPP toko tujuan setelah digabung barang ini
                         'sumber_type' => PengirimanBarangDetail::class,
                         'sumber_id' => $detail->id,
                     ]);
 
-                    $totalBiaya = $qtyVerified * $batchOrigin->harga_beli;
+                    // 6. Alur Keuangan / Kas Bisnis
+                    $totalBiaya = $qtyVerified * $hargaBeliMurni;
                     $jenisBarangId = $detail->barang->jenis_barang_id;
                     $tipeKas = $request->tipe_kas ?? 'kecil';
 
-                    // 4. Kunci Kas Toko Tujuan dengan lockForUpdate() agar nominal saldo ter-update secara linear
                     $kas = Kas::where('toko_id', $pb->toko_tujuan_id)
                         ->where('jenis_barang_id', $jenisBarangId)
                         ->where('tipe_kas', $tipeKas)
@@ -740,7 +759,6 @@ class PengirimanBarangController extends Controller
                         $hutangGrouped[$jenisBarangId] += $sisaHutang;
                     }
 
-                    // 5. Eksekusi Mutasi Kas
                     if ($kasMampu > 0) {
                         KasService::out(
                             toko_id: $pb->toko_tujuan_id,
@@ -769,16 +787,10 @@ class PengirimanBarangController extends Controller
                         );
                     }
 
-                    // 6. Hitung ulang HPP di Toko Tujuan (Gunakan data stock yang fresh)
-                    $this->recalcHPPGlobal($stockDestination->fresh());
-
-                    // Ambil nilai terbaru setelah kalkulasi HPP global
-                    $stockDestinationFresh = $stockDestination->fresh();
-
-                    $batchNew->update([
-                        'hpp_awal' => $stockDestinationFresh->hpp_awal,
-                        'hpp_baru' => $stockDestinationFresh->hpp_baru,
-                    ]);
+                    // PENTING: Panggil fungsi global penyeimbang (jika masih diperlukan fungsi internal Anda)
+                    if (method_exists($this, 'recalcHPPGlobal')) {
+                        $this->recalcHPPGlobal($stockDestination->fresh());
+                    }
                 }
 
                 if ($row['qty_problem'] > 0) {
@@ -790,14 +802,13 @@ class PengirimanBarangController extends Controller
                 }
             }
 
-            // 6. Pencatatan Hutang/Piutang jika Kas tidak mencukupi
+            // 7. Loop Distribusi Hutang & Piutang
             foreach ($hutangGrouped as $jenisBarangId => $totalHutang) {
                 $tokoAsal = Toko::find($pb->toko_asal_id);
                 $tokoTujuan = Toko::find($pb->toko_tujuan_id);
                 $jb = JenisBarang::find($jenisBarangId);
                 $tipeKas = $request->tipe_kas ?? 'kecil';
 
-                // Pastikan master Kas disiapkan agar relasi ID hutang/piutang tidak null
                 $kasAsal = Kas::firstOrCreate(['toko_id' => $pb->toko_asal_id, 'jenis_barang_id' => $jenisBarangId, 'tipe_kas' => $tipeKas], ['saldo_awal' => 0, 'saldo' => 0]);
                 $kasTujuan = Kas::firstOrCreate(['toko_id' => $pb->toko_tujuan_id, 'jenis_barang_id' => $jenisBarangId, 'tipe_kas' => $tipeKas], ['saldo_awal' => 0, 'saldo' => 0]);
 
@@ -831,7 +842,6 @@ class PengirimanBarangController extends Controller
                     'created_by' => $pb->send_by,
                 ]);
 
-                // Menggunakan neutralIN karena mutasi hutang/piutang tidak mempengaruhi saldo riil kas saat ini
                 KasService::neutralIN(
                     toko_id: $pb->toko_tujuan_id,
                     jenis_barang_id: $jenisBarangId,
@@ -841,7 +851,7 @@ class PengirimanBarangController extends Controller
                     kategori: 'Hutang',
                     keterangan: "Hutang ke {$tokoAsal->nama}",
                     sumber: $hutangModel,
-                    tanggal: $waktuVerifikasi, // <-- TAMBAHKAN INI
+                    tanggal: $waktuVerifikasi,
                     laba: false
                 );
 
@@ -854,7 +864,7 @@ class PengirimanBarangController extends Controller
                     kategori: 'Piutang',
                     keterangan: "Piutang dari {$tokoTujuan->nama}",
                     sumber: $piutangModel,
-                    tanggal: $waktuVerifikasi, // <-- TAMBAHKAN INI
+                    tanggal: $waktuVerifikasi,
                     laba: false
                 );
             }

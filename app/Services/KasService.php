@@ -240,13 +240,10 @@ class KasService
             $labaRugiTahunan->save();
         }
 
-        /*------------------------------------------
-        | 5. SIMPAN TRANSAKSI
-        -------------------------------------------*/
         return KasTransaksi::create([
             'kas_id' => $kas->id,
             'tipe' => $tipe[1] ?? $tipe[0],
-            'kode_transaksi' => 'KS-'.time().rand(100, 999),
+            'kode_transaksi' => 'KS-' . strtoupper(uniqid()) . rand(10, 99), // <-- DIUBAH MENJADI INI
             'total_nominal' => $total_nominal,
             'kategori' => $kategori,
             'keterangan' => $keterangan,

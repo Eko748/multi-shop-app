@@ -642,12 +642,10 @@ class PengirimanBarangController extends Controller
         DB::beginTransaction();
 
         try {
-            // 1. Validasi awal: Pastikan ada detail yang dikirim
             if (empty($request->details)) {
                 throw new \Exception('Data detail verifikasi kosong');
             }
 
-            // 2. Ambil detail pertama untuk mencari tahu siapa data Induk (PengirimanBarang) yang asli
             $firstRow = $request->details[0];
             $findDetail = PengirimanBarangDetail::find($firstRow['id']);
 
@@ -655,7 +653,6 @@ class PengirimanBarangController extends Controller
                 throw new \Exception('Detail pengiriman tidak ditemukan di sistem');
             }
 
-            // Cari induk yang asli berdasarkan relasi detail barangnya langsung
             $pb = PengirimanBarang::where('id', $findDetail->pengiriman_barang_id)
                 ->lockForUpdate()
                 ->first();
@@ -671,18 +668,23 @@ class PengirimanBarangController extends Controller
                 throw new \Exception('Pengiriman sudah diverifikasi sebelumnya');
             }
 
+            // Pastikan toko_group_id tersedia dari data induk pengiriman barang
+            $tokoGroupId = $pb->toko_group_id;
+            if (! $tokoGroupId) {
+                throw new \Exception('Data toko_group_id pada transaksi pengiriman ini kosong');
+            }
+
             $hutangGrouped = [];
             $waktuVerifikasi = now();
 
             foreach ($request->details as $row) {
-                // Kunci detail berdasarkan ID detail murni secara spesifik
                 $detail = PengirimanBarangDetail::where('id', $row['id'])
                     ->where('pengiriman_barang_id', $pb->id)
                     ->lockForUpdate()
                     ->first();
 
                 if (! $detail) {
-                    continue; // Jika id detail tidak cocok dengan id induk ini, lewati demi keamanan
+                    continue;
                 }
 
                 $qtyVerified = $row['qty_verified'];
@@ -698,9 +700,10 @@ class PengirimanBarangController extends Controller
                         throw new \Exception("Batch asal dengan ID {$detail->stock_barang_batch_id} tidak ditemukan");
                     }
 
+                    // PERBAIKAN: Menggunakan toko_group_id sesuai struktur tabel stock_barang Anda
                     $stockDestination = StockBarang::lockForUpdate()->firstOrCreate(
                         [
-                            'toko_id' => $pb->toko_tujuan_id,
+                            'toko_group_id' => $tokoGroupId,
                             'barang_id' => $detail->barang_id,
                         ],
                         [
@@ -728,6 +731,7 @@ class PengirimanBarangController extends Controller
                     $stockDestination->stok = $totalStokBaru;
                     $stockDestination->save();
 
+                    // Model Batch baru tetap menyimpan toko_id spesifik (karena di batch ada kolom toko_id untuk tracking detail)
                     $batchNew = StockBarangBatch::create([
                         'stock_barang_id' => $stockDestination->id,
                         'parent_id' => $batchOrigin->id,
@@ -871,7 +875,6 @@ class PengirimanBarangController extends Controller
                 );
             }
 
-            // Update status sukses pada data induk yang BENAR hasil pencarian detail
             $pb->update([
                 'status' => 'success',
                 'verified_by' => $request->verified_by,

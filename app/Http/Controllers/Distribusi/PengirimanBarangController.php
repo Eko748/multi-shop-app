@@ -642,7 +642,6 @@ class PengirimanBarangController extends Controller
         DB::beginTransaction();
 
         try {
-
             $pb = PengirimanBarang::where('id', $request->id)
                 ->lockForUpdate()
                 ->first();
@@ -659,9 +658,9 @@ class PengirimanBarangController extends Controller
             }
 
             $hutangGrouped = [];
+            $waktuVerifikasi = now(); // Dikunci di satu variabel agar semua timestamp sama
 
             foreach ($request->details as $row) {
-
                 $detail = PengirimanBarangDetail::where('id', $row['id'])
                     ->where('pengiriman_barang_id', $pb->id)
                     ->lockForUpdate()
@@ -676,7 +675,6 @@ class PengirimanBarangController extends Controller
                 $detail->save();
 
                 if ($qtyVerified > 0) {
-
                     $batchOrigin = StockBarangBatch::lockForUpdate()
                         ->where('id', $detail->stock_barang_batch_id)
                         ->where('toko_id', $pb->toko_asal_id)
@@ -686,16 +684,25 @@ class PengirimanBarangController extends Controller
                         throw new \Exception('Batch asal tidak ditemukan');
                     }
 
-                    $stockOrigin = $batchOrigin->stockBarang;
+                    // 1. Ambil atau Buat Stok di Toko Tujuan
+                    $stockDestination = StockBarang::firstOrCreate(
+                        [
+                            'toko_id' => $pb->toko_tujuan_id,
+                            'barang_id' => $detail->barang_id,
+                        ],
+                        [
+                            'stok' => 0,
+                            'hpp_awal' => $batchOrigin->hpp_awal,
+                            'hpp_baru' => $batchOrigin->hpp_baru,
+                        ]
+                    );
 
-                    if (! $stockOrigin) {
-                        throw new \Exception('Stok asal tidak ditemukan');
-                    }
+                    // Tambahkan stok ke Toko Tujuan
+                    $stockDestination->increment('stok', $qtyVerified);
 
-                    $stockOrigin->increment('stok', $qtyVerified);
-
+                    // 2. Buat batch baru di Toko Tujuan
                     $batchNew = StockBarangBatch::create([
-                        'stock_barang_id' => $stockOrigin->id,
+                        'stock_barang_id' => $stockDestination->id,
                         'parent_id' => $batchOrigin->id,
                         'supplier_id' => $batchOrigin->supplier_id,
                         'toko_id' => $pb->toko_tujuan_id,
@@ -712,21 +719,14 @@ class PengirimanBarangController extends Controller
                     $jenisBarangId = $detail->barang->jenis_barang_id;
                     $tipeKas = $request->tipe_kas ?? 'kecil';
 
-                    $kas = Kas::firstOrCreate(
-                        [
-                            'toko_id' => $pb->toko_tujuan_id,
-                            'jenis_barang_id' => $jenisBarangId,
-                            'tipe_kas' => $tipeKas,
-                        ],
-                        [
-                            'tanggal' => now(),
-                            'saldo_awal' => 0,
-                            'saldo' => 0,
-                        ]
-                    );
+                    // 3. Tarik data Kas Toko Tujuan untuk cek kecukupan saldo
+                    $kas = Kas::where('toko_id', $pb->toko_tujuan_id)
+                        ->where('jenis_barang_id', $jenisBarangId)
+                        ->where('tipe_kas', $tipeKas)
+                        ->first();
 
-                    $kasMampu = min($kas->saldo, $totalBiaya);
-
+                    $saldoKas = $kas ? $kas->saldo : 0;
+                    $kasMampu = min($saldoKas, $totalBiaya);
                     $sisaHutang = $totalBiaya - $kasMampu;
 
                     if ($sisaHutang > 0) {
@@ -736,28 +736,18 @@ class PengirimanBarangController extends Controller
                         $hutangGrouped[$jenisBarangId] += $sisaHutang;
                     }
 
-                    $isLunas = ($kasMampu == $totalBiaya);
-
-                    $keteranganKeluar = $isLunas
-                        ? "Pembayaran lunas ke {$pb->tokoTujuan->nama}"
-                        : "Pembayaran sebagian PB #{$pb->id}";
-
-                    $keteranganMasuk = $isLunas
-                        ? "Penerimaan pembayaran dari {$pb->tokoAsal->nama}"
-                        : "Penerimaan pembayaran PB #{$pb->id}";
-
+                    // 4. Eksekusi Mutasi Kas (Laba diset false karena transfer antar cabang bukan profit murni)
                     if ($kasMampu > 0) {
-
                         KasService::out(
                             toko_id: $pb->toko_tujuan_id,
                             jenis_barang_id: $jenisBarangId,
                             tipe_kas: $tipeKas,
                             total_nominal: $kasMampu,
-                            item: 'kecil',
+                            item: $detail->barang->nama, // Menggunakan nama barang agar history transaksi jelas
                             kategori: 'Pengiriman Barang',
-                            keterangan: 'Verifikasi',
+                            keterangan: "Pembayaran PB #{$pb->id} ke Toko Asal",
                             sumber: $pb,
-                            tanggal: $pb->verified_at,
+                            tanggal: $waktuVerifikasi,
                             laba: false
                         );
 
@@ -766,20 +756,21 @@ class PengirimanBarangController extends Controller
                             jenis_barang_id: $jenisBarangId,
                             tipe_kas: 'kecil',
                             total_nominal: $kasMampu,
-                            item: 'kecil',
+                            item: $detail->barang->nama,
                             kategori: 'Pengiriman Barang',
-                            keterangan: 'Verifikasi',
+                            keterangan: "Penerimaan PB #{$pb->id} dari Toko Tujuan",
                             sumber: $pb,
-                            tanggal: $pb->verified_at,
+                            tanggal: $waktuVerifikasi,
                             laba: false
                         );
                     }
 
-                    $this->recalcHPPGlobal($stockOrigin);
+                    // 5. Hitung ulang HPP di Toko Tujuan
+                    $this->recalcHPPGlobal($stockDestination);
 
                     $batchNew->update([
-                        'hpp_awal' => $stockOrigin->hpp_awal,
-                        'hpp_baru' => $stockOrigin->hpp_baru,
+                        'hpp_awal' => $stockDestination->hpp_awal,
+                        'hpp_baru' => $stockDestination->hpp_baru,
                     ]);
                 }
 
@@ -792,13 +783,16 @@ class PengirimanBarangController extends Controller
                 }
             }
 
+            // 6. Pencatatan Hutang/Piutang jika Kas tidak mencukupi
             foreach ($hutangGrouped as $jenisBarangId => $totalHutang) {
                 $tokoAsal = Toko::find($pb->toko_asal_id);
                 $tokoTujuan = Toko::find($pb->toko_tujuan_id);
                 $jb = JenisBarang::find($jenisBarangId);
                 $tipeKas = $request->tipe_kas ?? 'kecil';
-                $kasAsal = Kas::where('toko_id', $pb->toko_asal_id)->where('jenis_barang_id', $jenisBarangId)->where('tipe_kas', $tipeKas)->first();
-                $kasTujuan = Kas::where('toko_id', $pb->toko_tujuan_id)->where('jenis_barang_id', $jenisBarangId)->where('tipe_kas', $tipeKas)->first();
+
+                // Pastikan master Kas disiapkan agar relasi ID hutang/piutang tidak null
+                $kasAsal = Kas::firstOrCreate(['toko_id' => $pb->toko_asal_id, 'jenis_barang_id' => $jenisBarangId, 'tipe_kas' => $tipeKas], ['saldo_awal' => 0, 'saldo' => 0]);
+                $kasTujuan = Kas::firstOrCreate(['toko_id' => $pb->toko_tujuan_id, 'jenis_barang_id' => $jenisBarangId, 'tipe_kas' => $tipeKas], ['saldo_awal' => 0, 'saldo' => 0]);
 
                 $hutangModel = Hutang::create([
                     'kas_id' => $kasTujuan->id,
@@ -806,7 +800,7 @@ class PengirimanBarangController extends Controller
                     'hutang_tipe_id' => 2,
                     'nominal' => $totalHutang,
                     'sisa' => $totalHutang,
-                    'tanggal' => now(),
+                    'tanggal' => $waktuVerifikasi,
                     'keterangan' => "Hutang barang {$jb->nama_jenis_barang} dari {$tokoAsal->nama}",
                     'status' => '0',
                     'jangka' => 'pendek',
@@ -821,7 +815,7 @@ class PengirimanBarangController extends Controller
                     'piutang_tipe_id' => 1,
                     'nominal' => $totalHutang,
                     'sisa' => $totalHutang,
-                    'tanggal' => now(),
+                    'tanggal' => $waktuVerifikasi,
                     'keterangan' => "Piutang barang {$jb->nama_jenis_barang} ke {$tokoTujuan->nama}",
                     'status' => '0',
                     'jangka' => 'pendek',
@@ -830,6 +824,7 @@ class PengirimanBarangController extends Controller
                     'created_by' => $pb->send_by,
                 ]);
 
+                // Menggunakan neutralIN karena mutasi hutang/piutang tidak mempengaruhi saldo riil kas saat ini
                 KasService::neutralIN(
                     toko_id: $pb->toko_tujuan_id,
                     jenis_barang_id: $jenisBarangId,
@@ -839,6 +834,7 @@ class PengirimanBarangController extends Controller
                     kategori: 'Hutang',
                     keterangan: "Hutang ke {$tokoAsal->nama}",
                     sumber: $hutangModel,
+                    tanggal: $waktuVerifikasi, // <-- TAMBAHKAN INI
                     laba: false
                 );
 
@@ -851,6 +847,7 @@ class PengirimanBarangController extends Controller
                     kategori: 'Piutang',
                     keterangan: "Piutang dari {$tokoTujuan->nama}",
                     sumber: $piutangModel,
+                    tanggal: $waktuVerifikasi, // <-- TAMBAHKAN INI
                     laba: false
                 );
             }
@@ -858,7 +855,7 @@ class PengirimanBarangController extends Controller
             $pb->update([
                 'status' => 'success',
                 'verified_by' => $request->verified_by,
-                'verified_at' => now(),
+                'verified_at' => $waktuVerifikasi,
             ]);
 
             DB::commit();

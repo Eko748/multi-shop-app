@@ -324,12 +324,13 @@ class PengirimanBarangController extends Controller
             ],
             'details' => $pb->pengirimanBarangDetail->map(function ($d) {
                 $img = AssetGenerate::build("qrcodes/barang/{$d->barang->qrcode}.png");
+                $barang = TextGenerate::smartTail($d->barang->nama);
 
                 return [
                     'id' => $d->id,
                     'barang' => [
                         'id' => $d->barang->id,
-                        'nama' => TextGenerate::smartTail($d->barang->nama),
+                        'nama' => $barang,
                         'barcode' => $d->barang->barcode,
                     ],
                     'qty_send' => $d->qty_send,
@@ -347,7 +348,7 @@ class PengirimanBarangController extends Controller
                             <img src='{$img}' width='28' height='28' style='border-radius: 3px;'>
 
                             <div style='display: flex; flex-direction: column; line-height: 1.2;'>
-                                <span style='font-weight: 550; font-size: 12px;'>{$d->barang->nama}</span>
+                                <span style='font-weight: 550; font-size: 12px;'>{$barang}</span>
                                 <small class='text-dark'>
                                     Stok: {$d->qty_send}
                                 </small>

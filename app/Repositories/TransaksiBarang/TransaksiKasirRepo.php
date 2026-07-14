@@ -21,18 +21,22 @@ class TransaksiKasirRepo
     {
         $query = $this->model->newQuery();
 
-        if (!empty($filter->start_date) && !empty($filter->end_date)) {
+        if (! empty($filter->toko_id) && ($filter->role_id != 1)) {
+            $query->where('toko_id', $filter->toko_id);
+        }
+
+        if (! empty($filter->start_date) && ! empty($filter->end_date)) {
             $query->whereBetween('tanggal', [
                 Carbon::parse($filter->start_date)->startOfDay(),
-                Carbon::parse($filter->end_date)->endOfDay(),
+                Carbon::parse($filter->end_date)->startOfDay(),
             ]);
         } else {
             $query->whereDate('tanggal', Carbon::today());
         }
 
         return [
-            'qty'       => $query->sum('total_qty'),
-            'nominal'   => RupiahGenerate::build($query->sum('total_nominal'))
+            'qty' => $query->sum('total_qty'),
+            'nominal' => RupiahGenerate::build($query->sum('total_nominal')),
         ];
     }
 
@@ -40,30 +44,34 @@ class TransaksiKasirRepo
     {
         $query = $this->model->newQuery();
 
-        if (!empty($filter->search)) {
+        if (! empty($filter->search)) {
             $query->where(function ($q) use ($filter) {
-                $q->where('nota', 'like', '%' . $filter->search . '%')
+                $q->where('nota', 'like', '%'.$filter->search.'%')
                     ->orWhereHas('member', function ($q2) use ($filter) {
-                        $q2->where('nama', 'like', '%' . $filter->search . '%');
+                        $q2->where('nama', 'like', '%'.$filter->search.'%');
                     });
             });
         }
 
-        if (!empty($filter->toko_id)) {
+        if ($filter->role_id == 1) {
+            $query->with('toko');
+        }
+
+        if (! empty($filter->toko_id) && ($filter->role_id != 1)) {
             $query->where('toko_id', $filter->toko_id);
         }
 
-        if (!empty($filter->nota)) {
+        if (! empty($filter->nota)) {
             $query->where('nota', $filter->nota);
         }
 
-        if (!empty($filter->start_date) && !empty($filter->end_date)) {
+        if (! empty($filter->start_date) && ! empty($filter->end_date)) {
             $query->whereBetween('tanggal', [$filter->start_date, $filter->end_date]);
         } else {
             $query->whereDate('tanggal', Carbon::today());
         }
 
-        return !empty($filter->limit)
+        return ! empty($filter->limit)
             ? $query->orderByDesc('id')->paginate($filter->limit)
             : $query->orderByDesc('id')->get();
     }
@@ -75,7 +83,7 @@ class TransaksiKasirRepo
 
         if ($search) {
             $query->where(function ($q) use ($search) {
-                $q->where('nota', 'like', '%' . $search . '%');
+                $q->where('nota', 'like', '%'.$search.'%');
             });
         }
 
@@ -95,25 +103,25 @@ class TransaksiKasirRepo
             ->firstOrFail();
 
         $detailKasir = TransaksiKasirDetail::with([
-            'stockBarangBatch.stockBarang.barang:id,nama'
+            'stockBarangBatch.stockBarang.barang:id,nama',
         ])
             ->where('transaksi_kasir_id', $kasir->id)
             ->get();
 
         /** grouping untuk struk */
         $groupedDetails = $detailKasir
-            ->groupBy(fn($item) => $item->stockBarangBatch->stockBarang->barang_id)
+            ->groupBy(fn ($item) => $item->stockBarangBatch->stockBarang->barang_id)
             ->map(function ($items) {
                 $first = $items->first();
 
                 $barangModel = $first->stockBarangBatch->stockBarang->barang ?? null;
 
                 return [
-                    'barang_id'   => $barangModel->id ?? null,
+                    'barang_id' => $barangModel->id ?? null,
                     'nama_barang' => TextGenerate::smartTail($barangModel->nama ?? '-') ?? '-',
-                    'qty'         => $items->sum('qty'),
-                    'harga'       => RupiahGenerate::build($first->nominal),
-                    'diskon'      => RupiahGenerate::build($items->sum('diskon') ?? 0),
+                    'qty' => $items->sum('qty'),
+                    'harga' => RupiahGenerate::build($first->nominal),
+                    'diskon' => RupiahGenerate::build($items->sum('diskon') ?? 0),
                     'total_harga' => RupiahGenerate::build($items->sum('subtotal')),
                 ];
             })
@@ -121,34 +129,35 @@ class TransaksiKasirRepo
 
         return [
             'kasir' => [
-                'id'              => $kasir->id,
-                'public_id'       => $kasir->public_id,
-                'nota'            => $kasir->nota,
-                'tanggal'         => $kasir->tanggal->format('d-m-Y H:i:s'),
-                'total_qty'       => $kasir->total_qty,
-                'total_nominal'   => RupiahGenerate::build($kasir->total_nominal ?? 0),
-                'total_bayar'     => RupiahGenerate::build($kasir->total_bayar ?? 0),
-                'total_diskon'    => RupiahGenerate::build($kasir->total_diskon ?? 0),
+                'id' => $kasir->id,
+                'public_id' => $kasir->public_id,
+                'nota' => $kasir->nota,
+                'tanggal' => $kasir->tanggal->format('d-m-Y H:i:s'),
+                'total_qty' => $kasir->total_qty,
+                'total_nominal' => RupiahGenerate::build($kasir->total_nominal ?? 0),
+                'total_bayar' => RupiahGenerate::build($kasir->total_bayar ?? 0),
+                'total_diskon' => RupiahGenerate::build($kasir->total_diskon ?? 0),
                 'total_kembalian' => RupiahGenerate::build(max(0, $kasir->total_bayar - $kasir->total_nominal)),
-                'total'           => RupiahGenerate::build(($kasir->total_nominal - $kasir->total_diskon) ?? 0),
+                'total' => RupiahGenerate::build(($kasir->total_nominal - $kasir->total_diskon) ?? 0),
 
-                'users'  => $kasir->createdBy ?? null,
+                'users' => $kasir->createdBy ?? null,
                 'member' => $kasir->member ? $kasir->member->nama : 'Guest',
-                'toko'   => $kasir->toko ?? null,
+                'toko' => $kasir->toko ?? null,
                 'kasbon' => $kasir->kasbon ?? null,
             ],
 
             'detail_kasir' => $detailKasir->map(function ($item) {
                 $barang = TextGenerate::smartTail($item->stockBarangBatch->stockBarang->barang->nama) ?? '-';
                 $qrcode = $item->qrcode ?? null;
-                $retur = ($item->retur_qty ?? 0) > 0 ? "— Qty Retur: {$item->retur_qty}" : "";
+                $retur = ($item->retur_qty ?? 0) > 0 ? "— Qty Retur: {$item->retur_qty}" : '';
+
                 return [
-                    'id'        => $item->id,
-                    'qty'       => $item->qty,
-                    'harga'     => RupiahGenerate::build($item->nominal),
-                    'subtotal'  => RupiahGenerate::build($item->subtotal),
-                    'qrcode'    => $qrcode,
-                    'barang'    => [
+                    'id' => $item->id,
+                    'qty' => $item->qty,
+                    'harga' => RupiahGenerate::build($item->nominal),
+                    'subtotal' => RupiahGenerate::build($item->subtotal),
+                    'qrcode' => $qrcode,
+                    'barang' => [
                         'nama_barang' => $barang,
                     ],
                     'text' => "
@@ -160,7 +169,7 @@ class TransaksiKasirRepo
                                 </small>
                             </div>
                         </div>
-                    "
+                    ",
                 ];
             }),
 
@@ -180,7 +189,7 @@ class TransaksiKasirRepo
             ->firstOrFail();
 
         $detailKasir = TransaksiKasirDetail::with([
-            'stockBarangBatch.stockBarang.barang:id,nama'
+            'stockBarangBatch.stockBarang.barang:id,nama',
         ])
             ->where('transaksi_kasir_id', $kasir->id)
             ->get();
@@ -189,28 +198,28 @@ class TransaksiKasirRepo
          * GROUPING DETAIL STRUK
          * ========================= */
         $groupedDetails = $detailKasir
-            ->groupBy(fn($item) => $item->stockBarangBatch->stockBarang->barang_id)
+            ->groupBy(fn ($item) => $item->stockBarangBatch->stockBarang->barang_id)
             ->map(function ($items) {
                 $first = $items->first();
 
                 $barang = $first->stockBarangBatch->stockBarang->barang ?? null;
 
-                $totalQty   = $items->sum('qty');
+                $totalQty = $items->sum('qty');
                 $totalHarga = $items->sum('subtotal');
                 $totalDiskon = $items->sum('diskon');
 
                 return [
-                    'barang_id'   => $barang->id ?? null,
+                    'barang_id' => $barang->id ?? null,
                     'nama_barang' => TextGenerate::smartTail($barang->nama ?? '-'),
 
-                    'qty'         => $totalQty,
+                    'qty' => $totalQty,
 
                     // 🔥 lebih akurat (kalau beda batch beda harga)
-                    'harga'       => RupiahGenerate::build(
+                    'harga' => RupiahGenerate::build(
                         $totalQty > 0 ? $totalHarga / $totalQty : 0
                     ),
 
-                    'diskon'      => RupiahGenerate::build($totalDiskon ?? 0),
+                    'diskon' => RupiahGenerate::build($totalDiskon ?? 0),
 
                     'total_harga' => RupiahGenerate::build($totalHarga),
                 ];
@@ -222,29 +231,29 @@ class TransaksiKasirRepo
          * ========================= */
         return [
             'toko' => [
-                'nama'   => $kasir->toko->nama ?? '-',
+                'nama' => $kasir->toko->nama ?? '-',
                 'alamat' => $kasir->toko->alamat ?? '-',
             ],
 
             'nota' => [
                 'no_nota' => $kasir->nota,
                 'tanggal' => $kasir->tanggal->format('d-m-Y H:i:s'),
-                'member'  => $kasir->member
+                'member' => $kasir->member
                     ? $kasir->member->nama
                     : 'Guest',
-                'kasir'   => $kasir->createdBy->nama ?? '-',
+                'kasir' => $kasir->createdBy->nama ?? '-',
             ],
 
             'detail' => $groupedDetails,
 
             'total' => [
-                'total_harga'     => RupiahGenerate::build($kasir->total_nominal ?? 0),
-                'total_potongan'  => RupiahGenerate::build($kasir->total_diskon ?? 0),
-                'total_bayar'     => RupiahGenerate::build(
+                'total_harga' => RupiahGenerate::build($kasir->total_nominal ?? 0),
+                'total_potongan' => RupiahGenerate::build($kasir->total_diskon ?? 0),
+                'total_bayar' => RupiahGenerate::build(
                     ($kasir->total_nominal - $kasir->total_diskon) ?? 0
                 ),
-                'dibayar'         => RupiahGenerate::build($kasir->total_bayar ?? 0),
-                'kembalian'       => RupiahGenerate::build(
+                'dibayar' => RupiahGenerate::build($kasir->total_bayar ?? 0),
+                'kembalian' => RupiahGenerate::build(
                     max(0, ($kasir->total_bayar ?? 0) - ($kasir->total_nominal ?? 0))
                 ),
                 'sisa_pembayaran' => RupiahGenerate::build(0),
@@ -260,13 +269,14 @@ class TransaksiKasirRepo
         if ($item) {
             $item->update($data);
         }
+
         return $item;
     }
 
     public function delete($id, $data)
     {
         $item = $this->model::where('public_id', $id)->first();
-        if (!$item) {
+        if (! $item) {
             return false;
         }
 

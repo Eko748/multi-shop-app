@@ -31,7 +31,7 @@ class StockBarangBatchRepository
         // =========================
         // FILTER SEARCH
         // =========================
-        if (!empty($filter->search)) {
+        if (! empty($filter->search)) {
             $search = strtolower($filter->search);
 
             $query->where(function ($q) use ($search) {
@@ -43,7 +43,7 @@ class StockBarangBatchRepository
         // =========================
         // FILTER TOKO
         // =========================
-        if (!empty($filter->toko_id)) {
+        if (! empty($filter->toko_id)) {
             $query->where("{$table}.toko_id", $filter->toko_id);
         }
 
@@ -53,25 +53,33 @@ class StockBarangBatchRepository
         $query->groupBy('barang.qrcode', 'barang.nama')
             ->orderByDesc('created_at');
 
-        return !empty($filter->limit)
+        return ! empty($filter->limit)
             ? $query->paginate($filter->limit)
             : $query->get();
     }
 
     public function getByQR($filter)
     {
-        $query = $this->model
-            ->selectRaw($this->model->getTable() . '.*, barang.qrcode')
-            ->join('stock_barang', 'stock_barang.id', '=', $this->model->getTable() . '.stock_barang_id')
-            ->join('barang', 'barang.id', '=', 'stock_barang.barang_id')
-            ->where($this->model->getTable() . '.qty_sisa', '>', 0)
-            ->where($this->model->getTable() . '.toko_id', $filter->toko_id);
+        $currentTable = $this->model->getTable();
 
-        if (!empty($filter->search)) {
+        $query = $this->model
+            ->selectRaw("
+            {$currentTable}.*,
+            barang.id as barang_id,
+            barang.nama as barang_nama,
+            barang.qrcode
+        ")
+            ->join('stock_barang', 'stock_barang.id', '=', $currentTable.'.stock_barang_id')
+            ->join('barang', 'barang.id', '=', 'stock_barang.barang_id')
+            ->where($currentTable.'.qty_sisa', '>', 0)
+            ->where($currentTable.'.toko_id', $filter->toko_id);
+
+        if (! empty($filter->search)) {
             $query->where('barang.qrcode', $filter->search);
         }
 
-        return $query->first();
+        // Urutkan dari batch tertua dan ambil semua data (array/collection)
+        return $query->orderBy($currentTable.'.id', 'asc')->get();
     }
 
     public function getDetailByQR($filter)
@@ -91,10 +99,10 @@ class StockBarangBatchRepository
     {
         return $this->model
             ->selectRaw('SUM(qty_sisa) as total_qty')
-            ->join('stock_barang', 'stock_barang.id', '=', $this->model->getTable() . '.stock_barang_id')
+            ->join('stock_barang', 'stock_barang.id', '=', $this->model->getTable().'.stock_barang_id')
             ->join('barang', 'barang.id', '=', 'stock_barang.barang_id')
             ->where('barang.qrcode', $filter->search)
-            ->where($this->model->getTable() . '.toko_id', $filter->toko_id)
+            ->where($this->model->getTable().'.toko_id', $filter->toko_id)
             ->value('total_qty');
     }
 }

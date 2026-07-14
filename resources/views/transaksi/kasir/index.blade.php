@@ -221,7 +221,7 @@
         let defaultLimitPage = 30;
         let currentPage = 1;
         let totalPage = 1;
-        let defaultAscending = 0;    
+        let defaultAscending = 0;
         let defaultSearch = '';
         let customFilter = {};
         let selectOptions = [{
@@ -299,6 +299,7 @@
                     ascending: ascending,
                     search: search,
                     toko_id: {{ auth()->user()->toko_id }},
+                    role_id: {{ auth()->user()->role_id }},
                     ...filterParams
                 }
             ).then(function(response) {
@@ -384,6 +385,11 @@
                 <small class="text-bold">${infoUser}</small>
             </div>`;
 
+            let tokoBody;
+            if ({{ auth()->user()->role_id }} == 1) {
+                tokoBody = `<td class="text-wrap align-top">${data?.toko}</td>`;
+            }
+
             return {
                 id: data?.id ?? '-',
                 nota: data?.nota ?? '-',
@@ -395,6 +401,7 @@
                 detail_button,
                 delete_button,
                 print_button,
+                tokoBody,
                 info
             };
         }
@@ -405,6 +412,10 @@
             let display_from = ((defaultLimitPage * (currentPage - 1)) + 1);
             let display_to = Math.min(display_from + dataList.length - 1, pagination.total);
             let tdClass = 'text-wrap align-top';
+            let tokoHeader;
+            if ({{ auth()->user()->role_id }} == 1) {
+                tokoHeader = `<th scope="col" class="text-wrap align-top" style="width:15%">Toko</th>`;
+            }
             let getDataTable = `
             <div class="col-12">
                 <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light">
@@ -414,6 +425,7 @@
                                 <thead class="glossy-thead">
                                     <tr>
                                         <th scope="col" class="${tdClass} text-center" style="width:5%">No</th>
+                                        ${tokoHeader}
                                         <th scope="col" class="${tdClass}" style="width:15%">Tanggal</th>
                                         <th scope="col" class="${tdClass}" style="width:15%">Informasi</th>
                                         <th scope="col" class="${tdClass}" style="width:15%">Nota</th>
@@ -425,7 +437,7 @@
                                 </thead>
                                 <thead>
                                     <tr>
-                                        <th colspan="5" class="${tdClass} text-right"></th>
+                                        <th colspan="${tokoHeader ? 6 : 5}" class="${tdClass} text-right"></th>
                                         <th class="${tdClass} text-center"><span class="badge badge-primary">${total.qty || 0}</span></th>
                                         <th class="${tdClass} text-right"><span class="badge badge-primary">${total.nominal || 0}</span></th>
                                         <th></th>
@@ -440,10 +452,10 @@
                     <div class="d-flex justify-content-center flex-column flex-sm-row align-items-center align-items-sm-start mx-3" style="gap: 0.5rem;">
                         ${hasButtons
                             ? `
-                                                                            ${element.print_button || ''}
-                                                                            ${element.detail_button || ''}
-                                                                            ${element.delete_button || ''}
-                                                                           `
+                                                                                ${element.print_button || ''}
+                                                                                ${element.detail_button || ''}
+                                                                                ${element.delete_button || ''}
+                                                                               `
                             : `<i class="text-muted">Tidak ada aksi</span>`
                         }
                     </div>
@@ -452,6 +464,7 @@
                 getDataTable += `
                     <tr class="glossy-tr">
                         <td class="${tdClass} text-center">${number}</td>
+                        ${element.tokoBody}
                         <td class="${tdClass}">${element.tanggal}</td>
                         <td class="${tdClass}">${element.info}</td>
                         <td class="${tdClass}">${element.nota}</td>
@@ -937,7 +950,7 @@
                         <tr class="bg-light"><td colspan="3"><b>Total</b></td><td class="text-right"><b>${total}</b></td></tr>
                         <tr class="bg-success text-white"><td colspan="3">Dibayar</td><td class="text-right">${jmlBayar}</td></tr>
                         ${kembalian != 0 ? `
-                                                                                                                    <tr class="bg-info text-white"><td colspan="3">Kembalian</td><td class="text-right">${kembalian}</td></tr>` : ''}
+                                                                                                                        <tr class="bg-info text-white"><td colspan="3">Kembalian</td><td class="text-right">${kembalian}</td></tr>` : ''}
                     </tfoot>
                 </table>
 

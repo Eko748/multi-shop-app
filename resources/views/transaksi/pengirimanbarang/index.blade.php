@@ -1321,44 +1321,60 @@
                     toko_id: {{ auth()->user()->toko_id }}
                 });
 
-                if (!res.data || !res.data.data) {
+                // Backend sekarang mengembalikan array di dalam res.data (atau res.data.data)
+                // Sesuaikan dengan format response wrapper API Anda.
+                let batchList = res.data;
+
+                // Jika response dibungkus lagi oleh object data (misal: res.data.data)
+                if (res.data && res.data.data) {
+                    batchList = res.data.data;
+                }
+
+                // Validasi jika array kosong atau tidak ditemukan
+                if (!batchList || !Array.isArray(batchList) || batchList.length === 0) {
                     showScanInfo("❌ Batch tidak ditemukan", "text-danger");
                     return;
                 }
 
-                let data = res.data.data;
-                let maxQty = parseInt(data.qty_sisa);
+                let totalDitambahkan = 0;
+                let totalDiupdate = 0;
 
-                let existingRow = $(`#table-detail tbody tr`)
-                    .filter(function() {
+                // Loop setiap batch yang dikirim oleh backend
+                batchList.forEach(function(data) {
+                    let maxQty = parseInt(data.qty_sisa);
+                    if (maxQty <= 0) return; // Skip jika batch ini ternyata kosong
+
+                    // Cari apakah batch ID ini sudah ada di tabel detail
+                    let existingRow = $(`#table-detail tbody tr`).filter(function() {
                         return $(this).find(".stock_batch_id").val() == data.id;
                     });
 
-                if (existingRow.length) {
-                    let qtyInput = existingRow.find(".qty_send");
-                    let currentQty = parseInt(qtyInput.val());
+                    if (existingRow.length) {
+                        let qtyInput = existingRow.find(".qty_send");
+                        let currentQty = parseInt(qtyInput.val());
 
-                    if (currentQty >= maxQty) {
-                        showScanInfo(`⚠️ Qty sudah maksimal (${maxQty})`, "text-warning");
-                        return;
+                        if (currentQty < maxQty) {
+                            qtyInput.val(currentQty + 1);
+                            totalDiupdate++;
+                            // Pindahkan ke paling atas agar kasir tahu data ini baru di-update
+                            $("#table-detail tbody").prepend(existingRow);
+                        }
+                    } else {
+                        // Jika belum ada di tabel, tambahkan baris baru dengan Qty awal = 1
+                        addRow(data, maxQty);
+                        totalDitambahkan++;
                     }
+                });
 
-                    qtyInput.val(currentQty + 1);
-                    showScanInfo(`✅ Qty ditambah (${currentQty + 1}/${maxQty})`, "text-success");
-
-                    $("#table-detail tbody").prepend(existingRow);
-                    return;
+                // Berikan info feedback scan yang informatif ke user
+                if (totalDitambahkan > 0 || totalDiupdate > 0) {
+                    showScanInfo(`✅ Berhasil memproses ${batchList.length} batch barang`, "text-success");
+                } else {
+                    showScanInfo("⚠️ Semua batch di tabel sudah mencapai batas maksimal stok", "text-warning");
                 }
 
-                if (maxQty <= 0) {
-                    showScanInfo("⚠️ Stok sudah habis", "text-warning");
-                    return;
-                }
-
-                addRow(data, maxQty);
-                showScanInfo("✅ Ditambahkan", "text-success");
-
-            } catch {
+            } catch (error) {
+                console.error(error);
                 showScanInfo("⚠️ Error mencari batch", "text-warning");
             }
         }
@@ -1379,36 +1395,43 @@
         function addRow(data, maxQty) {
             const tbody = $("#table-detail tbody");
 
+            // Hapus row kosong jika ada
             tbody.find(".empty-row").remove();
 
+            // Buat element string HTML
             let row = `
-                <tr>
-                    <td class="row-number text-center"></td>
-                    <td>${data.text}</td>
-                    <td class="text-right">${data.format_hpp_baru}</td>
-                    <td>
-                        <input type="number" class="form-control qty_send"
-                            min="1" max="${maxQty}" value="1" required>
-                    </td>
-                    <td class="text-center">
-                        <button type="button" class="btn btn-danger btn-sm remove-item">
-                            <i class="fa fa-trash"></i>
-                        </button>
-                    </td>
-                    <input type="hidden" class="barang_id" value="${data.barang_id}">
-                    <input type="hidden" class="stock_batch_id" value="${data.id}">
-                </tr>
-            `;
+        <tr>
+            <td class="row-number text-center"></td>
+            <td>${data.text}</td>
+            <td class="text-right">${data.format_harga_beli}</td>
+            <td>
+                <input type="number" class="form-control qty_send"
+                    min="1" max="${maxQty}" value="1" required>
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn btn-danger btn-sm remove-item">
+                    <i class="fa fa-trash"></i>
+                </button>
+            </td>
+            <input type="hidden" class="barang_id" value="${data.barang_id}">
+            <input type="hidden" class="stock_batch_id" value="${data.id}">
+        </tr>
+    `;
 
+            // Pastikan prepend selesai dilakukan ke DOM
             tbody.prepend(row);
 
+            // Jalankan kalkulasi ulang nomor baris
             updateRowNumbers();
         }
 
         function updateRowNumbers() {
-            $("#table-detail tbody tr").each(function(index) {
-                $(this).find(".row-number").text(index + 1);
-            });
+            // Gunakan setTimeOut opsional untuk memastikan DOM sudah benar-benar render sempurna
+            setTimeout(function() {
+                $("#table-detail tbody tr").each(function(index) {
+                    $(this).find(".row-number").text(index + 1);
+                });
+            }, 50);
         }
 
         function verifyData() {

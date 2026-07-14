@@ -112,13 +112,14 @@ class PengirimanBarangService
         $query = $this->repo3->getAll($filter);
 
         $data = collect(method_exists($query, 'items') ? $query->items() : $query)->map(function ($item) {
-            $img = AssetGenerate::build("qrcodes/barang/{$item->barang->qrcode}.png");
+            $qrcode = $item->barang->qrcode ?? null;
+            $img = AssetGenerate::build("qrcodes/barang/{$qrcode}.png");
             $nama = TextGenerate::smartTail($item->barang->nama);
 
             // 1. AMANKAN DISINI (Gunakan ?->)
             $stok = $item->batch?->qty_sisa ?? 0;
             $hargaBeli = $item->batch?->harga_beli ?? 0;
-            $tanggal = $item->created_at ? $item->created_at->format('d-m-Y H:i:s') : '-';
+            $tglPembelian = $item->created_at ? $item->created_at->format('d/m/Y') : '-';
 
             return [
                 'id' => $item->id,
@@ -134,13 +135,15 @@ class PengirimanBarangService
                 'created_at' => $item->created_at ?? null,
                 'stock_barang_batch_id' => $item->stock_barang_batch_id ?? null,
                 'text' => "
-                <div style='display: flex; align-items: center; gap: 8px;' class='p-1'>
-                    <img src='{$img}' width='28' height='28' style='border-radius: 3px;'>
-                    <div style='display: flex; flex-direction: column; line-height: 1.2;'>
-                        <span style='font-weight: 550; font-size: 12px;'>{$nama}</span>
-                        <small class='text-dark'>
-                            Stok: {$stok}
-                        </small>
+                <div style='display:flex;align-items:center;gap:8px' class='p-1'>
+                    <img src='{$img}' width='28' height='28' style='border-radius:3px'>
+
+                    <div style='display:flex;flex-direction:column;line-height:1.2;flex-grow:1'>
+                        <span style='font-weight:550;font-size:12px'>{$nama}</span>
+                        <div style='display:flex;justify-content:between;width:100%;color:#6c757d;font-size:11px;'>
+                            <span>{$qrcode} — <span class='font-weight-bold text-dark'>Stok: {$stok}</span></span>
+                            <span style='margin-left:auto;'>Tgl Pembelian: {$tglPembelian}</span>
+                        </div>
                     </div>
                 </div>
             ",

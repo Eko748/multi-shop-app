@@ -63,6 +63,7 @@ class TransaksiKasirController extends Controller
                 $request,
                 30,
                 [
+                    'role_id' => $request->input('role_id'),
                     'toko_id' => $request->input('toko_id'),
                     'nota' => $request->input('nota'),
                 ]

@@ -39,8 +39,8 @@ class TransaksiKasirService
     {
         $query = $this->repository->getAll($filter);
 
-        $data = collect(method_exists($query, 'items') ? $query->items() : $query)->map(function ($item) {
-            return [
+        $data = collect(method_exists($query, 'items') ? $query->items() : $query)->map(function ($item) use ($filter) {
+            $res = [
                 'id' => $item->public_id,
                 'nota' => $item->nota,
                 'member' => $item->member ? $item->member->nama : 'Guest',
@@ -50,6 +50,12 @@ class TransaksiKasirService
                 'created_at' => $item->created_at ?? null,
                 'created_by' => $item->createdBy->nama ?? 'System',
             ];
+
+            if ($filter->role_id == 1) {
+                $res['toko'] = $item->toko ? $item->toko->singkatan : 'Tidak Diketahui';
+            }
+
+            return $res;
         });
 
         return [

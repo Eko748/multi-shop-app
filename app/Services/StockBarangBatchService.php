@@ -66,67 +66,57 @@ class StockBarangBatchService
 
     public function getByQR($filter)
     {
-        $item = $this->repository->getByQR($filter);
+        $items = $this->repository->getByQR($filter);
 
-        if (! $item) {
+        // Jika data kosong, kirim array kosong
+        if ($items->isEmpty()) {
             return [
-                'data' => null,
+                'data' => [],
             ];
         }
 
-        // =========================
-        // SAFE ACCESS
-        // =========================
-        $barang = $item->stockBarang->barang ?? null;
-        $qrcode = $barang->qrcode ?? null;
+        // Map setiap batch menjadi element array
+        $mappedData = $items->map(function ($item) {
+            $qrcode = $item->qrcode ?? null;
+            $img = $qrcode ? AssetGenerate::build("qrcodes/barang/{$qrcode}.png") : '';
 
-        // =========================
-        // ASSET
-        // =========================
-        $img = $qrcode
-            ? AssetGenerate::build("qrcodes/barang/{$qrcode}.png")
-            : '';
+            $nama = TextGenerate::short($item->barang_nama ?? '-');
+            $stok = $item->qty_sisa ?? 0;
 
-        // =========================
-        // INFO
-        // =========================
-        $nama = TextGenerate::short($barang->nama ?? '-');
-        $stok = $item->qty_sisa ?? 0;
-        $tanggal = $item->created_at?->format('d-m-Y H:i:s') ?? '-';
+            // Format tanggal pembelian dari created_at batch
+            $tglPembelian = $item->created_at ? $item->created_at->format('d/m/Y') : '-';
 
-        return [
-            'data' => [
-                'id' => $item->id,
-
+            return [
+                'id' => $item->id, // Ini adalah ID Batch asli
                 'qty_sisa' => $stok,
                 'hpp_baru' => $item->hpp_baru ?? 0,
                 'format_hpp_baru' => RupiahGenerate::build($item->hpp_baru ?? 0),
 
-                'barang_id' => $barang->id ?? null,
-                'barang' => $barang->nama ?? null,
+                'barang_id' => $item->barang_id ?? null,
+                'barang' => $item->barang_nama ?? null,
 
                 'harga_beli' => $item->harga_beli ?? 0,
                 'format_harga_beli' => RupiahGenerate::build($item->harga_beli ?? 0),
 
-                // 🔥 FIX UTAMA
                 'qrcode' => $qrcode,
-
-                // =========================
-                // TEXT (SELECT2)
-                // =========================
                 'text' => "
                 <div style='display:flex;align-items:center;gap:8px' class='p-1'>
                     <img src='{$img}' width='28' height='28' style='border-radius:3px'>
 
-                    <div style='display:flex;flex-direction:column;line-height:1.2'>
+                    <div style='display:flex;flex-direction:column;line-height:1.2;flex-grow:1'>
                         <span style='font-weight:550;font-size:12px'>{$nama}</span>
-                        <small class='text-dark'>
-                            {$qrcode} — <span class='font-weight-bold'>Stok: {$stok}</span>
-                        </small>
+                        <div style='display:flex;justify-content:between;width:100%;color:#6c757d;font-size:11px;'>
+                            <span>{$qrcode} — <span class='font-weight-bold text-dark'>Stok: {$stok}</span></span>
+                            <span style='margin-left:auto;'>Tgl Pembelian: {$tglPembelian}</span>
+                        </div>
                     </div>
                 </div>
             ",
-            ],
+            ];
+        });
+
+        return [
+            'data' => $mappedData->toArray(),
         ];
     }
 

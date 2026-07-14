@@ -343,51 +343,51 @@
 
         async function handleData(data) {
             let detail_button = `
-                <a class="p-1 btn detail-data action_button" data-toggle="modal" data-target=".kasirDetailModal"
-                    onclick="openDetailKasir('${data.id}')">
-                    <span class="text-dark">Detail</span>
-                    <div class="icon text-info">
-                        <i class="fa fa-book"></i>
-                    </div>
-                </a>`;
+        <a class="p-1 btn detail-data action_button" data-toggle="modal" data-target=".kasirDetailModal"
+            onclick="openDetailKasir('${data.id}')">
+            <span class="text-dark">Detail</span>
+            <div class="icon text-info">
+                <i class="fa fa-book"></i>
+            </div>
+        </a>`;
 
             let print_button = `
-                <a class="p-1 btn detail-data action_button"
-                    onclick="cetakStruk('${data.id}')">
-                    <span class="text-dark">Cetak</span>
-                    <div class="icon text-success">
-                        <i class="fa fa-print"></i>
-                    </div>
-                </a>`;
+        <a class="p-1 btn detail-data action_button"
+            onclick="cetakStruk('${data.id}')">
+            <span class="text-dark">Cetak</span>
+            <div class="icon text-success">
+                <i class="fa fa-print"></i>
+            </div>
+        </a>`;
 
             let delete_button = '';
             if (hasPermission('DELETE /transaksi-barang/kasir/delete')) {
                 delete_button = `
-                <a class="p-1 btn hapus-data action_button"
-                    data-container="body" data-toggle="tooltip" data-placement="top"
-                    onclick="deleteData('${encodeURIComponent(JSON.stringify(data))}')"
-                    title="Hapus ${title}: ${data.nota}"
-                    data-id='${data.id}'
-                    data-name='${data.nota}'>
-                    <span class="text-dark">Hapus</span>
-                    <div class="icon text-danger">
-                        <i class="fa fa-trash"></i>
-                    </div>
-                </a>`;
+        <a class="p-1 btn hapus-data action_button"
+            data-container="body" data-toggle="tooltip" data-placement="top"
+            onclick="deleteData('${encodeURIComponent(JSON.stringify(data))}')"
+            title="Hapus ${title}: ${data.nota}"
+            data-id='${data.id}'
+            data-name='${data.nota}'>
+            <span class="text-dark">Hapus</span>
+            <div class="icon text-danger">
+                <i class="fa fa-trash"></i>
+            </div>
+        </a>`;
             }
             let infoText = 'Dibuat oleh:';
             let infoUser = `${data.created_by || '-'}`;
             let infoTime = `${data.created_at || '-'}`;
 
             const info = `
-            <div>
-                <small class="text-muted">${infoText}</small>
-                <small class="text-bold">${infoUser}</small>
-            </div>`;
+    <div>
+        <small class="text-muted">${infoText}</small>
+        <small class="text-bold">${infoUser}</small>
+    </div>`;
 
-            let tokoBody;
+            let tokoBody = '';
             if ({{ auth()->user()->role_id }} == 1) {
-                tokoBody = `<td class="text-wrap align-top">${data?.toko}</td>`;
+                tokoBody = `<td class="text-wrap align-top">${data?.toko ?? '-'}</td>`;
             }
 
             return {
@@ -412,77 +412,81 @@
             let display_from = ((defaultLimitPage * (currentPage - 1)) + 1);
             let display_to = Math.min(display_from + dataList.length - 1, pagination.total);
             let tdClass = 'text-wrap align-top';
+
+            let isRoleAdmin = {{ auth()->user()->role_id }} == 1;
             let tokoHeader = '';
-            if ({{ auth()->user()->role_id }} == 1) {
-                tokoHeader = `<th scope="col" class="text-wrap align-top" style="width:5%">Toko</th>`;
+
+            if (isRoleAdmin) {
+                tokoHeader = `<th scope="col" class="text-wrap align-top" style="width:10%">Toko</th>`;
             }
+
             let getDataTable = `
-            <div class="col-12">
-                <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light">
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-hover m-0">
-                                <thead class="glossy-thead">
-                                    <tr>
-                                        <th scope="col" class="${tdClass} text-center" style="width:5%">No</th>
-                                        ${tokoHeader}
-                                        <th scope="col" class="${tdClass}" style="width:15%">Tanggal</th>
-                                        <th scope="col" class="${tdClass}" style="width:15%">Informasi</th>
-                                        <th scope="col" class="${tdClass}" style="width:15%">Nota</th>
-                                        <th scope="col" class="${tdClass}" style="width:10%">Member</th>
-                                        <th scope="col" class="${tdClass} text-center" style="width:5%">Qty</th>
-                                        <th scope="col" class="${tdClass} text-right" style="width:10%">Nominal</th>
-                                        <th scope="col" class="${tdClass} text-center" style="width:25%">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <thead>
-                                    <tr>
-                                        <th colspan="${tokoHeader ? 6 : 5}" class="${tdClass} text-right"></th>
-                                        <th class="${tdClass} text-center"><span class="badge badge-primary">${total.qty || 0}</span></th>
-                                        <th class="${tdClass} text-right"><span class="badge badge-primary">${total.nominal || 0}</span></th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody>`;
+    <div class="col-12">
+        <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover m-0">
+                        <thead class="glossy-thead">
+                            <tr>
+                                <th scope="col" class="${tdClass} text-center" style="width:5%">No</th>
+                                ${tokoHeader}
+                                <th scope="col" class="${tdClass}" style="width:15%">Tanggal</th>
+                                <th scope="col" class="${tdClass}" style="width:15%">Informasi</th>
+                                <th scope="col" class="${tdClass}" style="width:15%">Nota</th>
+                                <th scope="col" class="${tdClass}" style="width:10%">Member</th>
+                                <th scope="col" class="${tdClass} text-center" style="width:5%">Qty</th>
+                                <th scope="col" class="${tdClass} text-right" style="width:10%">Nominal</th>
+                                <th scope="col" class="${tdClass} text-center" style="width:25%">Aksi</th>
+                            </tr>
+                        </thead>
+                        <thead>
+                            <tr>
+                                <th colspan="${tokoHeader !== '' ? 6 : 5}" class="${tdClass} text-right">Total:</th>
+                                <th class="${tdClass} text-center"><span class="badge badge-primary">${total.qty || 0}</span></th>
+                                <th class="${tdClass} text-right"><span class="badge badge-primary">${total.nominal || 0}</span></th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
 
             dataList.forEach((element, index) => {
                 const number = display_from + index;
                 const hasButtons = element.detail_button || element.print_button || element.delete_button;
                 const actionHTML = `
-                    <div class="d-flex justify-content-center flex-column flex-sm-row align-items-center align-items-sm-start mx-3" style="gap: 0.5rem;">
-                        ${hasButtons
-                            ? `
-                                                                                ${element.print_button || ''}
-                                                                                ${element.detail_button || ''}
-                                                                                ${element.delete_button || ''}
-                                                                               `
-                            : `<i class="text-muted">Tidak ada aksi</span>`
-                        }
-                    </div>
-                `;
+            <div class="d-flex justify-content-center flex-column flex-sm-row align-items-center align-items-sm-start mx-3" style="gap: 0.5rem;">
+                ${hasButtons
+                    ? `
+                                                                                                            ${element.print_button || ''}
+                                                                                                            ${element.detail_button || ''}
+                                                                                                            ${element.delete_button || ''}
+                                                                                                           `
+                    : `<i class="text-muted">Tidak ada aksi</i>`
+                }
+            </div>
+        `;
 
                 getDataTable += `
-                    <tr class="glossy-tr">
-                        <td class="${tdClass} text-center">${number}</td>
-                        ${element.tokoBody}
-                        <td class="${tdClass}">${element.tanggal}</td>
-                        <td class="${tdClass}">${element.info}</td>
-                        <td class="${tdClass}">${element.nota}</td>
-                        <td class="${tdClass}">${element.member}</td>
-                        <td class="${tdClass} text-center">${element.qty}</td>
-                        <td class="${tdClass} text-right">${element.nominal}</td>
-                        <td class="${tdClass}">${actionHTML}</td>
-                    </tr>
-                `;
+            <tr class="glossy-tr">
+                <td class="${tdClass} text-center">${number}</td>
+                ${element.tokoBody}
+                <td class="${tdClass}">${element.tanggal}</td>
+                <td class="${tdClass}">${element.info}</td>
+                <td class="${tdClass}">${element.nota}</td>
+                <td class="${tdClass}">${element.member}</td>
+                <td class="${tdClass} text-center">${element.qty}</td>
+                <td class="${tdClass} text-right">${element.nominal}</td>
+                <td class="${tdClass}">${actionHTML}</td>
+            </tr>
+        `;
             });
 
             getDataTable += `
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                        </tbody>
+                    </table>
                 </div>
-            </div>`;
+            </div>
+        </div>
+    </div>`;
 
             $('#listData').html(getDataTable);
             $('#totalPage').text(pagination.total);
@@ -950,7 +954,7 @@
                         <tr class="bg-light"><td colspan="3"><b>Total</b></td><td class="text-right"><b>${total}</b></td></tr>
                         <tr class="bg-success text-white"><td colspan="3">Dibayar</td><td class="text-right">${jmlBayar}</td></tr>
                         ${kembalian != 0 ? `
-                                                                                                                        <tr class="bg-info text-white"><td colspan="3">Kembalian</td><td class="text-right">${kembalian}</td></tr>` : ''}
+                                                                                                                            <tr class="bg-info text-white"><td colspan="3">Kembalian</td><td class="text-right">${kembalian}</td></tr>` : ''}
                     </tfoot>
                 </table>
 

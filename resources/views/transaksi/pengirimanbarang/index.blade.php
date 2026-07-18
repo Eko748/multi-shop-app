@@ -782,7 +782,8 @@
                 let response = await renderAPI(
                     'GET',
                     '{{ route('distribusi.pengiriman.detail') }}', {
-                        id: headerData.id
+                        id: headerData.id,
+                        all: true
                     }
                 ).then(function(res) {
                     return res;
@@ -917,27 +918,39 @@
                 const w = window.open("", "_blank",
                     `width=${wWidth},height=${wHeight},left=${xLeft},top=${yTop},scrollbars=yes`);
                 w.document.write(`
-    <html>
-    <head>
-        <title>Print Nota Detail Pengiriman</title>
-        <style>
-            body { font-family: monospace; padding: 5px; margin: 0; }
-            table { width: 100%; border-collapse: collapse; }
-            td, th { padding: 2px 1px; word-break: break-word; }
-            .text-right { text-align: right; }
-            .text-center { text-align: center; }
-            .text-left { text-align: left; }
-            @media print {
-                body { padding: 0; margin: 0; }
-                @page { margin: 0; }
-            }
-        </style>
-    </head>
-    <body onload="window.print(); window.close();">
-        ${printContent}
-    </body>
-    </html>
-`);
+                    <html>
+                    <head>
+                        <title>Print Nota Detail Pengiriman</title>
+                        <style>
+                            body { font-family: monospace; padding: 5px; margin: 0; }
+                            table { width: 100%; border-collapse: collapse; }
+                            td, th { padding: 2px 1px; word-break: break-word; }
+                            .text-right { text-align: right; }
+                            .text-center { text-align: center; }
+                            .text-left { text-align: left; }
+                            @media print {
+                                body { padding: 0; margin: 0; }
+                                @page { margin: 0; }
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        ${printContent}
+
+                        <script>
+                            // Jalankan fungsi cetak setelah halaman selesai dimuat sempurna
+                            window.addEventListener('load', function() {
+                                window.print();
+                            });
+
+                            // Tutup jendela HANYA SETELAH proses cetak selesai / dibatalkan
+                            window.addEventListener('afterprint', function() {
+                                window.close();
+                            });
+                        </script>
+                    </body>
+                    </html>
+                `);
                 w.document.close();
 
             } catch (error) {

@@ -917,6 +917,7 @@
 
                 const w = window.open("", "_blank",
                     `width=${wWidth},height=${wHeight},left=${xLeft},top=${yTop},scrollbars=yes`);
+
                 w.document.write(`
     <html>
     <head>
@@ -936,21 +937,21 @@
     </head>
     <body>
         ${printContent}
-
-        <script>
-            // Menggunakan tanda kutip biasa agar tidak bertabrakan dengan backtick luar
-            window.addEventListener('load', function() {
-                window.print();
-            });
-
-            window.addEventListener('afterprint', function() {
-                window.close();
-            });
-        </script>
     </body>
     </html>
 `);
+
                 w.document.close();
+
+                setTimeout(() => {
+                    // Jalankan cetak pada window baru
+                    w.print();
+
+                    // Dengarkan event setelah selesai cetak/batal, lalu tutup window-nya
+                    w.addEventListener('afterprint', () => {
+                        w.close();
+                    });
+                }, 500);
 
             } catch (error) {
                 console.error(error);

@@ -405,7 +405,8 @@
                 let response = await renderAPI(
                     'GET',
                     '{{ route('distribusi.pengiriman.detail') }}', {
-                        id: headerData.id
+                        id: headerData.id,
+                        all: true
                     }
                 ).then(function(res) {
                     return res;

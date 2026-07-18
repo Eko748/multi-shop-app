@@ -203,9 +203,14 @@ class PengirimanBarangController extends Controller
     public function detail(Request $request)
     {
         try {
+            $all = $request->input('all');
+            $limit = 30;
+            if ($all == true) {
+                $limit = 1000;
+            }
             $filter = $this->makeFilter(
                 $request,
-                30,
+                $limit,
                 [
                     'id' => $request->input('id'),
                     'toko_id' => $request->input('toko_id'),

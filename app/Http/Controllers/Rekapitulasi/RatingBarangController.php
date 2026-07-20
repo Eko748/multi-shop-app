@@ -123,7 +123,11 @@ class RatingBarangController extends Controller
             foreach ($barangList as $barang) {
                 $barangId = $barang->barang_id;
                 $barangName = $barang->barang->nama;
-                $stockNow = $barang->stockBarangBatch->sum('qty_sisa');
+
+                // Mengambil total stok dari semua batch barang ini
+                $stockNow = $barang->stockBarangBatch ? $barang->stockBarangBatch->sum('qty_sisa') : 0;
+
+                // Inisialisasi array toko dengan nilai 0
                 $dataPerToko = array_fill_keys(array_values($tokoMap), ['terjual' => 0]);
 
                 $matchedData = $rawData->where('barang_id', $barangId);
@@ -132,9 +136,11 @@ class RatingBarangController extends Controller
 
                 if ($matchedData->isNotEmpty()) {
                     foreach ($matchedData as $item) {
-                        $tokoId = $request->toko_id;
+                        // PERBAIKAN 1: Gunakan $item->toko_id, BUKAN $request->toko_id
+                        $tokoId = $item->toko_id;
                         $tokoNama = $tokoMap[$tokoId] ?? 'Unknown Toko';
                         $netTerjual = (int) $item->net_terjual;
+
                         $dataPerToko[$tokoNama]['terjual'] = $netTerjual;
                         $totalTerjual += $netTerjual;
 
@@ -143,8 +149,8 @@ class RatingBarangController extends Controller
                         }
                     }
                 } else {
-                    $stockInfo = $barang->first();
-                    $hppJual = $stockInfo ? $stockInfo->hpp_baru : 0;
+                    // PERBAIKAN 2: Langsung ambil dari objek $barang saat ini, jangan gunakan ->first()
+                    $hppJual = $barang ? (float) $barang->hpp_baru : 0;
                 }
 
                 if ($totalTerjual === 0 && ! $allowShowEmptyItems) {

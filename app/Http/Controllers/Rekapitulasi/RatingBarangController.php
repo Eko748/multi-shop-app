@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Rekapitulasi;
 
 use App\Http\Controllers\Controller;
-use App\Models\Barang;
 use App\Models\StockBarang;
 use App\Models\Toko;
 use App\Models\TransaksiKasirDetail;
@@ -121,35 +120,40 @@ class RatingBarangController extends Controller
             $grouped = [];
 
             foreach ($barangList as $barang) {
-                $barangId = $barang->barang_id;
+                // Pastikan dicast ke int agar tidak konflik String vs Integer
+                $barangId = (int) $barang->barang_id;
                 $barangName = $barang->barang->nama;
-
-                // Mengambil total stok dari semua batch barang ini
                 $stockNow = $barang->stockBarangBatch ? $barang->stockBarangBatch->sum('qty_sisa') : 0;
 
-                // Inisialisasi array toko dengan nilai 0
+                // Inisialisasi default 0 untuk semua toko pilihan
                 $dataPerToko = array_fill_keys(array_values($tokoMap), ['terjual' => 0]);
 
-                $matchedData = $rawData->where('barang_id', $barangId);
+                // PERBAIKAN: Gunakan fungsi callback untuk memastikan perbandingan tipe data aman
+                $matchedData = $rawData->filter(function ($item) use ($barangId) {
+                    return (int) $item->barang_id === $barangId;
+                });
+
                 $totalTerjual = 0;
                 $hppJual = 0;
 
                 if ($matchedData->isNotEmpty()) {
                     foreach ($matchedData as $item) {
-                        // PERBAIKAN 1: Gunakan $item->toko_id, BUKAN $request->toko_id
-                        $tokoId = $item->toko_id;
-                        $tokoNama = $tokoMap[$tokoId] ?? 'Unknown Toko';
-                        $netTerjual = (int) $item->net_terjual;
+                        // Pastikan toko_id dicast ke int juga
+                        $tokoId = (int) $item->toko_id;
+                        $tokoNama = $tokoMap[$tokoId] ?? null;
 
-                        $dataPerToko[$tokoNama]['terjual'] = $netTerjual;
-                        $totalTerjual += $netTerjual;
+                        // Jika nama toko ditemukan di map, masukkan nilainya
+                        if ($tokoNama) {
+                            $netTerjual = (int) $item->net_terjual;
+                            $dataPerToko[$tokoNama]['terjual'] = $netTerjual;
+                            $totalTerjual += $netTerjual;
+                        }
 
                         if ($item->hpp_jual > 0) {
                             $hppJual = (float) $item->hpp_jual;
                         }
                     }
                 } else {
-                    // PERBAIKAN 2: Langsung ambil dari objek $barang saat ini, jangan gunakan ->first()
                     $hppJual = $barang ? (float) $barang->hpp_baru : 0;
                 }
 

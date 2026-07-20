@@ -39,27 +39,28 @@ class RatingBarangController extends Controller
             $endDate = $request->input('endDate');
             $jenisBarang = $request->input('jenis_barang');
 
-            $toko = Toko::find($request->toko_id);
-            $userToko = $toko->id;
-            $userTokoName = $toko->nama ?? 'Toko User';
+            // PAYLOAD BARU: role_id dan toko_id user
+            $roleId = (int) $request->input('role_id');
+            $userTokoId = $request->input('toko_id');
 
-            $selectedTokoIds = $request->input('toko_select', []);
-            if (in_array(1, $selectedTokoIds)) {
-                $selectedTokoIds = Toko::pluck('id')->toArray();
-            }
-            if (empty($selectedTokoIds)) {
-                $selectedTokoIds = Toko::pluck('id')->toArray();
-            }
-
-            $tokoMap = Toko::whereIn('id', $selectedTokoIds)->pluck('singkatan', 'id')->toArray();
-            if ($userToko && array_key_exists($userToko, $tokoMap)) {
-                $tokoMap[$userToko] = $userTokoName;
+            // 1. Tentukan toko mana saja yang boleh diakses
+            if ($roleId === 1) {
+                // Jika admin, ambil semua toko
+                $tokoMap = Toko::pluck('singkatan', 'id')->toArray();
+                $selectedTokoIds = array_keys($tokoMap);
+            } else {
+                // Jika bukan admin, kunci hanya untuk toko si user
+                $toko = Toko::find($userTokoId);
+                $tokoNama = $toko->nama ?? $toko->singkatan ?? 'Toko User';
+                $tokoMap = [$userTokoId => $tokoNama];
+                $selectedTokoIds = [$userTokoId];
             }
 
             $hasSearch = ! empty($search);
             $hasDate = ! empty($startDate) && ! empty($endDate);
             $allowShowEmptyItems = $hasSearch;
 
+            // 2. Query Data Transaksi Utama
             $query = TransaksiKasirDetail::select(
                 'barang.id as barang_id',
                 'barang.nama',
@@ -78,7 +79,7 @@ class RatingBarangController extends Controller
                         ->on('barang.id', '=', 'retur_member_detail.barang_id');
                 })
                 ->where('transaksi_kasir.total_qty', '>', 0)
-                ->whereIn('transaksi_kasir.toko_id', $selectedTokoIds)
+                ->whereIn('transaksi_kasir.toko_id', $selectedTokoIds) // Filter toko masuk sini
                 ->groupBy(
                     'barang.id',
                     'barang.nama',
@@ -90,6 +91,7 @@ class RatingBarangController extends Controller
             }
 
             if ($hasDate) {
+                // Tips: Pastikan format startDate dan endDate menyertakan full day interval
                 $query->whereBetween('transaksi_kasir_detail.created_at', [$startDate, $endDate]);
             } else {
                 $query->whereDate('transaksi_kasir_detail.created_at', Carbon::today());
@@ -97,8 +99,16 @@ class RatingBarangController extends Controller
 
             $rawData = $query->get();
 
+            // 3. Query Master Stock Barang (Dipakai untuk mapping nama & stok saat ini)
+            // Kita ikut filter Eager Loading stockBarangBatch berdasarkan toko terpilih agar datanya valid per toko
+            $barangQuery = StockBarang::with(['barang.jenis', 'stockBarangBatch' => function ($q) use ($selectedTokoIds) {
+                $q->whereIn('toko_id', $selectedTokoIds);
+            }]);
+
+            // Filter toko di tingkat StockBarang jika model ini menyimpan info toko_id langsung
+            // $barangQuery->whereIn('toko_id', $selectedTokoIds);
+
             if ($allowShowEmptyItems) {
-                $barangQuery = StockBarang::with(['barang.jenis', 'stockBarangBatch']);
                 if (! empty($search)) {
                     $barangQuery->whereHas('barang', function ($q) use ($search) {
                         $q->where(DB::raw('LOWER(nama)'), 'like', '%'.strtolower($search).'%');
@@ -112,23 +122,23 @@ class RatingBarangController extends Controller
                 $barangList = $barangQuery->get();
             } else {
                 $barangIds = $rawData->pluck('barang_id')->unique();
-                $barangList = StockBarang::with(['barang.jenis', 'stockBarangBatch'])
-                    ->whereIn('barang_id', $barangIds)
-                    ->get();
+                $barangList = $barangQuery->whereIn('barang_id', $barangIds)->get();
             }
 
+            // 4. Proses Grouping Data
             $grouped = [];
 
             foreach ($barangList as $barang) {
-                // Pastikan dicast ke int agar tidak konflik String vs Integer
                 $barangId = (int) $barang->barang_id;
                 $barangName = $barang->barang->nama;
+
+                // Hitung sisa stok hanya dari batch toko terpilih
                 $stockNow = $barang->stockBarangBatch ? $barang->stockBarangBatch->sum('qty_sisa') : 0;
 
-                // Inisialisasi default 0 untuk semua toko pilihan
+                // Buat template default berisi 0 untuk toko-toko terpilih
                 $dataPerToko = array_fill_keys(array_values($tokoMap), ['terjual' => 0]);
 
-                // PERBAIKAN: Gunakan fungsi callback untuk memastikan perbandingan tipe data aman
+                // Filter data transaksi yang cocok dengan ID barang ini
                 $matchedData = $rawData->filter(function ($item) use ($barangId) {
                     return (int) $item->barang_id === $barangId;
                 });
@@ -138,11 +148,9 @@ class RatingBarangController extends Controller
 
                 if ($matchedData->isNotEmpty()) {
                     foreach ($matchedData as $item) {
-                        // Pastikan toko_id dicast ke int juga
                         $tokoId = (int) $item->toko_id;
                         $tokoNama = $tokoMap[$tokoId] ?? null;
 
-                        // Jika nama toko ditemukan di map, masukkan nilainya
                         if ($tokoNama) {
                             $netTerjual = (int) $item->net_terjual;
                             $dataPerToko[$tokoNama]['terjual'] = $netTerjual;
@@ -157,6 +165,7 @@ class RatingBarangController extends Controller
                     $hppJual = $barang ? (float) $barang->hpp_baru : 0;
                 }
 
+                // Jika tidak ada penjualan sama sekali dan tidak sedang mencari sesuatu, skip
                 if ($totalTerjual === 0 && ! $allowShowEmptyItems) {
                     continue;
                 }
@@ -167,6 +176,7 @@ class RatingBarangController extends Controller
                 $grouped[$barangName] = $dataPerToko;
             }
 
+            // 5. Sorting berdasarkan total penjualan terbanyak
             $sorted = collect($grouped)
                 ->mapWithKeys(function ($dataPerToko, $barang) {
                     $totalTerjual = collect($dataPerToko)->filter(function ($value, $key) {
@@ -182,6 +192,7 @@ class RatingBarangController extends Controller
                     return [$barang => $item['data']];
                 });
 
+            // 6. Pagination & Formatting Output JSON
             $tokoCount = count($tokoMap);
             $total = $sorted->count();
             $paginated = $sorted->slice(($page - 1) * $limit, $limit);
@@ -193,7 +204,7 @@ class RatingBarangController extends Controller
                 unset($dataPerToko['stock_now'], $dataPerToko['hpp_jual']);
 
                 if ($tokoCount === 1) {
-                    $firstData = array_values($dataPerToko)[0];
+                    $firstData = array_values($dataPerToko)[0] ?? ['terjual' => 0];
                     $finalData[$barang] = [
                         'Jumlah Item Terjual' => $firstData['terjual'],
                         'HPP Jual' => $hppJual,
@@ -226,6 +237,7 @@ class RatingBarangController extends Controller
                 'message' => $total ? 'Data retrieved successfully' : 'No data found',
                 'pagination' => $pagination,
             ], 200);
+
         } catch (\Throwable $th) {
             return response()->json([
                 'error' => true,

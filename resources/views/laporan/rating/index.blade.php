@@ -192,6 +192,7 @@
                         ascending: ascending,
                         search: search,
                         toko_id: {{ auth()->user()->toko_id }},
+                        role_id: {{ auth()->user()->role_id }},
                         ...filterParams
                     }
                 ).then(response => response)

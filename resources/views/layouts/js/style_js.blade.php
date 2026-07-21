@@ -68,17 +68,38 @@
         });
     });
 
-    $(document).on('input paste', '.select2-search__field', function() {
+    $(document).on('paste', '.select2-search__field', function(e) {
         var $input = $(this);
-        var rawVal = $input.val();
 
-        // Hapus spasi di awal, dan batasi spasi beruntun di akhir jadi max 1 spasi
-        var cleanedVal = rawVal
-            .replace(/^[\s\u00A0]+/, '')
-            .replace(/[\s\u00A0]{2,}$/, ' ');
+        // Ambil teks dari clipboard (kompatibel untuk berbagai browser)
+        var clipboardData = (e.originalEvent || e).clipboardData || window.clipboardData;
+        var pastedText = clipboardData ? clipboardData.getData('text') : '';
 
-        if (rawVal !== cleanedVal) {
-            $input.val(cleanedVal);
+        if (pastedText) {
+            // Hapus SEMUA spasi/nbsp di awal dan akhir teks hasil paste
+            var cleanedText = pastedText.replace(/^[\s\u00A0]+|[\s\u00A0]+$/g, '');
+
+            // Jika ada anomali spasi yang dibersihkan
+            if (pastedText !== cleanedText) {
+                // Cegah teks asli (yang kotor) masuk ke input
+                e.preventDefault();
+
+                // Dapatkan posisi cursor saat ini (jika user paste di tengah teks)
+                var inputEl = $input[0];
+                var startPos = inputEl.selectionStart || 0;
+                var endPos = inputEl.selectionEnd || 0;
+                var currentVal = $input.val();
+
+                // Sisipkan teks yang sudah bersih ke posisi cursor
+                var newVal = currentVal.substring(0, startPos) + cleanedText + currentVal.substring(endPos);
+
+                // Set nilai baru dan pemicu event 'input' agar Select2/AJAX mendeteksi perubahannya
+                $input.val(newVal).trigger('input');
+
+                // Kembalikan posisi cursor ke akhir teks yang baru di-paste
+                var newCursorPos = startPos + cleanedText.length;
+                inputEl.setSelectionRange(newCursorPos, newCursorPos);
+            }
         }
     });
 </script>

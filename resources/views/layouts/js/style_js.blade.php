@@ -68,17 +68,17 @@
         });
     });
 
-    // Menangkap semua input pencarian Select2 yang ada di halaman
-    $(document).on('input paste keyup', '.select2-search__field', function() {
+    $(document).on('input paste', '.select2-search__field', function() {
         var $input = $(this);
         var rawVal = $input.val();
 
-        // Bersihkan spasi di awal & akhir
-        var cleanedVal = rawVal.replace(/^[\s\u00A0]+|[\s\u00A0]+$/g, '');
+        // Hapus spasi di awal, dan batasi spasi beruntun di akhir jadi max 1 spasi
+        var cleanedVal = rawVal
+            .replace(/^[\s\u00A0]+/, '')
+            .replace(/[\s\u00A0]{2,}$/, ' ');
 
-        // Jika nilainya berubah setelah dibersihkan, perbarui nilainya
         if (rawVal !== cleanedVal) {
-            $input.val(cleanedVal).trigger('input');
+            $input.val(cleanedVal);
         }
     });
 </script>

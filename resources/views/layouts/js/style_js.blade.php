@@ -67,6 +67,20 @@
             });
         });
     });
+
+    // Menangkap semua input pencarian Select2 yang ada di halaman
+    $(document).on('input paste keyup', '.select2-search__field', function() {
+        var $input = $(this);
+        var rawVal = $input.val();
+
+        // Bersihkan spasi di awal & akhir
+        var cleanedVal = rawVal.replace(/^[\s\u00A0]+|[\s\u00A0]+$/g, '');
+
+        // Jika nilainya berubah setelah dibersihkan, perbarui nilainya
+        if (rawVal !== cleanedVal) {
+            $input.val(cleanedVal).trigger('input');
+        }
+    });
 </script>
 
 <script>
@@ -92,7 +106,7 @@
             numbers.empty(); // Hapus semua tombol pagination yang ada
             numbers.append(
                 '<button class="prev-btn btn btn-sm btn-outline-primary mx-1">Previous</button>'
-                ); // Tombol Previous
+            ); // Tombol Previous
 
             for (var i = 1; i <= pageCount; i++) {
                 numbers.append('<button class="page-btn btn btn-sm btn-primary mx-1" data-page="' + i + '">' +

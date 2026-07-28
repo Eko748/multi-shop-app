@@ -151,7 +151,7 @@ class LabaRugiService
         $hppKoreksiQuery = PembelianBarangDetailAdjustment::query();
         $applyTokoDirect($hppKoreksiQuery, 'toko_id');
         $applyDateFilter($hppKoreksiQuery, 'created_at');
-        $hppKoreksi = $hppKoreksiQuery->sum('nominal_laba_rugi');
+        $hppKoreksi = $hppKoreksiQuery->sum('selisih_harga');
 
         $hppreturQuery = KasTransaksi::where('kas_transaksi.tipe', 'out')
             ->where('kas_transaksi.sumber_type', ReturMember::class)

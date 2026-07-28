@@ -3,6 +3,8 @@
 namespace App\Repositories;
 
 use App\Models\StockBarangBatch;
+use App\Models\TransaksiKasirHarian; // Sesuaikan namespace model Anda
+use App\Models\StockBarangBermasalah; // Sesuaikan namespace model Anda
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -37,13 +39,17 @@ class StokRepository
         $isCurrentMonth = ($now->month === $month && $now->year === $year);
 
         // =========================================================================
-        // JIKA AKSES BULAN INI (REAL-TIME): Sangat Ringan & Cepat
+        // JIKA AKSES BULAN INI (REAL-TIME): Eloquent Model
         // =========================================================================
         if ($isCurrentMonth) {
-            return DB::table('stock_barang_batch')
+            return StockBarangBatch::query()
+                // Eloquent otomatis menangani Soft Deletes untuk relasi
+                ->whereHas('stockBarang.barang.jenis')
                 ->join('stock_barang', 'stock_barang_batch.stock_barang_id', '=', 'stock_barang.id')
                 ->join('barang', 'stock_barang.barang_id', '=', 'barang.id')
                 ->join('jenis_barang', 'barang.jenis_barang_id', '=', 'jenis_barang.id')
+                ->whereNull('stock_barang.deleted_at') // Perlindungan ekstra jika relasi join manual
+                ->whereNull('barang.deleted_at')
                 ->select(
                     'jenis_barang.id as id_jenis_barang',
                     'jenis_barang.nama_jenis_barang',
@@ -55,21 +61,23 @@ class StokRepository
                 })
                 ->groupBy('jenis_barang.id', 'jenis_barang.nama_jenis_barang')
                 ->get()
-                ->map(fn ($item) => (array) $item) // KONVERSI KE ARRAY AGAR TIDAK ERROR stdClass
+                ->map(fn ($item) => (array) $item->getAttributes())
                 ->values();
         }
 
         // =========================================================================
-        // JIKA AKSES BULAN LALU: Jalankan Logika Backtracking Semesta
+        // JIKA AKSES BULAN LALU: Backtracking dengan Model
         // =========================================================================
         $targetMonthEnd = Carbon::createFromDate($year, $month, 1)->endOfMonth()->format('Y-m-d H:i:s');
         $targetDateEnd = Carbon::createFromDate($year, $month, 1)->endOfMonth()->format('Y-m-d');
 
-        // 1. Ambil TOTAL MASUK per Jenis Barang sampai bulan target
-        $batches = DB::table('stock_barang_batch')
+        // 1. Ambil TOTAL MASUK via StockBarangBatch Model
+        $batches = StockBarangBatch::query()
             ->join('stock_barang', 'stock_barang_batch.stock_barang_id', '=', 'stock_barang.id')
             ->join('barang', 'stock_barang.barang_id', '=', 'barang.id')
             ->join('jenis_barang', 'barang.jenis_barang_id', '=', 'jenis_barang.id')
+            ->whereNull('stock_barang.deleted_at')
+            ->whereNull('barang.deleted_at')
             ->select(
                 'jenis_barang.id as id_jenis_barang',
                 'jenis_barang.nama_jenis_barang',
@@ -84,8 +92,8 @@ class StokRepository
             ->get()
             ->keyBy('id_jenis_barang');
 
-        // 2. Ambil TOTAL TERJUAL per Jenis Barang sampai bulan target
-        $sales = DB::table('transaksi_kasir_harian')
+        // 2. Ambil TOTAL TERJUAL via TransaksiKasirHarian Model
+        $sales = TransaksiKasirHarian::query()
             ->select(
                 'jenis_barang_id',
                 DB::raw('SUM(total_qty) as total_qty_terjual'),
@@ -100,11 +108,14 @@ class StokRepository
             ->get()
             ->keyBy('jenis_barang_id');
 
-        // 3. Ambil TOTAL BERMASALAH per Jenis Barang sampai bulan target
-        $problems = DB::table('stock_barang_bermasalah')
+        // 3. Ambil TOTAL BERMASALAH via StockBarangBermasalah Model
+        $problems = StockBarangBermasalah::query()
             ->join('stock_barang_batch', 'stock_barang_bermasalah.stock_barang_batch_id', '=', 'stock_barang_batch.id')
             ->join('stock_barang', 'stock_barang_batch.stock_barang_id', '=', 'stock_barang.id')
             ->join('barang', 'stock_barang.barang_id', '=', 'barang.id')
+            ->whereNull('stock_barang_batch.deleted_at')
+            ->whereNull('stock_barang.deleted_at')
+            ->whereNull('barang.deleted_at')
             ->select(
                 'barang.jenis_barang_id',
                 DB::raw('SUM(stock_barang_bermasalah.qty) as total_qty_bermasalah'),
@@ -139,6 +150,6 @@ class StokRepository
                 'total_qty' => max(0, $sisaQty),
                 'total_harga' => max(0, $sisaHarga),
             ];
-        })->map(fn ($item) => (array) $item)->values(); // KONVERSI KE ARRAY JUGA DI SINI
+        })->values();
     }
 }

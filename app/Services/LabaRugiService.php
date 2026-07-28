@@ -148,9 +148,9 @@ class LabaRugiService
         $applyDateFilter($hppTrxQuery, 'kas_transaksi.tanggal');
         $hppTrx = $hppTrxQuery->sum('transaksi_kasir_harian.total_harga_beli');
 
-        $hppKoreksiQuery = PembelianBarangDetailAdjustment::query();
-        $applyTokoDirect($hppKoreksiQuery, 'toko_id');
-        $applyDateFilter($hppKoreksiQuery, 'created_at');
+        // $hppKoreksiQuery = PembelianBarangDetailAdjustment::query();
+        // $applyTokoDirect($hppKoreksiQuery, 'toko_id');
+        // $applyDateFilter($hppKoreksiQuery, 'created_at');
         // $hppKoreksi = $hppKoreksiQuery->sum('nominal_laba_rugi');
 
         $hppreturQuery = KasTransaksi::where('kas_transaksi.tipe', 'out')

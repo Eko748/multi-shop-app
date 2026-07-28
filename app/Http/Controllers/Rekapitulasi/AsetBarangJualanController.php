@@ -4,18 +4,20 @@ namespace App\Http\Controllers\Rekapitulasi;
 
 use App\Helpers\RupiahGenerate;
 use App\Http\Controllers\Controller;
+use App\Models\PembelianBarangDetail;
+use App\Models\PengirimanBarangDetail;
+use App\Models\StockBarangBatch;
 use App\Models\Toko;
 use App\Services\DompetKategoriService;
 use App\Services\DompetSaldoService;
 use Illuminate\Http\Request;
-use App\Models\StockBarangBatch;
-use App\Models\PembelianBarangDetail;
-use App\Models\PengirimanBarangDetail;
 
 class AsetBarangJualanController extends Controller
 {
     private array $menu = [];
+
     protected $service;
+
     protected $service2;
 
     public function __construct(DompetSaldoService $service, DompetKategoriService $service2)
@@ -42,11 +44,11 @@ class AsetBarangJualanController extends Controller
 
             $toko = Toko::find($idTokoLogin);
 
-            if (!$toko) {
+            if (! $toko) {
                 return response()->json([
                     'error' => true,
                     'message' => 'Toko tidak ditemukan',
-                    'status_code' => 404
+                    'status_code' => 404,
                 ], 404);
             }
 
@@ -65,7 +67,7 @@ class AsetBarangJualanController extends Controller
                 ->with([
                     'stockBarang.barang.jenis',
                     'sumber',
-                    'toko'
+                    'toko',
                 ])
                 ->whereIn('toko_id', $tokoIds)
                 ->whereHas('stockBarang', function ($q) {
@@ -76,7 +78,7 @@ class AsetBarangJualanController extends Controller
                 })
                 ->whereIn('sumber_type', [PembelianBarangDetail::class, PengirimanBarangDetail::class]);
 
-            if (!empty($startDate) && !empty($endDate)) {
+            if (! empty($startDate) && ! empty($endDate)) {
                 $stockQuery->whereHas('stockBarang', function ($q) use ($startDate, $endDate) {
                     $q->whereBetween('created_at', [$startDate, $endDate]);
                 });
@@ -85,13 +87,13 @@ class AsetBarangJualanController extends Controller
             $batches = $stockQuery->get();
 
             $combined = $batches->groupBy(function ($item) {
-                return $item->stockBarang->barang->jenis->id . '-' . $item->toko_id;
+                return $item->stockBarang->barang->jenis->id.'-'.$item->toko_id;
             })->map(function ($items) {
 
                 $first = $items->first();
                 $jenis = $first->stockBarang->barang->jenis;
 
-                return (object)[
+                return (object) [
                     'toko_id' => $first->toko->id,
                     'nama_toko' => $first->toko->nama,
                     'wilayah' => $first->toko->wilayah,
@@ -100,7 +102,7 @@ class AsetBarangJualanController extends Controller
                     'total_qty' => $items->sum('qty_sisa'),
                     'total_harga' => $items->sum(function ($item) {
                         return $item->qty_sisa * ($item->harga_beli ?? 0);
-                    })
+                    }),
                 ];
             })->values();
 
@@ -111,7 +113,19 @@ class AsetBarangJualanController extends Controller
             $totalHarga = $combined->sum('total_harga');
 
             $hppDompetSaldo = $this->service->sumHPP(null, null, $idTokoLogin);
-            $dompetSaldo = $this->service->sumSisaSaldo(null, null, $idTokoLogin);
+
+            // SIMPAN NILAI SALDO
+            $dompetSaldoRaw = $this->service->sumSisaSaldo(null, null, $idTokoLogin);
+
+            // Validasi tipe data: Jika mengembalikan array pakai nilainya, jika angka/float langsung pakai angkanya
+            if (is_array($dompetSaldoRaw)) {
+                $dompetSaldoVal = (float) ($dompetSaldoRaw['saldo'] ?? 0);
+                $dompetSaldoFormatted = $dompetSaldoRaw['format'] ?? RupiahGenerate::build($dompetSaldoVal);
+            } else {
+                $dompetSaldoVal = (float) $dompetSaldoRaw;
+                $dompetSaldoFormatted = RupiahGenerate::build($dompetSaldoVal);
+            }
+
             $dompetKategori = $this->service2->count($idTokoLogin);
 
             $finalData = $grouped->map(function ($items, $namaJenis) {
@@ -120,36 +134,36 @@ class AsetBarangJualanController extends Controller
                     'items' => $items->map(function ($item) {
                         return [
                             'toko_id' => $item->toko_id,
-                            'nama_toko' => $item->nama_toko . ' (' . $item->wilayah . ')',
+                            'nama_toko' => $item->nama_toko.' ('.$item->wilayah.')',
                             'id_jenis_barang' => $item->id_jenis_barang,
                             'nama_jenis_barang' => $item->nama_jenis_barang,
                             'total_qty' => $item->total_qty,
                             'total_harga' => RupiahGenerate::build($item->total_harga),
-                            'keterangan' => '-'
+                            'keterangan' => '-',
                         ];
-                    })->values()
+                    })->values(),
                 ];
             })->values();
 
-            // tambahan saldo digital
+            // Tambahan saldo digital
             $finalData->push([
                 'nama_jenis_barang' => 'Saldo Digital',
                 'items' => [[
                     'toko_id' => $toko->id,
-                    'nama_toko' => $toko->nama . ' (' . $toko->wilayah . ')',
+                    'nama_toko' => $toko->nama.' ('.$toko->wilayah.')',
                     'id_jenis_barang' => 'dompet-saldo',
                     'nama_jenis_barang' => 'Dompet Saldo Digital',
                     'total_qty' => $dompetKategori,
-                    'total_harga' =>  $dompetSaldo['format'],
-                    'keterangan' => '-'
-                ]]
+                    'total_harga' => $dompetSaldoFormatted,
+                    'keterangan' => '-',
+                ]],
             ]);
 
             return response()->json([
                 'data' => $finalData,
                 'total_summary' => [
                     'total_qty' => $totalQty + $dompetKategori,
-                    'total_harga' => RupiahGenerate::build($totalHarga + $dompetSaldo['saldo']),
+                    'total_harga' => RupiahGenerate::build($totalHarga + $dompetSaldoVal),
                 ],
                 'status_code' => 200,
                 'errors' => false,

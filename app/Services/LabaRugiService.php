@@ -171,14 +171,17 @@ class LabaRugiService
 
         $hppReturSuplierQuery = ReturSupplierDetail::query()
             ->join('retur_supplier', 'retur_supplier.id', '=', 'retur_supplier_detail.retur_supplier_id')
+            ->join('pembelian_barang_detail', 'pembelian_barang_detail.id', '=', 'retur_supplier_detail.pembelian_barang_detail_id')
             ->where('retur_supplier_detail.qty_refund', '>', 0);
+
         $applyTokoDirect($hppReturSuplierQuery, 'retur_supplier.toko_id');
         $applyDateFilterOnly($hppReturSuplierQuery, 'retur_supplier.verify_date');
-        $hppReturSuplier = $hppReturSuplierQuery->selectRaw('SUM(retur_supplier_detail.qty_refund * retur_supplier_detail.hpp) as total')->value('total') ?? 0;
+
+        // Mengganti retur_supplier_detail.hpp menjadi pembelian_barang_detail.harga_beli
+        $hppReturSuplier = $hppReturSuplierQuery->selectRaw('SUM(retur_supplier_detail.qty_refund * pembelian_barang_detail.harga_beli) as total')->value('total') ?? 0;
 
         $hppPenjualan = $hppTrx - $hppretur + $hppKoreksi;
         $total_hpp = $hppPenjualan + $hppReturSuplier;
-
         // ============================
         // BEBAN OPERASIONAL
         // ============================

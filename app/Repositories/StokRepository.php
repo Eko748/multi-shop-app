@@ -142,7 +142,7 @@ class StokRepository
 
             // Rumus Backtracking
             $sisaQty = $batch->total_qty_masuk - $qtyTerjual - $qtyBermasalah;
-            $sisaHarga = $batch->total_harga_masuk - $hargaTerjual - $hargaBermasalah;
+            $sisaHarga = $batch->total_harga_masuk - $hargaBermasalah;
 
             return [
                 'id_jenis_barang' => $batch->id_jenis_barang,

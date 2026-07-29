@@ -119,7 +119,6 @@ class StokRepository
             ->join('stock_barang_batch', 'stock_barang_bermasalah.stock_barang_batch_id', '=', 'stock_barang_batch.id')
             ->join('stock_barang', 'stock_barang_batch.stock_barang_id', '=', 'stock_barang.id')
             ->join('barang', 'stock_barang.barang_id', '=', 'barang.id')
-            ->whereNull('stock_barang_bermasalah.deleted_at')
             ->whereNull('stock_barang.deleted_at')
             ->whereNull('barang.deleted_at')
             ->select(

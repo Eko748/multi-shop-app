@@ -9,8 +9,11 @@ class NeracaPenyesuaianRepository
     /**
      * Dapatkan total nilai penyesuaian neraca.
      */
-    public function getTotalPenyesuaian(): float
-    {
-        return (float) (NeracaPenyesuaian::sum('nominal') ?? 0);
-    }
+public function getTotalPenyesuaian($month, $year, $tokoId): float
+{
+    return (float) NeracaPenyesuaian::where('toko_id', $tokoId)
+        ->whereMonth('tanggal', $month)
+        ->whereYear('tanggal', $year)
+        ->sum('nominal');
+}
 }

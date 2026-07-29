@@ -51,8 +51,8 @@ class StokRepository
                 ->select(
                     'jenis_barang.id as id_jenis_barang',
                     'jenis_barang.nama_jenis_barang',
-                    DB::raw('CAST(SUM(stock_barang_batch.qty_sisa) AS SIGNED) as total_qty'),
-                    DB::raw('CAST(SUM(stock_barang_batch.qty_sisa * stock_barang_batch.harga_beli) AS DECIMAL(16,2)) as total_harga')
+                    DB::raw('SUM(stock_barang_batch.qty_sisa) as total_qty'),
+                    DB::raw('SUM(stock_barang_batch.qty_sisa * stock_barang_batch.harga_beli) as total_harga')
                 )
                 ->when($tokoId !== null && $tokoId !== 'all' && $tokoId != 0, function ($q) use ($tokoId) {
                     return $q->where('stock_barang_batch.toko_id', $tokoId);

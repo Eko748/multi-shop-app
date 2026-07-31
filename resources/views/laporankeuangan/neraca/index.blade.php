@@ -732,8 +732,6 @@
 
             const periode = $('#bulan_tahun').val() || defaultPeriode;
 
-            const now = new Date();
-
             const printedAt =
                 String(now.getDate()).padStart(2, '0') + '-' +
                 String(now.getMonth() + 1).padStart(2, '0') + '-' +

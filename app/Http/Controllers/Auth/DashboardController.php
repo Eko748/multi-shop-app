@@ -53,7 +53,7 @@ class DashboardController extends Controller
                 $endDate   = Carbon::createFromDate($year, 12, 31)->endOfDay();
             }
 
-            $kasData = KasTransaksi::with('createdBy')
+            $kasData = KasTransaksi::with('kas')
                 ->when($idToko !== 'all' && $idToko != 1, function ($q) use ($idToko) {
                     $q->whereHas('kas', fn($sub) => $sub->where('toko_id', $idToko));
                 })

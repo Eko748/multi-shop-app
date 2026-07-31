@@ -486,6 +486,7 @@
                 const monthTextDefault = now.toLocaleString('id-ID', {
                     month: 'long'
                 });
+
                 $('#time-report').html(
                     `<i class="fa fa-calendar mr-1"></i><b>${title}</b> (Bulan <b class="text-primary">${monthText || monthTextDefault}</b> Tahun <b class="text-primary">${year || yearDefault}</b>)`
                 );
@@ -508,9 +509,14 @@
                     }
                 }
 
+                // Jika tidak ada input filter, fallback ke bulan & tahun berjalan untuk API
+                const now = new Date();
+                const currentYear = String(now.getFullYear());
+                const currentMonth = String(now.getMonth() + 1);
+
                 customFilter = {
-                    year: year || '',
-                    month: month || '',
+                    year: year || currentYear,
+                    month: month || currentMonth,
                 };
 
                 currentPage = 1;
@@ -523,7 +529,14 @@
             document.getElementById('tb-reset').addEventListener('click', async function() {
                 $('#bulan_tahun').val('').trigger('change');
                 $('#custom-filter select').val(null).trigger('change');
-                customFilter = {};
+
+                // Saat reset, kembalikan filter ke bulan & tahun berjalan
+                const now = new Date();
+                customFilter = {
+                    year: String(now.getFullYear()),
+                    month: String(now.getMonth() + 1)
+                };
+
                 defaultSearch = $('.tb-search').val();
                 defaultLimitPage = $("#limitPage").val();
                 currentPage = 1;
@@ -553,10 +566,14 @@
         }
 
         function exportExcel() {
-
-            const periode = $('#bulan_tahun').val() || 'Juni 2026';
-
             const now = new Date();
+            const namaBulanIndo = [
+                'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+                'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+            ];
+            const defaultPeriode = `${namaBulanIndo[now.getMonth()]} ${now.getFullYear()}`;
+
+            const periode = $('#bulan_tahun').val() || defaultPeriode;
 
             const printedAt =
                 String(now.getDate()).padStart(2, '0') + '-' +
@@ -706,7 +723,14 @@
                 format: 'a4'
             });
 
-            const periode = $('#bulan_tahun').val() || 'Juni 2026';
+            const now = new Date();
+            const namaBulanIndo = [
+                'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+                'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+            ];
+            const defaultPeriode = `${namaBulanIndo[now.getMonth()]} ${now.getFullYear()}`;
+
+            const periode = $('#bulan_tahun').val() || defaultPeriode;
 
             const now = new Date();
 

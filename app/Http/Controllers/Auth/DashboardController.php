@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\DetailKasir;
 use App\Models\PenjualanNonFisik;
 use App\Models\Kasir;
+use App\Models\KasTransaksi;
 use App\Models\PenjualanNonFisikDetail;
 use App\Models\Member;
 use App\Models\ReturMemberDetail;
@@ -52,20 +53,14 @@ class DashboardController extends Controller
                 $endDate   = Carbon::createFromDate($year, 12, 31)->endOfDay();
             }
 
-            // === Data Kasir
-            $kasirData = TransaksiKasir::with('toko:id,nama')
-                ->when($idToko !== 'all', fn($q) => $q->where('toko_id', $idToko))
-                ->whereBetween('tanggal', [$startDate, $endDate])
-                ->select('id', 'toko_id', 'tanggal', 'total_nominal', 'total_diskon')
-                ->get();
-
-            // === Data Penjualan Non Fisik
-            $pnfData = PenjualanNonFisik::with('createdBy')
+            $kasData = KasTransaksi::with('createdBy')
                 ->when($idToko !== 'all' && $idToko != 1, function ($q) use ($idToko) {
-                    $q->whereHas('createdBy', fn($sub) => $sub->where('toko_id', $idToko));
+                    $q->whereHas('kas', fn($sub) => $sub->where('toko_id', $idToko));
                 })
+                ->where('tipe', 'in')
+                ->where('kategori', 'Pendapatan Umum')
                 ->whereBetween('created_at', [$startDate, $endDate])
-                ->select('id', 'created_at', 'total_harga_jual')
+                ->select('id', 'created_at', 'total_nominal')
                 ->get();
 
             // === Retur Member per Bulan
@@ -103,14 +98,9 @@ class DashboardController extends Controller
                 $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $month, $year);
                 $dailyTotals = array_fill(1, $daysInMonth, 0);
 
-                foreach ($kasirData as $data) {
+                foreach ($kasData as $data) {
                     $day = (int) Carbon::parse($data->created_at)->format('j');
-                    $dailyTotals[$day] += ($data->total_nilai - $data->total_diskon);
-                }
-
-                foreach ($pnfData as $data) {
-                    $day = (int) Carbon::parse($data->created_at)->format('j');
-                    $dailyTotals[$day] += (float)$data->total_harga_jual;
+                    $dailyTotals[$day] += ($data->total_nominal);
                 }
 
                 // Hitung retur & kasbon hanya untuk bulan yg sedang dipilih
@@ -133,14 +123,9 @@ class DashboardController extends Controller
             } elseif ($period === 'monthly') {
                 $monthlyTotals = array_fill(1, 12, 0);
 
-                foreach ($kasirData as $data) {
+                foreach ($kasData as $data) {
                     $bulan = (int) Carbon::parse($data->created_at)->format('n');
-                    $monthlyTotals[$bulan] += ($data->total_nominal - $data->total_diskon);
-                }
-
-                foreach ($pnfData as $data) {
-                    $bulan = (int) Carbon::parse($data->created_at)->format('n');
-                    $monthlyTotals[$bulan] += (float)$data->total_harga_jual;
+                    $monthlyTotals[$bulan] += ($data->total_nominal);
                 }
 
                 // Kurangkan retur & kasbon per bulan
@@ -159,20 +144,14 @@ class DashboardController extends Controller
             } elseif ($period === 'yearly') {
                 $yearlyTotals = [];
 
-                foreach ($kasirData as $data) {
+                foreach ($kasData as $data) {
                     $dataYear = (int) Carbon::parse($data->created_at)->format('Y');
-                    $yearlyTotals[$dataYear] = ($yearlyTotals[$dataYear] ?? 0) + ($data->total_nominal - $data->total_diskon);
-                }
-
-                foreach ($pnfData as $data) {
-                    $dataYear = (int) Carbon::parse($data->created_at)->format('Y');
-                    $yearlyTotals[$dataYear] = ($yearlyTotals[$dataYear] ?? 0) + (float)$data->total_harga_jual;
+                    $yearlyTotals[$dataYear] = ($yearlyTotals[$dataYear] ?? 0) + ($data->total_nominal);
                 }
 
                 $refundTotal = $refundPerBulan->sum();
                 $keuntunganTotal = $keuntunganRefundPerBulan->sum();
                 $kerugianTotal = $kerugianRefundPerBulan->sum();
-                // $kasbonTotal = $kasbonPerBulan->sum();
 
                 foreach ($yearlyTotals as $th => $total) {
                     $yearlyTotals[$th] -= ($refundTotal - $keuntunganTotal + $kerugianTotal);

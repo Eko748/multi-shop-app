@@ -158,15 +158,16 @@ class NeracaKeuanganService
         // 2. PROSES KAS BESAR
         if ($isChild) {
             // --- JIKA TOKO CHILD ---
-            // Ambil semua ID kas milik Toko Child ini
+            // Tentukan batas akhir tanggal untuk bulan & tahun terpilih (Contoh: 2026-07-31 23:59:59)
+            $endDate = Carbon::createFromDate($year, $month, 1)->endOfMonth();
+
+            // Ambil ID semua kas milik Toko Child ini
             $myKasIds = Kas::where('toko_id', $tokoId)->pluck('id')->toArray();
 
-            // Query mutasi pada bulan & tahun terpilih
+            // Query mutasi dari AWAL SAMPAI AKHIR BULAN TERPILIH
             $mutasiList = KasMutasi::with(['kasAsal', 'kasTujuan'])
-                ->whereYear('tanggal', $year)
-                ->whereMonth('tanggal', $month)
+                ->whereDate('tanggal', '<=', $endDate) // Mutasi bulan sesudahnya tidak akan terhitung
                 ->where(function ($q) use ($myKasIds) {
-                    // Ambil mutasi yang melibatkan kas milik toko ini
                     $q->whereIn('kas_asal_id', $myKasIds)
                         ->orWhereIn('kas_tujuan_id', $myKasIds);
                 })
@@ -177,11 +178,10 @@ class NeracaKeuanganService
                 $tokoAsalId = $m->kasAsal?->toko_id;
                 $tokoTujuanId = $m->kasTujuan?->toko_id;
 
-                // Pastikan beda toko
                 return $tokoAsalId != $tokoTujuanId;
             });
 
-            // Hitung Total Masuk & Keluar untuk Kas Besar
+            // Hitung Akumulasi Netto (Masuk - Keluar)
             foreach ($mutasiBedaToko as $m) {
                 $isMasuk = in_array($m->kas_tujuan_id, $myKasIds);
                 $isKeluar = in_array($m->kas_asal_id, $myKasIds);
@@ -193,7 +193,7 @@ class NeracaKeuanganService
                 }
             }
 
-            // Tampilkan item Kas Besar jika saldo mutasi > 0
+            // Tampilkan ke item Kas Besar jika akumulasi > 0
             if ($totalKasBesar > 0) {
                 $kasBesarItems[] = [
                     'kode' => 'I.1.1',

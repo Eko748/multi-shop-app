@@ -131,27 +131,33 @@ class NeracaKeuanganService
 
     private function generateKas($tokoId, int $month, int $year)
     {
-        // 1. Tentukan ID Toko untuk Kas Besar
-        $tokoBesarId = $tokoId;
+        // 1. Tentukan kondisi apakah toko ini Child atau Parent
+        $isChild = false;
+        $parentId = null;
 
-        // Cek apakah toko saat ini adalah Child (memiliki parent_id)
         if (! empty($tokoId) && $tokoId !== 'all') {
             $toko = Toko::find($tokoId);
-
-            // Jika $toko punya parent_id (misal: 1), alihkan query Kas Besar ke toko Parent
             if ($toko && ! empty($toko->parent_id)) {
-                $tokoBesarId = $toko->parent_id;
+                $isChild = true;
+                $parentId = $toko->parent_id;
             }
         }
 
-        // 2. Ambil List Kas Besar dari Toko Parent / Utama
-        $kasBesarList = Kas::query()
-            ->when($tokoBesarId && $tokoBesarId !== 'all', fn ($q) => $q->where('toko_id', $tokoBesarId))
-            ->where('tipe_kas', 'besar')
-            ->orderBy('jenis_barang_id')
-            ->get();
+        // 2. Query Kas Besar
+        // Jika CHILD  -> Ambil Kas KECIL milik PARENT
+        // Jika PARENT -> Ambil Kas BESAR milik PARENT (toko itu sendiri)
+        $kasBesarQuery = Kas::query();
 
-        // 3. Ambil List Kas Kecil dari Toko Child (Toko Sendiri)
+        if ($isChild) {
+            $kasBesarQuery->where('toko_id', $parentId)->where('tipe_kas', 'kecil');
+        } else {
+            $kasBesarQuery->when($tokoId && $tokoId !== 'all', fn ($q) => $q->where('toko_id', $tokoId))
+                ->where('tipe_kas', 'besar');
+        }
+
+        $kasBesarList = $kasBesarQuery->orderBy('jenis_barang_id')->get();
+
+        // 3. Query Kas Kecil (Selalu ambil milik Toko yang sedang diakses)
         $kasKecilList = Kas::query()
             ->when($tokoId && $tokoId !== 'all', fn ($q) => $q->where('toko_id', $tokoId))
             ->where('tipe_kas', 'kecil')
@@ -175,12 +181,11 @@ class NeracaKeuanganService
         foreach ($allJenisBarangIds as $jenisBarangId) {
             $jenisNama = $jenisBarangMap[$jenisBarangId];
 
-            // --- PROSES KAS BESAR (Gunakan List Kas milik Parent) ---
+            // --- PROSES KAS BESAR ---
             $kasBesar = $kasBesarList->firstWhere('jenis_barang_id', $jenisBarangId);
             $saldoBesar = 0;
 
             if ($kasBesar) {
-                // Pastikan getSaldoAkhirKas menggunakan ID dari kasBesar milik parent
                 $saldoBesar = $this->getSaldoAkhirKas($kasBesar->id, $month, $year);
             }
 
@@ -196,7 +201,7 @@ class NeracaKeuanganService
                 $counterBesar++;
             }
 
-            // --- PROSES KAS KECIL (Gunakan List Kas milik Toko Sendiri) ---
+            // --- PROSES KAS KECIL ---
             $kasKecil = $kasKecilList->firstWhere('jenis_barang_id', $jenisBarangId);
             $saldoKecil = 0;
 
@@ -217,7 +222,6 @@ class NeracaKeuanganService
             }
         }
 
-        // Return array ini pas dengan $kasData di composeNeracaStructure()
         return [
             'kasBesar' => [
                 'parent' => [

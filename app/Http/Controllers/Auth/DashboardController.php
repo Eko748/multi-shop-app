@@ -455,7 +455,7 @@ class DashboardController extends Controller
                 $q->whereBetween('created_at', [$startDate, $endDate])
                     ->when($idTokoLogin && $idTokoLogin != 1, function ($q2) use ($idTokoLogin) {
                         $q2->whereHas('createdBy', function ($q3) use ($idTokoLogin) {
-                            $q3->where('id_toko', $idTokoLogin);
+                            $q3->where('toko_id', $idTokoLogin);
                         });
                     });
             })

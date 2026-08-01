@@ -145,8 +145,8 @@ class StokRepository
             ->join('barang', 'stock_barang.barang_id', '=', 'barang.id')
             ->select(
                 'barang.jenis_barang_id',
-                DB::raw('SUM(pengiriman_barang_detail.qty_verified) as total_qty_out'),
-                DB::raw('SUM(pengiriman_barang_detail.qty_verified * stock_barang_batch.harga_beli) as total_harga_out')
+                DB::raw('SUM(pengiriman_barang_detail.qty_send) as total_qty_out'),
+                DB::raw('SUM(pengiriman_barang_detail.qty_send * stock_barang_batch.harga_beli) as total_harga_out')
             )
             ->where('pengiriman_barang.created_at', '<=', $targetMonthEnd)
             ->when($tokoId !== null && $tokoId !== 'all' && $tokoId != 0, function ($q) use ($tokoId) {
@@ -164,8 +164,8 @@ class StokRepository
             ->join('barang', 'stock_barang.barang_id', '=', 'barang.id')
             ->select(
                 'barang.jenis_barang_id',
-                DB::raw('SUM(pengiriman_barang_detail.qty_verified) as total_qty_in'),
-                DB::raw('SUM(pengiriman_barang_detail.qty_verified * stock_barang_batch.harga_beli) as total_harga_in')
+                DB::raw('SUM(pengiriman_barang_detail.qty_send) as total_qty_in'),
+                DB::raw('SUM(pengiriman_barang_detail.qty_send * stock_barang_batch.harga_beli) as total_harga_in')
             )
             ->where('pengiriman_barang.created_at', '<=', $targetMonthEnd)
             ->when($tokoId !== null && $tokoId !== 'all' && $tokoId != 0, function ($q) use ($tokoId) {

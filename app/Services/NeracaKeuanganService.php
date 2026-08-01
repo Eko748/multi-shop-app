@@ -6,6 +6,7 @@ use App\Helpers\RupiahGenerate;
 use App\Models\JenisBarang;
 use App\Models\Kas;
 use App\Models\KasSaldoHistory;
+use App\Models\Toko;
 use App\Repositories\Distribusi\PengirimanBarangRepo;
 use App\Repositories\HutangRepository;
 use App\Repositories\NeracaPenyesuaianRepository;
@@ -130,12 +131,35 @@ class NeracaKeuanganService
 
     private function generateKas($tokoId, int $month, int $year)
     {
-        $kasList = Kas::query()
+        // 1. Tentukan ID Toko yang digunakan untuk Kas Besar & Kas Kecil
+        $tokoIdKasBesar = $tokoId;
+        $tokoIdKasKecil = $tokoId;
+
+        if ($tokoId !== null && $tokoId !== 'all') {
+            $toko = Toko::find($tokoId);
+
+            // Jika toko ini adalah child (punya parent_id), maka Kas Besar mengambil milik Parent
+            if ($toko && $toko->parent_id !== null) {
+                $tokoIdKasBesar = $toko->parent_id;
+            }
+        }
+
+        // 2. Ambil data Kas untuk Kas Besar (milik Parent jika child)
+        $kasBesarList = Kas::query()
             ->when(
-                $tokoId !== null && $tokoId !== 'all',
-                fn ($q) => $q->where('toko_id', $tokoId)
+                $tokoIdKasBesar !== null && $tokoIdKasBesar !== 'all',
+                fn ($q) => $q->where('toko_id', $tokoIdKasBesar)
             )
-            ->orderBy('jenis_barang_id')
+            ->where('tipe_kas', 'besar')
+            ->get();
+
+        // 3. Ambil data Kas untuk Kas Kecil (milik Toko Child itu sendiri)
+        $kasKecilList = Kas::query()
+            ->when(
+                $tokoIdKasKecil !== null && $tokoIdKasKecil !== 'all',
+                fn ($q) => $q->where('toko_id', $tokoIdKasKecil)
+            )
+            ->where('tipe_kas', 'kecil')
             ->get();
 
         $jenisBarangMap = JenisBarang::pluck('nama_jenis_barang', 'id')->toArray();
@@ -149,23 +173,20 @@ class NeracaKeuanganService
         $totalKasBesar = 0;
         $totalKasKecil = 0;
 
-        // Pisahkan counter agar penomoran kode (I.1.x) tetap urut dan rapi
         $counterBesar = 1;
         $counterKecil = 1;
 
         foreach ($allJenisBarangIds as $jenisBarangId) {
             $jenisNama = $jenisBarangMap[$jenisBarangId];
-            $kasGroup = $kasList->where('jenis_barang_id', $jenisBarangId);
 
-            // --- PROSES KAS BESAR ---
-            $kasBesar = $kasGroup->where('tipe_kas', 'besar')->first();
+            // --- PROSES KAS BESAR (Menggunakan list kas besar yang sudah difilter toko parent/sendiri) ---
+            $kasBesar = $kasBesarList->where('jenis_barang_id', $jenisBarangId)->first();
             $saldoBesar = 0;
 
             if ($kasBesar) {
                 $saldoBesar = $this->getSaldoAkhirKas($kasBesar->id, $month, $year);
             }
 
-            // HANYA MASUKKAN JIKA SALDO LEBIH DARI 0
             if ($saldoBesar > 0) {
                 $kasBesarItems[] = [
                     'kode' => 'I.1.'.$counterBesar,
@@ -175,18 +196,17 @@ class NeracaKeuanganService
                     'sub' => 'I.1',
                 ];
                 $totalKasBesar += $saldoBesar;
-                $counterBesar++; // Counter maju hanya jika data ditambahkan
+                $counterBesar++;
             }
 
-            // --- PROSES KAS KECIL ---
-            $kasKecil = $kasGroup->where('tipe_kas', 'kecil')->first();
+            // --- PROSES KAS KECIL (Menggunakan list kas kecil milik toko sendiri) ---
+            $kasKecil = $kasKecilList->where('jenis_barang_id', $jenisBarangId)->first();
             $saldoKecil = 0;
 
             if ($kasKecil) {
                 $saldoKecil = $this->getSaldoAkhirKas($kasKecil->id, $month, $year);
             }
 
-            // HANYA MASUKKAN JIKA SALDO LEBIH DARI 0
             if ($saldoKecil > 0) {
                 $kasKecilItems[] = [
                     'kode' => 'I.2.'.$counterKecil,
@@ -196,7 +216,7 @@ class NeracaKeuanganService
                     'sub' => 'I.2',
                 ];
                 $totalKasKecil += $saldoKecil;
-                $counterKecil++; // Counter maju hanya jika data ditambahkan
+                $counterKecil++;
             }
         }
 

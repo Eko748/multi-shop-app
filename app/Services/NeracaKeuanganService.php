@@ -132,10 +132,8 @@ class NeracaKeuanganService
 
     private function generateKas($tokoId, int $month, int $year)
     {
-        // 1. Cek status Toko (Parent atau Child)
+        // 1. Cek apakah toko saat ini adalah Child
         $isChild = false;
-        $toko = null;
-
         if (! empty($tokoId) && $tokoId !== 'all') {
             $toko = Toko::find($tokoId);
             if ($toko && ! empty($toko->parent_id)) {
@@ -157,29 +155,57 @@ class NeracaKeuanganService
         $counterBesar = 1;
         $counterKecil = 1;
 
-        // 2. JIKA TOKO CHILD -> Ambil nilai Kas Besar dari tabel KasMutasi
+        // 2. PROSES KAS BESAR
         if ($isChild) {
-            // Ambil ID kas milik toko child ini (jika mutasi terhubung ke kas_tujuan_id / kas_asal_id)
-            $kasIds = Kas::where('toko_id', $tokoId)->pluck('id');
+            // --- JIKA TOKO CHILD ---
+            // Ambil semua ID kas milik Toko Child ini
+            $myKasIds = Kas::where('toko_id', $tokoId)->pluck('id')->toArray();
 
-            // Total nominal mutasi kas sesuai bulan & tahun dari kolom tanggal
-            $totalKasBesar = (int) KasMutasi::query()
-                ->whereIn('kas_tujuan_id', $kasIds) // atau di-adjust sesuai kriteria masuk mutasi
+            // Query mutasi pada bulan & tahun terpilih
+            $mutasiList = KasMutasi::with(['kasAsal', 'kasTujuan'])
                 ->whereYear('tanggal', $year)
                 ->whereMonth('tanggal', $month)
-                ->sum('nominal');
+                ->where(function ($q) use ($myKasIds) {
+                    // Ambil mutasi yang melibatkan kas milik toko ini
+                    $q->whereIn('kas_asal_id', $myKasIds)
+                        ->orWhereIn('kas_tujuan_id', $myKasIds);
+                })
+                ->get();
 
+            // Filter HANYA mutasi beda toko (antar-toko)
+            $mutasiBedaToko = $mutasiList->filter(function ($m) {
+                $tokoAsalId = $m->kasAsal?->toko_id;
+                $tokoTujuanId = $m->kasTujuan?->toko_id;
+
+                // Pastikan beda toko
+                return $tokoAsalId != $tokoTujuanId;
+            });
+
+            // Hitung Total Masuk & Keluar untuk Kas Besar
+            foreach ($mutasiBedaToko as $m) {
+                $isMasuk = in_array($m->kas_tujuan_id, $myKasIds);
+                $isKeluar = in_array($m->kas_asal_id, $myKasIds);
+
+                if ($isMasuk) {
+                    $totalKasBesar += $m->nominal;
+                } elseif ($isKeluar) {
+                    $totalKasBesar -= $m->nominal;
+                }
+            }
+
+            // Tampilkan item Kas Besar jika saldo mutasi > 0
             if ($totalKasBesar > 0) {
                 $kasBesarItems[] = [
                     'kode' => 'I.1.1',
-                    'nama' => 'Kas Besar - Mutasi',
-                    'nilai' => $totalKasBesar,
+                    'nama' => 'Kas Besar - Mutasi Antar Toko',
+                    'nilai' => (int) $totalKasBesar,
                     'format' => RupiahGenerate::build($totalKasBesar),
                     'sub' => 'I.1',
                 ];
             }
+
         } else {
-            // 3. JIKA TOKO PARENT -> Logika Kas Besar Normal dari tabel Kas
+            // --- JIKA TOKO PARENT (Normal dari tabel Kas) ---
             $kasBesarList = Kas::query()
                 ->when($tokoId && $tokoId !== 'all', fn ($q) => $q->where('toko_id', $tokoId))
                 ->where('tipe_kas', 'besar')
@@ -203,7 +229,7 @@ class NeracaKeuanganService
             }
         }
 
-        // 4. PROSES KAS KECIL (Selalu dari milik toko itu sendiri)
+        // 3. PROSES KAS KECIL (Milik toko itu sendiri)
         $kasKecilList = Kas::query()
             ->when($tokoId && $tokoId !== 'all', fn ($q) => $q->where('toko_id', $tokoId))
             ->where('tipe_kas', 'kecil')

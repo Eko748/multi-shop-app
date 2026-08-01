@@ -17,7 +17,6 @@ use App\Models\ReturMember;
 use App\Models\ReturSupplierDetail;
 use App\Models\StockBarangBermasalah;
 use App\Models\TransaksiKasirHarian;
-use Carbon\Carbon;
 
 class LabaRugiService
 {
@@ -53,32 +52,29 @@ class LabaRugiService
             ->pluck('laba_bersih', 'bulan')
             ->toArray();
 
-        // 2. Ambil ID Kas milik Parent Toko ini (jika bukan 'all')
+        // 2. Ambil ID Kas milik Parent Toko (jika bukan 'all')
         $parentKasIds = [];
         if ($tokoId !== 'all') {
             $parentKasIds = Kas::where('toko_id', $tokoId)->pluck('id')->toArray();
         }
 
-        // 3. Loop dari bulan 1 (Januari) sampai bulan terpilih
+        // 3. Loop per bulan (dari bulan 1 sampai bulan yang dipilih)
         for ($i = 1; $i <= $month; $i++) {
             $labaBersihBawaan = $data[$i] ?? 0;
             $nettoMutasi = 0;
 
-            // Hanya jalankan penyesuaian mutasi jika tokoId spesifik (bukan 'all')
             if ($tokoId !== 'all' && ! empty($parentKasIds)) {
-                // Batas tanggal akhir untuk bulan ke-i (Contoh: 2026-01-31 23:59:59)
-                $endDate = Carbon::createFromDate($year, $i, 1)->endOfMonth();
-
-                // Query mutasi kumulatif s.d. akhir bulan ke-i
+                // HANYA AMBIL MUTASI RIIL BULAN KE-$i DAN TAHUN TERSEBUT
                 $mutasiList = KasMutasi::with(['kasAsal', 'kasTujuan'])
-                    ->whereDate('tanggal', '<=', $endDate)
+                    ->whereYear('tanggal', $year)
+                    ->whereMonth('tanggal', $i) // Filter spesifik bulan ke-i saja
                     ->where(function ($q) use ($parentKasIds) {
                         $q->whereIn('kas_asal_id', $parentKasIds)
                             ->orWhereIn('kas_tujuan_id', $parentKasIds);
                     })
                     ->get();
 
-                // Filter mutasi beda toko (Parent <-> Child)
+                // Hitung netto mutasi khusus bulan tersebut
                 foreach ($mutasiList as $m) {
                     $tokoAsalId = $m->kasAsal?->toko_id;
                     $tokoTujuanId = $m->kasTujuan?->toko_id;
@@ -96,7 +92,7 @@ class LabaRugiService
                 }
             }
 
-            // Gabungkan laba bersih dasar dengan penyesuaian mutasi
+            // Hasil riil bulan ke-i
             $results[$i] = (int) $labaBersihBawaan + (int) $nettoMutasi;
         }
 

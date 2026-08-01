@@ -181,7 +181,6 @@ class NeracaKeuanganService
                 return $tokoAsalId != $tokoTujuanId;
             });
 
-            // Hitung Akumulasi Netto (Masuk - Keluar)
             foreach ($mutasiBedaToko as $m) {
                 $isMasuk = in_array($m->kas_tujuan_id, $myKasIds);
                 $isKeluar = in_array($m->kas_asal_id, $myKasIds);
@@ -192,6 +191,9 @@ class NeracaKeuanganService
                     $totalKasBesar -= $m->nominal;
                 }
             }
+
+            // Ambil nilai absolut agar tidak minus di Neraca
+            $totalKasBesar = abs($totalKasBesar);
 
             // Tampilkan ke item Kas Besar jika akumulasi > 0
             if ($totalKasBesar > 0) {

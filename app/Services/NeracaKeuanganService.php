@@ -131,22 +131,25 @@ class NeracaKeuanganService
 
     private function generateKas($tokoId, int $month, int $year)
     {
-        // Cek apakah toko ini adalah child, jika ya ambil parent_id untuk Kas Besar
+        // 1. Tentukan ID Toko Parent untuk Kas Besar
         $tokoBesarId = $tokoId;
-        if ($tokoId && $tokoId !== 'all') {
+
+        if (! empty($tokoId) && $tokoId !== 'all') {
             $toko = Toko::find($tokoId);
-            if ($toko?->parent_id) {
+
+            // Jika toko ini child (punya parent_id = 1, dst.), paksa ID-nya memakai Parent
+            if ($toko && ! empty($toko->parent_id)) {
                 $tokoBesarId = $toko->parent_id;
             }
         }
 
-        // 1. Ambil Kas Besar (menggunakan tokoParent jika toko ini child)
+        // 2. Query Kas Besar dari Toko Parent
         $kasBesarList = Kas::query()
             ->when($tokoBesarId && $tokoBesarId !== 'all', fn ($q) => $q->where('toko_id', $tokoBesarId))
             ->where('tipe_kas', 'besar')
             ->get();
 
-        // 2. Ambil Kas Kecil (tetap milik toko ini sendiri)
+        // 3. Query Kas Kecil dari Toko Child
         $kasKecilList = Kas::query()
             ->when($tokoId && $tokoId !== 'all', fn ($q) => $q->where('toko_id', $tokoId))
             ->where('tipe_kas', 'kecil')
@@ -169,36 +172,43 @@ class NeracaKeuanganService
         foreach ($allJenisBarangIds as $jenisBarangId) {
             $jenisNama = $jenisBarangMap[$jenisBarangId];
 
-            // --- PROSES KAS BESAR ---
+            // --- PROSES KAS BESAR (MILIK PARENT) ---
             $kasBesar = $kasBesarList->firstWhere('jenis_barang_id', $jenisBarangId);
-            $saldoBesar = $kasBesar ? $this->getSaldoAkhirKas($kasBesar->id, $month, $year) : 0;
 
-            if ($saldoBesar > 0) {
-                $kasBesarItems[] = [
-                    'kode' => 'I.1.'.$counterBesar,
-                    'nama' => 'Kas Besar - '.$jenisNama,
-                    'nilai' => (int) $saldoBesar,
-                    'format' => RupiahGenerate::build($saldoBesar),
-                    'sub' => 'I.1',
-                ];
-                $totalKasBesar += $saldoBesar;
-                $counterBesar++;
+            if ($kasBesar) {
+                // PENTING: getSaldoAkhirKas menggunakan ID dari $kasBesar milik parent
+                $saldoBesar = $this->getSaldoAkhirKas($kasBesar->id, $month, $year);
+
+                if ($saldoBesar > 0) {
+                    $kasBesarItems[] = [
+                        'kode' => 'I.1.'.$counterBesar,
+                        'nama' => 'Kas Besar - '.$jenisNama,
+                        'nilai' => (int) $saldoBesar,
+                        'format' => RupiahGenerate::build($saldoBesar),
+                        'sub' => 'I.1',
+                    ];
+                    $totalKasBesar += $saldoBesar;
+                    $counterBesar++;
+                }
             }
 
-            // --- PROSES KAS KECIL ---
+            // --- PROSES KAS KECIL (MILIK CHILD) ---
             $kasKecil = $kasKecilList->firstWhere('jenis_barang_id', $jenisBarangId);
-            $saldoKecil = $kasKecil ? $this->getSaldoAkhirKas($kasKecil->id, $month, $year) : 0;
 
-            if ($saldoKecil > 0) {
-                $kasKecilItems[] = [
-                    'kode' => 'I.2.'.$counterKecil,
-                    'nama' => 'Kas Kecil - '.$jenisNama,
-                    'nilai' => (int) $saldoKecil,
-                    'format' => RupiahGenerate::build($saldoKecil),
-                    'sub' => 'I.2',
-                ];
-                $totalKasKecil += $saldoKecil;
-                $counterKecil++;
+            if ($kasKecil) {
+                $saldoKecil = $this->getSaldoAkhirKas($kasKecil->id, $month, $year);
+
+                if ($saldoKecil > 0) {
+                    $kasKecilItems[] = [
+                        'kode' => 'I.2.'.$counterKecil,
+                        'nama' => 'Kas Kecil - '.$jenisNama,
+                        'nilai' => (int) $saldoKecil,
+                        'format' => RupiahGenerate::build($saldoKecil),
+                        'sub' => 'I.2',
+                    ];
+                    $totalKasKecil += $saldoKecil;
+                    $counterKecil++;
+                }
             }
         }
 

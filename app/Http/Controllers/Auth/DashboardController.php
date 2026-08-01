@@ -4,28 +4,29 @@ namespace App\Http\Controllers\Auth;
 
 use App\Helpers\TextGenerate;
 use App\Http\Controllers\Controller;
-use App\Models\DetailKasir;
-use App\Models\PenjualanNonFisik;
 use App\Models\Kasir;
 use App\Models\KasTransaksi;
-use App\Models\PenjualanNonFisikDetail;
 use App\Models\Member;
+use App\Models\PenjualanNonFisik;
+use App\Models\PenjualanNonFisikDetail;
 use App\Models\ReturMemberDetail;
 use App\Models\ReturSupplierDetail;
 use App\Models\Toko;
 use App\Models\TransaksiKasir;
 use App\Models\TransaksiKasirDetail;
+use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use App\Traits\ApiResponse;
 
 class DashboardController extends Controller
 {
     use ApiResponse;
+
     public function index()
     {
         $title = 'Dashboard';
+
         return view('master.index', compact('title'));
     }
 
@@ -33,8 +34,8 @@ class DashboardController extends Controller
     {
         $idToko = $request->input('nama_toko', 'all');
         $period = $request->input('period', 'monthly');
-        $month = $period === 'daily' ? (int)$request->input('month', now()->month) : null;
-        $year = (int)$request->input('year', now()->year);
+        $month = $period === 'daily' ? (int) $request->input('month', now()->month) : null;
+        $year = (int) $request->input('year', now()->year);
 
         try {
             // === Nama toko
@@ -47,15 +48,15 @@ class DashboardController extends Controller
             // === Rentang tanggal
             if ($period === 'daily' && $month) {
                 $startDate = Carbon::createFromDate($year, $month, 1)->startOfDay();
-                $endDate   = Carbon::createFromDate($year, $month, 1)->endOfMonth()->endOfDay();
+                $endDate = Carbon::createFromDate($year, $month, 1)->endOfMonth()->endOfDay();
             } else {
                 $startDate = Carbon::createFromDate($year, 1, 1)->startOfDay();
-                $endDate   = Carbon::createFromDate($year, 12, 31)->endOfDay();
+                $endDate = Carbon::createFromDate($year, 12, 31)->endOfDay();
             }
 
             $kasData = KasTransaksi::with('kas')
                 ->when($idToko !== 'all' && $idToko != 1, function ($q) use ($idToko) {
-                    $q->whereHas('kas', fn($sub) => $sub->where('toko_id', $idToko));
+                    $q->whereHas('kas', fn ($sub) => $sub->where('toko_id', $idToko));
                 })
                 ->where('tipe', 'in')
                 ->where('kategori', 'Pendapatan Umum')
@@ -69,7 +70,7 @@ class DashboardController extends Controller
                 ->selectRaw('MONTH(created_at) as bulan, SUM(total_refund) as total')
                 ->groupBy('bulan')
                 ->pluck('total', 'bulan')
-                ->map(fn($v) => (float)$v);
+                ->map(fn ($v) => (float) $v);
 
             // === Refund Supplier per Bulan (untung & rugi)
             $keuntunganRefundPerBulan = ReturSupplierDetail::where('qty_refund', '>', 0)
@@ -78,7 +79,7 @@ class DashboardController extends Controller
                 ->selectRaw('MONTH(created_at) as bulan, SUM(selisih) as total')
                 ->groupBy('bulan')
                 ->pluck('total', 'bulan')
-                ->map(fn($v) => (float)$v);
+                ->map(fn ($v) => (float) $v);
 
             $kerugianRefundPerBulan = ReturSupplierDetail::where('qty_refund', '>', 0)
                 ->whereYear('created_at', $year)
@@ -86,7 +87,7 @@ class DashboardController extends Controller
                 ->selectRaw('MONTH(created_at) as bulan, SUM(selisih) as total')
                 ->groupBy('bulan')
                 ->pluck('total', 'bulan')
-                ->map(fn($v) => (float)$v);
+                ->map(fn ($v) => (float) $v);
 
             $laporan = [
                 'nama_toko' => $namaToko,
@@ -172,7 +173,7 @@ class DashboardController extends Controller
         try {
             $selectedTokoIds = $request->input('id_toko');
             $startDate = $request->input('start_date');
-            $endDate   = $request->input('end_date');
+            $endDate = $request->input('end_date');
 
             // ===== SUBQUERY RETUR MENGGUNAKAN MODEL =====
             $subqueryRetur = ReturMemberDetail::select(
@@ -185,7 +186,7 @@ class DashboardController extends Controller
                 ->when($startDate && $endDate, function ($q) use ($startDate, $endDate) {
                     $q->whereBetween(DB::raw('DATE(retur_member.tanggal)'), [$startDate, $endDate]);
                 })
-                ->when(!empty($selectedTokoIds) && $selectedTokoIds !== 'all', function ($q) use ($selectedTokoIds) {
+                ->when(! empty($selectedTokoIds) && $selectedTokoIds !== 'all', function ($q) use ($selectedTokoIds) {
                     $q->whereIn('retur_member.toko_id', (array) $selectedTokoIds);
                 })
                 ->groupBy('retur_member_detail.barang_id');
@@ -214,7 +215,7 @@ class DashboardController extends Controller
                 ->whereNull('transaksi_kasir.deleted_at');
 
             // ===== FILTER TOKO =====
-            if (!empty($selectedTokoIds) && $selectedTokoIds !== 'all') {
+            if (! empty($selectedTokoIds) && $selectedTokoIds !== 'all') {
                 $query->whereIn('transaksi_kasir.toko_id', (array) $selectedTokoIds)
                     ->groupBy('transaksi_kasir.toko_id', 'stock_barang.barang_id', 'barang.nama', 'retur_sub.total_qty_refund', 'retur_sub.total_nominal_refund');
             } else {
@@ -230,22 +231,22 @@ class DashboardController extends Controller
                     'nama_barang' => TextGenerate::smartTail($item->nama),
                     'jumlah' => (int) $item->net_terjual,
                     'total_retur' => (int) $item->total_retur,
-                    'total_nilai' => (float) $item->net_nilai
+                    'total_nilai' => (float) $item->net_nilai,
                 ];
             });
 
             return response()->json([
-                "error" => false,
-                "message" => $data->isEmpty() ? "No data found" : "Data retrieved successfully",
-                "status_code" => 200,
-                "data" => $data
+                'error' => false,
+                'message' => $data->isEmpty() ? 'No data found' : 'Data retrieved successfully',
+                'status_code' => 200,
+                'data' => $data,
             ]);
         } catch (\Throwable $th) {
             return response()->json([
-                "error" => true,
-                "message" => "Failed to retrieve data",
-                "status_code" => 500,
-                "trace" => $th->getMessage()
+                'error' => true,
+                'message' => 'Failed to retrieve data',
+                'status_code' => 500,
+                'trace' => $th->getMessage(),
             ]);
         }
     }
@@ -254,7 +255,7 @@ class DashboardController extends Controller
     {
         $selectedTokoIds = $request->input('id_toko');
         $startDate = $request->input('start_date');
-        $endDate   = $request->input('end_date');
+        $endDate = $request->input('end_date');
 
         // ====== QUERY DASAR ======
         $query = Member::select(
@@ -300,7 +301,7 @@ class DashboardController extends Controller
             );
 
         // ====== FILTER TOKO ======
-        if (!empty($selectedTokoIds) && $selectedTokoIds !== 'all') {
+        if (! empty($selectedTokoIds) && $selectedTokoIds !== 'all') {
             $query->where('transaksi_kasir.toko_id', $selectedTokoIds);
         }
 
@@ -325,17 +326,17 @@ class DashboardController extends Controller
         });
 
         return response()->json([
-            "error" => false,
-            "message" => $data->isEmpty() ? "No data found" : "Data retrieved successfully",
-            "status_code" => 200,
-            "data" => $data
+            'error' => false,
+            'message' => $data->isEmpty() ? 'No data found' : 'Data retrieved successfully',
+            'status_code' => 200,
+            'data' => $data,
         ]);
     }
 
     public function getOmset(Request $request)
     {
-        $startDate = $request->input('startDate', now()->format('Y-m-d')) . ' 00:00:00';
-        $endDate   = $request->input('endDate', now()->format('Y-m-d')) . ' 23:59:59';
+        $startDate = $request->input('startDate', now()->format('Y-m-d')).' 00:00:00';
+        $endDate = $request->input('endDate', now()->format('Y-m-d')).' 23:59:59';
 
         $idTokoLogin = $request->input('id_toko');
 
@@ -390,31 +391,31 @@ class DashboardController extends Controller
             $fixOmset = max($totalOmset - $returTotal - $totalKasbon, 0);
 
             return response()->json([
-                "error"       => false,
-                "message"     => $totalOmset > 0 ? "Data retrieved successfully" : "No data found",
-                "status_code" => 200,
-                "data" => [
-                    'total'       => $fixOmset,
-                    'kasbon'      => (float) $totalKasbon,
+                'error' => false,
+                'message' => $totalOmset > 0 ? 'Data retrieved successfully' : 'No data found',
+                'status_code' => 200,
+                'data' => [
+                    'total' => $fixOmset,
+                    'kasbon' => (float) $totalKasbon,
                     'biaya_retur' => (float) $returTotal,
                     'omset_kasir' => $totalOmsetKasir,
-                    'omset_pnf'   => $totalOmsetPNF,
+                    'omset_pnf' => $totalOmsetPNF,
                 ],
             ]);
         } catch (\Throwable $th) {
             return response()->json([
-                "error"       => true,
-                "message"     => "Error retrieving omset",
-                "status_code" => 500,
-                "data"        => $th->getMessage(),
+                'error' => true,
+                'message' => 'Error retrieving omset',
+                'status_code' => 500,
+                'data' => $th->getMessage(),
             ]);
         }
     }
 
     public function getLabaKotor(Request $request)
     {
-        $startDate = $request->input('startDate', now()->format('Y-m-d')) . ' 00:00:00';
-        $endDate = $request->input('endDate', now()->format('Y-m-d')) . ' 23:59:59';
+        $startDate = $request->input('startDate', now()->format('Y-m-d')).' 00:00:00';
+        $endDate = $request->input('endDate', now()->format('Y-m-d')).' 23:59:59';
         $idTokoLogin = $request->input('id_toko');
 
         try {
@@ -450,24 +451,23 @@ class DashboardController extends Controller
             $totalPenjualanKasir = (float) ($labakotorKasir->total_penjualan ?? 0);
             $totalHppKasir = (float) ($labakotorKasir->total_hpp ?? 0);
 
-            // Laba kotor dari penjualan non fisik
+            // Laba kotor dari penjualan non fisik (FIXED: toko_id pada tabel users)
             $labakotorPNF = PenjualanNonFisikDetail::whereHas('penjualanNonfisik', function ($q) use ($startDate, $endDate, $idTokoLogin) {
                 $q->whereBetween('created_at', [$startDate, $endDate])
                     ->when($idTokoLogin && $idTokoLogin != 1, function ($q2) use ($idTokoLogin) {
                         $q2->whereHas('createdBy', function ($q3) use ($idTokoLogin) {
-                            $q3->where('toko_id', $idTokoLogin);
+                            $q3->where('toko_id', $idTokoLogin); // Menggunakan toko_id, bukan id_toko
                         });
                     });
             })
                 ->selectRaw('
-                        SUM(harga_jual * qty) as total_penjualan,
-                        SUM(hpp * qty) as total_hpp
-                    ')
+                SUM(harga_jual * qty) as total_penjualan,
+                SUM(hpp * qty) as total_hpp
+            ')
                 ->first();
 
             $totalPenjualanPNF = (float) ($labakotorPNF->total_penjualan ?? 0);
             $totalHppPNF = (float) ($labakotorPNF->total_hpp ?? 0);
-
 
             // Gabungan
             $totalPenjualan = $totalPenjualanKasir + $totalPenjualanPNF;
@@ -476,27 +476,27 @@ class DashboardController extends Controller
             $labaKotor = max($totalPenjualan - $totalHpp - $returTotal, 0);
 
             return response()->json([
-                "error" => false,
-                "message" => "Laba kotor berhasil dihitung",
-                "status_code" => 200,
-                "data" => [
+                'error' => false,
+                'message' => 'Laba kotor berhasil dihitung',
+                'status_code' => 200,
+                'data' => [
                     'laba_kotor' => $labaKotor,
                 ],
             ]);
         } catch (\Throwable $th) {
             return response()->json([
-                "error" => true,
-                "message" => "Error retrieving laba kotor",
-                "status_code" => 500,
-                "data" => $th->getMessage(),
+                'error' => true,
+                'message' => 'Error retrieving laba kotor',
+                'status_code' => 500,
+                'data' => $th->getMessage(),
             ]);
         }
     }
 
     public function getJumlahTransaksi(Request $request)
     {
-        $startDate = $request->input('startDate', now()->format('Y-m-d')) . ' 00:00:00';
-        $endDate = $request->input('endDate', now()->format('Y-m-d')) . ' 23:59:59';
+        $startDate = $request->input('startDate', now()->format('Y-m-d')).' 00:00:00';
+        $endDate = $request->input('endDate', now()->format('Y-m-d')).' 23:59:59';
         $idTokoLogin = $request->input('id_toko');
 
         try {
@@ -520,19 +520,19 @@ class DashboardController extends Controller
             $jumlahTransaksi = $jumlahTransaksiKasir + $jumlahTransaksiPNF;
 
             return response()->json([
-                "error" => false,
-                "message" => "Jumlah transaksi berhasil dihitung",
-                "status_code" => 200,
-                "data" => [
+                'error' => false,
+                'message' => 'Jumlah transaksi berhasil dihitung',
+                'status_code' => 200,
+                'data' => [
                     'jumlah_transaksi' => $jumlahTransaksi ?? 0,
                 ],
             ]);
         } catch (\Throwable $th) {
             return response()->json([
-                "error" => true,
-                "message" => "Error retrieving jumlah transaksi",
-                "status_code" => 500,
-                "data" => $th->getMessage(),
+                'error' => true,
+                'message' => 'Error retrieving jumlah transaksi',
+                'status_code' => 500,
+                'data' => $th->getMessage(),
             ]);
         }
     }
@@ -548,8 +548,8 @@ class DashboardController extends Controller
                     ->where('transaksi_kasir.total_qty', '>', 0)
                     ->whereNull('transaksi_kasir.deleted_at')
                     ->whereBetween('transaksi_kasir.tanggal', [
-                        $startDate . ' 00:00:00',
-                        $endDate . ' 23:59:59'
+                        $startDate.' 00:00:00',
+                        $endDate.' 23:59:59',
                     ]);
             })
                 ->selectRaw('

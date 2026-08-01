@@ -131,34 +131,27 @@ class NeracaKeuanganService
 
     private function generateKas($tokoId, int $month, int $year)
     {
-        // 1. Tentukan ID Toko yang digunakan untuk Kas Besar & Kas Kecil
-        $tokoIdKasBesar = $tokoId;
-        $tokoIdKasKecil = $tokoId;
+        // 1. Tentukan toko ID untuk Kas Besar
+        $tokoIdBesar = $tokoId;
 
         if ($tokoId !== null && $tokoId !== 'all') {
-            $toko = Toko::find($tokoId);
+            $toko = Toko::select('id', 'parent_id')->find($tokoId);
 
-            // Jika toko ini adalah child (punya parent_id), maka Kas Besar mengambil milik Parent
-            if ($toko && $toko->parent_id !== null) {
-                $tokoIdKasBesar = $toko->parent_id;
+            // Jika ini toko Child, paksa ID Kas Besar menggunakan ID Parent
+            if ($toko?->parent_id) {
+                $tokoIdBesar = $toko->parent_id;
             }
         }
 
-        // 2. Ambil data Kas untuk Kas Besar (milik Parent jika child)
+        // 2. Query Kas Besar (pakai ID Parent jika Child)
         $kasBesarList = Kas::query()
-            ->when(
-                $tokoIdKasBesar !== null && $tokoIdKasBesar !== 'all',
-                fn ($q) => $q->where('toko_id', $tokoIdKasBesar)
-            )
+            ->when($tokoIdBesar && $tokoIdBesar !== 'all', fn ($q) => $q->where('toko_id', $tokoIdBesar))
             ->where('tipe_kas', 'besar')
             ->get();
 
-        // 3. Ambil data Kas untuk Kas Kecil (milik Toko Child itu sendiri)
+        // 3. Query Kas Kecil (tetap pakai tokoId milik sendiri)
         $kasKecilList = Kas::query()
-            ->when(
-                $tokoIdKasKecil !== null && $tokoIdKasKecil !== 'all',
-                fn ($q) => $q->where('toko_id', $tokoIdKasKecil)
-            )
+            ->when($tokoId && $tokoId !== 'all', fn ($q) => $q->where('toko_id', $tokoId))
             ->where('tipe_kas', 'kecil')
             ->get();
 
@@ -179,47 +172,44 @@ class NeracaKeuanganService
         foreach ($allJenisBarangIds as $jenisBarangId) {
             $jenisNama = $jenisBarangMap[$jenisBarangId];
 
-            // --- PROSES KAS BESAR (Menggunakan list kas besar yang sudah difilter toko parent/sendiri) ---
-            $kasBesar = $kasBesarList->where('jenis_barang_id', $jenisBarangId)->first();
-            $saldoBesar = 0;
-
+            // --- KAS BESAR ---
+            $kasBesar = $kasBesarList->firstWhere('jenis_barang_id', $jenisBarangId);
             if ($kasBesar) {
                 $saldoBesar = $this->getSaldoAkhirKas($kasBesar->id, $month, $year);
+                if ($saldoBesar > 0) {
+                    $kasBesarItems[] = [
+                        'kode' => 'I.1.'.$counterBesar,
+                        'nama' => 'Kas Besar - '.$jenisNama,
+                        'nilai' => (int) $saldoBesar,
+                        'format' => RupiahGenerate::build($saldoBesar),
+                        'sub' => 'I.1',
+                    ];
+                    $totalKasBesar += $saldoBesar;
+                    $counterBesar++;
+                }
             }
 
-            if ($saldoBesar > 0) {
-                $kasBesarItems[] = [
-                    'kode' => 'I.1.'.$counterBesar,
-                    'nama' => 'Kas Besar - '.$jenisNama,
-                    'nilai' => (int) $saldoBesar,
-                    'format' => RupiahGenerate::build($saldoBesar),
-                    'sub' => 'I.1',
-                ];
-                $totalKasBesar += $saldoBesar;
-                $counterBesar++;
-            }
-
-            // --- PROSES KAS KECIL (Menggunakan list kas kecil milik toko sendiri) ---
-            $kasKecil = $kasKecilList->where('jenis_barang_id', $jenisBarangId)->first();
-            $saldoKecil = 0;
-
+            // --- KAS KECIL ---
+            $kasKecil = $kasKecilList->firstWhere('jenis_barang_id', $jenisBarangId);
             if ($kasKecil) {
                 $saldoKecil = $this->getSaldoAkhirKas($kasKecil->id, $month, $year);
-            }
-
-            if ($saldoKecil > 0) {
-                $kasKecilItems[] = [
-                    'kode' => 'I.2.'.$counterKecil,
-                    'nama' => 'Kas Kecil - '.$jenisNama,
-                    'nilai' => (int) $saldoKecil,
-                    'format' => RupiahGenerate::build($saldoKecil),
-                    'sub' => 'I.2',
-                ];
-                $totalKasKecil += $saldoKecil;
-                $counterKecil++;
+                if ($saldoKecil > 0) {
+                    $kasKecilItems[] = [
+                        'kode' => 'I.2.'.$counterKecil,
+                        'nama' => 'Kas Kecil - '.$jenisNama,
+                        'nilai' => (int) $saldoKecil,
+                        'format' => RupiahGenerate::build($saldoKecil),
+                        'sub' => 'I.2',
+                    ];
+                    $totalKasKecil += $saldoKecil;
+                    $counterKecil++;
+                }
             }
         }
 
+        // Struktur array return ini SANGAT COCOK dengan cara panggil Anda:
+        // $totalKasBesarParent = (int) ($kasData['kasBesar']['parent']['nilai'] ?? 0);
+        // $totalKasKecilParent = (int) ($kasData['kasKecil']['parent']['nilai'] ?? 0);
         return [
             'kasBesar' => [
                 'parent' => [

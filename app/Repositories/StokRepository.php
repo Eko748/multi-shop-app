@@ -2,6 +2,7 @@
 
 namespace App\Repositories;
 
+use App\Models\JenisBarang;
 use App\Models\StockBarangBatch;
 use App\Models\StockBarangBermasalah; // Sesuaikan namespace model Anda
 use App\Models\TransaksiKasirHarian; // Sesuaikan namespace model Anda
@@ -37,45 +38,12 @@ class StokRepository
         $isCurrentMonth = ($now->month === $month && $now->year === $year);
 
         // =========================================================================
-        // JIKA AKSES BULAN INI (REAL-TIME)
-        // =========================================================================
-        if ($isCurrentMonth) {
-            $data = StockBarangBatch::query()
-                ->join('stock_barang', 'stock_barang_batch.stock_barang_id', '=', 'stock_barang.id')
-                ->join('barang', 'stock_barang.barang_id', '=', 'barang.id')
-                ->join('jenis_barang', 'barang.jenis_barang_id', '=', 'jenis_barang.id')
-                ->whereNull('stock_barang.deleted_at')
-                ->whereNull('barang.deleted_at')
-                ->whereNull('jenis_barang.deleted_at')
-                ->select(
-                    'jenis_barang.id as id_jenis_barang',
-                    'jenis_barang.nama_jenis_barang',
-                    DB::raw('SUM(stock_barang_batch.qty_sisa) as total_qty'),
-                    DB::raw('SUM(stock_barang_batch.qty_sisa * stock_barang_batch.harga_beli) as total_harga')
-                )
-                ->when($tokoId !== null && $tokoId !== 'all' && $tokoId != 0, function ($q) use ($tokoId) {
-                    return $q->where('stock_barang_batch.toko_id', $tokoId);
-                })
-                ->groupBy('jenis_barang.id', 'jenis_barang.nama_jenis_barang')
-                ->get();
-
-            return $data->map(function ($item) {
-                return [
-                    'id_jenis_barang' => $item->id_jenis_barang,
-                    'nama_jenis_barang' => $item->nama_jenis_barang,
-                    'total_qty' => (int) $item->total_qty,
-                    'total_harga' => (float) $item->total_harga,
-                ];
-            })->values();
-        }
-
-        // =========================================================================
         // JIKA AKSES BULAN LALU (BACKTRACKING)
         // =========================================================================
         $targetMonthEnd = Carbon::createFromDate($year, $month, 1)->endOfMonth()->format('Y-m-d H:i:s');
         $targetDateEnd = Carbon::createFromDate($year, $month, 1)->endOfMonth()->format('Y-m-d');
 
-        // 1. Ambil TOTAL MASUK (Pembelian Batch)
+        // 1. Ambil TOTAL MASUK (Pembelian Batch - Biasanya hanya ada di Parent)
         $batches = StockBarangBatch::query()
             ->join('stock_barang', 'stock_barang_batch.stock_barang_id', '=', 'stock_barang.id')
             ->join('barang', 'stock_barang.barang_id', '=', 'barang.id')
@@ -133,11 +101,7 @@ class StokRepository
             ->get()
             ->keyBy('jenis_barang_id');
 
-        // =========================================================================
-        // 3.b (TAMBAHAN): AMBIL TOTAL TRANSFER / PENGIRIMAN BARANG
-        // =========================================================================
-
-        // Pengiriman KELUAR (dari toko ini ke toko lain) -> Mengurangi stok toko ini
+        // 4. Pengiriman KELUAR (dari toko ini ke toko lain) -> Mengurangi stok toko pengirim
         $transferOut = DB::table('pengiriman_barang_detail')
             ->join('pengiriman_barang', 'pengiriman_barang_detail.pengiriman_barang_id', '=', 'pengiriman_barang.id')
             ->join('stock_barang_batch', 'pengiriman_barang_detail.stock_barang_batch_id', '=', 'stock_barang_batch.id')
@@ -156,14 +120,16 @@ class StokRepository
             ->get()
             ->keyBy('jenis_barang_id');
 
-        // Pengiriman MASUK (dari toko lain ke toko ini) -> Menambah stok toko ini
+        // 5. Pengiriman MASUK (dari toko lain ke toko ini) -> Menambah stok toko penerima
         $transferIn = DB::table('pengiriman_barang_detail')
             ->join('pengiriman_barang', 'pengiriman_barang_detail.pengiriman_barang_id', '=', 'pengiriman_barang.id')
             ->join('stock_barang_batch', 'pengiriman_barang_detail.stock_barang_batch_id', '=', 'stock_barang_batch.id')
             ->join('stock_barang', 'stock_barang_batch.stock_barang_id', '=', 'stock_barang.id')
             ->join('barang', 'stock_barang.barang_id', '=', 'barang.id')
+            ->join('jenis_barang', 'barang.jenis_barang_id', '=', 'jenis_barang.id')
             ->select(
                 'barang.jenis_barang_id',
+                'jenis_barang.nama_jenis_barang',
                 DB::raw('SUM(pengiriman_barang_detail.qty_verified) as total_qty_in'),
                 DB::raw('SUM(pengiriman_barang_detail.qty_verified * stock_barang_batch.harga_beli) as total_harga_in')
             )
@@ -171,18 +137,34 @@ class StokRepository
             ->when($tokoId !== null && $tokoId !== 'all' && $tokoId != 0, function ($q) use ($tokoId) {
                 return $q->where('pengiriman_barang.toko_tujuan_id', $tokoId);
             })
-            ->groupBy('barang.jenis_barang_id')
+            ->groupBy('barang.jenis_barang_id', 'jenis_barang.nama_jenis_barang')
             ->get()
             ->keyBy('jenis_barang_id');
 
-        // 4. Gabungkan hasil kalkulasi
-        return $batches->map(function ($batch) use ($sales, $problems, $transferOut, $transferIn) {
-            $jenisId = $batch->id_jenis_barang;
+        // =========================================================================
+        // KUNCI PERBAIKAN: GABUNGKAN SEMUA JENIS BARANG YANG DITEMUKAN
+        // =========================================================================
+        $allJenisBarangIds = collect()
+            ->merge($batches->keys())
+            ->merge($sales->keys())
+            ->merge($problems->keys())
+            ->merge($transferOut->keys())
+            ->merge($transferIn->keys())
+            ->unique();
 
+        $jenisBarangMap = JenisBarang::whereIn('id', $allJenisBarangIds)
+            ->pluck('nama_jenis_barang', 'id')
+            ->toArray();
+
+        return $allJenisBarangIds->map(function ($jenisId) use ($batches, $sales, $problems, $transferOut, $transferIn, $jenisBarangMap) {
+            $batch = $batches->get($jenisId);
             $sale = $sales->get($jenisId);
             $problem = $problems->get($jenisId);
             $tfOut = $transferOut->get($jenisId);
             $tfIn = $transferIn->get($jenisId);
+
+            $qtyMasuk = $batch ? (float) $batch->total_qty_masuk : 0;
+            $hargaMasuk = $batch ? (float) $batch->total_harga_masuk : 0;
 
             $qtyTerjual = $sale ? (float) $sale->total_qty_terjual : 0;
             $hargaTerjual = $sale ? (float) $sale->total_harga_terjual : 0;
@@ -196,17 +178,19 @@ class StokRepository
             $qtyIn = $tfIn ? (float) $tfIn->total_qty_in : 0;
             $hargaIn = $tfIn ? (float) $tfIn->total_harga_in : 0;
 
-            // FORMULA BARU:
-            // Total Sisa Stok = (Total Masuk + Transfer Masuk) - Terjual - Bermasalah - Transfer Keluar
-            $sisaQty = ((float) $batch->total_qty_masuk + $qtyIn) - $qtyTerjual - $qtyBermasalah - $qtyOut;
-            $sisaHarga = ((float) $batch->total_harga_masuk + $hargaIn) - $hargaTerjual - $hargaBermasalah - $hargaOut;
+            // RUMUS LENGKAP:
+            // Sisa = (Batch Masuk + Transfer Masuk) - (Terjual + Bermasalah + Transfer Keluar)
+            $sisaQty = ($qtyMasuk + $qtyIn) - ($qtyTerjual + $qtyBermasalah + $qtyOut);
+            $sisaHarga = ($hargaMasuk + $hargaIn) - ($hargaTerjual + $hargaBermasalah + $hargaOut);
 
             return [
-                'id_jenis_barang' => $batch->id_jenis_barang,
-                'nama_jenis_barang' => $batch->nama_jenis_barang,
+                'id_jenis_barang' => $jenisId,
+                'nama_jenis_barang' => $jenisBarangMap[$jenisId] ?? 'Lainnya',
                 'total_qty' => (int) max(0, $sisaQty),
                 'total_harga' => (float) max(0, $sisaHarga),
             ];
+        })->filter(function ($item) {
+            return $item['total_qty'] > 0; // Hanya tampilkan yang stoknya > 0
         })->values();
     }
 }

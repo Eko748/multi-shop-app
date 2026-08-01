@@ -16,6 +16,7 @@ use App\Models\PengeluaranTipe;
 use App\Models\ReturMember;
 use App\Models\ReturSupplierDetail;
 use App\Models\StockBarangBermasalah;
+use App\Models\Toko;
 use App\Models\TransaksiKasirHarian;
 
 class LabaRugiService
@@ -40,7 +41,7 @@ class LabaRugiService
     {
         $results = [];
 
-        // 1. Query Laba Rugi Dasar
+        // 1. Query Laba Rugi Dasar bawaan
         $query = LabaRugi::where('tahun', $year)
             ->where('bulan', '<=', $month);
 
@@ -52,47 +53,67 @@ class LabaRugiService
             ->pluck('laba_bersih', 'bulan')
             ->toArray();
 
-        // 2. Ambil ID Kas milik Parent Toko (jika bukan 'all')
-        $parentKasIds = [];
+        // 2. Ambil ID Kas milik Toko saat ini (baik Parent maupun Child)
+        $myKasIds = [];
+        $isChild = false;
+
         if ($tokoId !== 'all') {
-            $parentKasIds = Kas::where('toko_id', $tokoId)->pluck('id')->toArray();
+            $myKasIds = Kas::where('toko_id', $tokoId)->pluck('id')->toArray();
+
+            $toko = Toko::find($tokoId);
+            if ($toko && ! empty($toko->parent_id)) {
+                $isChild = true;
+            }
         }
 
-        // 3. Loop per bulan (dari bulan 1 sampai bulan yang dipilih)
+        // 3. Loop per bulan (Januari s/d Bulan Filter)
         for ($i = 1; $i <= $month; $i++) {
             $labaBersihBawaan = $data[$i] ?? 0;
             $nettoMutasi = 0;
 
-            if ($tokoId !== 'all' && ! empty($parentKasIds)) {
-                // HANYA AMBIL MUTASI RIIL BULAN KE-$i DAN TAHUN TERSEBUT
+            if ($tokoId !== 'all' && ! empty($myKasIds)) {
+                // Filter mutasi riil bulan & tahun ini saja
                 $mutasiList = KasMutasi::with(['kasAsal', 'kasTujuan'])
                     ->whereYear('tanggal', $year)
-                    ->whereMonth('tanggal', $i) // Filter spesifik bulan ke-i saja
-                    ->where(function ($q) use ($parentKasIds) {
-                        $q->whereIn('kas_asal_id', $parentKasIds)
-                            ->orWhereIn('kas_tujuan_id', $parentKasIds);
+                    ->whereMonth('tanggal', $i)
+                    ->where(function ($q) use ($myKasIds) {
+                        $q->whereIn('kas_asal_id', $myKasIds)
+                            ->orWhereIn('kas_tujuan_id', $myKasIds);
                     })
                     ->get();
 
-                // Hitung netto mutasi khusus bulan tersebut
                 foreach ($mutasiList as $m) {
                     $tokoAsalId = $m->kasAsal?->toko_id;
                     $tokoTujuanId = $m->kasTujuan?->toko_id;
 
+                    // Hanya proses jika mutasi antar toko (beda toko)
                     if ($tokoAsalId != $tokoTujuanId) {
-                        $isMasuk = in_array($m->kas_tujuan_id, $parentKasIds);
-                        $isKeluar = in_array($m->kas_asal_id, $parentKasIds);
+                        $isMasuk = in_array($m->kas_tujuan_id, $myKasIds);
+                        $isKeluar = in_array($m->kas_asal_id, $myKasIds);
 
-                        if ($isMasuk) {
-                            $nettoMutasi += $m->nominal;
-                        } elseif ($isKeluar) {
-                            $nettoMutasi -= $m->nominal;
+                        if ($isChild) {
+                            // UNTUK TOKO CHILD:
+                            // Jika Child menyetor/kirim uang ke Parent (isKeluar),
+                            // dihitung sebagai pengenal Laba Bagi Hasil (nilai positif di laporan laba/rugi child)
+                            if ($isKeluar) {
+                                $nettoMutasi += $m->nominal;
+                            } elseif ($isMasuk) {
+                                $nettoMutasi -= $m->nominal;
+                            }
+                        } else {
+                            // UNTUK TOKO PARENT:
+                            // Uang masuk dari Child menambah laba Parent
+                            if ($isMasuk) {
+                                $nettoMutasi += $m->nominal;
+                            } elseif ($isKeluar) {
+                                $nettoMutasi -= $m->nominal;
+                            }
                         }
                     }
                 }
             }
 
-            // Hasil riil bulan ke-i
+            // Hasil riil akhir bulan ke-i
             $results[$i] = (int) $labaBersihBawaan + (int) $nettoMutasi;
         }
 

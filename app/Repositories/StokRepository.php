@@ -134,10 +134,30 @@ class StokRepository
             ->get()
             ->keyBy('jenis_barang_id');
 
+        // 3.b (TAMBAHAN KHUSUS): TOTAL BARANG DIKIRIM KELUAR (AGAR TIDAK STUCK DI PENJUAL/PARENT)
+        $transferOut = DB::table('pengiriman_barang_detail')
+            ->join('pengiriman_barang', 'pengiriman_barang_detail.pengiriman_barang_id', '=', 'pengiriman_barang.id')
+            ->join('stock_barang_batch', 'pengiriman_barang_detail.stock_barang_batch_id', '=', 'stock_barang_batch.id')
+            ->join('stock_barang', 'stock_barang_batch.stock_barang_id', '=', 'stock_barang.id')
+            ->join('barang', 'stock_barang.barang_id', '=', 'barang.id')
+            ->select(
+                'barang.jenis_barang_id',
+                DB::raw('SUM(pengiriman_barang_detail.qty_send) as total_qty_out'),
+                DB::raw('SUM(pengiriman_barang_detail.qty_send * stock_barang_batch.harga_beli) as total_harga_out')
+            )
+            ->where('pengiriman_barang.created_at', '<=', $targetMonthEnd)
+            ->when($tokoId !== null && $tokoId !== 'all' && $tokoId != 0, function ($q) use ($tokoId) {
+                return $q->where('pengiriman_barang.toko_asal_id', $tokoId);
+            })
+            ->groupBy('barang.jenis_barang_id')
+            ->get()
+            ->keyBy('jenis_barang_id');
+
         // 4. Gabungkan hasil kalkulasi
-        return $batches->map(function ($batch) use ($sales, $problems) {
+        return $batches->map(function ($batch) use ($sales, $problems, $transferOut) {
             $sale = $sales->get($batch->id_jenis_barang);
             $problem = $problems->get($batch->id_jenis_barang);
+            $tfOut = $transferOut->get($batch->id_jenis_barang);
 
             $qtyTerjual = $sale ? (float) $sale->total_qty_terjual : 0;
             $hargaTerjual = $sale ? (float) $sale->total_harga_terjual : 0;
@@ -145,8 +165,13 @@ class StokRepository
             $qtyBermasalah = $problem ? (float) $problem->total_qty_bermasalah : 0;
             $hargaBermasalah = $problem ? (float) $problem->total_harga_bermasalah : 0;
 
-            $sisaQty = (float) $batch->total_qty_masuk - $qtyTerjual - $qtyBermasalah;
-            $sisaHarga = (float) $batch->total_harga_masuk - $hargaTerjual - $hargaBermasalah;
+            // Pengurangan barang dikirim
+            $qtyOut = $tfOut ? (float) $tfOut->total_qty_out : 0;
+            $hargaOut = $tfOut ? (float) $tfOut->total_harga_out : 0;
+
+            // RUMUS: Masuk Batch - Terjual - Bermasalah - Dikirim Keluar
+            $sisaQty = (float) $batch->total_qty_masuk - $qtyTerjual - $qtyBermasalah - $qtyOut;
+            $sisaHarga = (float) $batch->total_harga_masuk - $hargaTerjual - $hargaBermasalah - $hargaOut;
 
             return [
                 'id_jenis_barang' => $batch->id_jenis_barang,

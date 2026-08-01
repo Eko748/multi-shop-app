@@ -195,11 +195,13 @@ class NeracaKeuanganService
             // Ambil nilai absolut agar tidak minus di Neraca
             $totalKasBesar = abs($totalKasBesar);
 
-            // Tampilkan ke item Kas Besar jika akumulasi > 0
             if ($totalKasBesar > 0) {
+                // Ambil nama parent toko, jika ada
+                $namaParent = $toko?->parent?->nama ?? 'Pusat'; // Sesuaikan 'nama_toko' dengan nama kolom di tabel toko kamu
+
                 $kasBesarItems[] = [
                     'kode' => 'I.1.1',
-                    'nama' => 'Kas Besar - Mutasi Antar Toko',
+                    'nama' => 'Kas Besar - Mutasi ke Toko '.$namaParent,
                     'nilai' => (int) $totalKasBesar,
                     'format' => RupiahGenerate::build($totalKasBesar),
                     'sub' => 'I.1',

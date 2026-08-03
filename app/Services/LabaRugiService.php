@@ -111,7 +111,7 @@ class LabaRugiService
 
     public function hitungDetailLabaRugi($month, $year, $tokoId = 'all', $isNeraca = false)
     {
-        // 1. Tentukan rentang waktu berdasarkan kebutuhan (Neraca vs Laba Rugi Bulanan)
+        // 1. Tentukan rentang waktu
         $startDate = \Carbon\Carbon::createFromDate($year, $month, 1)->startOfMonth()->toDateTimeString();
         $endDate = \Carbon\Carbon::createFromDate($year, $month, 1)->endOfMonth()->toDateTimeString();
         $endOfDateOnly = \Carbon\Carbon::createFromDate($year, $month, 1)->endOfMonth()->format('Y-m-d');
@@ -132,7 +132,7 @@ class LabaRugiService
             }
         };
 
-        // Helper Filter Tanggal (Jika Neraca = Akumulatif dari awal, Jika LabaRugi = Hanya bulan itu)
+        // Helper Filter Tanggal
         $applyDateFilter = function ($query, $column) use ($isNeraca, $startDate, $endDate) {
             if ($isNeraca) {
                 $query->where($column, '<=', $endDate);
@@ -191,7 +191,7 @@ class LabaRugiService
         $totalPendapatan = $penjualanUmum + $pendapatanLainnya + $nilaiReturSuplier;
 
         // ============================
-        // HPP (Eager Loading dioptimasi via Join/Sum langsung)
+        // HPP
         // ============================
 
         $hppTrxQuery = KasTransaksi::where('kas_transaksi.tipe', 'in')
@@ -260,10 +260,7 @@ class LabaRugiService
             $totalBeban += $nilai;
         }
 
-        // ============================
         // STOK HILANG
-        // ============================
-
         $stockBermasalahQuery = StockBarangBermasalah::query()
             ->join('stock_barang_batch as batch', 'batch.id', '=', 'stock_barang_bermasalah.stock_barang_batch_id');
         $applyTokoDirect($stockBermasalahQuery, 'batch.toko_id');
@@ -290,9 +287,62 @@ class LabaRugiService
         ];
 
         // ============================
-        // KEPUTUSAN AKHIR LABA RUGI
+        // IV. DIVIDEN BAGI HASIL (MUTASI KAS)
         // ============================
-        $total_labarugi = $totalPendapatan - $total_hpp - $totalBeban;
+        $dividenBagiHasil = 0;
+
+        if ($tokoId !== 'all' && $tokoId !== null && $tokoId != 0) {
+            $myKasIds = Kas::where('toko_id', $tokoId)->pluck('id')->toArray();
+            $tokoObj = Toko::find($tokoId);
+            $isChild = $tokoObj && ! empty($tokoObj->parent_id);
+
+            if (! empty($myKasIds)) {
+                $mutasiQuery = KasMutasi::with(['kasAsal', 'kasTujuan'])
+                    ->where(function ($q) use ($myKasIds) {
+                        $q->whereIn('kas_asal_id', $myKasIds)
+                            ->orWhereIn('kas_tujuan_id', $myKasIds);
+                    });
+
+                $applyDateFilter($mutasiQuery, 'tanggal');
+                $mutasiList = $mutasiQuery->get();
+
+                foreach ($mutasiList as $m) {
+                    $tokoAsalId = $m->kasAsal?->toko_id;
+                    $tokoTujuanId = $m->kasTujuan?->toko_id;
+
+                    // Hanya hitung mutasi beda toko (Inter-store)
+                    if ($tokoAsalId != $tokoTujuanId) {
+                        $isMasuk = in_array($m->kas_tujuan_id, $myKasIds);
+                        $isKeluar = in_array($m->kas_asal_id, $myKasIds);
+
+                        if ($isChild) {
+                            // Untuk Child: Pengiriman mutasi keluar ke Parent mengurangi dividen
+                            if ($isKeluar) {
+                                $dividenBagiHasil -= $m->nominal;
+                            } elseif ($isMasuk) {
+                                $dividenBagiHasil += $m->nominal;
+                            }
+                        } else {
+                            // Untuk Parent: Penerimaan mutasi dari Child menambah dividen
+                            if ($isMasuk) {
+                                $dividenBagiHasil += $m->nominal;
+                            } elseif ($isKeluar) {
+                                $dividenBagiHasil -= $m->nominal;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ============================
+        // KEPUTUSAN AKHIR LABA RUGI DITAHAN
+        // ============================
+        // Laba Operasional awal sebelum Dividen
+        $labaOperasional = $totalPendapatan - $total_hpp - $totalBeban;
+
+        // Laba Rugi Ditahan digabung dengan Dividen Bagi Hasil
+        $total_labarugi = $labaOperasional + $dividenBagiHasil;
 
         if ($isNeraca) {
             return (int) $total_labarugi;
@@ -307,6 +357,7 @@ class LabaRugiService
             (int) $nilaiReturSuplier,
             (int) $total_hpp,
             $bebanOperasional,
+            (int) $dividenBagiHasil,
             (int) $total_labarugi,
             (int) $pendapatanNonTransaksi
         );
@@ -321,6 +372,7 @@ class LabaRugiService
         $nilaiReturSuplier,
         $total_hpp,
         $bebanOperasional,
+        $dividenBagiHasil,
         $total_labarugi,
         $pendapatanNonTransaksi
     ) {
@@ -349,11 +401,18 @@ class LabaRugiService
                 }, $bebanOperasional),
             ],
             [
-                'IV. Laba Rugi',
+                'IV. Dividen Bagi Hasil',
+                [
+                    ['4.1 Bagi Hasil Mutasi Kas Antar Toko', RupiahGenerate::build($dividenBagiHasil)],
+                    ['Total Dividen Bagi Hasil', RupiahGenerate::build($dividenBagiHasil)],
+                ],
+        ],
+            [
+                'V. Laba Rugi',
                 [
                     ['Laba Rugi Ditahan', RupiahGenerate::build($total_labarugi)],
                 ],
-            ],
+        ],
         ];
     }
 

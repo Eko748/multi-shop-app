@@ -194,6 +194,9 @@
             isUrl: '{{ route('master.toko') }}',
             placeholder: 'Pilih Toko'
         }];
+        let currentSortBy = ''; // 'stock', 'otw', 'lo'
+        let currentSortToko = ''; // Singkatan toko (contoh: 'PST')
+        let currentOrder = 'desc';
 
         function renderData() {
             let dynamicHeadersCount = $('.tb-head th').length - 2;
@@ -243,15 +246,16 @@
                 '{{ route('master.getplanorder') }}', {
                     page: page,
                     limit: limit,
-                    ascending: ascending,
                     search: search,
+                    sort_by: currentSortBy,
+                    sort_toko: currentSortToko,
+                    order: currentOrder,
                     ...filterParams
                 }
             ).then(function(response) {
                 return response;
             }).catch(function(error) {
-                let resp = error.response;
-                return resp;
+                return error.response || {};
             });
 
             if (getDataRest && getDataRest.status == 200 && Array.isArray(getDataRest.data.data)) {
@@ -272,11 +276,11 @@
 
                 await setListData(getDataRest.data.data, getDataRest.data.pagination, dynamicKeys, tokoMap);
             } else {
-                let errorMessage = getDataRest?.data?.message;
+                let errorMessage = getDataRest?.data?.message || 'Data gagal dimuat';
                 let errorRow = `
-                <tr class="text-dark">
-                    <th class="text-center" colspan="${$('.tb-head th').length}"> ${errorMessage} </th>
-                </tr>`;
+        <tr class="text-dark">
+            <th class="text-center" colspan="100"> ${errorMessage} </th>
+        </tr>`;
                 $('#listData').html(errorRow);
                 $('#countPage').text("0 - 0");
                 $('#totalPage').text("0");
@@ -292,61 +296,74 @@
             let dynamicHeaders = dynamicKeys.map((key, index) => {
                 let title = tokoMap[key] || key;
                 return `
-                    <th class="text-wrap align-top text-center toggle-header" colspan="3" data-key="header-${index}" id="header-${index}" title="${title}" data-toggle="tooltip" data-placement="top">
-                        <div class="d-flex align-items-center header-wrapper">
-                            <span>${key}</span>
-                            <i class="fa fa-caret-left"></i>
-                        </div>
-                    </th>
-                `;
+            <th class="text-wrap align-top text-center toggle-header" colspan="3" data-key="header-${index}" id="header-${index}" title="${title}" data-toggle="tooltip" data-placement="top">
+                <div class="d-flex align-items-center justify-content-center header-wrapper cursor-pointer">
+                    <span class="fw-bold">${key}</span>
+                    <i class="fa fa-caret-left ml-2"></i>
+                </div>
+            </th>
+        `;
             }).join('');
 
-            let subHeaders = dynamicKeys.map((key, index) => `
-                <th class="text-wrap align-top text-center header-${index}-stock"
-                    style="background: linear-gradient(to bottom, #a8e6a1, #66ff66); width: 80px;">
-                    <i class="fa fa-box"></i>
-                </th>
-                <th class="text-wrap align-top text-center header-${index}-otw"
-                    style="background: linear-gradient(to bottom, #fff9a1, #ffff33); width: 80px;">
-                    <i class="fa fa-truck-fast"></i>
-                </th>
-                <th class="text-wrap align-top text-center header-${index}-lo"
-                    style="background: linear-gradient(to bottom, #a1e9ff, #00ccff); width: 80px;">
-                    <i class="fa fa-clock"></i>
-                </th>
-            `).join('');
+            // SUBHEADER UNTUK EVENT KLIK SORTING
+            let subHeaders = dynamicKeys.map((key, index) => {
+                let activeStock = (currentSortToko === key && currentSortBy === 'stock') ?
+                    'border border-dark shadow-sm' : '';
+                let activeOtw = (currentSortToko === key && currentSortBy === 'otw') ?
+                    'border border-dark shadow-sm' : '';
+                let activeLo = (currentSortToko === key && currentSortBy === 'lo') ?
+                    'border border-dark shadow-sm' : '';
+
+                return `
+            <th class="text-wrap align-top text-center sortable-col header-${index}-stock ${activeStock}"
+                data-sort-by="stock" data-sort-toko="${key}" title="Klik untuk mengurutkan Stok ${key}"
+                style="background: linear-gradient(to bottom, #a8e6a1, #66ff66); width: 80px; cursor: pointer;">
+                <i class="fa fa-box"></i>
+            </th>
+            <th class="text-wrap align-top text-center sortable-col header-${index}-otw ${activeOtw}"
+                data-sort-by="otw" data-sort-toko="${key}" title="Klik untuk mengurutkan OTW ${key}"
+                style="background: linear-gradient(to bottom, #fff9a1, #ffff33); width: 80px; cursor: pointer;">
+                <i class="fa fa-truck-fast"></i>
+            </th>
+            <th class="text-wrap align-top text-center sortable-col header-${index}-lo ${activeLo}"
+                data-sort-by="lo" data-sort-toko="${key}" title="Klik untuk mengurutkan Last Order ${key}"
+                style="background: linear-gradient(to bottom, #a1e9ff, #00ccff); width: 80px; cursor: pointer;">
+                <i class="fa fa-clock"></i>
+            </th>
+        `;
+            }).join('');
 
             let tableHeaders = `
-            <tr class="tb-head">
-                <th class="text-center text-wrap align-top" style="width: 10px;">No</th>
-                <th class="text-wrap align-top" style="width: 150px;">Nama Barang</th>
-                ${dynamicHeaders}
-            </tr>
-            <tr class="tb-subhead">
-                <th colspan="2"></th>
-                ${subHeaders}
-            </tr>`;
+    <tr class="tb-head">
+        <th class="text-center text-wrap align-top" style="width: 10px;">No</th>
+        <th class="text-wrap align-top" style="width: 200px;">Nama Barang</th>
+        ${dynamicHeaders}
+    </tr>
+    <tr class="tb-subhead">
+        <th colspan="2"></th>
+        ${subHeaders}
+    </tr>`;
 
-            $('thead').html(tableHeaders);
+            $('#dynamicHeaders').html(tableHeaders);
 
             let getDataTable = '';
             let classCol = 'align-center text-dark text-wrap';
             dataList.forEach((element, index) => {
                 let stokColumns = dynamicKeys.map((key, i) => {
-                    let tokoData = element.stok_per_toko[key] || 0;
+                    let tokoData = element.stok_per_toko[key] || {};
                     return `
                 <td class="${classCol} text-center header-${i}-stock" style="background-color: #CCFFCC"><b>${tokoData.stock ?? '-'}</b></td>
                 <td class="${classCol} text-center header-${i}-otw" style="background-color: #FFFFCC"><b>${tokoData.otw ?? '-'}</b></td>
-                <td class="${classCol} text-center header-${i}-lo" style="background-color: #99CCFF"><b>${tokoData.lo ?? '-'}</b></td>
+                <td class="${classCol} text-center header-${i}-lo" style="background-color: #99CCFF"><b>${tokoData.lo !== null ? tokoData.lo + ' hr' : '-'}</b></td>
             `;
                 }).join('');
 
                 getDataTable += `
-                <tr class="text-dark">
-                    <td class="${classCol} text-center">${display_from + index}.</td>
-                    <td class="${classCol}">${element.nama_barang}</td>
-                    ${stokColumns}
-                </tr>`;
+        <tr class="text-dark">
+            <td class="${classCol} text-center">${display_from + index}.</td>
+            <td class="${classCol}">${element.nama_barang}</td>
+            ${stokColumns}
+        </tr>`;
             });
 
             $('#listData').html(getDataTable);
@@ -396,12 +413,28 @@
             });
         }
 
+        // HANDLER EVENT KLIK SUBHEADER UNTUK SORTING
+        $(document).off('click', '.sortable-col').on('click', '.sortable-col', async function() {
+            let sortBy = $(this).data('sort-by');
+            let sortToko = $(this).data('sort-toko');
+
+            if (currentSortBy === sortBy && currentSortToko === sortToko) {
+                currentOrder = currentOrder === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSortBy = sortBy;
+                currentSortToko = sortToko;
+                currentOrder = 'desc';
+            }
+
+            currentPage = 1;
+            await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter);
+        });
+
         async function filterList() {
             document.getElementById('custom-filter').addEventListener('submit', async function(e) {
                 e.preventDefault();
 
                 let selectedTokoIds = $('#f_toko').val();
-
                 if (selectedTokoIds && selectedTokoIds.length > 0) {
                     customFilter['toko_id'] = selectedTokoIds;
                 }
@@ -410,13 +443,8 @@
                 defaultLimitPage = $('#limitPage').val();
                 currentPage = 1;
 
-                await getListData(
-                    defaultLimitPage,
-                    currentPage,
-                    defaultAscending,
-                    defaultSearch,
-                    customFilter
-                );
+                await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
+                    customFilter);
             });
 
             document.getElementById('tb-reset').addEventListener('click', async function() {
@@ -428,23 +456,25 @@
                 defaultLimitPage = 10;
                 currentPage = 1;
 
-                await getListData(
-                    defaultLimitPage,
-                    currentPage,
-                    defaultAscending,
-                    defaultSearch,
-                    customFilter
-                );
+                // Reset Sorting ke Default
+                currentSortBy = '';
+                currentSortToko = '';
+                currentOrder = 'desc';
+
+                await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
+                    customFilter);
             });
         }
 
         async function initPageLoad() {
-            await setDynamicButton();
-            await selectMulti(selectOptions);
-            await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter);
-            await searchList();
-            await setViewData();
-            await filterList();
+            await Promise.all([
+                setDynamicButton(),
+                selectMulti(selectOptions),
+                getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter),
+                searchList(),
+                setViewData(),
+                filterList(),
+            ]);
         }
     </script>
 @endsection

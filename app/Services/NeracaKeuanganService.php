@@ -463,16 +463,16 @@ class NeracaKeuanganService
                 'format' => RupiahGenerate::build($totalPasiva),
                 'subkategori' => [
                     [
-                        'judul' => 'III. HUTANG',
-                        'total' => $totalHutang,
-                        'item' => $hutangItems,
-                        'format' => RupiahGenerate::build($totalHutang),
-                    ],
-                    [
                         'judul' => 'IV. EKUITAS',
                         'total' => $totalEkuitas,
                         'item' => $ekuitasItems,
                         'format' => RupiahGenerate::build($totalEkuitas),
+                    ],
+                    [
+                        'judul' => 'III. HUTANG',
+                        'total' => $totalHutang,
+                        'item' => $hutangItems,
+                        'format' => RupiahGenerate::build($totalHutang),
                     ],
                 ],
             ],

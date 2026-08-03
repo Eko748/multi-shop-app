@@ -109,6 +109,11 @@ class LabaRugiService
         return $results;
     }
 
+    use App\Models\Kas;
+    use App\Models\KasMutasi;
+    use App\Models\PengeluaranTipe;
+    use App\Models\Toko;
+
     public function hitungDetailLabaRugi($month, $year, $tokoId = 'all', $isNeraca = false)
     {
         // 1. Tentukan rentang waktu
@@ -249,7 +254,9 @@ class LabaRugiService
 
         $bebanOperasional = [];
         $totalBeban = 0;
-        $jenisList = PengeluaranTipe::where('id', '!=', 11)->get();
+
+        // ABAIKAN ID 11 DAN ID 12 (ID 12 Pindah ke Dividen Bagi Hasil)
+        $jenisList = PengeluaranTipe::whereNotIn('id', [11, 12])->get();
 
         foreach ($jenisList as $index => $jenis) {
             $nilai = isset($pengeluaran[$jenis->id]) ? (int) $pengeluaran[$jenis->id]->total : 0;
@@ -287,9 +294,11 @@ class LabaRugiService
         ];
 
         // ============================
-        // IV. DIVIDEN BAGI HASIL (MUTASI KAS)
+        // IV. DIVIDEN BAGI HASIL
         // ============================
-        $dividenBagiHasil = 0;
+
+        // 4.1 Bagi Hasil Toko Utama (Mutasi Kas Antar Toko)
+        $bagiHasilTokoUtama = 0;
 
         if ($tokoId !== 'all' && $tokoId !== null && $tokoId != 0) {
             $myKasIds = Kas::where('toko_id', $tokoId)->pluck('id')->toArray();
@@ -310,24 +319,21 @@ class LabaRugiService
                     $tokoAsalId = $m->kasAsal?->toko_id;
                     $tokoTujuanId = $m->kasTujuan?->toko_id;
 
-                    // Hanya hitung mutasi beda toko (Inter-store)
                     if ($tokoAsalId != $tokoTujuanId) {
                         $isMasuk = in_array($m->kas_tujuan_id, $myKasIds);
                         $isKeluar = in_array($m->kas_asal_id, $myKasIds);
 
                         if ($isChild) {
-                            // Untuk Child: Pengiriman mutasi keluar ke Parent mengurangi dividen
                             if ($isKeluar) {
-                                $dividenBagiHasil -= $m->nominal;
+                                $bagiHasilTokoUtama -= $m->nominal;
                             } elseif ($isMasuk) {
-                                $dividenBagiHasil += $m->nominal;
+                                $bagiHasilTokoUtama += $m->nominal;
                             }
                         } else {
-                            // Untuk Parent: Penerimaan mutasi dari Child menambah dividen
                             if ($isMasuk) {
-                                $dividenBagiHasil += $m->nominal;
+                                $bagiHasilTokoUtama += $m->nominal;
                             } elseif ($isKeluar) {
-                                $dividenBagiHasil -= $m->nominal;
+                                $bagiHasilTokoUtama -= $m->nominal;
                             }
                         }
                     }
@@ -335,14 +341,17 @@ class LabaRugiService
             }
         }
 
+        // 4.2 Bagi Hasil Owner (Dari Pengeluaran ID 12)
+        $bagiHasilOwner = isset($pengeluaran[12]) ? (int) $pengeluaran[12]->total : 0;
+
+        // Total Dividen Bagi Hasil
+        $totalDividenBagiHasil = $bagiHasilTokoUtama + $bagiHasilOwner;
+
         // ============================
         // KEPUTUSAN AKHIR LABA RUGI DITAHAN
         // ============================
-        // Laba Operasional awal sebelum Dividen
         $labaOperasional = $totalPendapatan - $total_hpp - $totalBeban;
-
-        // Laba Rugi Ditahan digabung dengan Dividen Bagi Hasil
-        $total_labarugi = $labaOperasional + $dividenBagiHasil;
+        $total_labarugi = $labaOperasional + $totalDividenBagiHasil;
 
         if ($isNeraca) {
             return (int) $total_labarugi;
@@ -357,7 +366,9 @@ class LabaRugiService
             (int) $nilaiReturSuplier,
             (int) $total_hpp,
             $bebanOperasional,
-            (int) $dividenBagiHasil,
+            (int) $bagiHasilTokoUtama,
+            (int) $bagiHasilOwner,
+            (int) $totalDividenBagiHasil,
             (int) $total_labarugi,
             (int) $pendapatanNonTransaksi
         );
@@ -372,7 +383,9 @@ class LabaRugiService
         $nilaiReturSuplier,
         $total_hpp,
         $bebanOperasional,
-        $dividenBagiHasil,
+        $bagiHasilTokoUtama,
+        $bagiHasilOwner,
+        $totalDividenBagiHasil,
         $total_labarugi,
         $pendapatanNonTransaksi
     ) {
@@ -403,8 +416,9 @@ class LabaRugiService
             [
                 'IV. Dividen Bagi Hasil',
                 [
-                    ['4.1 Bagi Hasil Mutasi Kas Antar Toko', RupiahGenerate::build($dividenBagiHasil)],
-                    ['Total Dividen Bagi Hasil', RupiahGenerate::build($dividenBagiHasil)],
+                    ['4.1 Bagi Hasil Toko Utama', RupiahGenerate::build($bagiHasilTokoUtama)],
+                    ['4.2 Bagi Hasil Owner', RupiahGenerate::build($bagiHasilOwner)],
+                    ['Total Dividen Bagi Hasil', RupiahGenerate::build($totalDividenBagiHasil)],
                 ],
         ],
             [

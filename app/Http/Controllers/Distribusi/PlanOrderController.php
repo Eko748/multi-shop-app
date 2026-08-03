@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Distribusi;
 
-use App\Helpers\TextGenerate;
 use App\Http\Controllers\Controller;
 use App\Models\Barang;
 use App\Models\PengirimanBarangDetail;
@@ -27,140 +26,168 @@ class PlanOrderController extends Controller
 
     public function getplanorder(Request $request)
     {
-        // 1. Direction Sorting (asc / desc)
-        $orderDirection = strtolower($request->input('order', $request->ascending ? 'asc' : 'desc'));
-        if (! in_array($orderDirection, ['asc', 'desc'])) {
-            $orderDirection = 'desc';
-        }
+        try {
+            // 1. Direction Sorting
+            $orderDirection = strtolower($request->input('order', 'desc'));
+            if (! in_array($orderDirection, ['asc', 'desc'])) {
+                $orderDirection = 'desc';
+            }
 
-        $limit = $request->has('limit') && $request->limit <= 30 ? (int) $request->limit : 10;
-        $selectedTokoIds = $request->input('toko_id', []);
+            $limit = $request->has('limit') && $request->limit <= 50 ? (int) $request->limit : 10;
+            $page = (int) $request->input('page', 1);
 
-        if (empty($selectedTokoIds)) {
-            $selectedTokoIds = Toko::pluck('id')->toArray();
-        }
+            $selectedTokoIds = $request->input('toko_id', []);
+            if (empty($selectedTokoIds)) {
+                $selectedTokoIds = Toko::pluck('id')->toArray();
+            }
 
-        $tokoList = Toko::whereIn('id', $selectedTokoIds)
-            ->select('id', 'singkatan', 'nama')
-            ->get();
+            $tokoList = Toko::whereIn('id', $selectedTokoIds)
+                ->select('id', 'singkatan', 'nama_toko')
+                ->get();
 
-        // =========================================================
-        // 2. QUERY AGGREGATION GLOBAL (Bebas N+1 Query)
-        // =========================================================
-        $stockGrouped = StockBarangBatch::selectRaw('stock_barang.barang_id, stock_barang_batch.toko_id, SUM(qty_sisa) as total_stock')
-            ->join('stock_barang', 'stock_barang.id', '=', 'stock_barang_batch.stock_barang_id')
-            ->whereIn('stock_barang_batch.toko_id', $selectedTokoIds)
-            ->groupBy('stock_barang.barang_id', 'stock_barang_batch.toko_id')
-            ->get()
-            ->groupBy('barang_id');
+            // =========================================================
+            // 2. QUERY AGGREGATION GLOBAL (Mencegah N+1)
+            // =========================================================
+            $stockGrouped = StockBarangBatch::selectRaw('stock_barang.barang_id, stock_barang_batch.toko_id, SUM(qty_sisa) as total_stock')
+                ->join('stock_barang', 'stock_barang.id', '=', 'stock_barang_batch.stock_barang_id')
+                ->whereIn('stock_barang_batch.toko_id', $selectedTokoIds)
+                ->groupBy('stock_barang.barang_id', 'stock_barang_batch.toko_id')
+                ->get()
+                ->groupBy('barang_id');
 
-        $otwGrouped = PengirimanBarangDetail::selectRaw('pengiriman_barang_detail.barang_id, pengiriman_barang.toko_asal_id as toko_id, SUM(qty_send) as total_otw')
-            ->join('pengiriman_barang', 'pengiriman_barang.id', '=', 'pengiriman_barang_detail.pengiriman_barang_id')
-            ->where('pengiriman_barang.status', '!=', 'success')
-            ->whereIn('pengiriman_barang.toko_asal_id', $selectedTokoIds)
-            ->groupBy('pengiriman_barang_detail.barang_id', 'pengiriman_barang.toko_asal_id')
-            ->get()
-            ->groupBy('barang_id');
+            $otwGrouped = PengirimanBarangDetail::selectRaw('pengiriman_barang_detail.barang_id, pengiriman_barang.toko_asal_id as toko_id, SUM(qty_send) as total_otw')
+                ->join('pengiriman_barang', 'pengiriman_barang.id', '=', 'pengiriman_barang_detail.pengiriman_barang_id')
+                ->where('pengiriman_barang.status', '!=', 'success')
+                ->whereIn('pengiriman_barang.toko_asal_id', $selectedTokoIds)
+                ->groupBy('pengiriman_barang_detail.barang_id', 'pengiriman_barang.toko_asal_id')
+                ->get()
+                ->groupBy('barang_id');
 
-        $lastOrders = TransaksiKasirDetail::selectRaw('stock_barang.barang_id, transaksi_kasir.toko_id, MAX(transaksi_kasir_detail.created_at) as last_date')
-            ->join('transaksi_kasir', 'transaksi_kasir.id', '=', 'transaksi_kasir_detail.transaksi_kasir_id')
-            ->join('stock_barang_batch', 'stock_barang_batch.id', '=', 'transaksi_kasir_detail.stock_barang_batch_id')
-            ->join('stock_barang', 'stock_barang.id', '=', 'stock_barang_batch.stock_barang_id')
-            ->whereIn('transaksi_kasir.toko_id', $selectedTokoIds)
-            ->groupBy('stock_barang.barang_id', 'transaksi_kasir.toko_id')
-            ->get()
-            ->groupBy('barang_id');
+            $lastOrders = TransaksiKasirDetail::selectRaw('stock_barang.barang_id, transaksi_kasir.toko_id, MAX(transaksi_kasir.tanggal) as last_date')
+                ->join('transaksi_kasir', 'transaksi_kasir.id', '=', 'transaksi_kasir_detail.transaksi_kasir_id')
+                ->join('stock_barang_batch', 'stock_barang_batch.id', '=', 'transaksi_kasir_detail.stock_barang_batch_id')
+                ->join('stock_barang', 'stock_barang.id', '=', 'stock_barang_batch.stock_barang_id')
+                ->whereIn('transaksi_kasir.toko_id', $selectedTokoIds)
+                ->groupBy('stock_barang.barang_id', 'transaksi_kasir.toko_id')
+                ->get()
+                ->groupBy('barang_id');
 
-        // =========================================================
-        // 3. FETCH BARANG & KALKULASI STOK PER TOKO
-        // =========================================================
-        $queryBarang = Barang::select('id', 'nama');
+            // =========================================================
+            // 3. FETCH BARANG DENGAN FILTER SEARCH
+            // =========================================================
+            $queryBarang = Barang::select('id', 'nama');
 
-        if (! empty($request['search'])) {
-            $searchTerm = trim(strtolower($request['search']));
-            $queryBarang->whereRaw('LOWER(nama) LIKE ?', ["%$searchTerm%"]);
-        }
+            if ($request->filled('search')) {
+                $searchTerm = trim(strtolower($request->search));
+                $queryBarang->whereRaw('LOWER(nama) LIKE ?', ["%{$searchTerm}%"]);
+            }
 
-        $allBarang = $queryBarang->get();
+            $allBarang = $queryBarang->get();
 
-        $calculatedCollection = $allBarang->map(function ($item) use ($tokoList, $stockGrouped, $otwGrouped, $lastOrders) {
-            $bStock = $stockGrouped->get($item->id, collect())->keyBy('toko_id');
-            $bOtw = $otwGrouped->get($item->id, collect())->keyBy('toko_id');
-            $bLo = $lastOrders->get($item->id, collect())->keyBy('toko_id');
+            // =========================================================
+            // 4. MAP & HITUNG DATA
+            // =========================================================
+            $nowStartOfDay = now()->startOfDay();
 
-            $grandTotalStock = 0;
+            $calculatedCollection = $allBarang->map(function ($item) use ($tokoList, $stockGrouped, $otwGrouped, $lastOrders, $nowStartOfDay) {
+                $bStock = $stockGrouped->get($item->id, collect())->keyBy('toko_id');
+                $bOtw = $otwGrouped->get($item->id, collect())->keyBy('toko_id');
+                $bLo = $lastOrders->get($item->id, collect())->keyBy('toko_id');
 
-            $stokPerToko = $tokoList->mapWithKeys(function ($tk) use ($bStock, $bOtw, $bLo, &$grandTotalStock) {
-                $stock = (int) ($bStock->get($tk->id)->total_stock ?? 0);
-                $otw = (int) ($bOtw->get($tk->id)->total_otw ?? 0);
-                $loRaw = $bLo->get($tk->id)->last_date ?? null;
+                $grandTotalStock = 0;
 
-                $grandTotalStock += $stock;
+                $stokPerToko = $tokoList->mapWithKeys(function ($tk) use ($bStock, $bOtw, $bLo, &$grandTotalStock, $nowStartOfDay) {
+                    $stock = (int) ($bStock->get($tk->id)->total_stock ?? 0);
+                    $otw = (int) ($bOtw->get($tk->id)->total_otw ?? 0);
+                    $loRaw = $bLo->get($tk->id)->last_date ?? null;
 
-                $lo = $loRaw ? abs(now()->startOfDay()->diffInDays(\Carbon\Carbon::parse($loRaw)->startOfDay())) : null;
+                    $grandTotalStock += $stock;
+
+                    // Hitung selisih hari Last Order
+                    $lo = $loRaw ? (int) abs($nowStartOfDay->diffInDays(\Carbon\Carbon::parse($loRaw)->startOfDay())) : null;
+
+                    return [
+                        $tk->singkatan => [
+                            'toko_id' => $tk->id,
+                            'stock' => $stock,
+                            'otw' => $otw,
+                            'lo' => $lo,
+                        ],
+                    ];
+                });
 
                 return [
-                    $tk->singkatan => [
-                        'toko_id' => $tk->id,
-                        'stock' => $stock,
-                        'otw' => $otw,
-                        'lo' => $lo,
-                    ],
+                    'id' => $item->id,
+                    'nama_barang' => $item->nama,
+                    'grand_total_stock' => $grandTotalStock,
+                    'stok_per_toko' => $stokPerToko,
                 ];
             });
 
-            return [
-                'id' => $item->id,
-                'nama_barang' => TextGenerate::smartTail($item->nama),
-                'grand_total_stock' => $grandTotalStock,
-                'stok_per_toko' => $stokPerToko,
-            ];
-        });
+            // =========================================================
+            // 5. STABLE SORTING LOGIC
+            // =========================================================
+            $sortBy = $request->input('sort_by');   // 'stock', 'otw', 'lo'
+            $sortToko = $request->input('sort_toko'); // 'PST', 'CRB', dll.
 
-        // =========================================================
-        // 4. LOGIKA SORTING
-        // =========================================================
-        $sortBy = $request->input('sort_by');   // 'stock', 'otw', atau 'lo'
-        $sortToko = $request->input('sort_toko'); // Misal: 'PST', 'CRB'
+            $isDesc = ($orderDirection === 'desc');
 
-        if ($sortBy && $sortToko) {
-            // Sort spesifik per toko dan jenis kolom
-            $calculatedCollection = $calculatedCollection->sortBy(function ($item) use ($sortBy, $sortToko) {
-                $val = $item['stok_per_toko'][$sortToko][$sortBy] ?? null;
-                if ($val === null) {
-                    return PHP_INT_MAX; // Nilai null ditaruh di paling akhir
+            $sortedCollection = $calculatedCollection->sort(function ($a, $b) use ($sortBy, $sortToko, $isDesc) {
+                if ($sortBy && $sortToko) {
+                    $valA = $a['stok_per_toko'][$sortToko][$sortBy] ?? null;
+                    $valB = $b['stok_per_toko'][$sortToko][$sortBy] ?? null;
+
+                    // Penanganan khusus NULL (data null selalu ditaruh di paling bawah)
+                    if ($valA === null && $valB === null) {
+                        $cmp = 0;
+                    } elseif ($valA === null) {
+                        return 1;
+                    } elseif ($valB === null) {
+                        return -1;
+                    } else {
+                        $cmp = $valA <=> $valB;
+                    }
+                } else {
+                    // Default Sort: Grand Total Stock
+                    $cmp = $a['grand_total_stock'] <=> $b['grand_total_stock'];
                 }
 
-                return $val;
-            }, SORT_REGULAR, $orderDirection === 'desc');
-        } else {
-            // DEFAULT: Mengurutkan dari total stok terbanyak semua toko di atas
-            $calculatedCollection = $calculatedCollection->sortBy('grand_total_stock', SORT_REGULAR, $orderDirection === 'desc');
+                // Jika nilainya sama, gunakan ID Barang sebagai Tie-Breaker (Urutan Stabil)
+                if ($cmp === 0) {
+                    return $a['id'] <=> $b['id'];
+                }
+
+                return $isDesc ? -$cmp : $cmp;
+            });
+
+            // =========================================================
+            // 6. PAGINATION RESPONSE
+            // =========================================================
+            $totalRecords = $sortedCollection->count();
+            $totalPages = (int) ceil($totalRecords / $limit);
+            $pagedData = $sortedCollection->slice(($page - 1) * $limit, $limit)->values();
+
+            return response()->json([
+                'error' => false,
+                'message' => $pagedData->isEmpty() ? 'Tidak ada data' : 'Berhasil mengambil data',
+                'status_code' => 200,
+                'pagination' => [
+                    'total' => $totalRecords,
+                    'per_page' => $limit,
+                    'current_page' => $page,
+                    'total_pages' => $totalPages,
+                ],
+                'data' => $pagedData,
+                'data_toko' => $tokoList,
+            ]);
+
+        } catch (\Throwable $th) {
+            return response()->json([
+                'error' => true,
+                'message' => 'Server Error: '.$th->getMessage(),
+                'status_code' => 500,
+            ], 500);
         }
-
-        // =========================================================
-        // 5. MANUAL PAGINATION RESULT
-        // =========================================================
-        $page = (int) $request->input('page', 1);
-        $totalRecords = $calculatedCollection->count();
-        $totalPages = (int) ceil($totalRecords / $limit);
-        $pagedData = $calculatedCollection->slice(($page - 1) * $limit, $limit)->values();
-
-        $paginationMeta = [
-            'total' => $totalRecords,
-            'per_page' => $limit,
-            'current_page' => $page,
-            'total_pages' => $totalPages,
-        ];
-
-        return response()->json([
-            'error' => false,
-            'message' => $pagedData->isEmpty() ? 'Tidak ada data' : 'Berhasil mengambil data',
-            'status_code' => 200,
-            'pagination' => $paginationMeta,
-            'data' => $pagedData,
-            'data_toko' => $tokoList,
-        ]);
     }
 
     public function index()

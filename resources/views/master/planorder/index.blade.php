@@ -183,20 +183,21 @@
 @section('js')
     <script>
         let title = 'Plan Order';
-        let defaultLimitPage = 10;
         let currentPage = 1;
         let totalPage = 1;
         let defaultAscending = 0;
-        let defaultSearch = '';
-        let customFilter = {};
         let selectOptions = [{
             id: '#f_toko',
             isUrl: '{{ route('master.toko') }}',
             placeholder: 'Pilih Toko'
         }];
         let currentSortBy = ''; // 'stock', 'otw', 'lo'
-        let currentSortToko = ''; // Singkatan toko (contoh: 'PST')
+        let currentSortToko = ''; // 'PST', 'CRB', dll.
         let currentOrder = 'desc';
+        let currentPage = 1;
+        let defaultLimitPage = 10;
+        let defaultSearch = '';
+        let customFilter = {};
 
         function renderData() {
             let dynamicHeadersCount = $('.tb-head th').length - 2;
@@ -232,13 +233,12 @@
             return html;
         }
 
-        async function getListData(limit = 10, page = 1, ascending = 0, search = '', customFilter = {}) {
+        async function getListData(limit = 10, page = 1, ascending = 0, search = '', filter = {}) {
             $('#listData').html(renderData());
 
             let filterParams = {};
-
-            if (customFilter['toko_id']) {
-                filterParams.toko_id = customFilter['toko_id'];
+            if (filter['toko_id']) {
+                filterParams.toko_id = filter['toko_id'];
             }
 
             let getDataRest = await renderAPI(
@@ -252,11 +252,7 @@
                     order: currentOrder,
                     ...filterParams
                 }
-            ).then(function(response) {
-                return response;
-            }).catch(function(error) {
-                return error.response || {};
-            });
+            ).then(response => response).catch(error => error.response || {});
 
             if (getDataRest && getDataRest.status == 200 && Array.isArray(getDataRest.data.data)) {
                 let allKeys = new Set();
@@ -290,7 +286,7 @@
         async function setListData(dataList, pagination, dynamicKeys = [], tokoMap = {}) {
             totalPage = pagination.total_pages;
             currentPage = pagination.current_page;
-            let display_from = ((defaultLimitPage * (currentPage - 1)) + 1);
+            let display_from = ((pagination.per_page * (currentPage - 1)) + 1);
             let display_to = Math.min(display_from + dataList.length - 1, pagination.total);
 
             let dynamicHeaders = dynamicKeys.map((key, index) => {
@@ -305,9 +301,8 @@
         `;
             }).join('');
 
-            // SUBHEADER UNTUK EVENT KLIK SORTING
+            // SUBHEADER DENGAN IKON SORTING AKTIF
             let subHeaders = dynamicKeys.map((key, index) => {
-                // 1. Tentukan Icon untuk Masing-Masing Kolom (Stock, OTW, LO)
                 const getSortIcon = (sortBy) => {
                     if (currentSortToko === key && currentSortBy === sortBy) {
                         return currentOrder === 'asc' ?
@@ -325,37 +320,33 @@
                     'border border-dark shadow-sm' : '';
 
                 return `
-        <!-- Column Stock -->
-        <th class="text-wrap align-top text-center sortable-col header-${index}-stock ${activeStock}"
-            data-sort-by="stock" data-sort-toko="${key}" title="Klik untuk mengurutkan Stok ${key}"
-            style="background: linear-gradient(to bottom, #a8e6a1, #66ff66); width: 80px; cursor: pointer;">
-            <div class="d-flex align-items-center justify-content-center">
-                <i class="fa fa-box"></i>
-                ${getSortIcon('stock')}
-            </div>
-        </th>
-
-        <!-- Column OTW -->
-        <th class="text-wrap align-top text-center sortable-col header-${index}-otw ${activeOtw}"
-            data-sort-by="otw" data-sort-toko="${key}" title="Klik untuk mengurutkan OTW ${key}"
-            style="background: linear-gradient(to bottom, #fff9a1, #ffff33); width: 80px; cursor: pointer;">
-            <div class="d-flex align-items-center justify-content-center">
-                <i class="fa fa-truck-fast"></i>
-                ${getSortIcon('otw')}
-            </div>
-        </th>
-
-        <!-- Column Last Order -->
-        <th class="text-wrap align-top text-center sortable-col header-${index}-lo ${activeLo}"
-            data-sort-by="lo" data-sort-toko="${key}" title="Klik untuk mengurutkan Last Order ${key}"
-            style="background: linear-gradient(to bottom, #a1e9ff, #00ccff); width: 80px; cursor: pointer;">
-            <div class="d-flex align-items-center justify-content-center">
-                <i class="fa fa-clock"></i>
-                ${getSortIcon('lo')}
-            </div>
-        </th>
-    `;
+            <th class="text-wrap align-top text-center sortable-col header-${index}-stock ${activeStock}"
+                data-sort-by="stock" data-sort-toko="${key}" title="Urutkan Stok ${key}"
+                style="background: linear-gradient(to bottom, #a8e6a1, #66ff66); width: 80px; cursor: pointer;">
+                <div class="d-flex align-items-center justify-content-center">
+                    <i class="fa fa-box"></i>
+                    ${getSortIcon('stock')}
+                </div>
+            </th>
+            <th class="text-wrap align-top text-center sortable-col header-${index}-otw ${activeOtw}"
+                data-sort-by="otw" data-sort-toko="${key}" title="Urutkan OTW ${key}"
+                style="background: linear-gradient(to bottom, #fff9a1, #ffff33); width: 80px; cursor: pointer;">
+                <div class="d-flex align-items-center justify-content-center">
+                    <i class="fa fa-truck-fast"></i>
+                    ${getSortIcon('otw')}
+                </div>
+            </th>
+            <th class="text-wrap align-top text-center sortable-col header-${index}-lo ${activeLo}"
+                data-sort-by="lo" data-sort-toko="${key}" title="Urutkan Last Order ${key}"
+                style="background: linear-gradient(to bottom, #a1e9ff, #00ccff); width: 80px; cursor: pointer;">
+                <div class="d-flex align-items-center justify-content-center">
+                    <i class="fa fa-clock"></i>
+                    ${getSortIcon('lo')}
+                </div>
+            </th>
+        `;
             }).join('');
+
             let tableHeaders = `
     <tr class="tb-head">
         <th class="text-center text-wrap align-top" style="width: 10px;">No</th>
@@ -395,6 +386,23 @@
             $('[data-toggle="tooltip"]').tooltip();
             renderPagination();
         }
+
+        // HANDLER KLIK HEADER UNTUK SORTING
+        $(document).off('click', '.sortable-col').on('click', '.sortable-col', async function() {
+            let sortBy = $(this).data('sort-by');
+            let sortToko = $(this).data('sort-toko');
+
+            if (currentSortBy === sortBy && currentSortToko === sortToko) {
+                currentOrder = (currentOrder === 'asc') ? 'desc' : 'asc';
+            } else {
+                currentSortBy = sortBy;
+                currentSortToko = sortToko;
+                currentOrder = 'desc';
+            }
+
+            currentPage = 1; // Kembali ke halaman 1 saat ganti kolom sorting
+            await getListData(defaultLimitPage, currentPage, 0, defaultSearch, customFilter);
+        });
 
         function setViewData() {
             $(document).on('click', '.toggle-header', function() {
@@ -460,14 +468,15 @@
                 let selectedTokoIds = $('#f_toko').val();
                 if (selectedTokoIds && selectedTokoIds.length > 0) {
                     customFilter['toko_id'] = selectedTokoIds;
+                } else {
+                    delete customFilter['toko_id'];
                 }
 
                 defaultSearch = $('.tb-search').val();
                 defaultLimitPage = $('#limitPage').val();
                 currentPage = 1;
 
-                await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
-                    customFilter);
+                await getListData(defaultLimitPage, currentPage, 0, defaultSearch, customFilter);
             });
 
             document.getElementById('tb-reset').addEventListener('click', async function() {
@@ -479,13 +488,11 @@
                 defaultLimitPage = 10;
                 currentPage = 1;
 
-                // Reset Sorting ke Default
                 currentSortBy = '';
                 currentSortToko = '';
                 currentOrder = 'desc';
 
-                await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
-                    customFilter);
+                await getListData(defaultLimitPage, currentPage, 0, defaultSearch, customFilter);
             });
         }
 

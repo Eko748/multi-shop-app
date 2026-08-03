@@ -309,15 +309,45 @@
 
             const maxSub = Math.max(subAktiva.length, subPasiva.length);
 
+            // Helper untuk memformat teks Nama agar teks Total Dividen berada di pojok kanan sel
+            const formatNamaCell = (namaText, isIndent = false, kode = '') => {
+                if (!namaText) return '';
+
+                let mainName = namaText;
+                let dividenText = '';
+
+                // Cek jika terdapat pola (Total Dividen ...)
+                const match = namaText.match(/\((Total Dividen [^)]+)\)/);
+                if (match) {
+                    mainName = namaText.replace(match[0], '').trim();
+                    dividenText =
+                        `<span class="badge badge-light text-muted font-weight-normal border ml-2">${match[1]}</span>`;
+                }
+
+                const kodeSpan = isIndent ? `<span class="mr-4">${kode}</span>` : '';
+
+                // Jika ada teks dividen, gunakan d-flex justify-content-between
+                if (dividenText) {
+                    return `
+                <div class="d-flex justify-content-between align-items-center w-100">
+                    <span>${kodeSpan} ${mainName}</span>
+                    <span class="text-right">${dividenText}</span>
+                </div>
+            `;
+                }
+
+                return `${kodeSpan} ${mainName}`;
+            };
+
             html += `
-        <tr class="font-weight-bold bg-light">
-            <td colspan="2">AKTIVA</td>
-            <td class="text-right">${aktiva.format}</td>
-            <td></td>
-            <td colspan="2">PASIVA</td>
-            <td class="text-right">${pasiva.format}</td>
-        </tr>
-    `;
+                <tr class="font-weight-bold bg-light">
+                    <td colspan="2">AKTIVA</td>
+                    <td class="text-right">${aktiva.format || ''}</td>
+                    <td></td>
+                    <td colspan="2">PASIVA</td>
+                    <td class="text-right">${pasiva.format || ''}</td>
+                </tr>
+            `;
 
             for (let i = 0; i < maxSub; i++) {
                 const subA = subAktiva[i] || {
@@ -331,7 +361,6 @@
                     item: []
                 };
 
-                // Map items (normalize)
                 const aRows = (subA.item || []).map(x => ({
                     kode: x.kode ?? '',
                     nama: x.nama ?? '',
@@ -347,40 +376,30 @@
                     sub: x.sub ?? null
                 }));
 
-                // Hitung children map: berapa total per parent code (hanya dari child rows yang punya r.sub)
                 const childrenMap = rows => rows.reduce((acc, r) => {
-                    if (r.sub) {
-                        acc[r.sub] = (acc[r.sub] || 0) + (Number(r.nilai) || 0);
-                    }
+                    if (r.sub) acc[r.sub] = (acc[r.sub] || 0) + (Number(r.nilai) || 0);
                     return acc;
                 }, {});
+
                 const aChildrenMap = childrenMap(aRows);
                 const pChildrenMap = childrenMap(pRows);
 
-                // Untuk menentukan apakah ada parent rows yang memiliki child,
-                // kita anggap ada parent bila ada key di childrenMap dengan nama parent.
-                // (aIsParent akan dicek pada setiap row; hanya true bila row itu parent dan ada children)
                 const maxRow = Math.max(aRows.length, pRows.length);
                 const subABadge = Number(subA.total) < 0 ? 'text-danger' : '';
                 const subPBadge = Number(subP.total) < 0 ? 'text-danger' : '';
 
-                // Sub header (judul subkategori)
                 html += `
-            <tr class="font-weight-bold bg-dark text-white">
-                <td colspan="2">${subA.judul}</td>
-                <td class="text-right ${subABadge}">${subA.format}</td>
-                <td></td>
-                <td colspan="2">${subP.judul}</td>
-                <td class="text-right ${subPBadge}">${subP.format}</td>
-            </tr>
-        `;
+                    <tr class="font-weight-bold bg-dark text-white">
+                        <td colspan="2">${subA.judul}</td>
+                        <td class="text-right ${subABadge}">${subA.format}</td>
+                        <td></td>
+                        <td colspan="2">${subP.judul}</td>
+                        <td class="text-right ${subPBadge}">${subP.format}</td>
+                    </tr>
+                `;
 
-                // Jika tidak ada rows sama sekali, lanjut ke sub berikutnya
-                if (maxRow === 0) {
-                    continue;
-                }
+                if (maxRow === 0) continue;
 
-                // Rows: per baris, tampilkan left dan right
                 for (let j = 0; j < maxRow; j++) {
                     const a = aRows[j] || {
                         kode: '',
@@ -397,53 +416,43 @@
                         sub: null
                     };
 
-                    // Parent detection: row adalah parent bila:
-                    // - punya kode
-                    // - bukan childnya orang lain (sub falsy)
-                    // - ada entry di childrenMap untuk kode itu (ada child yang sub === kode)
                     const aIsParent = !!(a.kode && !a.sub && Object.prototype.hasOwnProperty.call(aChildrenMap, a
-                        .kode));
+                    .kode));
                     const pIsParent = !!(p.kode && !p.sub && Object.prototype.hasOwnProperty.call(pChildrenMap, p
-                        .kode));
+                    .kode));
 
                     const aBadge = Number(a.nilai) < 0 ? 'text-danger' : '';
                     const pBadge = Number(p.nilai) < 0 ? 'text-danger' : '';
 
-                    // Toggle hanya dibuat bila benar-benar ada children (aIsParent / pIsParent).
-                    // Tooltip diisi dengan total parent (berguna untuk parent yang collapse/expand).
                     const aToggle = aIsParent ? `
-                <button type="button" class="toggle-child"
-                        aria-expanded="true" data-side="left"
-                        data-parent-code="${a.kode}"
-                        data-toggle="tooltip" data-placement="left"
-                        title="Total: ${a.format}">
+                <button type="button" class="toggle-child" aria-expanded="true" data-side="left"
+                        data-parent-code="${a.kode}" data-toggle="tooltip" data-placement="left" title="Total: ${a.format}">
                     <span class="chev">▾</span>
                 </button>` : '';
 
                     const pToggle = pIsParent ? `
-                <button type="button" class="toggle-child"
-                        aria-expanded="true" data-side="right"
-                        data-parent-code="${p.kode}"
-                        data-toggle="tooltip" data-placement="left"
-                        title="Total: ${p.format}">
+                <button type="button" class="toggle-child" aria-expanded="true" data-side="right"
+                        data-parent-code="${p.kode}" data-toggle="tooltip" data-placement="left" title="Total: ${p.format}">
                     <span class="chev">▾</span>
                 </button>` : '';
 
-                    // Untuk parent rows: sembunyikan angka parent pada kolom nilai (karena total ditampilkan di header/sub)
-                    // Namun kalau datanya bukan parent (atau tidak ada children), tampilkan format.
                     const aValueHtml = aIsParent ? '' : (a.format ?? '');
                     const pValueHtml = pIsParent ? '' : (p.format ?? '');
+
+                    // Format isi sel nama untuk Aktiva dan Pasiva
+                    const aNamaContent = formatNamaCell(a.nama, !!a.sub, a.kode);
+                    const pNamaContent = formatNamaCell(p.nama, !!p.sub, p.kode);
 
                     html += `
                 <tr class="kategori-data child-row"
                     data-parent-left="${a.sub ? a.sub : ''}"
                     data-parent-right="${p.sub ? p.sub : ''}">
                     <td class="text-center left-cell"><div class="cell-wrap">${a.sub ? '' : a.kode}</div></td>
-                    <td class="left-cell"><div class="cell-wrap ${a.sub ? 'indent' : ''}">${a.sub ? `<span class="mr-4">${a.kode}</span>` : ''} ${a.nama}</div></td>
+                    <td class="left-cell"><div class="cell-wrap ${a.sub ? 'indent' : ''}">${aNamaContent}</div></td>
                     <td class="text-right ${aBadge} left-cell"><div class="cell-wrap">${aValueHtml} ${aToggle}</div></td>
                     <td></td>
                     <td class="text-center right-cell"><div class="cell-wrap">${p.sub ? '' : p.kode}</div></td>
-                    <td class="right-cell"><div class="cell-wrap ${p.sub ? 'indent' : ''}">${p.sub ? p.kode : ''} ${p.nama}</div></td>
+                    <td class="right-cell"><div class="cell-wrap ${p.sub ? 'indent' : ''}">${pNamaContent}</div></td>
                     <td class="text-right ${pBadge} right-cell"><div class="cell-wrap">${pValueHtml} ${pToggle}</div></td>
                 </tr>
             `;
@@ -452,12 +461,10 @@
 
             $('#listData').html(html);
 
-            // Aktifkan tooltip (hanya ada untuk tombol yang benar-benar dibuat)
             $('[data-toggle="tooltip"]').tooltip({
                 container: 'body'
             });
 
-            // Event handler toggle-child: hanya ada pada tombol yang dibuat (parent yang punya child)
             $('#listData').off('click', '.toggle-child').on('click', '.toggle-child', function(e) {
                 e.preventDefault();
                 const $btn = $(this);
@@ -466,7 +473,6 @@
                 const expanded = $btn.attr('aria-expanded') === 'true';
 
                 if (side === 'left') {
-                    // sembunyikan/ tampilkan cell-wrap pada kolom left untuk baris yang punya data-parent-left == parent
                     $(`#listData tr.child-row[data-parent-left="${parent}"] td.left-cell .cell-wrap`)
                         .css('display', expanded ? 'none' : 'block');
                 } else {

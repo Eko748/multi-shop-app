@@ -194,18 +194,18 @@
                 const warningClass = element.warning ? 'table-danger' : '';
 
                 const isHilang = element.status === 'hilang';
-                const badgeClass = isHilang ? 'bg-danger' : 'bg-warning text-dark';
+                const badgeClass = isHilang ? 'bg-danger text-white' : 'bg-warning text-dark';
 
                 getDataTable += `
                 <tr class="text-dark ${warningClass}">
                     <td class="${classCol} text-center">${display_from + index}.</td>
                     <td class="${classCol}">${element.nama_barang}</td>
-                    <td class="${classCol} text-center">
+                    <td class="${classCol}">
                         <span class="badge ${badgeClass} text-uppercase px-2 py-1">
                             ${element.status}
                         </span>
                     </td>
-                    <td class="${classCol} text-center">${element.qty}</td>
+                    <td class="${classCol}">${element.qty}</td>
                     <td class="${classCol}">${element.harga_beli}</td>
                     <td class="${classCol}">${element.tanggal_masuk}</td>
                     <td class="${classCol}">${element.created_at}</td>

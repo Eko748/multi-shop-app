@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers\JurnalKeuangan;
 
-use App\Helpers\{KasJenisBarangGenerate, LogAktivitasGenerate, RupiahGenerate};
+use App\Helpers\KasJenisBarangGenerate;
+use App\Helpers\LogAktivitasGenerate;
+use App\Helpers\RupiahGenerate;
 use App\Http\Controllers\Controller;
-use App\Models\{Kas, KasMutasi};
+use App\Models\Kas;
+use App\Models\KasMutasi;
 use App\Services\KasService;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
@@ -13,6 +16,7 @@ use Illuminate\Support\Facades\DB;
 class MutasiController extends Controller
 {
     use ApiResponse;
+
     private array $menu = [];
 
     public function __construct()
@@ -40,15 +44,15 @@ class MutasiController extends Controller
                 'kasAsal.toko',
                 'kasAsal.jenisBarang',
                 'kasTujuan.toko',
-                'kasTujuan.jenisBarang'
+                'kasTujuan.jenisBarang',
             ]);
 
             /** -------------------------------
              *  SEARCH
              * --------------------------------*/
-            if (!empty($request['search'])) {
-                $searchTerm = '%' . strtolower(trim($request['search'])) . '%';
-                $query->whereRaw("LOWER(keterangan) LIKE ?", [$searchTerm]);
+            if (! empty($request['search'])) {
+                $searchTerm = '%'.strtolower(trim($request['search'])).'%';
+                $query->whereRaw('LOWER(keterangan) LIKE ?', [$searchTerm]);
             }
 
             /** -------------------------------
@@ -89,7 +93,7 @@ class MutasiController extends Controller
             if ($request->startDate && $request->endDate) {
                 $query->whereBetween('tanggal', [
                     $request->startDate,
-                    $request->endDate
+                    $request->endDate,
                 ]);
             }
 
@@ -118,7 +122,7 @@ class MutasiController extends Controller
                     'nama_toko_pengirim' => "{$asalToko} - {$kasAsal}",
                     'kas_tujuan_id' => $item->kas_tujuan_id,
                     'nama_toko_penerima' => "{$tujuanToko} - {$kasTujuan}",
-                    'nominal' => 'Rp. ' . number_format($item->nominal, 0, ',', '.'),
+                    'nominal' => 'Rp. '.number_format($item->nominal, 0, ',', '.'),
                     'keterangan' => $item->keterangan,
                     'tanggal' => $item->tanggal->format('d-m-Y H:i:s'),
                     'attr_out' => 'danger',
@@ -132,7 +136,7 @@ class MutasiController extends Controller
             return $this->success(
                 [
                     'data' => $mapped,
-                    'total_nilai' => 'Rp. ' . number_format($totalNilai, 0, ',', '.')
+                    'total_nilai' => 'Rp. '.number_format($totalNilai, 0, ',', '.'),
                 ],
                 200,
                 'Sukses',
@@ -140,13 +144,13 @@ class MutasiController extends Controller
                     'total' => $data->total(),
                     'per_page' => $data->perPage(),
                     'current_page' => $data->currentPage(),
-                    'total_pages' => $data->lastPage()
+                    'total_pages' => $data->lastPage(),
                 ]
             );
         } catch (\Throwable $e) {
             return $this->error(500, 'Terjadi kesalahan', [
                 'msg' => $e->getMessage(),
-                'line' => $e->getLine()
+                'line' => $e->getLine(),
             ]);
         }
     }
@@ -155,8 +159,8 @@ class MutasiController extends Controller
     {
         $request->validate([
             'created_by' => 'required|exists:users,id',
-            'kas_asal_id' => 'required',
-            'kas_tujuan_id' => 'required',
+            'kas_asal_id' => 'required|exists:kas,id',
+            'kas_tujuan_id' => 'required|exists:kas,id',
             'tanggal' => 'required',
             'nominal' => 'required|numeric|min:0',
             'keterangan' => 'nullable|string',
@@ -191,25 +195,33 @@ class MutasiController extends Controller
                 properties: [
                     'changes' => [
                         'new' => ['nominal' => $mutasi->nominal],
-                    ]
+                    ],
                 ],
                 description: $description,
                 userId: $request->created_by,
                 message: filled($request->keterangan) ? $request->keterangan : "(Sistem) {$this->title[0]} dibuat."
             );
 
+            // =========================================================================
+            // LOGIK PELETAKAN LABA (Cek apakah kas asal & kas tujuan beda toko)
+            // =========================================================================
+            $isTokoLain = ($fromKas->toko_id != $toKas->toko_id);
+
             KasService::mutasi(
                 fromKas: $fromKas,
                 toKas: $toKas,
                 nominal: $request->nominal,
                 sumber: $mutasi,
-                tanggal: $mutasi->tanggal
+                tanggal: $mutasi->tanggal,
+                laba: $isTokoLain // Jika beda toko, nilainya akan bernilai true
             );
 
             DB::commit();
+
             return $this->success(null, 200, 'Data berhasil disimpan!');
         } catch (\Exception $e) {
             DB::rollBack();
+
             return $this->error(500, $e->getMessage());
         }
     }
@@ -255,10 +267,12 @@ class MutasiController extends Controller
             $data->delete();
 
             DB::commit();
+
             return $this->success(null, 200, 'Data berhasil dihapus!');
         } catch (\Exception $e) {
             DB::rollBack();
-            return $this->error(500, 'Terjadi kesalahan saat menghapus data: ' . $e->getMessage());
+
+            return $this->error(500, 'Terjadi kesalahan saat menghapus data: '.$e->getMessage());
         }
     }
 }

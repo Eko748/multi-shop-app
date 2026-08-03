@@ -192,13 +192,15 @@
                                 <option value="besar">Aset Peralatan Besar</option>
                             </select>
                         </div>
-                        <small class="text-muted"><i class="fa fa-circle-info mr-1"></i>Informasi:</small>
+                        <small class="text-bold"><i class="fa fa-circle-info mr-1"></i>Informasi:</small>
                         <ul>
-                            <li><small class="text-muted">Tipe Pengeluaran opsi Pembelian Aset akan dianggap sebagai Aset
+                            <li><small class="text-bold">Tipe Pengeluaran opsi Pembelian Aset akan dianggap sebagai Aset
                                     Tetap di Neraca</small>
                             </li>
-                            <li><small class="text-muted">Opsi Pembelian Aset terbagi dua jenis yaitu Kecil dan
+                            <li><small class="text-bold">Opsi Pembelian Aset terbagi dua jenis yaitu Kecil dan
                                     Besar</small></li>
+                            <li><small class="text-bold">Tipe Pengeluaran opsi Bagi Hasil untuk Owner Kemitraan</small>
+                            </li>
                         </ul>
                     </form>
                 </div>

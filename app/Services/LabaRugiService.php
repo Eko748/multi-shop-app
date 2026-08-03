@@ -116,6 +116,13 @@ class LabaRugiService
         $endDate = \Carbon\Carbon::createFromDate($year, $month, 1)->endOfMonth()->toDateTimeString();
         $endOfDateOnly = \Carbon\Carbon::createFromDate($year, $month, 1)->endOfMonth()->format('Y-m-d');
 
+        // Cek apakah Toko saat ini adalah Child atau Parent
+        $isChild = false;
+        if ($tokoId !== 'all' && $tokoId !== null && $tokoId != 0) {
+            $tokoObj = Toko::find($tokoId);
+            $isChild = $tokoObj && ! empty($tokoObj->parent_id);
+        }
+
         // Scope Global Filter Toko untuk KasTransaksi
         $filterToko = function ($query) use ($tokoId) {
             $query->whereHas('kas', function ($q) use ($tokoId) {
@@ -262,8 +269,7 @@ class LabaRugiService
             $totalBeban += $nilai;
         }
 
-        // --- STOK HILANG & STOK MATI (PEMISAHAN LOGIC) ---
-        // Sesuaikan nama kolom ('status' / 'keterangan' / 'jenis') jika berbeda di DB kamu
+        // --- STOK HILANG & STOK MATI ---
         $stockHilangQuery = StockBarangBermasalah::query()
             ->join('stock_barang_batch as batch', 'batch.id', '=', 'stock_barang_bermasalah.stock_barang_batch_id')
             ->where('stock_barang_bermasalah.status', 'hilang');
@@ -348,7 +354,15 @@ class LabaRugiService
         // KEPUTUSAN AKHIR LABA RUGI DITAHAN
         // ============================
         $labaOperasional = $totalPendapatan - $total_hpp - $totalBeban;
-        $total_labarugi = $labaOperasional - $totalDividenBagiHasil;
+
+        // CONDITIONAL LOGIC DITAMBAH ATAU DIKURANG:
+        // Jika Toko Child  -> DIKURANGI (-) oleh Dividen Bagi Hasil
+        // Jika Toko Parent -> DITAMBAH (+) oleh Dividen Bagi Hasil
+        if ($isChild) {
+            $total_labarugi = $labaOperasional - $totalDividenBagiHasil;
+        } else {
+            $total_labarugi = $labaOperasional + $totalDividenBagiHasil;
+        }
 
         if ($isNeraca) {
             return (int) $total_labarugi;

@@ -68,7 +68,7 @@ class ArusKasService
 
         // 4. FILTER KATEGORI (Baru)
         if ($request->filled('kategori')) {
-            $query->where('kategori', $request->kategori);
+            $query->whereIn('kategori', $request->kategori);
         }
 
         // 5. FITUR SEARCH (Baru)

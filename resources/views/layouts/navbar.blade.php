@@ -22,7 +22,7 @@
                 @endif
 
                 {{-- Data Master --}}
-                @if (hasAnyMenu([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]))
+                @if (hasAnyMenu([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 42]))
                     <li class="nav-item pcoded-hasmenu">
                         <a href="javascript:void(0)"
                             class="nav-link {{ request()->routeIs('master.*') ? $nav_link : '' }}">
@@ -66,6 +66,10 @@
                                 @if (hasMenu(9))
                                     <li><a class="dropdown-item" href="{{ route('master.stockbarang.index') }}"><i
                                                 class="fa fa-tasks"></i> Stok Barang</a></li>
+                                @endif
+                                @if (hasMenu(42))
+                                    <li><a class="dropdown-item" href="{{ route('master.stockBermasalah.index') }}"><i
+                                                class="fa fa-exclamation-triangle"></i> Stok Bermasalah</a></li>
                                 @endif
                             @endif
                             @if (hasAnyMenu([10, 11, 12, 13]))

@@ -13,6 +13,7 @@ use App\Http\Controllers\DataMaster\ManajemenBarang\BrandController;
 use App\Http\Controllers\DataMaster\ManajemenBarang\JenisBarangController;
 use App\Http\Controllers\DataMaster\ManajemenBarang\StockBarangBatchController;
 use App\Http\Controllers\DataMaster\ManajemenBarang\StockBarangController;
+use App\Http\Controllers\DataMaster\ManajemenBarang\StockBarangBermasalahController;
 use App\Http\Controllers\DataMaster\Pengaturan\LevelHargaController;
 use App\Http\Controllers\DataMaster\Pengaturan\RoleController;
 use App\Http\Controllers\DataMaster\Pengaturan\PermissionController;
@@ -222,6 +223,10 @@ Route::prefix('stock-barang')->as('sb.')->group(function () {
         Route::get('get-by-qrcode', [StockBarangBatchController::class, 'getByQR'])->name('getByQR');
         Route::get('get-harga-jual', [StockBarangBatchController::class, 'getHargaJual'])->name('getHargaJual');
         // Route::get('get-harga-beli', [StockBarangBatchController::class, 'getHargaBeli'])->name('getHargaBeli');
+    });
+
+    Route::prefix('bermasalah')->as('bermasalah.')->group(function () {
+        Route::get('get', [StockBarangBermasalahController::class, 'get'])->name('get');
     });
 });
 

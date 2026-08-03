@@ -2,17 +2,46 @@
 
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\CatatanController;
-use App\Http\Controllers\LaporanKeuangan\{ArusKasController, LabaRugiController, NeracaController, NeracaPenyesuaianController};
-use App\Http\Controllers\Retur\{ReturMemberController, ReturSupplierController};
-use App\Http\Controllers\TransaksiDigital\{DompetController, TransaksiNonFisikController};
-use App\Http\Controllers\DataMaster\Entitas\{MemberController, SupplierController, TokoController, UserController};
+use App\Http\Controllers\DataMaster\Entitas\MemberController;
+use App\Http\Controllers\DataMaster\Entitas\SupplierController;
+use App\Http\Controllers\DataMaster\Entitas\TokoController;
+use App\Http\Controllers\DataMaster\Entitas\UserController;
 use App\Http\Controllers\DataMaster\Log\LogAktivitasController;
-use App\Http\Controllers\DataMaster\ManajemenBarang\{BarangController, BrandController, JenisBarangController, StockBarangController};
-use App\Http\Controllers\DataMaster\Pengaturan\{LevelHargaController, RoleController, PermissionController, PromoController};
-use App\Http\Controllers\Distribusi\{PengirimanBarangController, PlanOrderController};
-use App\Http\Controllers\JurnalKeuangan\{HutangController, MutasiController, PemasukanController, PengeluaranController, PiutangController};
-use App\Http\Controllers\Rekapitulasi\{AsetBarangJualanController, AsetBarangReturController, LaporanKasirController, LaporanPembelianBarangController, LaporanPengirimanBarangController, LaporanPenjualanController, RatingBarangController, RatingMemberController};
-use App\Http\Controllers\TransaksiBarang\{KasbonController, TransaksiKasirController, PembelianBarangController, PengembalianController};
+use App\Http\Controllers\DataMaster\ManajemenBarang\BarangController;
+use App\Http\Controllers\DataMaster\ManajemenBarang\BrandController;
+use App\Http\Controllers\DataMaster\ManajemenBarang\JenisBarangController;
+use App\Http\Controllers\DataMaster\ManajemenBarang\StockBarangController;
+use App\Http\Controllers\DataMaster\ManajemenBarang\StockBarangBermasalahController;
+use App\Http\Controllers\DataMaster\Pengaturan\LevelHargaController;
+use App\Http\Controllers\DataMaster\Pengaturan\PermissionController;
+use App\Http\Controllers\DataMaster\Pengaturan\PromoController;
+use App\Http\Controllers\DataMaster\Pengaturan\RoleController;
+use App\Http\Controllers\Distribusi\PengirimanBarangController;
+use App\Http\Controllers\Distribusi\PlanOrderController;
+use App\Http\Controllers\JurnalKeuangan\HutangController;
+use App\Http\Controllers\JurnalKeuangan\MutasiController;
+use App\Http\Controllers\JurnalKeuangan\PemasukanController;
+use App\Http\Controllers\JurnalKeuangan\PengeluaranController;
+use App\Http\Controllers\JurnalKeuangan\PiutangController;
+use App\Http\Controllers\LaporanKeuangan\ArusKasController;
+use App\Http\Controllers\LaporanKeuangan\LabaRugiController;
+use App\Http\Controllers\LaporanKeuangan\NeracaController;
+use App\Http\Controllers\LaporanKeuangan\NeracaPenyesuaianController;
+use App\Http\Controllers\Rekapitulasi\AsetBarangJualanController;
+use App\Http\Controllers\Rekapitulasi\AsetBarangReturController;
+use App\Http\Controllers\Rekapitulasi\LaporanKasirController;
+use App\Http\Controllers\Rekapitulasi\LaporanPembelianBarangController;
+use App\Http\Controllers\Rekapitulasi\LaporanPengirimanBarangController;
+use App\Http\Controllers\Rekapitulasi\LaporanPenjualanController;
+use App\Http\Controllers\Rekapitulasi\RatingBarangController;
+use App\Http\Controllers\Rekapitulasi\RatingMemberController;
+use App\Http\Controllers\Retur\ReturMemberController;
+use App\Http\Controllers\Retur\ReturSupplierController;
+use App\Http\Controllers\TransaksiBarang\KasbonController;
+use App\Http\Controllers\TransaksiBarang\PembelianBarangController;
+use App\Http\Controllers\TransaksiBarang\TransaksiKasirController;
+use App\Http\Controllers\TransaksiDigital\DompetController;
+use App\Http\Controllers\TransaksiDigital\TransaksiNonFisikController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['tamu'])->group(function () {
@@ -50,6 +79,8 @@ Route::middleware(['auth'])->group(function () {
 
     // Stock Barang Controller
     Route::get('stok-barang', [StockBarangController::class, 'index'])->name('master.stockbarang.index')->middleware('permission:GET /stok-barang');
+
+    Route::get('stok-barang-bermasalah', [StockBarangBermasalahController::class, 'index'])->name('master.stockBermasalah.index')->middleware('permission:GET /stok-bermasalah');
 
     // Permission Controller
     Route::get('permission', [PermissionController::class, 'index'])->name('master.permission.index')->middleware('permission:GET /permission');

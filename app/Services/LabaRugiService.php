@@ -262,30 +262,49 @@ class LabaRugiService
             $totalBeban += $nilai;
         }
 
-        // STOK HILANG
-        $stockBermasalahQuery = StockBarangBermasalah::query()
-            ->join('stock_barang_batch as batch', 'batch.id', '=', 'stock_barang_bermasalah.stock_barang_batch_id');
-        $applyTokoDirect($stockBermasalahQuery, 'batch.toko_id');
-        $applyDateFilter($stockBermasalahQuery, 'stock_barang_bermasalah.created_at');
-        $stockBermasalah = $stockBermasalahQuery->selectRaw('SUM(stock_barang_bermasalah.qty * batch.harga_beli) as total')->value('total') ?? 0;
+        // --- STOK HILANG & STOK MATI (PEMISAHAN LOGIC) ---
+        // Sesuaikan nama kolom ('status' / 'keterangan' / 'jenis') jika berbeda di DB kamu
+        $stockHilangQuery = StockBarangBermasalah::query()
+            ->join('stock_barang_batch as batch', 'batch.id', '=', 'stock_barang_bermasalah.stock_barang_batch_id')
+            ->where('stock_barang_bermasalah.status', 'hilang');
+        $applyTokoDirect($stockHilangQuery, 'batch.toko_id');
+        $applyDateFilter($stockHilangQuery, 'stock_barang_bermasalah.created_at');
+        $stockHilang = $stockHilangQuery->selectRaw('SUM(stock_barang_bermasalah.qty * batch.harga_beli) as total')->value('total') ?? 0;
 
+        $stockMatiQuery = StockBarangBermasalah::query()
+            ->join('stock_barang_batch as batch', 'batch.id', '=', 'stock_barang_bermasalah.stock_barang_batch_id')
+            ->where('stock_barang_bermasalah.status', 'mati');
+        $applyTokoDirect($stockMatiQuery, 'batch.toko_id');
+        $applyDateFilter($stockMatiQuery, 'stock_barang_bermasalah.created_at');
+        $stockMati = $stockMatiQuery->selectRaw('SUM(stock_barang_bermasalah.qty * batch.harga_beli) as total')->value('total') ?? 0;
+
+        // Tambahkan Selisih Top-up
         $nextNumber = count($jenisList) + 1;
         $bebanOperasional[] = [
             'label' => '3.'.$nextNumber.' Selisih Top-up Saldo Digital',
-            'value' => $hppSelisihTopup,
+            'value' => (int) $hppSelisihTopup,
         ];
         $totalBeban += $hppSelisihTopup;
 
+        // Tambahkan Stok Hilang
         $nextNumber++;
         $bebanOperasional[] = [
-            'label' => '3.'.$nextNumber.' Stok Barang Bermasalah',
-            'value' => $stockBermasalah,
+            'label' => '3.'.$nextNumber.' Stok Hilang',
+            'value' => (int) $stockHilang,
         ];
-        $totalBeban += $stockBermasalah;
+        $totalBeban += $stockHilang;
+
+        // Tambahkan Stok Mati
+        $nextNumber++;
+        $bebanOperasional[] = [
+            'label' => '3.'.$nextNumber.' Stok Mati',
+            'value' => (int) $stockMati,
+        ];
+        $totalBeban += $stockMati;
 
         $bebanOperasional[] = [
             'label' => 'Total Beban Operasional',
-            'value' => $totalBeban,
+            'value' => (int) $totalBeban,
         ];
 
         // ============================
@@ -298,21 +317,20 @@ class LabaRugiService
         if ($tokoId !== 'all' && $tokoId !== null && $tokoId != 0) {
             $myKasIds = Kas::where('toko_id', $tokoId)->pluck('id')->toArray();
 
-            if (!empty($myKasIds)) {
+            if (! empty($myKasIds)) {
                 $mutasiQuery = KasMutasi::with(['kasAsal', 'kasTujuan'])
                     ->where(function ($q) use ($myKasIds) {
                         $q->whereIn('kas_asal_id', $myKasIds)
-                        ->orWhereIn('kas_tujuan_id', $myKasIds);
+                            ->orWhereIn('kas_tujuan_id', $myKasIds);
                     });
 
                 $applyDateFilter($mutasiQuery, 'tanggal');
                 $mutasiList = $mutasiQuery->get();
 
                 foreach ($mutasiList as $m) {
-                    $tokoAsalId   = $m->kasAsal?->toko_id;
+                    $tokoAsalId = $m->kasAsal?->toko_id;
                     $tokoTujuanId = $m->kasTujuan?->toko_id;
 
-                    // Hanya hitung mutasi beda toko
                     if ($tokoAsalId != $tokoTujuanId) {
                         $bagiHasilTokoUtama += $m->nominal;
                     }
@@ -329,7 +347,6 @@ class LabaRugiService
         // ============================
         // KEPUTUSAN AKHIR LABA RUGI DITAHAN
         // ============================
-        // Rumus: Laba Operasional DIKURANGI Total Dividen Bagi Hasil
         $labaOperasional = $totalPendapatan - $total_hpp - $totalBeban;
         $total_labarugi = $labaOperasional - $totalDividenBagiHasil;
 
@@ -346,9 +363,9 @@ class LabaRugiService
             (int) $nilaiReturSuplier,
             (int) $total_hpp,
             $bebanOperasional,
-            (int) abs($bagiHasilTokoUtama),        // Di-abs agar positif di tampilan
-            (int) abs($bagiHasilOwner),            // Di-abs agar positif di tampilan
-            (int) abs($totalDividenBagiHasil),     // Di-abs agar positif di tampilan
+            (int) abs($bagiHasilTokoUtama),
+            (int) abs($bagiHasilOwner),
+            (int) abs($totalDividenBagiHasil),
             (int) $total_labarugi,
             (int) $pendapatanNonTransaksi
         );
@@ -400,13 +417,13 @@ class LabaRugiService
                     ['4.2 Bagi Hasil Owner', RupiahGenerate::build($bagiHasilOwner)],
                     ['Total Dividen Bagi Hasil', RupiahGenerate::build($totalDividenBagiHasil)],
                 ],
-            ],
+        ],
             [
                 'V. Laba Rugi',
                 [
                     ['Laba Rugi Ditahan', RupiahGenerate::build($total_labarugi)],
                 ],
-            ],
+        ],
         ];
     }
 

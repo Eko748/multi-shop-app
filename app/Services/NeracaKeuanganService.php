@@ -5,7 +5,10 @@ namespace App\Services;
 use App\Helpers\RupiahGenerate;
 use App\Models\JenisBarang;
 use App\Models\Kas;
+use App\Models\KasMutasi;
 use App\Models\KasSaldoHistory;
+use App\Models\KasTransaksi;
+use App\Models\Pengeluaran;
 use App\Models\Toko;
 use App\Repositories\Distribusi\PengirimanBarangRepo;
 use App\Repositories\HutangRepository;
@@ -90,8 +93,7 @@ class NeracaKeuanganService
         // ==========================
         // IV.2 LABA DITAHAN TAHUN SEBELUMNYA
         // ==========================
-        $labaTahunSebelumnya =
-            $this->labaRugiService->hitungLabaRugiTahunSebelumnya($year, $tokoId);
+        $labaTahunSebelumnya = $this->labaRugiService->hitungLabaRugiTahunSebelumnya($year, $tokoId);
 
         $items[] = [
             'kode' => 'IV.2',
@@ -103,22 +105,72 @@ class NeracaKeuanganService
         // ==========================
         // LABA RUGI TAHUN BERJALAN
         // ==========================
-        $labaRugiPerBulan =
-            $this->labaRugiService->hitungLabaRugiRange($month, $year, $tokoId);
+        $labaRugiPerBulan = $this->labaRugiService->hitungLabaRugiRange($month, $year, $tokoId);
 
         $counter = 3;
 
         for ($i = 1; $i <= $month; $i++) {
-
             $periode = Carbon::create($year, $i, 1);
             $namaPeriode = $periode->translatedFormat('F Y');
             $nilai = (int) ($labaRugiPerBulan[$i] ?? 0);
 
+            // -----------------------------------------------------------------
+            // CALCULATE DIVIDEN UNTUK BULAN $i
+            // (1) Pengeluaran Tipe ID 12 + (2) Mutasi Kas Antar-Toko
+            // -----------------------------------------------------------------
+            $startDate = $periode->copy()->startOfMonth()->toDateTimeString();
+            $endDate = $periode->copy()->endOfMonth()->toDateTimeString();
+
+            // 1. Pengeluaran Tipe ID 12 (Bagi Hasil Owner)
+            $dividenPengeluaran = KasTransaksi::where('tipe', 'out')
+                ->where('sumber_type', Pengeluaran::class)
+                ->whereBetween('tanggal', [$startDate, $endDate])
+                ->whereHas('kas', function ($q) use ($tokoId) {
+                    if ($tokoId !== 'all' && $tokoId !== null && $tokoId != 0) {
+                        $q->where('toko_id', $tokoId);
+                    }
+                })
+                ->whereHasMorph('sumber', [Pengeluaran::class], function ($q) {
+                    $q->where('pengeluaran_tipe_id', 12);
+                })
+                ->sum('total_nominal');
+
+            // 2. Mutasi Kas Antar-Toko ke Parent
+            $dividenMutasi = 0;
+            if ($tokoId !== 'all' && $tokoId !== null && $tokoId != 0) {
+                $myKasIds = Kas::where('toko_id', $tokoId)->pluck('id')->toArray();
+
+                if (! empty($myKasIds)) {
+                    $mutasiList = KasMutasi::with(['kasAsal', 'kasTujuan'])
+                        ->whereBetween('tanggal', [$startDate, $endDate])
+                        ->where(function ($q) use ($myKasIds) {
+                            $q->whereIn('kas_asal_id', $myKasIds)
+                                ->orWhereIn('kas_tujuan_id', $myKasIds);
+                        })
+                        ->get();
+
+                    foreach ($mutasiList as $m) {
+                        $tokoAsalId = $m->kasAsal?->toko_id;
+                        $tokoTujuanId = $m->kasTujuan?->toko_id;
+
+                        // Hitung nominal mutasi jika beda toko
+                        if ($tokoAsalId != $tokoTujuanId) {
+                            $dividenMutasi += $m->nominal;
+                        }
+                    }
+                }
+            }
+
+            $totalDividen = (int) ($dividenPengeluaran + $dividenMutasi);
+
+            // Format Teks Keterangan Laba / Ditahan dengan info Dividen
+            $labelStatus = ($i == $month) ? 'Berjalan' : 'Ditahan';
+            $teksDividen = ($totalDividen > 0) ? ' (Total Dividen '.RupiahGenerate::build($totalDividen).')' : '';
+            $namaItem = "Laba (Rugi) $labelStatus Periode $namaPeriode $teksDividen";
+
             $items[] = [
                 'kode' => "IV.$counter",
-                'nama' => $i == $month
-                    ? "Laba (Rugi) Berjalan Periode $namaPeriode"
-                    : "Laba (Rugi) Ditahan Periode $namaPeriode",
+                'nama' => $namaItem,
                 'nilai' => $nilai,
                 'format' => RupiahGenerate::build($nilai),
             ];

@@ -194,7 +194,6 @@
         let currentSortBy = ''; // 'stock', 'otw', 'lo'
         let currentSortToko = ''; // 'PST', 'CRB', dll.
         let currentOrder = 'desc';
-        let currentPage = 1;
         let defaultLimitPage = 10;
         let defaultSearch = '';
         let customFilter = {};

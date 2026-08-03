@@ -40,7 +40,7 @@ class PlanOrderController extends Controller
         }
 
         $tokoList = Toko::whereIn('id', $selectedTokoIds)
-            ->select('id', 'singkatan', 'nama_toko')
+            ->select('id', 'singkatan', 'nama')
             ->get();
 
         // =========================================================

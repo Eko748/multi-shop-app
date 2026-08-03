@@ -109,11 +109,6 @@ class LabaRugiService
         return $results;
     }
 
-    use App\Models\Kas;
-    use App\Models\KasMutasi;
-    use App\Models\PengeluaranTipe;
-    use App\Models\Toko;
-
     public function hitungDetailLabaRugi($month, $year, $tokoId = 'all', $isNeraca = false)
     {
         // 1. Tentukan rentang waktu
@@ -302,40 +297,24 @@ class LabaRugiService
 
         if ($tokoId !== 'all' && $tokoId !== null && $tokoId != 0) {
             $myKasIds = Kas::where('toko_id', $tokoId)->pluck('id')->toArray();
-            $tokoObj = Toko::find($tokoId);
-            $isChild = $tokoObj && ! empty($tokoObj->parent_id);
 
-            if (! empty($myKasIds)) {
+            if (!empty($myKasIds)) {
                 $mutasiQuery = KasMutasi::with(['kasAsal', 'kasTujuan'])
                     ->where(function ($q) use ($myKasIds) {
                         $q->whereIn('kas_asal_id', $myKasIds)
-                            ->orWhereIn('kas_tujuan_id', $myKasIds);
+                        ->orWhereIn('kas_tujuan_id', $myKasIds);
                     });
 
                 $applyDateFilter($mutasiQuery, 'tanggal');
                 $mutasiList = $mutasiQuery->get();
 
                 foreach ($mutasiList as $m) {
-                    $tokoAsalId = $m->kasAsal?->toko_id;
+                    $tokoAsalId   = $m->kasAsal?->toko_id;
                     $tokoTujuanId = $m->kasTujuan?->toko_id;
 
+                    // Hanya hitung mutasi beda toko
                     if ($tokoAsalId != $tokoTujuanId) {
-                        $isMasuk = in_array($m->kas_tujuan_id, $myKasIds);
-                        $isKeluar = in_array($m->kas_asal_id, $myKasIds);
-
-                        if ($isChild) {
-                            if ($isKeluar) {
-                                $bagiHasilTokoUtama -= $m->nominal;
-                            } elseif ($isMasuk) {
-                                $bagiHasilTokoUtama += $m->nominal;
-                            }
-                        } else {
-                            if ($isMasuk) {
-                                $bagiHasilTokoUtama += $m->nominal;
-                            } elseif ($isKeluar) {
-                                $bagiHasilTokoUtama -= $m->nominal;
-                            }
-                        }
+                        $bagiHasilTokoUtama += $m->nominal;
                     }
                 }
             }
@@ -350,8 +329,9 @@ class LabaRugiService
         // ============================
         // KEPUTUSAN AKHIR LABA RUGI DITAHAN
         // ============================
+        // Rumus: Laba Operasional DIKURANGI Total Dividen Bagi Hasil
         $labaOperasional = $totalPendapatan - $total_hpp - $totalBeban;
-        $total_labarugi = $labaOperasional + $totalDividenBagiHasil;
+        $total_labarugi = $labaOperasional - $totalDividenBagiHasil;
 
         if ($isNeraca) {
             return (int) $total_labarugi;
@@ -366,9 +346,9 @@ class LabaRugiService
             (int) $nilaiReturSuplier,
             (int) $total_hpp,
             $bebanOperasional,
-            (int) $bagiHasilTokoUtama,
-            (int) $bagiHasilOwner,
-            (int) $totalDividenBagiHasil,
+            (int) abs($bagiHasilTokoUtama),        // Di-abs agar positif di tampilan
+            (int) abs($bagiHasilOwner),            // Di-abs agar positif di tampilan
+            (int) abs($totalDividenBagiHasil),     // Di-abs agar positif di tampilan
             (int) $total_labarugi,
             (int) $pendapatanNonTransaksi
         );
@@ -420,13 +400,13 @@ class LabaRugiService
                     ['4.2 Bagi Hasil Owner', RupiahGenerate::build($bagiHasilOwner)],
                     ['Total Dividen Bagi Hasil', RupiahGenerate::build($totalDividenBagiHasil)],
                 ],
-        ],
+            ],
             [
                 'V. Laba Rugi',
                 [
                     ['Laba Rugi Ditahan', RupiahGenerate::build($total_labarugi)],
                 ],
-        ],
+            ],
         ];
     }
 

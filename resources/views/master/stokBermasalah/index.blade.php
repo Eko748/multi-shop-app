@@ -121,7 +121,7 @@
 
 @section('js')
     <script>
-        let title = {{ $menu[0] }};
+        let title = '{{ $menu[0] }}';
         let defaultLimitPage = 10;
         let currentPage = 1;
         let totalPage = 1;

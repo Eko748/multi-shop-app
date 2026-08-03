@@ -2,30 +2,19 @@
 
 namespace App\Services;
 
-use Illuminate\Http\Request;
-use Carbon\Carbon;
-use App\Models\Pengeluaran;
-use App\Models\Kasir;
-use App\Models\PembelianBarang;
-use App\Models\Pemasukan;
-use App\Models\DetailPemasukan;
-use App\Models\KasSaldoHistory;
-use App\Models\Kasbon;
-use App\Models\Mutasi;
-use App\Models\Toko;
-use App\Models\Hutang;
 use App\Models\Kas;
+use App\Models\KasSaldoHistory;
 use App\Models\KasTransaksi;
-use App\Models\Piutang;
-use App\Models\ReturMember;
-use App\Models\ReturMemberDetail;
-use App\Models\ReturSupplier;
+use App\Models\Toko;
 use App\Repositories\DompetSaldoRepository;
 use App\Repositories\PenjualanNonFisikRepository;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
 
 class ArusKasService
 {
     protected $repoPenjualanNF;
+
     protected $repoDompetSaldo;
 
     public function __construct(PenjualanNonFisikRepository $repoPenjualanNF, DompetSaldoRepository $repoDompetSaldo)
@@ -36,46 +25,74 @@ class ArusKasService
 
     public function getArusKasData(Request $request)
     {
-        $meta['orderBy'] = $request->ascending ? 'asc' : 'desc';
-        $meta['limit']   = $request->limit <= 30 ? $request->limit : 30;
+        // 1. Tentukan Direction Order (asc/desc)
+        $orderDirection = strtolower($request->order ?? ($request->ascending ? 'asc' : 'desc'));
+        if (! in_array($orderDirection, ['asc', 'desc'])) {
+            $orderDirection = 'desc';
+        }
+
+        // 2. Tentukan Kolom Sorting (sort_by)
+        $sortBy = strtolower($request->sort_by ?? 'tanggal');
+        $sortColumn = ($sortBy === 'nominal') ? 'total_nominal' : 'tanggal';
 
         $tokoId = $request->toko_id;
-        $filterToko = $request->toko_selected;
+        $filterToko = $request->toko_selected ?? $request->id_toko;
 
         $month = $request->month ?? Carbon::now()->month;
-        $year  = $request->year  ?? Carbon::now()->year;
+        $year = $request->year ?? Carbon::now()->year;
 
         $fromDate = $request->from_date;
-        $toDate   = $request->to_date;
+        $toDate = $request->to_date;
 
         $startDate = Carbon::create($year, $month, 1)->startOfDay();
-        $endDate   = Carbon::create($year, $month, 1)->endOfMonth()->endOfDay();
+        $endDate = Carbon::create($year, $month, 1)->endOfMonth()->endOfDay();
 
         if ($fromDate && $toDate) {
             $startDate = Carbon::parse($fromDate)->startOfDay();
-            $endDate   = Carbon::parse($toDate)->endOfDay();
+            $endDate = Carbon::parse($toDate)->endOfDay();
         }
 
         $accessibleTokoIds = $this->getAccessibleTokoIds($tokoId);
 
-        if (!empty($filterToko)) {
+        if (! empty($filterToko)) {
             $filterToko = is_array($filterToko) ? $filterToko : [$filterToko];
             $accessibleTokoIds = array_values(array_intersect($accessibleTokoIds, $filterToko));
         }
 
+        // 3. Base Query
         $query = KasTransaksi::whereBetween('tanggal', [$startDate, $endDate])
             ->whereHas('kas', function ($q) use ($accessibleTokoIds) {
                 $q->whereIn('toko_id', $accessibleTokoIds);
-            })->where('total_nominal', '>', 0)
-            ->orderBy('tanggal', $meta['orderBy'])
+            })
+            ->where('total_nominal', '>', 0);
+
+        // 4. FILTER KATEGORI (Baru)
+        if ($request->filled('kategori')) {
+            $query->where('kategori', $request->kategori);
+        }
+
+        // 5. FITUR SEARCH (Baru)
+        if ($request->filled('search')) {
+            $searchTerm = trim(strtolower($request->search));
+            $query->where(function ($q) use ($searchTerm) {
+                $q->whereRaw('LOWER(kategori) LIKE ?', ["%{$searchTerm}%"])
+                    ->orWhereRaw('LOWER(keterangan) LIKE ?', ["%{$searchTerm}%"])
+                    ->orWhereRaw('LOWER(kode_transaksi) LIKE ?', ["%{$searchTerm}%"])
+                    ->orWhereHas('kas.toko', function ($tokoQuery) use ($searchTerm) {
+                        $tokoQuery->whereRaw('LOWER(nama_toko) LIKE ?', ["%{$searchTerm}%"]);
+                    });
+            });
+        }
+
+        // 6. DYNAMIC SORTING (Perbaikan)
+        $query->orderBy($sortColumn, $orderDirection)
             ->orderBy('id', 'desc');
 
         $data_raw = $query->get()->map(function ($item) {
-
             $nilai = $item->total_nominal;
 
             $jenis = strtolower($item->item);
-            $tipe  = strtolower($item->tipe);
+            $tipe = strtolower($item->tipe);
 
             $out = [
                 'kas_kecil_in' => 0,
@@ -107,23 +124,23 @@ class ArusKasService
             return array_merge([
                 'id' => $item->id,
                 'tgl' => Carbon::parse($item->tanggal)->format('d-m-Y H:i:s'),
-                'subjek' => "Toko {$item->kas->toko->nama}",
+                'subjek' => "Toko {$item->kas->toko->nama_toko}",
                 'kategori' => $item->kategori,
                 'item' => $item->keterangan,
                 'nilai_transaksi' => $nilai,
             ], $out);
         });
 
-        $kas_kecil_in_total  = $data_raw->sum('kas_kecil_in');
+        $kas_kecil_in_total = $data_raw->sum('kas_kecil_in');
         $kas_kecil_out_total = $data_raw->sum('kas_kecil_out');
 
-        $kas_besar_in_total  = $data_raw->sum('kas_besar_in');
+        $kas_besar_in_total = $data_raw->sum('kas_besar_in');
         $kas_besar_out_total = $data_raw->sum('kas_besar_out');
 
-        $piutang_in_total  = $data_raw->sum('piutang_in');
+        $piutang_in_total = $data_raw->sum('piutang_in');
         $piutang_out_total = $data_raw->sum('piutang_out');
 
-        $hutang_in_total  = $data_raw->sum('hutang_in');
+        $hutang_in_total = $data_raw->sum('hutang_in');
         $hutang_out_total = $data_raw->sum('hutang_out');
 
         $kas_kecil_list = Kas::whereIn('toko_id', $accessibleTokoIds)
@@ -146,40 +163,39 @@ class ArusKasService
         }
 
         $piutang_awal = 0;
-        $hutang_awal  = 0;
+        $hutang_awal = 0;
 
         $data_total = [
-
             'kas_kecil' => [
-                'saldo_awal'     => $this->formatAngka($kecil_awal),
-                'kas_kecil_in'   => $this->formatAngka($kas_kecil_in_total),
-                'kas_kecil_out'  => $this->formatAngka($kas_kecil_out_total),
+                'saldo_awal' => $this->formatAngka($kecil_awal),
+                'kas_kecil_in' => $this->formatAngka($kas_kecil_in_total),
+                'kas_kecil_out' => $this->formatAngka($kas_kecil_out_total),
                 'saldo_berjalan' => $this->formatAngka($kas_kecil_in_total - $kas_kecil_out_total),
-                'saldo_akhir'    => $this->formatAngka($kecil_awal + ($kas_kecil_in_total - $kas_kecil_out_total)),
+                'saldo_akhir' => $this->formatAngka($kecil_awal + ($kas_kecil_in_total - $kas_kecil_out_total)),
             ],
 
             'kas_besar' => [
-                'saldo_awal'     => $this->formatAngka($besar_awal),
-                'kas_besar_in'   => $this->formatAngka($kas_besar_in_total),
-                'kas_besar_out'  => $this->formatAngka($kas_besar_out_total),
+                'saldo_awal' => $this->formatAngka($besar_awal),
+                'kas_besar_in' => $this->formatAngka($kas_besar_in_total),
+                'kas_besar_out' => $this->formatAngka($kas_besar_out_total),
                 'saldo_berjalan' => $this->formatAngka($kas_besar_in_total - $kas_besar_out_total),
-                'saldo_akhir'    => $this->formatAngka($besar_awal + ($kas_besar_in_total - $kas_besar_out_total)),
+                'saldo_akhir' => $this->formatAngka($besar_awal + ($kas_besar_in_total - $kas_besar_out_total)),
             ],
 
             'piutang' => [
-                'saldo_awal'     => $this->formatAngka($piutang_awal),
-                'piutang_in'     => $this->formatAngka($piutang_in_total),
-                'piutang_out'    => $this->formatAngka($piutang_out_total),
+                'saldo_awal' => $this->formatAngka($piutang_awal),
+                'piutang_in' => $this->formatAngka($piutang_in_total),
+                'piutang_out' => $this->formatAngka($piutang_out_total),
                 'saldo_berjalan' => $this->formatAngka($piutang_in_total - $piutang_out_total),
-                'saldo_akhir'    => $this->formatAngka($piutang_awal + ($piutang_in_total - $piutang_out_total)),
+                'saldo_akhir' => $this->formatAngka($piutang_awal + ($piutang_in_total - $piutang_out_total)),
             ],
 
             'hutang' => [
-                'saldo_awal'     => $this->formatAngka($hutang_awal),
-                'hutang_in'      => $this->formatAngka($hutang_in_total),
-                'hutang_out'     => $this->formatAngka($hutang_out_total),
+                'saldo_awal' => $this->formatAngka($hutang_awal),
+                'hutang_in' => $this->formatAngka($hutang_in_total),
+                'hutang_out' => $this->formatAngka($hutang_out_total),
                 'saldo_berjalan' => $this->formatAngka($hutang_in_total - $hutang_out_total),
-                'saldo_akhir'    => $this->formatAngka($hutang_awal + ($hutang_in_total - $hutang_out_total)),
+                'saldo_akhir' => $this->formatAngka($hutang_awal + ($hutang_in_total - $hutang_out_total)),
             ],
         ];
 
@@ -192,19 +208,19 @@ class ArusKasService
                 'item' => $x['item'],
                 'nilai_transaksi' => $this->formatAngka($x['nilai_transaksi']),
 
-                'kas_kecil_in'  => $this->formatAngka($x['kas_kecil_in']),
+                'kas_kecil_in' => $this->formatAngka($x['kas_kecil_in']),
                 'kas_kecil_out' => $this->formatAngka($x['kas_kecil_out']),
-                'kas_besar_in'  => $this->formatAngka($x['kas_besar_in']),
+                'kas_besar_in' => $this->formatAngka($x['kas_besar_in']),
                 'kas_besar_out' => $this->formatAngka($x['kas_besar_out']),
-                'piutang_in'    => $this->formatAngka($x['piutang_in']),
-                'piutang_out'   => $this->formatAngka($x['piutang_out']),
-                'hutang_in'     => $this->formatAngka($x['hutang_in']),
-                'hutang_out'    => $this->formatAngka($x['hutang_out']),
+                'piutang_in' => $this->formatAngka($x['piutang_in']),
+                'piutang_out' => $this->formatAngka($x['piutang_out']),
+                'hutang_in' => $this->formatAngka($x['hutang_in']),
+                'hutang_out' => $this->formatAngka($x['hutang_out']),
             ];
         });
 
         return [
-            'data'       => $data,
+            'data' => $data,
             'data_total' => $data_total,
         ];
     }
@@ -212,7 +228,7 @@ class ArusKasService
     private function getSaldoAwal($kas, $year, $month)
     {
         $prevMonth = $month - 1;
-        $prevYear  = $year;
+        $prevYear = $year;
 
         if ($prevMonth == 0) {
             $prevMonth = 12;
@@ -287,7 +303,7 @@ class ArusKasService
             'page' => 1,
             'limit' => 10,
             'ascending' => 0,
-            'search' => "",
+            'search' => '',
         ]);
 
         // Ambil data bulan sebelumnya

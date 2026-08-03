@@ -307,6 +307,16 @@
 
             // SUBHEADER UNTUK EVENT KLIK SORTING
             let subHeaders = dynamicKeys.map((key, index) => {
+                // 1. Tentukan Icon untuk Masing-Masing Kolom (Stock, OTW, LO)
+                const getSortIcon = (sortBy) => {
+                    if (currentSortToko === key && currentSortBy === sortBy) {
+                        return currentOrder === 'asc' ?
+                            '<i class="fa fa-sort-up text-primary ml-1"></i>' :
+                            '<i class="fa fa-sort-down text-primary ml-1"></i>';
+                    }
+                    return '<i class="fa fa-sort text-muted opacity-50 ml-1"></i>';
+                };
+
                 let activeStock = (currentSortToko === key && currentSortBy === 'stock') ?
                     'border border-dark shadow-sm' : '';
                 let activeOtw = (currentSortToko === key && currentSortBy === 'otw') ?
@@ -315,24 +325,37 @@
                     'border border-dark shadow-sm' : '';
 
                 return `
-            <th class="text-wrap align-top text-center sortable-col header-${index}-stock ${activeStock}"
-                data-sort-by="stock" data-sort-toko="${key}" title="Klik untuk mengurutkan Stok ${key}"
-                style="background: linear-gradient(to bottom, #a8e6a1, #66ff66); width: 80px; cursor: pointer;">
+        <!-- Column Stock -->
+        <th class="text-wrap align-top text-center sortable-col header-${index}-stock ${activeStock}"
+            data-sort-by="stock" data-sort-toko="${key}" title="Klik untuk mengurutkan Stok ${key}"
+            style="background: linear-gradient(to bottom, #a8e6a1, #66ff66); width: 80px; cursor: pointer;">
+            <div class="d-flex align-items-center justify-content-center">
                 <i class="fa fa-box"></i>
-            </th>
-            <th class="text-wrap align-top text-center sortable-col header-${index}-otw ${activeOtw}"
-                data-sort-by="otw" data-sort-toko="${key}" title="Klik untuk mengurutkan OTW ${key}"
-                style="background: linear-gradient(to bottom, #fff9a1, #ffff33); width: 80px; cursor: pointer;">
-                <i class="fa fa-truck-fast"></i>
-            </th>
-            <th class="text-wrap align-top text-center sortable-col header-${index}-lo ${activeLo}"
-                data-sort-by="lo" data-sort-toko="${key}" title="Klik untuk mengurutkan Last Order ${key}"
-                style="background: linear-gradient(to bottom, #a1e9ff, #00ccff); width: 80px; cursor: pointer;">
-                <i class="fa fa-clock"></i>
-            </th>
-        `;
-            }).join('');
+                ${getSortIcon('stock')}
+            </div>
+        </th>
 
+        <!-- Column OTW -->
+        <th class="text-wrap align-top text-center sortable-col header-${index}-otw ${activeOtw}"
+            data-sort-by="otw" data-sort-toko="${key}" title="Klik untuk mengurutkan OTW ${key}"
+            style="background: linear-gradient(to bottom, #fff9a1, #ffff33); width: 80px; cursor: pointer;">
+            <div class="d-flex align-items-center justify-content-center">
+                <i class="fa fa-truck-fast"></i>
+                ${getSortIcon('otw')}
+            </div>
+        </th>
+
+        <!-- Column Last Order -->
+        <th class="text-wrap align-top text-center sortable-col header-${index}-lo ${activeLo}"
+            data-sort-by="lo" data-sort-toko="${key}" title="Klik untuk mengurutkan Last Order ${key}"
+            style="background: linear-gradient(to bottom, #a1e9ff, #00ccff); width: 80px; cursor: pointer;">
+            <div class="d-flex align-items-center justify-content-center">
+                <i class="fa fa-clock"></i>
+                ${getSortIcon('lo')}
+            </div>
+        </th>
+    `;
+            }).join('');
             let tableHeaders = `
     <tr class="tb-head">
         <th class="text-center text-wrap align-top" style="width: 10px;">No</th>

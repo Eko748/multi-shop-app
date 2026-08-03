@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Distribusi;
 
+use App\Helpers\TextGenerate;
 use App\Http\Controllers\Controller;
 use App\Models\Barang;
 use App\Models\PengirimanBarangDetail;
@@ -110,7 +111,7 @@ class PlanOrderController extends Controller
 
             return [
                 'id' => $item->id,
-                'nama_barang' => $item->nama,
+                'nama_barang' => TextGenerate::smartTail($item->nama),
                 'grand_total_stock' => $grandTotalStock,
                 'stok_per_toko' => $stokPerToko,
             ];

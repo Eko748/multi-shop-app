@@ -73,26 +73,34 @@
                                 <div class="collapse mt-2" id="filter-collapse">
                                     <form id="custom-filter">
                                         <div class="row">
-                                            <div class="col-12 col-xl-6 col-lg-6">
+                                            <div class="col-12 col-xl-8 col-lg-8">
                                                 <div class="row mx-2">
-                                                    <div class="col-6 col-xl-6 mb-2">
+                                                    <div class="col-12 col-xl-4 col-lg-4 mb-2">
                                                         <input type="text" id="bulan_tahun" class="form-control"
                                                             placeholder="Pilih Bulan & Tahun" readonly>
                                                     </div>
-                                                    <div class="col-6 col-xl-6 mb-2">
-                                                        <select name="f_toko" id="f_toko" class="form-control"></select>
+                                                    <div class="col-12 col-xl-4 col-lg-4 mb-2">
+                                                        <select name="f_toko" id="f_toko" class="form-control"
+                                                            data-placeholder="Pilih Toko"></select>
+                                                    </div>
+                                                    <!-- FILTER KATEGORI BARU -->
+                                                    <div class="col-12 col-xl-4 col-lg-4 mb-2">
+                                                        <select name="f_kategori" id="f_kategori" class="form-control"
+                                                            data-placeholder="Pilih Kategori">
+                                                            <option value="">Pilih Kategori</option>
+                                                        </select>
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div class="col-12 col-xl-6 col-lg-6">
+                                            <div class="col-12 col-xl-4 col-lg-4">
                                                 <div class="row mx-2 justify-content-end">
-                                                    <div class="col-6 col-xl-4 col-lg-4 mb-2 text-end">
+                                                    <div class="col-6 col-xl-6 col-lg-6 mb-2 text-end">
                                                         <button form="custom-filter" class="btn btn-info w-100"
                                                             id="tb-filter" type="submit">
                                                             <i class="fa fa-magnifying-glass mr-2"></i>Cari
                                                         </button>
                                                     </div>
-                                                    <div class="col-6 col-xl-4 col-lg-4 mb-2 text-end">
+                                                    <div class="col-6 col-xl-6 col-lg-6 mb-2 text-end">
                                                         <button type="button" class="btn btn-secondary w-100"
                                                             id="tb-reset">
                                                             <i class="fa fa-rotate mr-2"></i>Reset
@@ -108,11 +116,23 @@
                                         <thead>
                                             <tr class="tb-head" id="head-table">
                                                 <th class="text-center text-nowrap align-middle" rowspan="5">No</th>
-                                                <th class="text-nowrap align-middle" rowspan="5">Tanggal</th>
+
+                                                <!-- HEADER SORTABLE: TANGGAL -->
+                                                <th class="text-nowrap align-middle sortable cursor-pointer" rowspan="5"
+                                                    data-sort-field="tanggal">
+                                                    Tanggal <i class="fa fa-sort sort-icon ml-1"></i>
+                                                </th>
+
                                                 <th class="text-nowrap align-middle" rowspan="5">Subjek</th>
                                                 <th class="text-nowrap align-middle" rowspan="5">Kategori</th>
                                                 <th class="text-nowrap align-middle" rowspan="5">Item</th>
-                                                <th class="text-nowrap align-middle" rowspan="5">Nominal</th>
+
+                                                <!-- HEADER SORTABLE: NOMINAL -->
+                                                <th class="text-nowrap align-middle sortable cursor-pointer" rowspan="5"
+                                                    data-sort-field="nominal">
+                                                    Nominal <i class="fa fa-sort sort-icon ml-1"></i>
+                                                </th>
+
                                                 <th class="text-nowrap th-data align-middle text-white bg-info">Saldo Akhir
                                                 </th>
                                                 <th class="text-nowrap th-data align-middle text-white bg-info text-right"
@@ -126,11 +146,11 @@
                                                 <th class="text-nowrap th-data align-middle text-white bg-warning text-right"
                                                     id="akhir_piutang">-</th>
                                                 <th class="text-nowrap th-data align-middle text-white bg-danger">Saldo
-                                                    Akhir
-                                                </th>
+                                                    Akhir</th>
                                                 <th class="text-nowrap th-data align-middle text-white bg-danger text-right"
                                                     id="akhir_hutang">-</th>
                                             </tr>
+                                            <!-- TR SISA KAS TETAP SAMA -->
                                             <tr class="tb-head">
                                                 <th class="text-nowrap align-middle text-white bg-info">Saldo Berjalan</th>
                                                 <th class="text-nowrap align-middle text-white bg-info text-right"
@@ -151,16 +171,14 @@
                                             <tr class="tb-head">
                                                 <th class="text-nowrap align-middle text-white bg-info">Saldo Awal</th>
                                                 <th class="text-nowrap align-middle text-white bg-info text-right"
-                                                    id="awal_kas_kecil">-
-                                                </th>
+                                                    id="awal_kas_kecil">-</th>
                                                 <th class="text-nowrap align-middle text-white bg-success">Saldo Awal</th>
                                                 <th class="text-nowrap align-middle text-white bg-success text-right"
                                                     id="awal_kas_besar">-</th>
                                                 <th class="text-nowrap align-middle text-white bg-warning">Saldo Awal</th>
                                                 <th class="text-nowrap align-middle text-white bg-warning text-right"
                                                     id="awal_piutang">-</th>
-                                                <th class="text-nowrap align-middle text-white bg-danger">Saldo Awal
-                                                </th>
+                                                <th class="text-nowrap align-middle text-white bg-danger">Saldo Awal</th>
                                                 <th class="text-nowrap align-middle text-white bg-danger text-right"
                                                     id="awal_hutang">-</th>
                                             </tr>
@@ -171,15 +189,13 @@
                                                 <th class="text-nowrap align-middle text-white bg-success">Kas Besar In
                                                 </th>
                                                 <th class="text-nowrap align-middle text-white bg-success data-total">Kas
-                                                    Besar Out
-                                                </th>
+                                                    Besar Out</th>
                                                 <th class="text-nowrap align-middle text-white bg-warning">Piutang In</th>
                                                 <th class="text-nowrap align-middle text-white bg-warning data-total">
                                                     Piutang Out</th>
                                                 <th class="text-nowrap align-middle text-white bg-danger">Hutang In</th>
-                                                <th class="text-nowrap align-middle text-white bg-danger data-total">
-                                                    Hutang Out
-                                                </th>
+                                                <th class="text-nowrap align-middle text-white bg-danger data-total">Hutang
+                                                    Out</th>
                                             </tr>
                                             <tr class="tb-head">
                                                 <th class="text-nowrap th-data align-middle text-white text-right bg-info"
@@ -189,8 +205,7 @@
                                                 <th class="text-nowrap th-data align-middle text-white text-right bg-success"
                                                     id="total_kas_besar_in">-</th>
                                                 <th class="text-nowrap th-data align-middle text-white text-right bg-success"
-                                                    id="total_kas_besar_out">-
-                                                </th>
+                                                    id="total_kas_besar_out">-</th>
                                                 <th class="text-nowrap th-data align-middle text-white text-right bg-warning"
                                                     id="total_piutang_in">-</th>
                                                 <th class="text-nowrap th-data align-middle text-white text-right bg-warning"
@@ -198,12 +213,10 @@
                                                 <th class="text-nowrap th-data align-middle text-white text-right bg-danger"
                                                     id="total_hutang_in">-</th>
                                                 <th class="text-nowrap th-data align-middle text-white text-right bg-danger"
-                                                    id="total_hutang_out">-
-                                                </th>
+                                                    id="total_hutang_out">-</th>
                                             </tr>
                                         </thead>
-                                        <tbody id="listData">
-                                        </tbody>
+                                        <tbody id="listData"></tbody>
                                     </table>
                                 </div>
                             </div>
@@ -231,10 +244,18 @@
         let defaultSearch = '';
         let customFilter = {};
         let selectOptions = [{
-            id: '#f_toko',
-            isUrl: '{{ route('master.toko') }}',
-            placeholder: 'Pilih Toko'
-        }];
+                id: '#f_toko',
+                isUrl: '{{ route('master.toko') }}',
+                placeholder: 'Pilih Toko'
+            },
+            {
+                id: '#f_kategori',
+                isUrl: '{{ route('master.aruskas.getKategori') }}',
+                placeholder: 'Pilih Kategori'
+            }
+        ];
+        let currentSortBy = 'tanggal';
+        let currentOrder = 'desc';
 
         function setInputFilter() {
             const now = new Date();
@@ -315,6 +336,11 @@
                 filterParams.id_toko = customFilter['id_toko'];
             }
 
+            // Filter Kategori
+            if (customFilter['kategori']) {
+                filterParams.kategori = customFilter['kategori'];
+            }
+
             let getDataRest = await renderAPI(
                 'GET',
                 '{{ route('master.aruskas.get') }}', {
@@ -323,6 +349,8 @@
                     ascending: ascending,
                     search: search,
                     toko_id: {{ auth()->user()->toko_id }},
+                    sort_by: currentSortBy, // Parameter sorting kolom (tanggal / nominal)
+                    order: currentOrder, // asc / desc
                     ...filterParams
                 }
             ).then(function(response) {
@@ -340,18 +368,18 @@
                 await setListData(handleDataArray);
                 if (getDataRest.data.data.length == 0) {
                     let errorRow = `
-                    <tr class="text-dark">
-                        <th class="text-center" colspan="${$('#head-table th').length}"> ${getDataRest.data.message} </th>
-                    </tr>`;
+            <tr class="text-dark">
+                <th class="text-center" colspan="${$('#head-table th').length}"> ${getDataRest.data.message} </th>
+            </tr>`;
                     $('#listData').html(errorRow);
                 }
             } else {
                 await totalListData(null);
                 let errorMessage = getDataRest?.data?.message || 'Data gagal dimuat';
                 let errorRow = `
-                    <tr class="text-dark">
-                        <th class="text-center" colspan="${$('#head-table th').length}"> ${errorMessage} </th>
-                    </tr>`;
+            <tr class="text-dark">
+                <th class="text-center" colspan="${$('#head-table th').length}"> ${errorMessage} </th>
+            </tr>`;
                 $('#listData').html(errorRow);
             }
         }
@@ -462,11 +490,6 @@
 
             document.getElementById('custom-filter').addEventListener('submit', async function(e) {
                 e.preventDefault();
-                const now = new Date();
-                const yearDefault = now.getFullYear();
-                const monthTextDefault = now.toLocaleString('id-ID', {
-                    month: 'long'
-                });
 
                 let bulanTahun = document.getElementById("bulan_tahun").value.trim();
 
@@ -489,9 +512,14 @@
                 };
 
                 let selectedTokoIds = $('#f_toko').val();
-
                 if (selectedTokoIds && selectedTokoIds.length > 0) {
                     customFilter['id_toko'] = selectedTokoIds;
+                }
+
+                // TANGKAP FILTER KATEGORI
+                let selectedKategori = $('#f_kategori').val();
+                if (selectedKategori) {
+                    customFilter['kategori'] = selectedKategori;
                 }
 
                 defaultSearch = $('.tb-search').val();
@@ -509,9 +537,47 @@
                 defaultSearch = $('.tb-search').val();
                 currentPage = 1;
 
+                // Reset Sorting
+                currentSortBy = 'tanggal';
+                currentOrder = 'desc';
+                updateSortIcons();
+
                 await defaultTime(null, null);
                 await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
                     customFilter);
+            });
+
+            // EVENT HANDLER UNTUK SORTING KOLOM
+            $('.sortable').on('click', async function() {
+                let field = $(this).data('sort-field');
+
+                if (currentSortBy === field) {
+                    currentOrder = currentOrder === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSortBy = field;
+                    currentOrder = 'asc';
+                }
+
+                updateSortIcons();
+                await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
+                    customFilter);
+            });
+        }
+
+        function updateSortIcons() {
+            $('.sortable').each(function() {
+                let field = $(this).data('sort-field');
+                let icon = $(this).find('.sort-icon');
+
+                if (field === currentSortBy) {
+                    if (currentOrder === 'asc') {
+                        icon.attr('class', 'fa fa-sort-up sort-icon ml-1 text-primary');
+                    } else {
+                        icon.attr('class', 'fa fa-sort-down sort-icon ml-1 text-primary');
+                    }
+                } else {
+                    icon.attr('class', 'fa fa-sort sort-icon ml-1 text-muted');
+                }
             });
         }
 

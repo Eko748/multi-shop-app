@@ -12,12 +12,12 @@ use App\Http\Controllers\DataMaster\ManajemenBarang\BarangController;
 use App\Http\Controllers\DataMaster\ManajemenBarang\BrandController;
 use App\Http\Controllers\DataMaster\ManajemenBarang\JenisBarangController;
 use App\Http\Controllers\DataMaster\ManajemenBarang\StockBarangBatchController;
-use App\Http\Controllers\DataMaster\ManajemenBarang\StockBarangController;
 use App\Http\Controllers\DataMaster\ManajemenBarang\StockBarangBermasalahController;
+use App\Http\Controllers\DataMaster\ManajemenBarang\StockBarangController;
 use App\Http\Controllers\DataMaster\Pengaturan\LevelHargaController;
-use App\Http\Controllers\DataMaster\Pengaturan\RoleController;
 use App\Http\Controllers\DataMaster\Pengaturan\PermissionController;
 use App\Http\Controllers\DataMaster\Pengaturan\PromoController;
+use App\Http\Controllers\DataMaster\Pengaturan\RoleController;
 use App\Http\Controllers\Distribusi\PengirimanBarangController;
 use App\Http\Controllers\Distribusi\PlanOrderController;
 use App\Http\Controllers\JurnalKeuangan\HutangController;
@@ -315,7 +315,11 @@ Route::prefix('catatan')->as('catatan.')->group(function () {
     Route::delete('delete', [CatatanController::class, 'delete'])->name('delete')->middleware('permission:DELETE /catatan/delete');
 });
 
-Route::get('/arusKasir', [ArusKasController::class, 'getaruskas'])->name('master.aruskas.get');
+Route::prefix('arus-kas')->as('master.aruskas.')->group(function () {
+    Route::get('/', [ArusKasController::class, 'getaruskas'])->name('get');
+    Route::get('/kategori', [ArusKasController::class, 'getKategori'])->name('getKategori');
+});
+
 Route::get('/labarugi', [LabaRugiController::class, 'getlabarugi'])->name('master.labarugi.get');
 
 Route::get('/get-aset-retur', [AsetBarangReturController::class, 'getAsetBarangRetur'])->name('aset.retur');

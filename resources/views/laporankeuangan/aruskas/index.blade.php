@@ -87,7 +87,6 @@
                                                     <div class="col-12 col-xl-4 col-lg-4 mb-2">
                                                         <select name="f_kategori" id="f_kategori" class="form-control"
                                                             data-placeholder="Pilih Kategori">
-                                                            <option value="">Pilih Kategori</option>
                                                         </select>
                                                     </div>
                                                 </div>

@@ -77,9 +77,8 @@ class ArusKasService
             $query->where(function ($q) use ($searchTerm) {
                 $q->whereRaw('LOWER(kategori) LIKE ?', ["%{$searchTerm}%"])
                     ->orWhereRaw('LOWER(keterangan) LIKE ?', ["%{$searchTerm}%"])
-                    ->orWhereRaw('LOWER(kode_transaksi) LIKE ?', ["%{$searchTerm}%"])
                     ->orWhereHas('kas.toko', function ($tokoQuery) use ($searchTerm) {
-                        $tokoQuery->whereRaw('LOWER(nama_toko) LIKE ?', ["%{$searchTerm}%"]);
+                        $tokoQuery->whereRaw('LOWER(nama) LIKE ?', ["%{$searchTerm}%"]);
                     });
             });
         }
@@ -124,7 +123,7 @@ class ArusKasService
             return array_merge([
                 'id' => $item->id,
                 'tgl' => Carbon::parse($item->tanggal)->format('d-m-Y H:i:s'),
-                'subjek' => "Toko {$item->kas->toko->nama_toko}",
+                'subjek' => "Toko {$item->kas->toko->nama}",
                 'kategori' => $item->kategori,
                 'item' => $item->keterangan,
                 'nilai_transaksi' => $nilai,

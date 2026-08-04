@@ -213,18 +213,18 @@
                                     <div class="card-header d-flex justify-content-between align-items-center">
                                         <h5>Top 10 Penjualan</h5>
                                         @if (hasAnyPermission(['POST /dashboard-filter-toko']))
-                                        <div class="d-flex align-items-center gap-2">
-                                            <div style="width: 200px;">
-                                                <select id="f-barang-toko"
-                                                    class="filter-option form-select form-select-sm w-auto">
-                                                    <option value="all">Semua Toko</option>
-                                                    @foreach ($toko as $tokoData)
-                                                        <option value="{{ $tokoData->id }}">{{ $tokoData->nama_toko }}
-                                                        </option>
-                                                    @endforeach
-                                                </select>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div style="width: 200px;">
+                                                    <select id="f-barang-toko"
+                                                        class="filter-option form-select form-select-sm w-auto">
+                                                        <option value="all">Semua Toko</option>
+                                                        @foreach ($toko as $tokoData)
+                                                            <option value="{{ $tokoData->id }}">{{ $tokoData->singkatan }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
                                             </div>
-                                        </div>
                                         @endif
                                     </div>
                                     <div class="performance-scroll overflow-auto" style="position: relative;">
@@ -244,18 +244,18 @@
                                     <div class="card-header d-flex justify-content-between align-items-center">
                                         <h5>Top 10 Member</h5>
                                         @if (hasAnyPermission(['POST /dashboard-filter-toko']))
-                                        <div class="d-flex align-items-center gap-2">
-                                            <div style="width: 200px;">
-                                                <select id="f-member-toko"
-                                                    class="filter-option form-select form-select-sm w-auto">
-                                                    <option value="all">Semua Toko</option>
-                                                    @foreach ($toko as $tokoData)
-                                                        <option value="{{ $tokoData->id }}">{{ $tokoData->nama_toko }}
-                                                        </option>
-                                                    @endforeach
-                                                </select>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div style="width: 200px;">
+                                                    <select id="f-member-toko"
+                                                        class="filter-option form-select form-select-sm w-auto">
+                                                        <option value="all">Semua Toko</option>
+                                                        @foreach ($toko as $tokoData)
+                                                            <option value="{{ $tokoData->id }}">{{ $tokoData->singkatan }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
                                             </div>
-                                        </div>
                                         @endif
                                     </div>
                                     <div class="performance-scroll overflow-auto" style="position: relative;">
@@ -404,17 +404,17 @@
                                                             </select>
                                                         </div>
                                                         @if (hasAnyPermission(['POST /dashboard-filter-toko']))
-                                                        <div style="width: 200px;">
-                                                            <select id="f-penjualan-toko" name="nama_toko"
-                                                                class="filter-option form-select form-select-sm w-100">
-                                                                <option value="all">Semua Toko</option>
-                                                                @foreach ($toko as $tokoData)
-                                                                    <option value="{{ $tokoData->id }}">
-                                                                        {{ $tokoData->nama }}
-                                                                    </option>
-                                                                @endforeach
-                                                            </select>
-                                                        </div>
+                                                            <div style="width: 200px;">
+                                                                <select id="f-penjualan-toko" name="nama_toko"
+                                                                    class="filter-option form-select form-select-sm w-100">
+                                                                    <option value="all">Semua Toko</option>
+                                                                    @foreach ($toko as $tokoData)
+                                                                        <option value="{{ $tokoData->id }}">
+                                                                            {{ $tokoData->singkatan }}
+                                                                        </option>
+                                                                    @endforeach
+                                                                </select>
+                                                            </div>
                                                         @endif
                                                     </div>
                                                 </div>
@@ -1247,9 +1247,9 @@
             }
 
             if (hasPermission(['POST /dashboard-filter-toko'])) {
-            await selectList(['f-penjualan-toko', 'f-barang-toko', 'f-member-toko', 'filter-period', 'filter-month',
-                'filter-year'
-            ]);
+                await selectList(['f-penjualan-toko', 'f-barang-toko', 'f-member-toko', 'filter-period', 'filter-month',
+                    'filter-year'
+                ]);
             } else {
                 await selectList(['filter-period', 'filter-month', 'filter-year']);
             }

@@ -360,7 +360,8 @@ class LabaRugiService
             (int) abs($totalDividenBagiHasil),
             (int) $total_labarugi,
             (int) $pendapatanNonTransaksi,
-            $singkatanToko
+            $singkatanToko,
+            $isChild
         );
     }
 
@@ -378,15 +379,10 @@ class LabaRugiService
         $totalDividenBagiHasil,
         $total_labarugi,
         $pendapatanNonTransaksi,
-        $singkatanToko = ''
+        $singkatanToko = '',
+        $isChild = false
     ) {
-        // Tentukan label untuk Bagi Hasil Mitra dengan singkatan toko (jika ada)
-        $labelMitra = '4.2 Bagi Hasil Mitra';
-        if (! empty($singkatanToko)) {
-            $labelMitra .= " {$singkatanToko}";
-        }
-
-        return [
+        $laporan = [
             [
                 'I. Pendapatan',
                 [
@@ -410,21 +406,45 @@ class LabaRugiService
                     return [$item['label'], RupiahGenerate::build($item['value'])];
                 }, $bebanOperasional),
             ],
-            [
+        ];
+
+        // KONDISI UNTUK TOKO CHILD (CABANG / MITRA)
+        if ($isChild) {
+            $labelMitra = '4.2 Bagi Hasil Mitra';
+            if (! empty($singkatanToko)) {
+                $labelMitra .= " {$singkatanToko}";
+            }
+
+            // Tampilkan Poin IV. Bagi Hasil/Deviden
+            $laporan[] = [
                 'IV. Bagi Hasil/Deviden',
                 [
                     ['4.1 Bagi Hasil Pusat', RupiahGenerate::build($bagiHasilTokoUtama)],
                     [$labelMitra, RupiahGenerate::build($bagiHasilOwner)],
                     ['Total Bagi Hasil/Dividen', RupiahGenerate::build($totalDividenBagiHasil)],
                 ],
-        ],
-            [
+            ];
+
+            // Laba Rugi ada di Poin V.
+            $laporan[] = [
                 'V. Laba Rugi',
                 [
                     ['Laba Rugi Ditahan', RupiahGenerate::build($total_labarugi)],
                 ],
-        ],
-        ];
+            ];
+        } else {
+            // KONDISI UNTUK TOKO PARENT (PUSAT / ALL TOKO)
+            // Poin IV. Bagi Hasil/Deviden DILOMPATI/HIDE
+            // Laba Rugi langsung menjadi Poin IV.
+            $laporan[] = [
+                'IV. Laba Rugi',
+                [
+                    ['Laba Rugi Ditahan', RupiahGenerate::build($total_labarugi)],
+                ],
+            ];
+        }
+
+        return $laporan;
     }
 
     protected function getTotalLabaRugi($total_labarugi)

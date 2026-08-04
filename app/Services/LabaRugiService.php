@@ -262,8 +262,8 @@ class LabaRugiService
         $bebanOperasional = [];
         $totalBeban = 0;
 
-        // ABAIKAN ID 11 DAN ID 12 (ID 12 Pindah ke Dividen Bagi Hasil)
-        $jenisList = PengeluaranTipe::whereNotIn('id', [11, 12])->get();
+        // ABAIKAN ID 11, ID 12 (Bagi Hasil Mitra), DAN ID 13 (Bagi Hasil Pusat)
+        $jenisList = PengeluaranTipe::whereNotIn('id', [11, 12, 13])->get();
 
         foreach ($jenisList as $index => $jenis) {
             $nilai = isset($pengeluaran[$jenis->id]) ? (int) $pengeluaran[$jenis->id]->total : 0;
@@ -322,34 +322,10 @@ class LabaRugiService
         // IV. Bagi Hasil/Deviden
         // ============================
 
-        // 4.1 Bagi Hasil Toko Utama (Mutasi Kas Antar Toko)
-        $bagiHasilTokoUtama = 0;
+        // 4.1 Bagi Hasil Pusat (Dari Pengeluaran Tipe ID 13)
+        $bagiHasilTokoUtama = isset($pengeluaran[13]) ? (int) $pengeluaran[13]->total : 0;
 
-        if ($tokoId !== 'all' && $tokoId !== null && $tokoId != 0) {
-            $myKasIds = Kas::where('toko_id', $tokoId)->pluck('id')->toArray();
-
-            if (! empty($myKasIds)) {
-                $mutasiQuery = KasMutasi::with(['kasAsal', 'kasTujuan'])
-                    ->where(function ($q) use ($myKasIds) {
-                        $q->whereIn('kas_asal_id', $myKasIds)
-                            ->orWhereIn('kas_tujuan_id', $myKasIds);
-                    });
-
-                $applyDateFilter($mutasiQuery, 'tanggal');
-                $mutasiList = $mutasiQuery->get();
-
-                foreach ($mutasiList as $m) {
-                    $tokoAsalId = $m->kasAsal?->toko_id;
-                    $tokoTujuanId = $m->kasTujuan?->toko_id;
-
-                    if ($tokoAsalId != $tokoTujuanId) {
-                        $bagiHasilTokoUtama += $m->nominal;
-                    }
-                }
-            }
-        }
-
-        // 4.2 Bagi Hasil Owner / Mitra (Dari Pengeluaran ID 12)
+        // 4.2 Bagi Hasil Owner / Mitra (Dari Pengeluaran Tipe ID 12)
         $bagiHasilOwner = isset($pengeluaran[12]) ? (int) $pengeluaran[12]->total : 0;
 
         // Total Dividen Bagi Hasil

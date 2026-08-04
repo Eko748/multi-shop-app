@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Helpers\RupiahGenerate;
 use App\Models\JenisBarang;
 use App\Models\Kas;
-use App\Models\KasMutasi;
 use App\Models\KasSaldoHistory;
 use App\Models\KasTransaksi;
 use App\Models\Pengeluaran;
@@ -116,57 +115,41 @@ class NeracaKeuanganService
 
             // -----------------------------------------------------------------
             // CALCULATE DIVIDEN UNTUK BULAN $i
-            // (1) Pengeluaran Tipe ID 12 + (2) Mutasi Kas Antar-Toko
+            // (1) Pengeluaran Tipe ID 12 (Mitra) + (2) Pengeluaran Tipe ID 13 (Pusat)
             // -----------------------------------------------------------------
             $startDate = $periode->copy()->startOfMonth()->toDateTimeString();
             $endDate = $periode->copy()->endOfMonth()->toDateTimeString();
 
-            // 1. Pengeluaran Tipe ID 12 (Bagi Hasil Owner)
-            $dividenPengeluaran = KasTransaksi::where('tipe', 'out')
+            // Query Dasar Pengeluaran Berdasarkan Tanggal & Toko
+            $pengeluaranQuery = KasTransaksi::where('tipe', 'out')
                 ->where('sumber_type', Pengeluaran::class)
                 ->whereBetween('tanggal', [$startDate, $endDate])
                 ->whereHas('kas', function ($q) use ($tokoId) {
                     if ($tokoId !== 'all' && $tokoId !== null && $tokoId != 0) {
                         $q->where('toko_id', $tokoId);
                     }
-                })
+                });
+
+            // 1. Pengeluaran Tipe ID 12 (Bagi Hasil Mitra)
+            $dividenMitra = (clone $pengeluaranQuery)
                 ->whereHasMorph('sumber', [Pengeluaran::class], function ($q) {
                     $q->where('pengeluaran_tipe_id', 12);
                 })
                 ->sum('total_nominal');
 
-            // 2. Mutasi Kas Antar-Toko ke Parent
-            $dividenMutasi = 0;
-            if ($tokoId !== 'all' && $tokoId !== null && $tokoId != 0) {
-                $myKasIds = Kas::where('toko_id', $tokoId)->pluck('id')->toArray();
+            // 2. Pengeluaran Tipe ID 13 (Bagi Hasil Pusat)
+            $dividenPusat = (clone $pengeluaranQuery)
+                ->whereHasMorph('sumber', [Pengeluaran::class], function ($q) {
+                    $q->where('pengeluaran_tipe_id', 13);
+                })
+                ->sum('total_nominal');
 
-                if (! empty($myKasIds)) {
-                    $mutasiList = KasMutasi::with(['kasAsal', 'kasTujuan'])
-                        ->whereBetween('tanggal', [$startDate, $endDate])
-                        ->where(function ($q) use ($myKasIds) {
-                            $q->whereIn('kas_asal_id', $myKasIds)
-                                ->orWhereIn('kas_tujuan_id', $myKasIds);
-                        })
-                        ->get();
-
-                    foreach ($mutasiList as $m) {
-                        $tokoAsalId = $m->kasAsal?->toko_id;
-                        $tokoTujuanId = $m->kasTujuan?->toko_id;
-
-                        // Hitung nominal mutasi jika beda toko
-                        if ($tokoAsalId != $tokoTujuanId) {
-                            $dividenMutasi += $m->nominal;
-                        }
-                    }
-                }
-            }
-
-            $totalDividen = (int) ($dividenPengeluaran + $dividenMutasi);
+            $totalDividen = (int) ($dividenMitra + $dividenPusat);
 
             // Format Teks Keterangan Laba / Ditahan dengan info Dividen
             $labelStatus = ($i == $month) ? 'Berjalan' : 'Ditahan';
             $teksDividen = ($totalDividen > 0) ? ' (Total Dividen '.RupiahGenerate::build($totalDividen).')' : '';
-            $namaItem = "Laba (Rugi) $labelStatus Periode $namaPeriode $teksDividen";
+            $namaItem = "Laba (Rugi) $labelStatus Periode $namaPeriode$teksDividen";
 
             $items[] = [
                 'kode' => "IV.$counter",

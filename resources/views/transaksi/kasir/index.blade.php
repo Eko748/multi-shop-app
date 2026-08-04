@@ -1056,23 +1056,23 @@
         }
 
         async function cetakStruk(kasir_id) {
-                try {
-                    const url = `{{ route('tb.kasir.print') }}`;
+            try {
+                const url = `{{ route('tb.kasir.print') }}`;
 
-                    const res = await renderAPI('GET', url, {
-                        id: kasir_id
-                    });
+                const res = await renderAPI('GET', url, {
+                    id: kasir_id
+                });
 
-                    const data = res?.data?.data;
-                    if (!data || !data.detail) {
-                        notificationAlert('warning', 'Info', 'Data tidak ditemukan untuk dicetak.');
-                        return;
-                    }
+                const data = res?.data?.data;
+                if (!data || !data.detail) {
+                    notificationAlert('warning', 'Info', 'Data tidak ditemukan untuk dicetak.');
+                    return;
+                }
 
-                    /* ===============================
-                     * DETAIL BARANG
-                     * =============================== */
-                    const detailRows = data.detail.map(d => `
+                /* ===============================
+                 * DETAIL BARANG
+                 * =============================== */
+                const detailRows = data.detail.map(d => `
             <tr>
                 <td colspan="4" class="align-top text-left">${d.nama_barang}</td>
             </tr>
@@ -1086,18 +1086,18 @@
             </tr>
         `).join("");
 
-                    const hr = `<hr style="border:none;border-top:1px dashed #000;margin:6px 0;">`;
+                const hr = `<hr style="border:none;border-top:1px dashed #000;margin:6px 0;">`;
 
-                    const svg = `
+                const svg = `
         <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="black" viewBox="0 0 24 24">
             <path d="M2 1h1.219l3.564 14.257A3 3 0 1 0 11 20h4a3 3 0 1 0 3-3H8.78l-.5-2H18c2 0 3-3 3-6s-2-4-4-4H5.78L5.16 2.515A2 2 0 0 0 3.22 1H2z"/>
         </svg>`;
 
-                    // Cek alamat member dari data API
-                    const alamatMember = data.nota.alamat_member;
-                    const showAlamat = alamatMember && alamatMember !== '-' && alamatMember !== null;
+                // Cek alamat member dari data API
+                const alamatMember = data.nota.alamat_member;
+                const showAlamat = alamatMember && alamatMember !== '-' && alamatMember !== null;
 
-                    const printContent = `
+                const printContent = `
         <div style="font-family: monospace; width:300px;">
             <div style="display:flex;justify-content:center;align-items:center;gap:6px;">
                 ${svg}
@@ -1152,257 +1152,280 @@
         </div>
         `;
 
-                    const w = window.open("", "_blank", "width=400,height=600");
+                const w = window.open("", "_blank", "width=400,height=600");
 
-                    if (!w) {
-                        notificationAlert('warning', 'Info', 'Pop-up diblokir oleh browser. Harap izinkan pop-up.');
-                        return;
-                    }
+                if (!w) {
+                    notificationAlert('warning', 'Info', 'Pop-up diblokir oleh browser. Harap izinkan pop-up.');
+                    return;
+                }
 
-                    w.document.write(`
-                <html>
-                <head>
-                    <title>Print Struk</title>
-                    <style>
-                        body { font-family: monospace; padding:10px; }
-                        table { width:100%; border-collapse:collapse; }
-                        td { padding:3px 0; }
-                        .text-right { text-align:right; }
-                    </style>
-                </head>
-                <body>
-                    ${printContent}
-                    <script>
-                        window.addEventListener('DOMContentLoaded', () => {
-                            setTimeout(() => {
-                                window.focus();
-                                window.print();
-                                window.close();
-                            }, 250); // Delay 250ms memberi waktu DOM & SVG selesai dirender
-                        });
-    </script>
-    </body>
+                w.document.write(`
+            <html>
+            <head>
+                <title>Print Struk</title>
+                <style>
+                    body { font-family: monospace; padding:10px; }
+                    table { width:100%; border-collapse:collapse; }
+                    td { padding:3px 0; }
+                    .text-right { text-align:right; }
+                </style>
+            </head>
+            <body>
+                ${printContent}
+            </body>
+            </html>
+        `);
 
-    </html>
-    `);
-    w.document.close();
+                w.document.close();
 
-    } catch (err) {
-    console.error(err);
-    notificationAlert('error', 'Error', 'Gagal mencetak struk.');
-    }
-    }
+                // Delay dilakukan di sini (luar dokumen popup)
+                setTimeout(() => {
+                    w.focus();
+                    w.print();
+                    w.close();
+                }, 500); // Jeda 500ms agar window sempat selesai merender HTML sebelum print dipanggil
 
-    function openAddModal() {
-    renderModalForm('add');
-
-    $('#submit-button')
-    .removeClass('btn-primary btn-info d-none')
-    .addClass('btn-success')
-    .attr("type", "submit")
-    .attr("form", "form-data")
-    .prop('disabled', false)
-    .html('<i class="fa fa-save mr-1"></i>Simpan')
-    .off("click");
-
-    setDatePicker();
-    addRowItem();
-
-    $('#modal-form').modal('show');
-    setTimeout(() => {
-    $('#member_id').val('guest').trigger('change');
-    }, 100);
-    toggleMemberSelect();
-    }
-
-    function addRowItem() {
-    $(document).off("keydown", "#scan_batch_input");
-    $(document).off("change", "#select_batch_manual");
-    $(document).off("click", ".remove-item");
-    const debouncedQtyValidation = debounce(function() {
-    validateQtyInput(this);
-    }, 600);
-
-    let allowSubmit = false;
-
-    $('#submit-button').on('click', function() {
-    allowSubmit = true;
-    });
-
-    $('#form-data').on('submit', function(e) {
-    if (!allowSubmit) {
-    e.preventDefault();
-    return false;
-    }
-    allowSubmit = false;
-    });
-
-    $(document).on("keydown", "#scan_batch_input", async function(e) {
-    if (e.key === "Enter") {
-    e.preventDefault();
-
-    let qrcode = $(this).val().trim();
-    if (!qrcode) return;
-
-    showScanInfo("Mencari batch...", "text-info");
-
-    await handleRow(qrcode);
-    $(this).val("");
-    }
-    toggleMemberSelect();
-    });
-
-    $(document).on("change", "#select_batch_manual", async function() {
-    let batchId = $(this).val();
-    if (!batchId) return;
-
-    await handleRow(batchId);
-
-    $(this).val("").trigger("change.select2");
-    toggleMemberSelect();
-    });
-
-    $(document).on("keydown", "#form-data", function(e) {
-    if (e.key === "Enter" && e.target.id !== "scan_batch_input") {
-    e.preventDefault();
-    }
-    });
-
-    $(document).on('input', '.qty_send', function() {
-    debouncedQtyValidation.call(this);
-    hitungSubtotal();
-    });
-
-    $(document).on('blur', '.qty_send', function() {
-    validateQtyInput(this);
-    hitungSubtotal();
-    });
-
-    $(document).on('change', '.qty_send', function() {
-    validateQtyInput(this);
-    hitungSubtotal();
-    });
-
-    $(document).on('change', '.harga_select', function() {
-    hitungTotalRow($(this).closest('tr'));
-    });
-
-    $(document).on('click', '.remove-item', function() {
-    $(this).closest('tr').remove();
-    updateNomorUrut();
-
-    if ($("#tableItems tbody tr").length === 0) {
-    showEmptyMessage();
-    }
-    toggleMemberSelect();
-    hitungSubtotal();
-    });
-
-    $(document).on('input', '#total_bayar', function() {
-    hitungKembalian();
-    });
-    }
-
-    function debounce(fn, delay = 500) {
-    let timer;
-    return function(...args) {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn.apply(this, args), delay);
-    };
-    }
-
-    function validateQtyInput(input) {
-    const $input = $(input);
-
-    let max = parseInt(
-    $input.data("max") ?? $input.attr("max"),
-    10
-    );
-
-    let val = parseInt($input.val(), 10);
-
-    if (isNaN(max)) {
-    console.warn("MAX QTY TIDAK VALID", input);
-    return;
-    }
-
-    if (isNaN(val) || val < 1) { $input.val(1); } else if (val> max) {
-        $input.val(max);
-        showScanInfo(`⚠️ Maksimal qty ${max}`, "text-warning");
+            } catch (err) {
+                console.error(err);
+                notificationAlert('error', 'Error', 'Gagal mencetak struk.');
+            }
         }
 
-        hitungTotalRow($input.closest('tr'));
+        function openAddModal() {
+            renderModalForm('add');
+
+            $('#submit-button')
+                .removeClass('btn-primary btn-info d-none')
+                .addClass('btn-success')
+                .attr("type", "submit")
+                .attr("form", "form-data")
+                .prop('disabled', false)
+                .html('<i class="fa fa-save mr-1"></i>Simpan')
+                .off("click");
+
+            setDatePicker();
+            addRowItem();
+
+            $('#modal-form').modal('show');
+            setTimeout(() => {
+                $('#member_id').val('guest').trigger('change');
+            }, 100);
+            toggleMemberSelect();
+        }
+
+        function addRowItem() {
+            $(document).off("keydown", "#scan_batch_input");
+            $(document).off("change", "#select_batch_manual");
+            $(document).off("click", ".remove-item");
+            const debouncedQtyValidation = debounce(function() {
+                validateQtyInput(this);
+            }, 600);
+
+            let allowSubmit = false;
+
+            $('#submit-button').on('click', function() {
+                allowSubmit = true;
+            });
+
+            $('#form-data').on('submit', function(e) {
+                if (!allowSubmit) {
+                    e.preventDefault();
+                    return false;
+                }
+                allowSubmit = false;
+            });
+
+            $(document).on("keydown", "#scan_batch_input", async function(e) {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+
+                    let qrcode = $(this).val().trim();
+                    if (!qrcode) return;
+
+                    showScanInfo("Mencari batch...", "text-info");
+
+                    await handleRow(qrcode);
+                    $(this).val("");
+                }
+                toggleMemberSelect();
+            });
+
+            $(document).on("change", "#select_batch_manual", async function() {
+                let batchId = $(this).val();
+                if (!batchId) return;
+
+                await handleRow(batchId);
+
+                $(this).val("").trigger("change.select2");
+                toggleMemberSelect();
+            });
+
+            $(document).on("keydown", "#form-data", function(e) {
+                if (e.key === "Enter" && e.target.id !== "scan_batch_input") {
+                    e.preventDefault();
+                }
+            });
+
+            $(document).on('input', '.qty_send', function() {
+                debouncedQtyValidation.call(this);
+                hitungSubtotal();
+            });
+
+            $(document).on('blur', '.qty_send', function() {
+                validateQtyInput(this);
+                hitungSubtotal();
+            });
+
+            $(document).on('change', '.qty_send', function() {
+                validateQtyInput(this);
+                hitungSubtotal();
+            });
+
+            $(document).on('change', '.harga_select', function() {
+                hitungTotalRow($(this).closest('tr'));
+            });
+
+            $(document).on('click', '.remove-item', function() {
+                $(this).closest('tr').remove();
+                updateNomorUrut();
+
+                if ($("#tableItems tbody tr").length === 0) {
+                    showEmptyMessage();
+                }
+                toggleMemberSelect();
+                hitungSubtotal();
+            });
+
+            $(document).on('input', '#total_bayar', function() {
+                hitungKembalian();
+            });
+        }
+
+        function debounce(fn, delay = 500) {
+            let timer;
+            return function(...args) {
+                clearTimeout(timer);
+                timer = setTimeout(() => fn.apply(this, args), delay);
+            };
+        }
+
+        function validateQtyInput(input) {
+            const $input = $(input);
+
+            let max = parseInt(
+                $input.data("max") ?? $input.attr("max"),
+                10
+            );
+
+            let val = parseInt($input.val(), 10);
+
+            if (isNaN(max)) {
+                console.warn("MAX QTY TIDAK VALID", input);
+                return;
+            }
+
+            if (isNaN(val) || val < 1) {
+                $input.val(1);
+            } else if (val > max) {
+                $input.val(max);
+                showScanInfo(`⚠️ Maksimal qty ${max}`, "text-warning");
+            }
+
+            hitungTotalRow($input.closest('tr'));
         }
 
         async function handleRow(search) {
-        if ($('#member_id').val() == null) {
-        showScanInfo("❌ Silahkan Pilih Member", "text-danger");
-        return;
+            if ($('#member_id').val() == null) {
+                showScanInfo("❌ Silahkan Pilih Member", "text-danger");
+                return;
+            }
+            try {
+                let res = await renderAPI("GET", '{{ route('sb.batch.getHargaJual') }}', {
+                    search: search,
+                    toko_id: {{ auth()->user()->toko_id }},
+                    member_id: $('#member_id').val()
+                });
+
+                if (!res.data || !res.data.data) {
+                    showScanInfo("❌ Batch tidak ditemukan", "text-danger");
+                    return;
+                }
+
+                let data = res.data.data;
+                let maxQty = parseInt(data.qty);
+
+                let existingRow = $(`#tableItems tbody tr`)
+                    .filter(function() {
+                        return $(this).find(".stock_batch_id").val() == data.id;
+                    });
+
+                if (existingRow.length) {
+                    let qtyInput = existingRow.find(".qty_send");
+                    let currentQty = parseInt(qtyInput.val());
+
+                    if (currentQty >= maxQty) {
+                        showScanInfo(`⚠️ Qty sudah maksimal (${maxQty})`, "text-warning");
+                        return;
+                    }
+
+                    qtyInput.val(currentQty + 1);
+
+                    // 🔥 INI YANG KEMARIN KURANG
+                    hitungTotalRow(existingRow);
+
+                    showScanInfo(`✅ Qty ditambah (${currentQty + 1}/${maxQty})`, "text-success");
+                    return;
+                }
+
+                if (maxQty <= 0) {
+                    showScanInfo("⚠️ Stok sudah habis", "text-warning");
+                    return;
+                }
+
+                addRow(data, maxQty);
+            } catch {
+                showScanInfo("⚠️ Error mencari batch", "text-warning");
+            }
         }
-        try {
-        let res = await renderAPI("GET", '{{ route('sb.batch.getHargaJual') }}', {
-        search: search,
-        toko_id: {{ auth()->user()->toko_id }},
-        member_id: $('#member_id').val()
-        });
 
-        if (!res.data || !res.data.data) {
-        showScanInfo("❌ Batch tidak ditemukan", "text-danger");
-        return;
-        }
+        function addRow(data, maxQty) {
+            const tbody = $("#tableItems tbody");
 
-        let data = res.data.data;
-        let maxQty = parseInt(data.qty);
+            let existingRow = tbody.find("tr").filter(function() {
+                return $(this).find(".stock_batch_id").val() == data.id;
+            });
 
-        let existingRow = $(`#tableItems tbody tr`)
-        .filter(function() {
-        return $(this).find(".stock_batch_id").val() == data.id;
-        });
+            if (existingRow.length) {
+                const qtyInput = existingRow.find(".qty_send");
+                let currentQty = parseInt(qtyInput.val(), 10) || 0;
 
-        if (existingRow.length) {
-        let qtyInput = existingRow.find(".qty_send");
-        let currentQty = parseInt(qtyInput.val());
+                if (currentQty >= maxQty) {
+                    showScanInfo(`⚠️ Qty sudah maksimal (${maxQty})`, "text-warning");
+                    qtyInput.val(maxQty);
+                    return;
+                }
 
-        if (currentQty >= maxQty) {
-        showScanInfo(`⚠️ Qty sudah maksimal (${maxQty})`, "text-warning");
-        return;
-        }
-
-        qtyInput.val(currentQty + 1);
-
-        // 🔥 INI YANG KEMARIN KURANG
-        hitungTotalRow(existingRow);
-
-        showScanInfo(`✅ Qty ditambah (${currentQty + 1}/${maxQty})`, "text-success");
-        return;
-        }
-
-        if (maxQty <= 0) { showScanInfo("⚠️ Stok sudah habis", "text-warning" ); return; } addRow(data, maxQty); } catch {
-            showScanInfo("⚠️ Error mencari batch", "text-warning" ); } } function addRow(data, maxQty) { const
-            tbody=$("#tableItems tbody"); let existingRow=tbody.find("tr").filter(function() { return
-            $(this).find(".stock_batch_id").val()==data.id; }); if (existingRow.length) { const
-            qtyInput=existingRow.find(".qty_send"); let currentQty=parseInt(qtyInput.val(), 10) || 0; if (currentQty>=
-            maxQty) {
-            showScanInfo(`⚠️ Qty sudah maksimal (${maxQty})`, "text-warning");
-            qtyInput.val(maxQty);
-            return;
+                qtyInput.val(currentQty + 1);
+                hitungTotalRow(existingRow);
+                showScanInfo(
+                    `✅ Qty ditambah (${currentQty + 1}/${maxQty})`,
+                    "text-success"
+                );
+                return;
             }
 
-            qtyInput.val(currentQty + 1);
-            hitungTotalRow(existingRow);
-            showScanInfo(
-            `✅ Qty ditambah (${currentQty + 1}/${maxQty})`,
-            "text-success"
-            );
-            return;
+            if (maxQty <= 0) {
+                showScanInfo("⚠️ Stok sudah habis", "text-warning");
+                return;
             }
 
-            if (maxQty <= 0) { showScanInfo("⚠️ Stok sudah habis", "text-warning" ); return; }
-                tbody.find(".empty-row").remove(); let hargaOptions=data.is_member_price.map(h=>
+            tbody.find(".empty-row").remove();
+
+            let hargaOptions = data.is_member_price.map(h =>
                 `<option value="${h.id}">${h.text}</option>`
-                ).join('');
+            ).join('');
 
-                let row = `
+            let row = `
                 <tr class="glossy-tr" data-id="${data.id}">
                     <input type="hidden" class="stock_batch_id" value="${data.id}">
                     <td class="text-center no-urut"></td>
@@ -1413,8 +1436,14 @@
                         </button>
                     </td>
                     <td width="90">
-                        <input type="number" class="form-control qty_send" min="1" max="${maxQty}"
-                            data-max="${maxQty}" value="1">
+                        <input
+                            type="number"
+                            class="form-control qty_send"
+                            min="1"
+                            max="${maxQty}"
+                            data-max="${maxQty}"
+                            value="1"
+                        >
                     </td>
                     <td width="160">
                         <select class="form-control harga_select">
@@ -1425,268 +1454,230 @@
                         ${data.format_harga}
                     </td>
                 </tr>
-                `;
+            `;
 
-                tbody.append(row);
+            tbody.append(row);
 
-                const newRow = tbody.find("tr").last();
-                hitungTotalRow(newRow);
-                updateNomorUrut();
+            const newRow = tbody.find("tr").last();
+            hitungTotalRow(newRow);
+            updateNomorUrut();
 
-                showScanInfo("✅ Item ditambahkan", "text-success");
-                }
+            showScanInfo("✅ Item ditambahkan", "text-success");
+        }
 
-                function hitungTotalRow(row) {
-                const qty = parseInt(row.find('.qty_send').val(), 10) || 0;
-                const harga = parseInt(
+        function hitungTotalRow(row) {
+            const qty = parseInt(row.find('.qty_send').val(), 10) || 0;
+            const harga = parseInt(
                 row.find('.harga_select option:selected').val(),
                 10
-                ) || 0;
+            ) || 0;
 
-                const total = qty * harga;
+            const total = qty * harga;
 
-                row.find('.total_harga').text(formatRupiah(total));
-                hitungSubtotal();
-                }
+            row.find('.total_harga').text(formatRupiah(total));
+            hitungSubtotal();
+        }
 
-                function updateNomorUrut() {
-                $("#tableItems tbody tr").each(function(i) {
+        function updateNomorUrut() {
+            $("#tableItems tbody tr").each(function(i) {
                 $(this).find('.no-urut').text(i + 1);
-                });
-                }
+            });
+        }
 
-                async function renderModalForm(mode = 'add', encodedData = '') {
-                let data = {};
+        async function renderModalForm(mode = 'add', encodedData = '') {
+            let data = {};
 
-                if (encodedData && typeof encodedData === 'string' && encodedData.trim() !== '') {
+            if (encodedData && typeof encodedData === 'string' && encodedData.trim() !== '') {
                 try {
-                data = JSON.parse(decodeURIComponent(encodedData));
+                    data = JSON.parse(decodeURIComponent(encodedData));
                 } catch (err) {
-                notificationAlert('error', 'Error', 'Terjadi kesalahan saat membaca data enkripsi.');
+                    notificationAlert('error', 'Error', 'Terjadi kesalahan saat membaca data enkripsi.');
                 }
-                }
+            }
 
-                const modalTitle = mode === 'edit' ?
+            const modalTitle = mode === 'edit' ?
                 `<i class="fa fa-edit mr-1"></i>Edit ${title}` :
                 `<i class="fa fa-circle-plus mr-1"></i>Form ${title}`;
 
-                $('#modalLabel').html(modalTitle);
+            $('#modalLabel').html(modalTitle);
 
-                const tdClass = 'text-wrap align-top';
-                const formContent = `
-                <form id="form-data">
-                    <style>
-                        #form-data .select2-container {
-                            width: 100% !important;
-                            max-width: 100%;
-                        }
+            const tdClass = 'text-wrap align-top';
+            const formContent = `
+            <form id="form-data">
+                <style>
+                    #form-data .select2-container{width:100% !important; max-width:100%;}
+                    #form-data .select2-selection{min-height:35px;}
+                    #form-data .select2-selection__rendered{line-height:33px;}
+                    #form-data .select2-selection__arrow{height:33px;}
+                    #btnAddItem{white-space:nowrap; height:35px; line-height:1;}
+                    .table-responsive{overflow-x:auto;}
+                    #tableItems{min-width: 900px;}
+                    @media (max-width: 576px){
+                        #tableItems{min-width: 800px;}
+                    }
+                </style>
 
-                        #form-data .select2-selection {
-                            min-height: 35px;
-                        }
-
-                        #form-data .select2-selection__rendered {
-                            line-height: 33px;
-                        }
-
-                        #form-data .select2-selection__arrow {
-                            height: 33px;
-                        }
-
-                        #btnAddItem {
-                            white-space: nowrap;
-                            height: 35px;
-                            line-height: 1;
-                        }
-
-                        .table-responsive {
-                            overflow-x: auto;
-                        }
-
-                        #tableItems {
-                            min-width: 900px;
-                        }
-
-                        @media (max-width: 576px) {
-                            #tableItems {
-                                min-width: 800px;
-                            }
-                        }
-                    </style>
-
-                    <div class="form-group">
-                        <div class="row">
-                            <div class="col-md-5">
-                                <div class="form-group">
-                                    <label for="member_id"><i class="fa fa-user mr-1"></i>Member <sup
-                                            class="text-danger">*</sup></label>
-                                    <select class="form-control" id="member_id" name="member_id">
-                                        <option value="guest">Guest</option>
-                                    </select>
-                                </div>
+                <div class="form-group">
+                    <div class="row">
+                        <div class="col-md-5">
+                            <div class="form-group">
+                                <label for="member_id"><i class="fa fa-user mr-1"></i>Member <sup class="text-danger">*</sup></label>
+                                <select class="form-control" id="member_id" name="member_id">
+                                    <option value="guest">Guest</option>
+                                </select>
                             </div>
-                            <div class="col-md-2">
-                                <div class="form-group">
-                                    <label for="metode"><i class="fa fa-layer-group mr-1"></i>Metode <sup
-                                            class="text-danger">*</sup></label>
-                                    <select class="form-control" id="metode" name="metode">
-                                        <option value="cash">Tunai</option>
-                                        <option value="cashless">Non Tunai</option>
-                                    </select>
-                                </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-group">
+                                <label for="metode"><i class="fa fa-layer-group mr-1"></i>Metode <sup class="text-danger">*</sup></label>
+                                <select class="form-control" id="metode" name="metode">
+                                    <option value="cash">Tunai</option>
+                                    <option value="cashless">Non Tunai</option>
+                                </select>
                             </div>
-                            <div class="col-md-5">
-                                <div class="form-group">
-                                    <label for="tanggal"><i class="fa fa-calendar-day mr-1"></i>Tanggal <sup
-                                            class="text-danger">*</sup></label>
-                                    <input type="search" class="form-control" id="tanggal" name="tanggal"
-                                        placeholder="Masukkan Tanggal" value="">
-                                </div>
+                        </div>
+                        <div class="col-md-5">
+                            <div class="form-group">
+                                <label for="tanggal"><i class="fa fa-calendar-day mr-1"></i>Tanggal <sup class="text-danger">*</sup></label>
+                                <input type="search" class="form-control" id="tanggal" name="tanggal"
+                                    placeholder="Masukkan Tanggal" value="">
                             </div>
-                            <div class="col-md-5">
-                                <div class="form-group">
-                                    <label for="scan_batch_input"><i class="fa fa-qrcode mr-1"></i>QR Code Barang <sup
-                                            class="text-danger">*</sup></label>
-                                    <input type="search" class="form-control" id="scan_batch_input"
-                                        name="scan_batch_input" placeholder="Scan QR / input QR lalu Enter"
-                                        value="">
-                                </div>
+                        </div>
+                        <div class="col-md-5">
+                            <div class="form-group">
+                                <label for="scan_batch_input"><i class="fa fa-qrcode mr-1"></i>QR Code Barang <sup class="text-danger">*</sup></label>
+                                <input type="search" class="form-control" id="scan_batch_input" name="scan_batch_input"
+                                    placeholder="Scan QR / input QR lalu Enter" value="">
                             </div>
-                            <div class="col-md-2 d-flex flex-column align-items-center justify-content-center text-center">
-                                <span class="font-weight-bold">Atau</span>
-                                <small id="scan-info" class="text-muted mt-1 invisible">
-                                    placeholder
-                                </small>
-                            </div>
-                            <div class="col-md-5">
-                                <div class="form-group">
-                                    <label for="select_batch_manual"><i class="fa fa-box mr-1"></i>Nama Barang</label>
-                                    <select class="form-control select2 flex-grow-1" id="select_batch_manual"
-                                        name="select_batch_manual"></select>
-                                </div>
+                        </div>
+                        <div class="col-md-2 d-flex flex-column align-items-center justify-content-center text-center">
+                            <span class="font-weight-bold">Atau</span>
+                            <small id="scan-info" class="text-muted mt-1 invisible">
+                                placeholder
+                            </small>
+                        </div>
+                        <div class="col-md-5">
+                            <div class="form-group">
+                                <label for="select_batch_manual"><i class="fa fa-box mr-1"></i>Nama Barang</label>
+                                <select class="form-control select2 flex-grow-1" id="select_batch_manual" name="select_batch_manual"></select>
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light">
-                        <div class="card-body p-0">
-                            <div class="table-responsive">
-                                <table class="table table-hover m-0" id="tableItems">
-                                    <thead class="glossy-thead">
-                                        <tr>
-                                            <th class="${tdClass} text-center" style="width:5%">No</th>
-                                            <th class="${tdClass}" style="width:40%">Item</th>
-                                            <th class="${tdClass} text-center" style="width:5%">Aksi</th>
-                                            <th class="${tdClass}" style="width:10%">Qty</th>
-                                            <th class="${tdClass}" style="width:15%">Harga</th>
-                                            <th class="${tdClass} text-right" style="width:15%">Total Harga</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr class="empty-row">
-                                            <td class="${tdClass} text-center" colspan="6">
-                                                <div
-                                                    class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
-                                                    <div class="text-center my-3" role="alert">
-                                                        <i class="fa fa-circle-info mr-1"></i>Silahkan Tambahkan Item
-                                                        Terlebih Dahulu.
-                                                    </div>
+                <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover m-0" id="tableItems">
+                                <thead class="glossy-thead">
+                                    <tr>
+                                        <th class="${tdClass} text-center" style="width:5%">No</th>
+                                        <th class="${tdClass}" style="width:40%">Item</th>
+                                        <th class="${tdClass} text-center" style="width:5%">Aksi</th>
+                                        <th class="${tdClass}" style="width:10%">Qty</th>
+                                        <th class="${tdClass}" style="width:15%">Harga</th>
+                                        <th class="${tdClass} text-right" style="width:15%">Total Harga</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="empty-row">
+                                        <td class="${tdClass} text-center" colspan="6">
+                                            <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
+                                                <div class="text-center my-3" role="alert">
+                                                    <i class="fa fa-circle-info mr-1"></i>Silahkan Tambahkan Item Terlebih Dahulu.
                                                 </div>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                    <tfoot>
-                                        <tr>
-                                            <td colspan="5" class="text-right font-weight-bold">SubTotal:</td>
-                                            <td id="total_harga" class="text-right font-weight-bold">Rp 0</td>
-                                        </tr>
-                                        <tr>
-                                            <td colspan="5" class="text-right font-weight-bold">Total Bayar:</td>
-                                            <td colspan="1">
-                                                <input type="number" id="total_bayar" class="form-control"
-                                                    inputmode="numeric" value="0" placeholder="Masukkan nominal">
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td colspan="4" class="text-loeft text-muted"><sup
-                                                    class="text-danger mr-1">**</sup>Pastikan kembali data yang akan
-                                                disimpan dengan benar.</td>
-                                            <td colspan="1" class="text-right font-weight-bold">Kembalian:</td>
-                                            <td colspan="1" id="kembalian" class="text-right font-weight-bold">Rp 0
-                                            </td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="5" class="text-right font-weight-bold">SubTotal:</td>
+                                        <td id="total_harga" class="text-right font-weight-bold">Rp 0</td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="5" class="text-right font-weight-bold">Total Bayar:</td>
+                                        <td colspan="1">
+                                            <input type="number" id="total_bayar" class="form-control" inputmode="numeric" value="0" placeholder="Masukkan nominal">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="4" class="text-loeft text-muted"><sup class="text-danger mr-1">**</sup>Pastikan kembali data yang akan disimpan dengan benar.</td>
+                                        <td colspan="1" class="text-right font-weight-bold">Kembalian:</td>
+                                        <td colspan="1" id="kembalian" class="text-right font-weight-bold">Rp 0</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
                         </div>
                     </div>
-                </form>`;
+                </div>
+            </form>`;
 
-                $('#modal-data').html(formContent);
+            $('#modal-data').html(formContent);
 
-                await selectData(selectOptions);
-                }
+            await selectData(selectOptions);
+        }
 
-                function showEmptyMessage() {
-                $("#tableItems tbody").html(`
-                <tr class="empty-row">
-                    <td colspan="6" class="text-wrap align-top text-center">
-                        <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
-                            <div class="text-center my-3" role="alert">
-                                <i class="fa fa-circle-info mr-1"></i>
-                                Silahkan Tambahkan Item Terlebih Dahulu.
-                            </div>
+        function showEmptyMessage() {
+            $("#tableItems tbody").html(`
+            <tr class="empty-row">
+                <td colspan="6" class="text-wrap align-top text-center">
+                    <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light h-100">
+                        <div class="text-center my-3" role="alert">
+                            <i class="fa fa-circle-info mr-1"></i>
+                            Silahkan Tambahkan Item Terlebih Dahulu.
                         </div>
-                    </td>
-                </tr>
-                `);
-                }
+                    </div>
+                </td>
+            </tr>
+            `);
+        }
 
-                function hitungSubtotal() {
-                let subtotal = 0;
+        function hitungSubtotal() {
+            let subtotal = 0;
 
-                $('#tableItems tbody tr').each(function() {
+            $('#tableItems tbody tr').each(function() {
                 if ($(this).hasClass('empty-row')) return;
 
                 const totalText = $(this).find('.total_harga').text();
                 const total = parseInt(totalText.replace(/\D/g, ''), 10) || 0;
                 subtotal += total;
-                });
+            });
 
-                $('#total_harga').text(formatRupiah(subtotal));
+            $('#total_harga').text(formatRupiah(subtotal));
 
-                setDefaultTotalBayar(subtotal);
-                hitungKembalian();
-                }
+            setDefaultTotalBayar(subtotal);
+            hitungKembalian();
+        }
 
-                function setDefaultTotalBayar(subtotal) {
-                const inputBayar = $('#total_bayar');
+        function setDefaultTotalBayar(subtotal) {
+            const inputBayar = $('#total_bayar');
 
-                inputBayar.val(subtotal);
-                }
+            inputBayar.val(subtotal);
+        }
 
-                function hitungKembalian() {
-                const subtotal = parseInt($('#total_harga').text().replace(/\D/g, ''), 10) || 0;
-                const bayar = parseInt($('#total_bayar').val(), 10) || 0;
+        function hitungKembalian() {
+            const subtotal = parseInt($('#total_harga').text().replace(/\D/g, ''), 10) || 0;
+            const bayar = parseInt($('#total_bayar').val(), 10) || 0;
 
-                const kembalian = bayar - subtotal;
+            const kembalian = bayar - subtotal;
 
-                $('#kembalian').text(
+            $('#kembalian').text(
                 formatRupiah(kembalian > 0 ? kembalian : 0)
-                );
-                }
+            );
+        }
 
-                function toggleMemberSelect() {
-                const hasItem =
+        function toggleMemberSelect() {
+            const hasItem =
                 $("#tableItems tbody tr")
                 .not(".empty-row")
                 .length > 0;
 
-                $("#member_id").prop("disabled", hasItem);
-                }
+            $("#member_id").prop("disabled", hasItem);
+        }
 
-                function submitForm() {
-                $(document).off("click", "#submit-button").on("click", "#submit-button", async function(e) {
+        function submitForm() {
+            $(document).off("click", "#submit-button").on("click", "#submit-button", async function(e) {
                 e.preventDefault();
 
                 const $submitButton = $("#submit-button");
@@ -1694,110 +1685,124 @@
                 let isSuccess = false;
 
                 $submitButton.prop("disabled", true)
-                .html(`<i class="fas fa-spinner fa-spin"></i> Menyimpan...`);
+                    .html(`<i class="fas fa-spinner fa-spin"></i> Menyimpan...`);
 
                 loadingPage(true);
 
                 try {
-                let totalQty = 0;
-                let totalNominal = 0;
+                    let totalQty = 0;
+                    let totalNominal = 0;
 
-                let details = [];
+                    let details = [];
 
-                $("#tableItems tbody tr").each(function() {
-                const row = $(this);
+                    $("#tableItems tbody tr").each(function() {
+                        const row = $(this);
 
-                if (row.hasClass("empty-row")) return;
+                        if (row.hasClass("empty-row")) return;
 
-                const qty = parseInt(row.find(".qty_send").val()) || 0;
-                const harga = parseFloat(
-                row.find(".harga_select option:selected").val()
-                ) || 0;
+                        const qty = parseInt(row.find(".qty_send").val()) || 0;
+                        const harga = parseFloat(
+                            row.find(".harga_select option:selected").val()
+                        ) || 0;
 
-                const nominal = qty * harga;
+                        const nominal = qty * harga;
 
-                totalQty += qty;
-                totalNominal += nominal;
+                        totalQty += qty;
+                        totalNominal += nominal;
 
-                details.push({
-                barang_id: row.data("id"),
-                qty: qty,
-                nominal: harga,
-                });
-                });
-
-                if (details.length === 0) {
-                notificationAlert("warning", "Peringatan", "Item belum ditambahkan");
-                return;
-                }
-
-                const totalBayar = parseFloat($("#total_bayar").val()) || 0;
-
-                const formData = {
-                toko_id: {{ auth()->user()->toko_id }},
-                created_by: {{ auth()->user()->id }},
-                member_id: $("#member_id").val(),
-                metode: $("#metode").val(),
-                tanggal: $("#tanggal").val(),
-                total_qty: totalQty,
-                total_nominal: totalNominal,
-                total_bayar: totalBayar,
-                details: details
-                };
-
-                const postData = await renderAPI("POST", '{{ route('tb.kasir.post') }}', formData);
-
-                loadingPage(false);
-
-                if (postData.status >= 200 && postData.status < 300) { isSuccess=true; const
-                    kasirPublicId=postData.data?.data?.public_id; notificationAlert( "success" , "Berhasil" ,
-                    postData.data.message || "Transaksi berhasil" ); if (kasirPublicId) { $submitButton
-                    .removeClass("btn-success") .addClass("btn-info") .prop("disabled", false) .attr("type", "button" ) //
-                    🔥 INI PENTING .removeAttr("form") // 🔥 ini juga .html('<i class="fa fa-print mr-1"></i> Cetak Struk')
-                    .off("click")
-                    .on("click", function(e) {
-                    e.preventDefault();
-                    e.stopImmediatePropagation();
-                    cetakStruk(`${kasirPublicId}`);
+                        details.push({
+                            barang_id: row.data("id"),
+                            qty: qty,
+                            nominal: harga,
+                        });
                     });
+
+                    if (details.length === 0) {
+                        notificationAlert("warning", "Peringatan", "Item belum ditambahkan");
+                        return;
                     }
 
-                    setTimeout(async () => {
-                    await getListData(
-                    defaultLimitPage,
-                    currentPage,
-                    defaultAscending,
-                    defaultSearch,
-                    customFilter
-                    );
-                    }, 500);
+                    const totalBayar = parseFloat($("#total_bayar").val()) || 0;
+
+                    const formData = {
+                        toko_id: {{ auth()->user()->toko_id }},
+                        created_by: {{ auth()->user()->id }},
+                        member_id: $("#member_id").val(),
+                        metode: $("#metode").val(),
+                        tanggal: $("#tanggal").val(),
+                        total_qty: totalQty,
+                        total_nominal: totalNominal,
+                        total_bayar: totalBayar,
+                        details: details
+                    };
+
+                    const postData = await renderAPI("POST", '{{ route('tb.kasir.post') }}', formData);
+
+                    loadingPage(false);
+
+                    if (postData.status >= 200 && postData.status < 300) {
+                        isSuccess = true;
+
+                        const kasirPublicId = postData.data?.data?.public_id;
+
+                        notificationAlert(
+                            "success",
+                            "Berhasil",
+                            postData.data.message || "Transaksi berhasil"
+                        );
+
+                        if (kasirPublicId) {
+                            $submitButton
+                                .removeClass("btn-success")
+                                .addClass("btn-info")
+                                .prop("disabled", false)
+                                .attr("type", "button") // 🔥 INI PENTING
+                                .removeAttr("form") // 🔥 ini juga
+                                .html('<i class="fa fa-print mr-1"></i> Cetak Struk')
+                                .off("click")
+                                .on("click", function(e) {
+                                    e.preventDefault();
+                                    e.stopImmediatePropagation();
+                                    cetakStruk(`${kasirPublicId}`);
+                                });
+                        }
+
+                        setTimeout(async () => {
+                            await getListData(
+                                defaultLimitPage,
+                                currentPage,
+                                defaultAscending,
+                                defaultSearch,
+                                customFilter
+                            );
+                        }, 500);
                     } else {
-                    notificationAlert("info", "Pemberitahuan", postData.data.message ||
-                    "Terjadi kesalahan");
+                        notificationAlert("info", "Pemberitahuan", postData.data.message ||
+                            "Terjadi kesalahan");
                     }
 
-                    } catch (error) {
+                } catch (error) {
                     loadingPage(false);
                     const resp = error.response?.data || {};
                     notificationAlert("error", "Kesalahan", resp.message || "Terjadi kesalahan");
-                    } finally {
+                } finally {
                     if (!isSuccess) {
-                    $submitButton
-                    .prop("disabled", false)
-                    .html(originalHTML);
+                        $submitButton
+                            .prop("disabled", false)
+                            .html(originalHTML);
                     }
-                    }
-                    });
-                    }
+                }
+            });
+        }
 
-                    async function initPageLoad() {
-                    await Promise.all([
-                    getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter),
-                    searchList(),
-                    filterList(),
-                    selectData(selectOptions),
-                    submitForm()
-                    ]);
-                    }
-                    </script>
-                @endsection
+        async function initPageLoad() {
+            await Promise.all([
+                getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter),
+                searchList(),
+                filterList(),
+                selectData(selectOptions),
+                submitForm()
+            ]);
+        }
+    </script>
+@endsection

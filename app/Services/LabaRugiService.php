@@ -407,7 +407,7 @@ class LabaRugiService
         // Tentukan label untuk Bagi Hasil Mitra dengan singkatan toko (jika ada)
         $labelMitra = '4.2 Bagi Hasil Mitra';
         if (! empty($singkatanToko)) {
-            $labelMitra .= " ({$singkatanToko})";
+            $labelMitra .= " {$singkatanToko}";
         }
 
         return [

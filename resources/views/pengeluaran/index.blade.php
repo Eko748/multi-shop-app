@@ -199,7 +199,7 @@
                             </li>
                             <li><small class="text-bold">Opsi Pembelian Aset terbagi dua jenis yaitu Kecil dan
                                     Besar</small></li>
-                            <li><small class="text-bold">Tipe Pengeluaran opsi Bagi Hasil untuk Owner Kemitraan</small>
+                            <li><small class="text-bold">Tipe Pengeluaran opsi Bagi Hasil untuk Kemitraan</small>
                             </li>
                         </ul>
                     </form>
@@ -244,7 +244,10 @@
                 id: '#pengeluaran_tipe_id',
                 isUrl: '{{ route('master.jenis') }}',
                 placeholder: 'Pilih Tipe Pengeluaran',
-                isModal: '#modal-form'
+                isModal: '#modal-form',
+                isFilter: {
+                    toko_id: {{ auth()->user()->toko_id }}
+                },
             },
             {
                 id: '#kas_id',

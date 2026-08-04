@@ -106,6 +106,16 @@ class MasterController extends Controller
 
         $query = PengeluaranTipe::query();
 
+        // Cek jika ada request toko_id dan pastikan bukan 'all' atau 0
+        if ($request->filled('toko_id') && $request->toko_id !== 'all' && $request->toko_id != 0) {
+            $toko = Toko::find($request->toko_id);
+
+            // Jika toko ditemukan dan BUKAN mitra, sembunyikan ID 12 dan 13
+            if ($toko && ! $toko->mitra) {
+                $query->whereNotIn('id', [12, 13]);
+            }
+        }
+
         if (! empty($request['is_admin'])) {
             $query->where('id', '!=', 1);
         }
@@ -137,12 +147,9 @@ class MasterController extends Controller
             'total_pages' => $data->lastPage(),
         ];
 
-        $data = [
-            'data' => $data->items(),
-            'meta' => $paginationMeta,
-        ];
+        $items = $data->items();
 
-        if (empty($data['data'])) {
+        if (empty($items)) {
             return response()->json([
                 'status_code' => 400,
                 'errors' => true,
@@ -155,14 +162,14 @@ class MasterController extends Controller
                 'id' => $item['id'],
                 'text' => $item['tipe'],
             ];
-        }, $data['data']);
+        }, $items);
 
         return response()->json([
             'data' => $mappedData,
             'status_code' => 200,
             'errors' => false,
             'message' => 'Berhasil',
-            'pagination' => $data['meta'],
+            'pagination' => $paginationMeta,
         ], 200);
     }
 

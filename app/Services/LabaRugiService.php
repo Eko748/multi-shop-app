@@ -116,11 +116,16 @@ class LabaRugiService
         $endDate = \Carbon\Carbon::createFromDate($year, $month, 1)->endOfMonth()->toDateTimeString();
         $endOfDateOnly = \Carbon\Carbon::createFromDate($year, $month, 1)->endOfMonth()->format('Y-m-d');
 
-        // Cek apakah Toko saat ini adalah Child atau Parent
+        // Cek apakah Toko saat ini adalah Child atau Parent, serta ambil Singkatan Toko
         $isChild = false;
+        $singkatanToko = '';
+
         if ($tokoId !== 'all' && $tokoId !== null && $tokoId != 0) {
             $tokoObj = Toko::find($tokoId);
-            $isChild = $tokoObj && ! empty($tokoObj->parent_id);
+            if ($tokoObj) {
+                $isChild = ! empty($tokoObj->parent_id);
+                $singkatanToko = $tokoObj->singkatan ?? '';
+            }
         }
 
         // Scope Global Filter Toko untuk KasTransaksi
@@ -314,7 +319,7 @@ class LabaRugiService
         ];
 
         // ============================
-        // IV. DIVIDEN BAGI HASIL
+        // IV. Bagi Hasil/Deviden
         // ============================
 
         // 4.1 Bagi Hasil Toko Utama (Mutasi Kas Antar Toko)
@@ -344,7 +349,7 @@ class LabaRugiService
             }
         }
 
-        // 4.2 Bagi Hasil Owner (Dari Pengeluaran ID 12)
+        // 4.2 Bagi Hasil Owner / Mitra (Dari Pengeluaran ID 12)
         $bagiHasilOwner = isset($pengeluaran[12]) ? (int) $pengeluaran[12]->total : 0;
 
         // Total Dividen Bagi Hasil
@@ -355,9 +360,6 @@ class LabaRugiService
         // ============================
         $labaOperasional = $totalPendapatan - $total_hpp - $totalBeban;
 
-        // CONDITIONAL LOGIC DITAMBAH ATAU DIKURANG:
-        // Jika Toko Child  -> DIKURANGI (-) oleh Dividen Bagi Hasil
-        // Jika Toko Parent -> DITAMBAH (+) oleh Dividen Bagi Hasil
         if ($isChild) {
             $total_labarugi = $labaOperasional - $totalDividenBagiHasil;
         } else {
@@ -381,7 +383,8 @@ class LabaRugiService
             (int) abs($bagiHasilOwner),
             (int) abs($totalDividenBagiHasil),
             (int) $total_labarugi,
-            (int) $pendapatanNonTransaksi
+            (int) $pendapatanNonTransaksi,
+            $singkatanToko
         );
     }
 
@@ -398,8 +401,15 @@ class LabaRugiService
         $bagiHasilOwner,
         $totalDividenBagiHasil,
         $total_labarugi,
-        $pendapatanNonTransaksi
+        $pendapatanNonTransaksi,
+        $singkatanToko = ''
     ) {
+        // Tentukan label untuk Bagi Hasil Mitra dengan singkatan toko (jika ada)
+        $labelMitra = '4.2 Bagi Hasil Mitra';
+        if (! empty($singkatanToko)) {
+            $labelMitra .= " ({$singkatanToko})";
+        }
+
         return [
             [
                 'I. Pendapatan',
@@ -425,10 +435,10 @@ class LabaRugiService
                 }, $bebanOperasional),
             ],
             [
-                'IV. Dividen Bagi Hasil',
+                'IV. Bagi Hasil/Deviden',
                 [
-                    ['4.1 Bagi Hasil Toko Utama', RupiahGenerate::build($bagiHasilTokoUtama)],
-                    ['4.2 Bagi Hasil Owner', RupiahGenerate::build($bagiHasilOwner)],
+                    ['4.1 Bagi Hasil Pusat', RupiahGenerate::build($bagiHasilTokoUtama)],
+                    [$labelMitra, RupiahGenerate::build($bagiHasilOwner)],
                     ['Total Dividen Bagi Hasil', RupiahGenerate::build($totalDividenBagiHasil)],
                 ],
         ],

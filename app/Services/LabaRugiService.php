@@ -439,7 +439,7 @@ class LabaRugiService
                 [
                     ['4.1 Bagi Hasil Pusat', RupiahGenerate::build($bagiHasilTokoUtama)],
                     [$labelMitra, RupiahGenerate::build($bagiHasilOwner)],
-                    ['Total Dividen Bagi Hasil', RupiahGenerate::build($totalDividenBagiHasil)],
+                    ['Total Bagi Hasil/Dividen', RupiahGenerate::build($totalDividenBagiHasil)],
                 ],
         ],
             [

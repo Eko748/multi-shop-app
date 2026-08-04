@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers\Utils;
 
-use App\Http\Controllers\Controller;
 use App\Enums\LabelKas;
+use App\Helpers\RupiahGenerate;
+use App\Http\Controllers\Controller;
 use App\Models\JenisBarang;
 use App\Models\Kas;
 use App\Models\Toko;
@@ -17,6 +18,7 @@ class KasController extends Controller
     use ApiResponse;
 
     protected $service;
+
     private array $menu = [];
 
     public function __construct(KasService $service)
@@ -34,7 +36,7 @@ class KasController extends Controller
 
         $filterTipe = $request->input('tipe');
 
-        if ($filterTipe && !in_array($filterTipe, ['kecil', 'besar'])) {
+        if ($filterTipe && ! in_array($filterTipe, ['kecil', 'besar'])) {
             return $this->error(400, 'Parameter tipe harus kecil atau besar');
         }
 
@@ -45,7 +47,7 @@ class KasController extends Controller
             $isParent = is_null($toko->parent_id);
 
             $parentName = null;
-            if (!$isParent) {
+            if (! $isParent) {
                 $parent = Toko::find($toko->parent_id);
                 $parentName = $parent ? $parent->nama : null;
             }
@@ -53,7 +55,7 @@ class KasController extends Controller
             $data = [];
 
             $jenisBarangList = JenisBarang::select('id', 'nama_jenis_barang')->get();
-            $jenisBarangList->push((object)[
+            $jenisBarangList->push((object) [
                 'id' => 0,
                 'nama_jenis_barang' => 'Dompet Digital',
             ]);
@@ -89,14 +91,14 @@ class KasController extends Controller
                         'jenis_id' => $jenisBarang->id,
                         'tipe_kas' => $tipeKas,
                         'saldo_kas' => $saldo,
-                        'text' => "{$labelKas} - {$jenisBarang->nama_jenis_barang} - (Rp " . number_format($saldo, 0, ',', '.') . ")",
+                        'text' => "{$labelKas} - {$jenisBarang->nama_jenis_barang} - (Rp ".number_format($saldo, 0, ',', '.').')',
                     ];
 
                     $counter++;
                 }
             }
 
-            return $this->success($data, 200, "Data kas berhasil diambil");
+            return $this->success($data, 200, 'Data kas berhasil diambil');
         } catch (\Throwable $e) {
             return $this->error(500, 'Terjadi kesalahan saat mengambil data', [
                 'error_message' => $e->getMessage(),
@@ -111,90 +113,92 @@ class KasController extends Controller
             $mode = $request->input('mode'); // pengirim / penerima
             $kasAsalId = $request->input('kas_asal_id'); // kas yang dipilih di select lain
 
-            if (!$mode || !in_array($mode, ['pengirim', 'penerima'])) {
+            if (! $mode || ! in_array($mode, ['pengirim', 'penerima'])) {
                 return $this->error(400, 'Parameter mode harus pengirim atau penerima');
             }
 
             $toko = Toko::findOrFail($idTokoLogin);
 
-            $isParent = is_null($toko->parent_id);
-
-            // Ambil toko anak
-            $childToko = Toko::where('parent_id', $idTokoLogin)->pluck('id');
-
-            // Tentukan toko-toko yang boleh muncul berdasarkan hirarki
-            if ($isParent) {
-                // LEVEL 1: Toko Parent, bisa melihat semua toko
-                $allowedTokoIds = Toko::pluck('id');
+            // =========================================================
+            // LOGIKA HIRARKI TOKO (DILENGKAPI CEK TOKO MITRA)
+            // =========================================================
+            if ($toko->mitra) {
+                // JIKA TOKO MITRA (mitra == true) -> Hanya akses tokonya sendiri
+                $allowedTokoIds = collect([$idTokoLogin]);
             } else {
-                if ($childToko->count() > 0) {
-                    // LEVEL 2: Punya cabang
-                    if ($mode === 'pengirim') {
-                        // Pengirim: toko sendiri + anak
-                        $allowedTokoIds = collect([$idTokoLogin])->merge($childToko);
-                    } else {
-                        // Penerima: toko sendiri + parent + anak
-                        $allowedTokoIds = collect([$idTokoLogin, $toko->parent_id])->merge($childToko);
-                    }
+                $isParent = is_null($toko->parent_id);
+                $childToko = Toko::where('parent_id', $idTokoLogin)->pluck('id');
+
+                if ($isParent) {
+                    // LEVEL 1: Toko Parent Utama -> Bisa melihat semua toko
+                    $allowedTokoIds = Toko::pluck('id');
                 } else {
-                    // LEVEL 3: Toko paling bawah
-                    if ($mode === 'pengirim') {
-                        // Pengirim: hanya toko sendiri
-                        $allowedTokoIds = collect([$idTokoLogin]);
+                    if ($childToko->count() > 0) {
+                        // LEVEL 2: Punya cabang anak
+                        if ($mode === 'pengirim') {
+                            // Pengirim: toko sendiri + anak
+                            $allowedTokoIds = collect([$idTokoLogin])->merge($childToko);
+                        } else {
+                            // Penerima: toko sendiri + parent + anak
+                            $allowedTokoIds = collect([$idTokoLogin, $toko->parent_id])->merge($childToko);
+                        }
                     } else {
-                        // Penerima: toko sendiri + parent
-                        $allowedTokoIds = collect([$idTokoLogin, $toko->parent_id]);
+                        // LEVEL 3: Toko paling bawah (Bukan Mitra)
+                        if ($mode === 'pengirim') {
+                            // Pengirim: hanya toko sendiri
+                            $allowedTokoIds = collect([$idTokoLogin]);
+                        } else {
+                            // Penerima: toko sendiri + parent
+                            $allowedTokoIds = collect([$idTokoLogin, $toko->parent_id]);
+                        }
                     }
                 }
             }
 
             // Ambil daftar jenis barang + dompet digital
             $jenisBarangList = JenisBarang::select('id', 'nama_jenis_barang')->get();
-
-            // Tambah Dompet Digital (id=0)
-            $jenisBarangList->push((object)[
+            $jenisBarangList->push((object) [
                 'id' => 0,
                 'nama_jenis_barang' => 'Dompet Digital',
             ]);
 
+            // Optimasi Eager Loading relasi toko untuk menghindari N+1 Query
+            $kasList = Kas::with(['toko.parent'])
+                ->whereIn('toko_id', $allowedTokoIds)
+                ->get();
+
             $data = [];
 
-            // Loop setiap jenis barang
             foreach ($jenisBarangList as $jenis) {
-
-                // tipe kas kecil/besar
                 foreach (['kecil', 'besar'] as $tipeKas) {
 
-                    // Ambil kas berdasarkan allowed toko
-                    $kas = Kas::whereIn('toko_id', $allowedTokoIds)
-                        ->where('jenis_barang_id', $jenis->id)
-                        ->where('tipe_kas', $tipeKas)
-                        ->get();
+                    // Filter kas berdasarkan jenis_barang_id dan tipe_kas dari koleksi yang sudah diambil
+                    $filteredKas = $kasList->where('jenis_barang_id', $jenis->id)
+                        ->where('tipe_kas', $tipeKas);
 
-                    foreach ($kas as $k) {
+                    foreach ($filteredKas as $k) {
+                        // Exclude jika kasAsalId di-passed dari request
+                        if ($kasAsalId && $k->id == $kasAsalId) {
+                            continue;
+                        }
 
                         $labelKas = ($tipeKas === 'besar')
-                            ? "Kas Besar (" . ($k->toko->parent_id ? $k->toko->parent->nama : "Owner") . ")"
+                            ? 'Kas Besar ('.($k->toko->parent_id ? ($k->toko->parent->nama ?? $k->toko->parent->nama_toko) : 'Owner').')'
                             : "Kas Kecil ({$k->toko->nama})";
 
                         $data[] = [
-                            'id'         => $k->id,
-                            'jenis_id'   => $jenis->id,
-                            'tipe_kas'   => $tipeKas,
-                            'saldo_kas'  => $k->saldo,
-                            'text'       => "{$labelKas} - {$jenis->nama_jenis_barang} - (Rp "
-                                . number_format($k->saldo, 0, ',', '.') . ")"
+                            'id' => $k->id,
+                            'jenis_id' => $jenis->id,
+                            'tipe_kas' => $tipeKas,
+                            'saldo_kas' => $k->saldo,
+                            'text' => "{$labelKas} - {$jenis->nama_jenis_barang} - (".RupiahGenerate::build($k->saldo).')',
                         ];
                     }
                 }
             }
 
-            // Exclude jika ada kas yang dipilih di select lainnya
-            if ($kasAsalId) {
-                $data = array_filter($data, fn($row) => $row['id'] != $kasAsalId);
-            }
+            return $this->success(array_values($data), 200, 'Data kas berhasil diambil');
 
-            return $this->success(array_values($data), 200, "Data kas berhasil diambil");
         } catch (\Throwable $e) {
             return $this->error(500, 'Terjadi kesalahan saat mengambil data', [
                 'error_message' => $e->getMessage(),
@@ -220,14 +224,14 @@ class KasController extends Controller
                     'jenis_nama' => $jenisBarang->nama_jenis_barang,
                     'kas' => [
                         [
-                            'id' => LabelKas::KAS_BESAR->value . '/' . $kasBesar['total'],
-                            'text' => LabelKas::KAS_BESAR->label() . ' - ' . $kasBesar['format'],
+                            'id' => LabelKas::KAS_BESAR->value.'/'.$kasBesar['total'],
+                            'text' => LabelKas::KAS_BESAR->label().' - '.$kasBesar['format'],
                         ],
                         [
-                            'id' => LabelKas::KAS_KECIL->value . '/' . $kasKecil['total'],
-                            'text' => LabelKas::KAS_KECIL->label() . ' - ' . $kasKecil['format'],
+                            'id' => LabelKas::KAS_KECIL->value.'/'.$kasKecil['total'],
+                            'text' => LabelKas::KAS_KECIL->label().' - '.$kasKecil['format'],
                         ],
-                    ]
+                    ],
                 ];
             }
 

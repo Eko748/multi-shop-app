@@ -212,7 +212,7 @@
                                 <div class="card table-card">
                                     <div class="card-header d-flex justify-content-between align-items-center">
                                         <h5>Top 10 Penjualan</h5>
-                                        {{-- @if (hasAnyPermission(['POST /dashboard-filter-toko'])) --}}
+                                        @if (hasAnyPermission(['POST /dashboard-filter-toko']))
                                         <div class="d-flex align-items-center gap-2">
                                             <div style="width: 200px;">
                                                 <select id="f-barang-toko"
@@ -225,7 +225,7 @@
                                                 </select>
                                             </div>
                                         </div>
-                                        {{-- @endif --}}
+                                        @endif
                                     </div>
                                     <div class="performance-scroll overflow-auto" style="position: relative;">
                                         <div class="card-body p-0">
@@ -243,7 +243,7 @@
                                 <div class="card table-card">
                                     <div class="card-header d-flex justify-content-between align-items-center">
                                         <h5>Top 10 Member</h5>
-                                        {{-- @if (hasAnyPermission(['POST /dashboard-filter-toko'])) --}}
+                                        @if (hasAnyPermission(['POST /dashboard-filter-toko']))
                                         <div class="d-flex align-items-center gap-2">
                                             <div style="width: 200px;">
                                                 <select id="f-member-toko"
@@ -256,7 +256,7 @@
                                                 </select>
                                             </div>
                                         </div>
-                                        {{-- @endif --}}
+                                        @endif
                                     </div>
                                     <div class="performance-scroll overflow-auto" style="position: relative;">
                                         <div class="card-body p-0">
@@ -403,19 +403,19 @@
                                                                 <option value="yearly">Tahunan</option>
                                                             </select>
                                                         </div>
-                                                        {{-- @if (hasAnyPermission(['POST /dashboard-filter-toko'])) --}}
+                                                        @if (hasAnyPermission(['POST /dashboard-filter-toko']))
                                                         <div style="width: 200px;">
                                                             <select id="f-penjualan-toko" name="nama_toko"
                                                                 class="filter-option form-select form-select-sm w-100">
                                                                 <option value="all">Semua Toko</option>
                                                                 @foreach ($toko as $tokoData)
                                                                     <option value="{{ $tokoData->id }}">
-                                                                        {{ $tokoData->nama_toko }}
+                                                                        {{ $tokoData->nama }}
                                                                     </option>
                                                                 @endforeach
                                                             </select>
                                                         </div>
-                                                        {{-- @endif --}}
+                                                        @endif
                                                     </div>
                                                 </div>
                                             </div>
@@ -1246,13 +1246,13 @@
                 }
             }
 
-            // if (hasPermission(['POST /dashboard-filter-toko'])) {
+            if (hasPermission(['POST /dashboard-filter-toko'])) {
             await selectList(['f-penjualan-toko', 'f-barang-toko', 'f-member-toko', 'filter-period', 'filter-month',
                 'filter-year'
             ]);
-            // } else {
-            //     await selectList(['filter-period', 'filter-month', 'filter-year']);
-            // }
+            } else {
+                await selectList(['filter-period', 'filter-month', 'filter-year']);
+            }
 
             await filterSelect();
         }

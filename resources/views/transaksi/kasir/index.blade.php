@@ -456,10 +456,10 @@
             <div class="d-flex justify-content-center flex-column flex-sm-row align-items-center align-items-sm-start mx-3" style="gap: 0.5rem;">
                 ${hasButtons
                     ? `
-                                                                                                            ${element.print_button || ''}
-                                                                                                            ${element.detail_button || ''}
-                                                                                                            ${element.delete_button || ''}
-                                                                                                           `
+                                                                                                                        ${element.print_button || ''}
+                                                                                                                        ${element.detail_button || ''}
+                                                                                                                        ${element.delete_button || ''}
+                                                                                                                       `
                     : `<i class="text-muted">Tidak ada aksi</i>`
                 }
             </div>
@@ -875,6 +875,7 @@
             const tanggal = ksr.tanggal;
             const kasirNama = ksr.users?.nama ?? '-';
             const memberNama = ksr.member ?? '-';
+            const memberAlamat = ksr.alamat_member;
             const tokoNama = ksr.toko?.nama ?? '-';
             const tokoAlamat = ksr.toko?.alamat ?? '-';
 
@@ -885,84 +886,90 @@
             const kembalian = ksr.total_kembalian ?? 0;
 
             let html = `
-            <div class="col-md-5 bg-light p-3">
-                <button class="btn btn-primary btn-sm mb-3 w-100" onclick="cetakStruk('${ksr.public_id}')">
-                    <i class="fa fa-print mr-2"></i>Cetak Struk
-                </button>
+    <div class="col-md-5 bg-light p-3">
+        <button class="btn btn-primary btn-sm mb-3 w-100" onclick="cetakStruk('${ksr.public_id}')">
+            <i class="fa fa-print mr-2"></i>Cetak Struk
+        </button>
 
-                <div class="card text-center p-0">
-                                <div class="card-header p-2">
-                                    <h5 class="card-subtitle">${tokoNama}</h5>
-                                    <div><span class="card-text">${tokoAlamat}</span></div>
-                                </div>
-                                <div class="card-body p-1">
-                                    <div class="info-wrapper">
-                                        <div class="info-wrapper">
-                                            <div class="info-row">
-                                                <p class="label text-left">No Nota</p>
-                                                <p class="value">: ${noNota}</p>
-                                            </div>
-                                            <div class="info-row">
-                                                <p class="label text-left">Tgl Transaksi</p>
-                                                <p class="value">: ${tanggal}</p>
-                                            </div>
-                                            <div class="info-row">
-                                                <p class="label text-left">Member</p>
-                                                <p class="value">: ${memberNama}</p>
-                                            </div>
-                                            <div class="info-row">
-                                                <p class="label text-left">Kasir</p>
-                                                <p class="value">: ${kasirNama}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+        <div class="card text-center p-0">
+            <div class="card-header p-2">
+                <h5 class="card-subtitle">${tokoNama}</h5>
+                <div><span class="card-text">${tokoAlamat}</span></div>
+            </div>
+            <div class="card-body p-1">
+                <div class="info-wrapper">
+                    <div class="info-row">
+                        <p class="label text-left">No Nota</p>
+                        <p class="value">: ${noNota}</p>
+                    </div>
+                    <div class="info-row">
+                        <p class="label text-left">Tgl Transaksi</p>
+                        <p class="value">: ${tanggal}</p>
+                    </div>
+                    <div class="info-row">
+                        <p class="label text-left">Member</p>
+                        <p class="value">: ${memberNama}</p>
+                    </div>
+
+                    ${(memberAlamat && memberAlamat !== '-') ? `
+                            <div class="info-row">
+                                <p class="label text-left">Alamat</p>
+                                <p class="value">: ${memberAlamat}</p>
                             </div>
+                            ` : ''}
 
-                <table class="table table-borderless mb-2">
-                <thead>
-                                    <tr>
-                                        <td class="narrow-column align-top font-weight-bold text-center">No</td>
-                                        <td class="wide-column align-top font-weight-bold">Barang</td>
-                                        <td class="price-column align-top font-weight-bold">Potongan</td>
-                                        <td class="price-column align-top font-weight-bold">Harga</td>
-                                    </tr>
-                                </thead>
-                    <tbody>
-            `;
+                    <div class="info-row">
+                        <p class="label text-left">Kasir</p>
+                        <p class="value">: ${kasirNama}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <table class="table table-borderless mb-2">
+            <thead>
+                <tr>
+                    <td class="narrow-column align-top font-weight-bold text-center">No</td>
+                    <td class="wide-column align-top font-weight-bold">Barang</td>
+                    <td class="price-column align-top font-weight-bold">Potongan</td>
+                    <td class="price-column align-top font-weight-bold">Harga</td>
+                </tr>
+            </thead>
+            <tbody>
+    `;
 
             grouped_details.forEach((item, idx) => {
                 html += `
-                <tr>
-                    <td class="narrow-column align-top text-center">${idx + 1}.</td>
-                    <td colspan="3" class="wide-column align-top"><b>${item.nama_barang}</b></td>
-                </tr>
-                <tr>
-                    <td colspan="1"></td>
-                    <td class="wide-column align-top">${item.qty} pcs @ ${item.harga}</td>
-                    <td class="price-column align-top">${item.diskon}</td>
-                    <td class="price-column align-top"><b>${item.total_harga}</b></td>
-                </tr>
-            `;
+        <tr>
+            <td class="narrow-column align-top text-center">${idx + 1}.</td>
+            <td colspan="3" class="wide-column align-top"><b>${item.nama_barang}</b></td>
+        </tr>
+        <tr>
+            <td colspan="1"></td>
+            <td class="wide-column align-top">${item.qty} pcs @ ${item.harga}</td>
+            <td class="price-column align-top">${item.diskon}</td>
+            <td class="price-column align-top"><b>${item.total_harga}</b></td>
+        </tr>
+        `;
             });
 
             html += `
-                    </tbody>
-                    <tfoot>
-                        <tr><td colspan="3">Total Harga</td><td class="text-right">${totalNilai}</td></tr>
-                        <tr><td colspan="3">Total Diskon</td><td class="text-right">${totalDiskon}</td></tr>
-                        <tr class="bg-light"><td colspan="3"><b>Total</b></td><td class="text-right"><b>${total}</b></td></tr>
-                        <tr class="bg-success text-white"><td colspan="3">Dibayar</td><td class="text-right">${jmlBayar}</td></tr>
-                        ${kembalian != 0 ? `
-                                                                                                                            <tr class="bg-info text-white"><td colspan="3">Kembalian</td><td class="text-right">${kembalian}</td></tr>` : ''}
-                    </tfoot>
-                </table>
+            </tbody>
+            <tfoot>
+                <tr><td colspan="3">Total Harga</td><td class="text-right">${totalNilai}</td></tr>
+                <tr><td colspan="3">Total Diskon</td><td class="text-right">${totalDiskon}</td></tr>
+                <tr class="bg-light"><td colspan="3"><b>Total</b></td><td class="text-right"><b>${total}</b></td></tr>
+                <tr class="bg-success text-white"><td colspan="3">Dibayar</td><td class="text-right">${jmlBayar}</td></tr>
+                ${kembalian != 0 ? `
+                        <tr class="bg-info text-white"><td colspan="3">Kembalian</td><td class="text-right">${kembalian}</td></tr>` : ''}
+            </tfoot>
+        </table>
 
-                <p class="text-center">Terima Kasih</p>
-                <button class="btn btn-primary btn-sm mb-3 w-100" onclick="cetakStruk('${ksr.public_id}')">
-                    <i class="fa fa-print mr-2"></i>Cetak Struk
-                </button>
-            </div>`;
+        <p class="text-center">Terima Kasih</p>
+        <button class="btn btn-primary btn-sm mb-3 w-100" onclick="cetakStruk('${ksr.public_id}')">
+            <i class="fa fa-print mr-2"></i>Cetak Struk
+        </button>
+    </div>`;
 
             return html;
         }
@@ -1066,93 +1073,102 @@
                  * DETAIL BARANG
                  * =============================== */
                 const detailRows = data.detail.map(d => `
-                    <tr>
-                        <td colspan="4" class="align-top text-left">${d.nama_barang}</td>
-                    </tr>
-                    <tr>
-                        <td colspan="2" class="align-top text-left">
-                            ${d.qty} x ${d.harga}
-                        </td>
-                        <td colspan="2" class="align-top text-right">
-                            ${d.total_harga}
-                        </td>
-                    </tr>
-                `).join("");
+            <tr>
+                <td colspan="4" class="align-top text-left">${d.nama_barang}</td>
+            </tr>
+            <tr>
+                <td colspan="2" class="align-top text-left">
+                    ${d.qty} x ${d.harga}
+                </td>
+                <td colspan="2" class="align-top text-right">
+                    ${d.total_harga}
+                </td>
+            </tr>
+        `).join("");
 
                 const hr = `<hr style="border:none;border-top:1px dashed #000;margin:6px 0;">`;
 
                 const svg = `
-                <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="black" viewBox="0 0 24 24">
-                    <path d="M2 1h1.219l3.564 14.257A3 3 0 1 0 11 20h4a3 3 0 1 0 3-3H8.78l-.5-2H18c2 0 3-3 3-6s-2-4-4-4H5.78L5.16 2.515A2 2 0 0 0 3.22 1H2z"/>
-                </svg>`;
+        <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="black" viewBox="0 0 24 24">
+            <path d="M2 1h1.219l3.564 14.257A3 3 0 1 0 11 20h4a3 3 0 1 0 3-3H8.78l-.5-2H18c2 0 3-3 3-6s-2-4-4-4H5.78L5.16 2.515A2 2 0 0 0 3.22 1H2z"/>
+        </svg>`;
+
+                // Cek alamat member dari data API (dukung alamat_member atau alamat)
+                const alamatMember = data.nota.alamat_member;
+                const showAlamat = alamatMember && alamatMember !== null;
 
                 const printContent = `
-                <div style="font-family: monospace; width:300px;">
-                    <div style="display:flex;justify-content:center;align-items:center;gap:6px;">
-                        ${svg}
-                        <div style="text-align:center;">
-                            <div style="font-size:16px;font-weight:bold;">${data.toko.nama}</div>
-                            <div style="font-size:12px;">${data.toko.alamat}</div>
-                        </div>
-                        ${svg}
-                    </div>
-
-                    ${hr}
-
-                    <table style="width:100%;font-size:12px;">
-                        <tr><td>No Nota</td><td>:</td><td class="text-right">${data.nota.no_nota}</td></tr>
-                        <tr><td>Tanggal</td><td>:</td><td class="text-right">${data.nota.tanggal}</td></tr>
-                        <tr><td>Member</td><td>:</td><td class="text-right">${data.nota.member}</td></tr>
-                        <tr><td>Kasir</td><td>:</td><td class="text-right">${data.nota.kasir}</td></tr>
-                    </table>
-
-                    ${hr}
-
-                    <table style="width:100%;font-size:13px;">
-                        ${detailRows}
-                    </table>
-
-                    ${hr}
-
-                    <table style="width:100%;font-size:13px;">
-                        <tr><td>Total</td><td>:</td><td class="text-right">${data.total.total_harga}</td></tr>
-                        <tr><td>Potongan</td><td>:</td><td class="text-right">${data.total.total_potongan}</td></tr>
-                        <tr style="font-weight:bold;">
-                            <td>Total Bayar</td><td>:</td>
-                            <td class="text-right">${data.total.total_bayar}</td>
-                        </tr>
-                        <tr><td>Dibayar</td><td>:</td><td class="text-right">${data.total.dibayar}</td></tr>
-                        <tr><td>Kembali</td><td>:</td><td class="text-right">${data.total.kembalian}</td></tr>
-
-                        ${
-                            data.total.sisa_pembayaran !== 'Rp 0'
-                                ? `<tr><td>Sisa</td><td>:</td><td class="text-right">${data.total.sisa_pembayaran}</td></tr>`
-                                : ''
-                        }
-                    </table>
-
-                    ${hr}
-                    <p style="text-align:center;">${data.footer}</p>
+        <div style="font-family: monospace; width:300px;">
+            <div style="display:flex;justify-content:center;align-items:center;gap:6px;">
+                ${svg}
+                <div style="text-align:center;">
+                    <div style="font-size:16px;font-weight:bold;">${data.toko.nama}</div>
+                    <div style="font-size:12px;">${data.toko.alamat}</div>
                 </div>
-                `;
+                ${svg}
+            </div>
+
+            ${hr}
+
+            <table style="width:100%;font-size:12px;">
+                <tr><td>No Nota</td><td>:</td><td class="text-right">${data.nota.no_nota}</td></tr>
+                <tr><td>Tanggal</td><td>:</td><td class="text-right">${data.nota.tanggal}</td></tr>
+                <tr><td>Member</td><td>:</td><td class="text-right">${data.nota.member}</td></tr>
+
+                ${showAlamat ? `
+                    <tr><td>Alamat</td><td>:</td><td class="text-right">${alamatMember}</td></tr>
+                    ` : ''}
+
+                <tr><td>Kasir</td><td>:</td><td class="text-right">${data.nota.kasir}</td></tr>
+            </table>
+
+            ${hr}
+
+            <table style="width:100%;font-size:13px;">
+                ${detailRows}
+            </table>
+
+            ${hr}
+
+            <table style="width:100%;font-size:13px;">
+                <tr><td>Total</td><td>:</td><td class="text-right">${data.total.total_harga}</td></tr>
+                <tr><td>Potongan</td><td>:</td><td class="text-right">${data.total.total_potongan}</td></tr>
+                <tr style="font-weight:bold;">
+                    <td>Total Bayar</td><td>:</td>
+                    <td class="text-right">${data.total.total_bayar}</td>
+                </tr>
+                <tr><td>Dibayar</td><td>:</td><td class="text-right">${data.total.dibayar}</td></tr>
+                <tr><td>Kembali</td><td>:</td><td class="text-right">${data.total.kembalian}</td></tr>
+
+                ${
+                    data.total.sisa_pembayaran !== 'Rp 0'
+                        ? `<tr><td>Sisa</td><td>:</td><td class="text-right">${data.total.sisa_pembayaran}</td></tr>`
+                        : ''
+                }
+            </table>
+
+            ${hr}
+            <p style="text-align:center;">${data.footer}</p>
+        </div>
+        `;
 
                 const w = window.open("", "_blank", "width=400,height=600");
                 w.document.write(`
-                    <html>
-                    <head>
-                        <title>Print Struk</title>
-                        <style>
-                            body { font-family: monospace; padding:10px; }
-                            table { width:100%; border-collapse:collapse; }
-                            td { padding:3px 0; }
-                            .text-right { text-align:right; }
-                        </style>
-                    </head>
-                    <body onload="window.print(); window.close();">
-                        ${printContent}
-                    </body>
-                    </html>
-                `);
+            <html>
+            <head>
+                <title>Print Struk</title>
+                <style>
+                    body { font-family: monospace; padding:10px; }
+                    table { width:100%; border-collapse:collapse; }
+                    td { padding:3px 0; }
+                    .text-right { text-align:right; }
+                </style>
+            </head>
+            <body onload="window.print(); window.close();">
+                ${printContent}
+            </body>
+            </html>
+        `);
                 w.document.close();
 
             } catch (err) {

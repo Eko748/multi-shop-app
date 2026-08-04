@@ -142,6 +142,7 @@ class TransaksiKasirRepo
 
                 'users' => $kasir->createdBy ?? null,
                 'member' => $kasir->member ? $kasir->member->nama : 'Guest',
+                'alamat_member' => $kasir->member ? $kasir->member->alamat : null,
                 'toko' => $kasir->toko ?? null,
                 'kasbon' => $kasir->kasbon ?? null,
             ],
@@ -182,7 +183,7 @@ class TransaksiKasirRepo
         $kasir = $this->model
             ->with([
                 'createdBy:id,nama',
-                'member:id,nama',
+                'member:id,nama,alamat',
                 'toko:id,nama,alamat',
             ])
             ->where('public_id', $publicId)
@@ -241,6 +242,9 @@ class TransaksiKasirRepo
                 'member' => $kasir->member
                     ? $kasir->member->nama
                     : 'Guest',
+                'alamat_member' => $kasir->member
+                    ? $kasir->member->alamat
+                    : null,
                 'kasir' => $kasir->createdBy->nama ?? '-',
             ],
 

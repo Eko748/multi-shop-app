@@ -98,7 +98,7 @@ class TransaksiKasirRepo
     public function detailByPublicId(string $publicId): array
     {
         $kasir = $this->model
-            ->with(['createdBy:id,nama', 'member:id,nama', 'toko:id,nama,alamat'])
+            ->with(['createdBy:id,nama', 'member:id,nama,alamat', 'toko:id,nama,alamat'])
             ->where('public_id', $publicId)
             ->firstOrFail();
 

@@ -110,59 +110,54 @@ class KasController extends Controller
     {
         try {
             $idTokoLogin = $request->input('id_toko');
-            $mode = $request->input('mode'); // pengirim / penerima
-            $kasAsalId = $request->input('kas_asal_id'); // kas yang dipilih di select lain
+            $mode        = $request->input('mode'); // pengirim / penerima
+            $kasAsalId   = $request->input('kas_asal_id'); // kas yang dipilih di select lain
 
-            if (! $mode || ! in_array($mode, ['pengirim', 'penerima'])) {
+            if (!$mode || !in_array($mode, ['pengirim', 'penerima'])) {
                 return $this->error(400, 'Parameter mode harus pengirim atau penerima');
             }
 
             $toko = Toko::findOrFail($idTokoLogin);
 
+            // Ambil daftar toko anak yang BUKAN Mitra (hanya cabang reguler)
+            $childNonMitraIds = Toko::where('parent_id', $idTokoLogin)
+                ->where('mitra', false)
+                ->pluck('id');
+
             // =========================================================
-            // LOGIKA HIRARKI TOKO (DILENGKAPI CEK TOKO MITRA)
+            // LOGIKA HIRARKI TRANSFER KAS
             // =========================================================
             if ($toko->mitra) {
-                // JIKA TOKO MITRA (mitra == true) -> Hanya akses tokonya sendiri
+                // 🔴 TOKO MITRA: Terisolasi penuh (Pengirim & Penerima HANYA Tokonya Sendiri)
                 $allowedTokoIds = collect([$idTokoLogin]);
+
             } else {
                 $isParent = is_null($toko->parent_id);
-                $childToko = Toko::where('parent_id', $idTokoLogin)->pluck('id');
 
-                if ($isParent) {
-                    // LEVEL 1: Toko Parent Utama -> Bisa melihat semua toko
-                    $allowedTokoIds = Toko::pluck('id');
+                if ($mode === 'pengirim') {
+                    // 🟢 MODE PENGIRIM (Parent / Child Non-Mitra): HANYA Kas Toko Sendiri
+                    $allowedTokoIds = collect([$idTokoLogin]);
+
                 } else {
-                    if ($childToko->count() > 0) {
-                        // LEVEL 2: Punya cabang anak
-                        if ($mode === 'pengirim') {
-                            // Pengirim: toko sendiri + anak
-                            $allowedTokoIds = collect([$idTokoLogin])->merge($childToko);
-                        } else {
-                            // Penerima: toko sendiri + parent + anak
-                            $allowedTokoIds = collect([$idTokoLogin, $toko->parent_id])->merge($childToko);
-                        }
+                    // 🔵 MODE PENERIMA
+                    if ($isParent) {
+                        // Parent Penerima: Kas Toko Sendiri + Kas Anak-Anak Cabang (Non-Mitra)
+                        $allowedTokoIds = collect([$idTokoLogin])->merge($childNonMitraIds);
                     } else {
-                        // LEVEL 3: Toko paling bawah (Bukan Mitra)
-                        if ($mode === 'pengirim') {
-                            // Pengirim: hanya toko sendiri
-                            $allowedTokoIds = collect([$idTokoLogin]);
-                        } else {
-                            // Penerima: toko sendiri + parent
-                            $allowedTokoIds = collect([$idTokoLogin, $toko->parent_id]);
-                        }
+                        // Child Non-Mitra Penerima: Kas Toko Sendiri + Kas Parent
+                        $allowedTokoIds = collect([$idTokoLogin, $toko->parent_id]);
                     }
                 }
             }
 
-            // Ambil daftar jenis barang + dompet digital
+            // Ambil jenis barang + Dompet Digital
             $jenisBarangList = JenisBarang::select('id', 'nama_jenis_barang')->get();
-            $jenisBarangList->push((object) [
+            $jenisBarangList->push((object)[
                 'id' => 0,
                 'nama_jenis_barang' => 'Dompet Digital',
             ]);
 
-            // Optimasi Eager Loading relasi toko untuk menghindari N+1 Query
+            // Eager Loading dengan filter toko yang diperbolehkan
             $kasList = Kas::with(['toko.parent'])
                 ->whereIn('toko_id', $allowedTokoIds)
                 ->get();
@@ -172,7 +167,6 @@ class KasController extends Controller
             foreach ($jenisBarangList as $jenis) {
                 foreach (['kecil', 'besar'] as $tipeKas) {
 
-                    // Filter kas berdasarkan jenis_barang_id dan tipe_kas dari koleksi yang sudah diambil
                     $filteredKas = $kasList->where('jenis_barang_id', $jenis->id)
                         ->where('tipe_kas', $tipeKas);
 
@@ -183,26 +177,26 @@ class KasController extends Controller
                         }
 
                         $labelKas = ($tipeKas === 'besar')
-                            ? 'Kas Besar ('.($k->toko->parent_id ? ($k->toko->parent->nama ?? $k->toko->parent->nama_toko) : 'Owner').')'
-                            : "Kas Kecil ({$k->toko->nama})";
+                            ? "Kas Besar (" . ($k->toko->parent_id ? ($k->toko->parent->singkatan ?? $k->toko->parent->nama) : "Owner") . ")"
+                            : "Kas Kecil ({$k->toko->singkatan})";
 
                         $data[] = [
-                            'id' => $k->id,
-                            'jenis_id' => $jenis->id,
-                            'tipe_kas' => $tipeKas,
+                            'id'        => $k->id,
+                            'jenis_id'  => $jenis->id,
+                            'tipe_kas'  => $tipeKas,
                             'saldo_kas' => $k->saldo,
-                            'text' => "{$labelKas} - {$jenis->nama_jenis_barang} - (".RupiahGenerate::build($k->saldo).')',
+                            'text'      => "{$labelKas} - {$jenis->nama_jenis_barang} - (" . RupiahGenerate::build($k->saldo) . ")"
                         ];
                     }
                 }
             }
 
-            return $this->success(array_values($data), 200, 'Data kas berhasil diambil');
+            return $this->success(array_values($data), 200, "Data kas berhasil diambil");
 
         } catch (\Throwable $e) {
             return $this->error(500, 'Terjadi kesalahan saat mengambil data', [
                 'error_message' => $e->getMessage(),
-                'line' => $e->getLine(),
+                'line'          => $e->getLine(),
             ]);
         }
     }

@@ -549,7 +549,7 @@ class DashboardController extends Controller
             // 1. Ambil seluruh data toko
             $tokos = Toko::select('id', 'singkatan')->get();
 
-            // 2. Ambil data KasTransaksi sesuai filter tanggal dan kriteria laporan_kasir
+            // 2. Ambil data KasTransaksi
             $kasData = KasTransaksi::with('kas')
                 ->where('tipe', 'in')
                 ->where('kategori', 'Pendapatan Umum')
@@ -561,26 +561,29 @@ class DashboardController extends Controller
                 return $item->kas->toko_id ?? null;
             });
 
-            // 3. Ambil data Retur Member dalam rentang tanggal
-            $returMember = ReturMemberDetail::where('qty_refund', '>', 0)
-                ->whereBetween('created_at', [$startDate, $endDate])
-                ->selectRaw('toko_id, SUM(total_refund) as total')
-                ->groupBy('toko_id')
+            // 3. Retur Member per Toko (Join ke tabel parent retur_member)
+            $returMember = ReturMemberDetail::join('retur_member', 'retur_member_detail.retur_member_id', '=', 'retur_member.id')
+                ->where('retur_member_detail.qty_refund', '>', 0)
+                ->whereBetween('retur_member_detail.created_at', [$startDate, $endDate])
+                ->selectRaw('retur_member.toko_id, SUM(retur_member_detail.total_refund) as total')
+                ->groupBy('retur_member.toko_id')
                 ->pluck('total', 'toko_id');
 
-            // 4. Ambil data Retur Supplier (Untung & Rugi) dalam rentang tanggal
-            $returSupplierUntung = ReturSupplierDetail::where('qty_refund', '>', 0)
-                ->where('keterangan', 'untung')
-                ->whereBetween('created_at', [$startDate, $endDate])
-                ->selectRaw('toko_id, SUM(selisih) as total')
-                ->groupBy('toko_id')
+            // 4. Retur Supplier per Toko (Join ke tabel parent retur_supplier)
+            $returSupplierUntung = ReturSupplierDetail::join('retur_supplier', 'retur_supplier_detail.retur_supplier_id', '=', 'retur_supplier.id')
+                ->where('retur_supplier_detail.qty_refund', '>', 0)
+                ->where('retur_supplier_detail.keterangan', 'untung')
+                ->whereBetween('retur_supplier_detail.created_at', [$startDate, $endDate])
+                ->selectRaw('retur_supplier.toko_id, SUM(retur_supplier_detail.selisih) as total')
+                ->groupBy('retur_supplier.toko_id')
                 ->pluck('total', 'toko_id');
 
-            $returSupplierRugi = ReturSupplierDetail::where('qty_refund', '>', 0)
-                ->where('keterangan', 'rugi')
-                ->whereBetween('created_at', [$startDate, $endDate])
-                ->selectRaw('toko_id, SUM(selisih) as total')
-                ->groupBy('toko_id')
+            $returSupplierRugi = ReturSupplierDetail::join('retur_supplier', 'retur_supplier_detail.retur_supplier_id', '=', 'retur_supplier.id')
+                ->where('retur_supplier_detail.qty_refund', '>', 0)
+                ->where('retur_supplier_detail.keterangan', 'rugi')
+                ->whereBetween('retur_supplier_detail.created_at', [$startDate, $endDate])
+                ->selectRaw('retur_supplier.toko_id, SUM(retur_supplier_detail.selisih) as total')
+                ->groupBy('retur_supplier.toko_id')
                 ->pluck('total', 'toko_id');
 
             $result = [
@@ -602,7 +605,7 @@ class DashboardController extends Controller
                 $keuntungan = (float) ($returSupplierUntung[$tokoId] ?? 0);
                 $kerugian = (float) ($returSupplierRugi[$tokoId] ?? 0);
 
-                // Perhitungan Net Total sesuai logika laporan_kasir
+                // Perhitungan Net Total
                 $totalBersih = $nominalKas - ($refund - $keuntungan + $kerugian);
 
                 $result['singkatan'][] = [

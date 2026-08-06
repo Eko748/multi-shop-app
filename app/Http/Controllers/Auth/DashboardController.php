@@ -562,7 +562,7 @@ class DashboardController extends Controller
             });
 
             // 3. Retur Member per Toko (Join ke tabel parent retur_member)
-            $returMember = ReturMemberDetail::join('retur_member', 'retur_member_detail.retur_member_id', '=', 'retur_member.id')
+            $returMember = ReturMemberDetail::join('retur_member', 'retur_member_detail.retur_id', '=', 'retur_member.id')
                 ->where('retur_member_detail.qty_refund', '>', 0)
                 ->whereBetween('retur_member_detail.created_at', [$startDate, $endDate])
                 ->selectRaw('retur_member.toko_id, SUM(retur_member_detail.total_refund) as total')

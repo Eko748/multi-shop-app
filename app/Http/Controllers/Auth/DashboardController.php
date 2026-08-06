@@ -539,48 +539,82 @@ class DashboardController extends Controller
 
     public function getKomparasiToko(Request $request)
     {
-        $startDate = $request->input('startDate', now()->startOfDay()->toDateString());
-        $endDate = $request->input('endDate', now()->endOfDay()->toDateString());
+        $startDateInput = $request->input('startDate', now()->toDateString());
+        $endDateInput = $request->input('endDate', now()->toDateString());
+
+        $startDate = Carbon::parse($startDateInput)->startOfDay();
+        $endDate = Carbon::parse($endDateInput)->endOfDay();
 
         try {
-            $query = Toko::leftJoin('transaksi_kasir', function ($join) use ($startDate, $endDate) {
-                $join->on('toko.id', '=', 'transaksi_kasir.toko_id')
-                    ->where('transaksi_kasir.total_qty', '>', 0)
-                    ->whereNull('transaksi_kasir.deleted_at')
-                    ->whereBetween('transaksi_kasir.tanggal', [
-                        $startDate.' 00:00:00',
-                        $endDate.' 23:59:59',
-                    ]);
-            })
-                ->selectRaw('
-    toko.id,
-    toko.singkatan,
-    COUNT(transaksi_kasir.id) as jumlah_transaksi,
-    COALESCE(SUM(transaksi_kasir.total_nominal),0) - COALESCE(SUM(transaksi_kasir.total_diskon),0) as total_transaksi
-')
-                ->groupBy('toko.id', 'toko.singkatan');
+            // 1. Ambil seluruh data toko
+            $tokos = Toko::select('id', 'singkatan')->get();
 
-            $tokoData = $query->get();
+            // 2. Ambil data KasTransaksi sesuai filter tanggal dan kriteria laporan_kasir
+            $kasData = KasTransaksi::with('kas')
+                ->where('tipe', 'in')
+                ->where('kategori', 'Pendapatan Umum')
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->get();
+
+            // Grouping nominal transaksi kasir berdasarkan toko_id
+            $kasPerToko = $kasData->groupBy(function ($item) {
+                return $item->kas->toko_id ?? null;
+            });
+
+            // 3. Ambil data Retur Member dalam rentang tanggal
+            $returMember = ReturMemberDetail::where('qty_refund', '>', 0)
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->selectRaw('toko_id, SUM(total_refund) as total')
+                ->groupBy('toko_id')
+                ->pluck('total', 'toko_id');
+
+            // 4. Ambil data Retur Supplier (Untung & Rugi) dalam rentang tanggal
+            $returSupplierUntung = ReturSupplierDetail::where('qty_refund', '>', 0)
+                ->where('keterangan', 'untung')
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->selectRaw('toko_id, SUM(selisih) as total')
+                ->groupBy('toko_id')
+                ->pluck('total', 'toko_id');
+
+            $returSupplierRugi = ReturSupplierDetail::where('qty_refund', '>', 0)
+                ->where('keterangan', 'rugi')
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->selectRaw('toko_id, SUM(selisih) as total')
+                ->groupBy('toko_id')
+                ->pluck('total', 'toko_id');
 
             $result = [
                 'singkatan' => [],
                 'total' => 0,
             ];
 
-            foreach ($tokoData as $data) {
-                $total = $data->total_transaksi ?? 0;
+            // 5. Kalkulasi akhir per Toko
+            foreach ($tokos as $toko) {
+                $tokoId = $toko->id;
+
+                // Total dari KasTransaksi
+                $transaksiToko = $kasPerToko->get($tokoId, collect());
+                $nominalKas = $transaksiToko->sum('total_nominal');
+                $jumlahTx = $transaksiToko->count();
+
+                // Retur & Penyesuaian
+                $refund = (float) ($returMember[$tokoId] ?? 0);
+                $keuntungan = (float) ($returSupplierUntung[$tokoId] ?? 0);
+                $kerugian = (float) ($returSupplierRugi[$tokoId] ?? 0);
+
+                // Perhitungan Net Total sesuai logika laporan_kasir
+                $totalBersih = $nominalKas - ($refund - $keuntungan + $kerugian);
 
                 $result['singkatan'][] = [
-                    $data->singkatan => [
-                        'jumlah_transaksi' => (int) $data->jumlah_transaksi,
-                        'total_transaksi' => round($total, 2), // aman
+                    $toko->singkatan => [
+                        'jumlah_transaksi' => $jumlahTx,
+                        'total_transaksi' => round($totalBersih, 2),
                     ],
                 ];
 
-                $result['total'] += $total;
+                $result['total'] += $totalBersih;
             }
 
-            // optional: rapihin total akhir
             $result['total'] = round($result['total'], 2);
 
             return response()->json([

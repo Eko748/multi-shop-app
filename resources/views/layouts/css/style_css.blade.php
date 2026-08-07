@@ -2,6 +2,85 @@
     <link rel="stylesheet" href="{{ asset('flat-able-lite/dist/assets/css/style.css') }}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css">
     <style>
+        /* Sesuaikan ukuran font dan padding nav-link Able Pro */
+        .pcoded-navbar.theme-horizontal .pcoded-inner-navbar>li>a {
+            padding: 8px 10px !important;
+            /* Mengecilkan jarak antar menu */
+            font-size: 13px !important;
+            /* Mengecilkan ukuran tulisan sedikit */
+        }
+
+        /* Mengecilkan icon menu agar lebih hemat tempat */
+        .pcoded-navbar.theme-horizontal .pcoded-inner-navbar>li>a .pcoded-micon {
+            margin-right: 5px !important;
+        }
+
+        /* Mengubah layout agar menu fleksibel jika layar masih kurang lebar */
+        .pcoded-navbar.theme-horizontal .pcoded-inner-navbar {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            /* Menu otomatis melipat ke bawah secara rapi jika tidak muat */
+        }
+
+        /* 1. Ratakan kotak submenu paling kanan (misal: Jurnal Keuangan & Laporan Keuangan) ke sisi kanan induknya */
+        .pcoded-navbar.theme-horizontal .pcoded-inner-navbar>li.pcoded-hasmenu:last-child .pcoded-submenu,
+        .pcoded-navbar.theme-horizontal .pcoded-inner-navbar>li.pcoded-hasmenu:nth-last-child(2) .pcoded-submenu {
+            left: auto !important;
+            right: 0 !important;
+            transform: none !important;
+            /* Mencegah JS bawaan Able Pro menariknya ke tengah */
+        }
+
+        /* 2. Pindahkan panah kecil (arrow) di atas submenu agar bergeser ke kanan mengikuti posisinya */
+        .pcoded-navbar.theme-horizontal .pcoded-inner-navbar>li.pcoded-hasmenu:last-child>.pcoded-submenu:before,
+        .pcoded-navbar.theme-horizontal .pcoded-inner-navbar>li.pcoded-hasmenu:nth-last-child(2)>.pcoded-submenu:before {
+            left: auto !important;
+            right: 5px !important;
+            /* Pas di bawah tombol utama */
+        }
+
+        /* 3. Rapikan panah kecil sisi (chevron/arrow) di dalam list jika ada */
+        .pcoded-navbar.theme-horizontal .pcoded-inner-navbar>li.pcoded-hasmenu:last-child .pcoded-submenu li>a,
+        .pcoded-navbar.theme-horizontal .pcoded-inner-navbar>li.pcoded-hasmenu:nth-last-child(2) .pcoded-submenu li>a {
+            text-align: left !important;
+        }
+
+        /* Membuat submenu Data Master menjadi 2 kolom menyamping */
+        .pcoded-navbar.theme-horizontal .pcoded-inner-navbar>li.pcoded-hasmenu .pcoded-submenu {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            min-width: 480px !important;
+            /* Lebarkan kontainer dropdown */
+            padding: 15px !important;
+            gap: 10px;
+        }
+
+        /* Mengatur grup/kategori agar membagi area 2 kolom secara rapi */
+        .pcoded-navbar.theme-horizontal .pcoded-submenu>li.font-weight-bold {
+            width: 100% !important;
+            /* Judul kategori tetap di atas */
+            border-bottom: 1px solid #eee;
+            padding-bottom: 4px;
+            margin-top: 2px !important;
+        }
+
+        /* Setiap item menu mengambil 50% lebar (2 kolom) */
+        .pcoded-navbar.theme-horizontal .pcoded-submenu>li:not(.font-weight-bold) {
+            width: calc(50% - 10px) !important;
+        }
+
+        .pcoded-navbar.theme-horizontal .pcoded-submenu>li:not(.font-weight-bold)>a:hover {
+            color: #10b981 !important;
+            /* Warna teks berubah mint/teal */
+            background: #ffffff !important;
+            /* Kombinasi shadow soft neumorphism + inset halus */
+            box-shadow: 3px 3px 6px #d1d5db,
+                -3px -3px 6px #ffffff,
+                inset 0px 0px 0px 1px rgba(16, 185, 129, 0.2) !important;
+            transform: translateY(-1px);
+            /* Efek terangkat sedikit */
+        }
+
         .neu-btn.active {
             background: #e9f5ff;
             border: 1px solid #47c339;

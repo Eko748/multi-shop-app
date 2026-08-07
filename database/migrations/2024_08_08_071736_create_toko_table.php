@@ -19,6 +19,7 @@ return new class extends Migration
             $table->integer('pin')->nullable();
             $table->boolean('kas_detail')->default(true);
             $table->boolean('kasbon')->default(false);
+            $table->boolean('mitra')->nullable();
             $table->unsignedBigInteger('created_by')->nullable();
             $table->unsignedBigInteger('updated_by')->nullable();
             $table->timestamps();

@@ -48,18 +48,22 @@ class StockBarangController extends Controller
         $meta['orderBy'] = $request->input('ascending', 0) ? 'asc' : 'desc';
         $meta['limit'] = $request->has('limit') && $request->limit <= 30 ? (int) $request->limit : 30;
 
+        // Callback reusable untuk menyaring batch aktif & toko aktif
+        $activeBatchQuery = function ($q) {
+            $q->where('qty_sisa', '>', 0)
+                ->whereHas('toko', function ($tokoQuery) {
+                    $tokoQuery->whereNull('deleted_at'); // Mengabaikan toko yang di-soft-delete
+                });
+        };
+
         $query = StockBarang::with([
             'barang',
             'tokoGroup',
-            'stockBarangBatch' => function ($q) {
-                $q->where('qty_sisa', '>', 0);
-            },
+            'stockBarangBatch' => $activeBatchQuery,
         ]);
 
-        // PERBAIKAN: Hanya ambil StockBarang yang MASIH MEMILIKI batch dengan qty_sisa > 0
-        $query->whereHas('stockBarangBatch', function ($q) {
-            $q->where('qty_sisa', '>', 0);
-        });
+        // Hanya ambil StockBarang yang MASIH MEMILIKI batch aktif & toko aktif
+        $query->whereHas('stockBarangBatch', $activeBatchQuery);
 
         if (! empty($request['toko_id'])) {
             $query->whereHas('tokoGroup.toko', function ($q) use ($request) {
@@ -84,10 +88,8 @@ class StockBarangController extends Controller
             ]);
         }
 
-        // Jika ingin mengurutkan berdasarkan subquery total batch (agar sinkron):
-        $query->withSum(['stockBarangBatch as total_qty_sisa' => function ($q) {
-            $q->where('qty_sisa', '>', 0);
-        }], 'qty_sisa')
+        // Hitung total_qty_sisa hanya dari batch dengan toko aktif untuk sorting
+        $query->withSum(['stockBarangBatch as total_qty_sisa' => $activeBatchQuery], 'qty_sisa')
             ->orderBy('total_qty_sisa', $meta['orderBy']);
 
         $data = $query->paginate($meta['limit']);
@@ -130,7 +132,7 @@ class StockBarangController extends Controller
                 $level_harga[$level_name] = $formatted;
             }
 
-            // 2. Hitung sum qty_sisa dari batch yang sudah difilter di eager loading
+            // Hitung sum qty_sisa dari batch yang sudah lolos filter toko & stok
             $totalStockBatch = (int) $item->stockBarangBatch->sum('qty_sisa');
 
             return [
@@ -144,7 +146,7 @@ class StockBarangController extends Controller
 
                 'hpp_baru' => RupiahGenerate::build($hppBaruNumeric),
                 'real_hpp' => $item->hpp_baru,
-                'stock' => $totalStockBatch ?? 0, // Menggunakan total dari batch
+                'stock' => $totalStockBatch,
                 'level_harga' => $level_harga,
                 'warning' => $warning,
             ];

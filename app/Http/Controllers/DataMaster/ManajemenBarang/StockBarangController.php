@@ -48,22 +48,23 @@ class StockBarangController extends Controller
         $meta['orderBy'] = $request->input('ascending', 0) ? 'asc' : 'desc';
         $meta['limit'] = $request->has('limit') && $request->limit <= 30 ? (int) $request->limit : 30;
 
-        // Callback reusable untuk menyaring batch aktif & toko aktif
+        // Callback filter hanya untuk batch yang masih aktif & tokonya belum dihapus
         $activeBatchQuery = function ($q) {
             $q->where('qty_sisa', '>', 0)
                 ->whereHas('toko', function ($tokoQuery) {
-                    $tokoQuery->whereNull('deleted_at'); // Mengabaikan toko yang di-soft-delete
+                    $tokoQuery->whereNull('deleted_at');
                 });
         };
 
+        // 1. Eager load batch yang aktif saja (batch lama/habis tidak di-load agar ringan)
         $query = StockBarang::with([
             'barang',
             'tokoGroup',
             'stockBarangBatch' => $activeBatchQuery,
         ]);
 
-        // Hanya ambil StockBarang yang MASIH MEMILIKI batch aktif & toko aktif
-        $query->whereHas('stockBarangBatch', $activeBatchQuery);
+        // DIHAPUS: $query->whereHas('stockBarangBatch', ...)
+        // agar data StockBarang tetap muncul meskipun stoknya 0.
 
         if (! empty($request['toko_id'])) {
             $query->whereHas('tokoGroup.toko', function ($q) use ($request) {
@@ -88,7 +89,7 @@ class StockBarangController extends Controller
             ]);
         }
 
-        // Hitung total_qty_sisa hanya dari batch dengan toko aktif untuk sorting
+        // 2. Hitung total qty_sisa batch aktif untuk keperluan sorting
         $query->withSum(['stockBarangBatch as total_qty_sisa' => $activeBatchQuery], 'qty_sisa')
             ->orderBy('total_qty_sisa', $meta['orderBy']);
 
@@ -132,7 +133,7 @@ class StockBarangController extends Controller
                 $level_harga[$level_name] = $formatted;
             }
 
-            // Hitung sum qty_sisa dari batch yang sudah lolos filter toko & stok
+            // 3. Jika tidak ada batch aktif, sum() menghasilkan 0
             $totalStockBatch = (int) $item->stockBarangBatch->sum('qty_sisa');
 
             return [
@@ -146,7 +147,7 @@ class StockBarangController extends Controller
 
                 'hpp_baru' => RupiahGenerate::build($hppBaruNumeric),
                 'real_hpp' => $item->hpp_baru,
-                'stock' => $totalStockBatch,
+                'stock' => $totalStockBatch, // Akan bernilai 0 jika batch habis/tidak ada
                 'level_harga' => $level_harga,
                 'warning' => $warning,
             ];

@@ -48,7 +48,6 @@ class StockBarangController extends Controller
         $meta['orderBy'] = $request->input('ascending', 0) ? 'asc' : 'desc';
         $meta['limit'] = $request->has('limit') && $request->limit <= 30 ? (int) $request->limit : 30;
 
-        // 1. Eager load relasi stockBarangBatch dengan filter qty_sisa > 0
         $query = StockBarang::with([
             'barang',
             'tokoGroup',
@@ -56,6 +55,11 @@ class StockBarangController extends Controller
                 $q->where('qty_sisa', '>', 0);
             },
         ]);
+
+        // PERBAIKAN: Hanya ambil StockBarang yang MASIH MEMILIKI batch dengan qty_sisa > 0
+        $query->whereHas('stockBarangBatch', function ($q) {
+            $q->where('qty_sisa', '>', 0);
+        });
 
         if (! empty($request['toko_id'])) {
             $query->whereHas('tokoGroup.toko', function ($q) use ($request) {
@@ -80,7 +84,11 @@ class StockBarangController extends Controller
             ]);
         }
 
-        $query->orderBy('stok', $meta['orderBy']);
+        // Jika ingin mengurutkan berdasarkan subquery total batch (agar sinkron):
+        $query->withSum(['stockBarangBatch as total_qty_sisa' => function ($q) {
+            $q->where('qty_sisa', '>', 0);
+        }], 'qty_sisa')
+            ->orderBy('total_qty_sisa', $meta['orderBy']);
 
         $data = $query->paginate($meta['limit']);
 
@@ -136,7 +144,7 @@ class StockBarangController extends Controller
 
                 'hpp_baru' => RupiahGenerate::build($hppBaruNumeric),
                 'real_hpp' => $item->hpp_baru,
-                'stock' => $totalStockBatch, // Menggunakan total dari batch
+                'stock' => $totalStockBatch ?? 0, // Menggunakan total dari batch
                 'level_harga' => $level_harga,
                 'warning' => $warning,
             ];

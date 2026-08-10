@@ -2,33 +2,30 @@
 
 namespace App\Http\Controllers\DataMaster\ManajemenBarang;
 
-use App\Http\Controllers\Controller;
-use App\Models\Barang;
-use App\Models\DetailPembelianBarang;
-use App\Models\DetailStockBarang;
-use App\Models\DetailToko;
-use App\Models\StockBarang;
-use App\Models\StockBarangBermasalah;
-use App\Models\Toko;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 use App\Enums\StatusStockBarang;
 use App\Helpers\AssetGenerate;
 use App\Helpers\LogAktivitasGenerate;
 use App\Helpers\PinCheck;
 use App\Helpers\RupiahGenerate;
 use App\Helpers\TextGenerate;
+use App\Http\Controllers\Controller;
+use App\Models\Barang;
 use App\Models\LevelHarga;
 use App\Models\PembelianBarangDetail;
+use App\Models\StockBarang;
 use App\Models\StockBarangBatch;
+use App\Models\StockBarangBermasalah;
+use App\Models\Toko;
 use App\Services\KasService;
 use App\Traits\ApiResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class StockBarangController extends Controller
 {
     use ApiResponse;
+
     private array $menu = [];
 
     public function __construct()
@@ -49,22 +46,29 @@ class StockBarangController extends Controller
     public function get(Request $request)
     {
         $meta['orderBy'] = $request->input('ascending', 0) ? 'asc' : 'desc';
-        $meta['limit'] = $request->has('limit') && $request->limit <= 30 ? $request->limit : 30;
+        $meta['limit'] = $request->has('limit') && $request->limit <= 30 ? (int) $request->limit : 30;
 
-        $query = StockBarang::with(['barang', 'tokoGroup']);
+        // 1. Eager load relasi stockBarangBatch dengan filter qty_sisa > 0
+        $query = StockBarang::with([
+            'barang',
+            'tokoGroup',
+            'stockBarangBatch' => function ($q) {
+                $q->where('qty_sisa', '>', 0);
+            },
+        ]);
 
-        if (!empty($request['toko_id'])) {
+        if (! empty($request['toko_id'])) {
             $query->whereHas('tokoGroup.toko', function ($q) use ($request) {
                 $q->where('toko.id', $request['toko_id']);
             });
         }
 
-        if (!empty($request['search'])) {
+        if (! empty($request['search'])) {
             $searchTerm = trim(strtolower($request['search']));
 
-            $query->where(function ($query) use ($searchTerm) {
-                $query->orWhereHas('barang', function ($subquery) use ($searchTerm) {
-                    $subquery->whereRaw("LOWER(nama) LIKE ?", ["%$searchTerm%"]);
+            $query->where(function ($q) use ($searchTerm) {
+                $q->whereHas('barang', function ($subquery) use ($searchTerm) {
+                    $subquery->whereRaw('LOWER(nama) LIKE ?', ["%$searchTerm%"]);
                 });
             });
         }
@@ -72,11 +76,11 @@ class StockBarangController extends Controller
         if ($request->has('start_date') && $request->has('end_date')) {
             $query->whereBetween('created_at', [
                 $request->input('start_date'),
-                $request->input('end_date')
+                $request->input('end_date'),
             ]);
         }
 
-        $query->orderBy('stok', 'desc');
+        $query->orderBy('stok', $meta['orderBy']);
 
         $data = $query->paginate($meta['limit']);
 
@@ -84,7 +88,7 @@ class StockBarangController extends Controller
             'total' => $data->total(),
             'per_page' => $data->perPage(),
             'current_page' => $data->currentPage(),
-            'total_pages' => $data->lastPage()
+            'total_pages' => $data->lastPage(),
         ];
 
         $levelNames = LevelHarga::orderBy('id', 'asc')
@@ -105,36 +109,36 @@ class StockBarangController extends Controller
             $warning = false;
 
             foreach ($decoded as $index => $harga) {
-
                 $numeric = preg_replace('/[^0-9]/', '', $harga);
                 $numeric = $numeric !== '' ? (int) $numeric : 0;
 
-                // cek jika harga jual < hpp
                 if ($numeric < $hppBaruNumeric) {
                     $warning = true;
                 }
 
                 $formatted = RupiahGenerate::build($numeric);
-
-                $level_name = $levelNames[$index] ?? "Level " . ($index + 1);
+                $level_name = $levelNames[$index] ?? 'Level '.($index + 1);
 
                 $level_harga[$level_name] = $formatted;
             }
 
-            return [
-                'id'              => $item->id,
-                'id_barang'       => $barang->id ?? null,
-                'nama_barang'     => TextGenerate::smartTail($barang->nama),
-                'barcode'         => $barang->barcode ?? null,
+            // 2. Hitung sum qty_sisa dari batch yang sudah difilter di eager loading
+            $totalStockBatch = (int) $item->stockBarangBatch->sum('qty_sisa');
 
-                'toko_group_id'   => $tokoGroup->id ?? null,
+            return [
+                'id' => $item->id,
+                'id_barang' => $barang->id ?? null,
+                'nama_barang' => TextGenerate::smartTail($barang->nama ?? ''),
+                'barcode' => $barang->barcode ?? null,
+
+                'toko_group_id' => $tokoGroup->id ?? null,
                 'nama_toko_group' => $tokoGroup->nama ?? null,
 
-                'hpp_baru'        => RupiahGenerate::build($hppBaruNumeric),
-                'real_hpp'        => $item->hpp_baru,
-                'stock'           => (int) ($item->stok ?? 0),
-                'level_harga'     => $level_harga,
-                'warning'         => $warning,
+                'hpp_baru' => RupiahGenerate::build($hppBaruNumeric),
+                'real_hpp' => $item->hpp_baru,
+                'stock' => $totalStockBatch, // Menggunakan total dari batch
+                'level_harga' => $level_harga,
+                'warning' => $warning,
             ];
         });
 
@@ -142,7 +146,7 @@ class StockBarangController extends Controller
             return response()->json([
                 'status_code' => 400,
                 'errors' => true,
-                'message' => 'Tidak ada data'
+                'message' => 'Tidak ada data',
             ], 400);
         }
 
@@ -151,7 +155,7 @@ class StockBarangController extends Controller
             'status_code' => 200,
             'errors' => false,
             'message' => 'Sukses',
-            'pagination' => $paginationMeta
+            'pagination' => $paginationMeta,
         ], 200);
     }
 
@@ -175,7 +179,7 @@ class StockBarangController extends Controller
 
             DB::beginTransaction();
             $stok = StockBarang::lockForUpdate()->find($request->id);
-            if (!$stok) {
+            if (! $stok) {
                 return $this->error(404, 'Data stok tidak ditemukan.');
             }
 
@@ -188,7 +192,9 @@ class StockBarangController extends Controller
                 ->get();
 
             foreach ($batches as $batch) {
-                if ($batch->qty_sisa <= 0) continue;
+                if ($batch->qty_sisa <= 0) {
+                    continue;
+                }
 
                 // hitung HPP batch
                 $batchHargaBeli = $batch->qty_sisa * ($batch->harga_beli ?? 0);
@@ -240,9 +246,11 @@ class StockBarangController extends Controller
             );
 
             DB::commit();
+
             return $this->success(null, 200, 'Stok berhasil dikosongkan.');
         } catch (\Throwable $e) {
             DB::rollBack();
+
             return $this->error(500, $e->getMessage());
         }
     }
@@ -250,22 +258,22 @@ class StockBarangController extends Controller
     public function updateHpp(Request $request)
     {
         $request->validate([
-            'id'       => 'required|integer',
+            'id' => 'required|integer',
             'id_barang' => 'required|integer',
-            'hpp'      => 'required|numeric|min:0',
-            'pin'      => 'required',
-            'toko_id'  => 'required|integer',
-            'user_id'  => 'required|integer',
-            'message'  => 'nullable|string',
+            'hpp' => 'required|numeric|min:0',
+            'pin' => 'required',
+            'toko_id' => 'required|integer',
+            'user_id' => 'required|integer',
+            'message' => 'nullable|string',
         ]);
 
         $toko = Toko::find($request->toko_id);
 
-        if (!$toko) {
+        if (! $toko) {
             return $this->error(404, 'Data toko tidak ditemukan.');
         }
 
-        if ((int)$toko->pin !== (int)$request->pin) {
+        if ((int) $toko->pin !== (int) $request->pin) {
             return $this->error(403, 'PIN yang Anda masukkan salah.');
         }
 
@@ -275,7 +283,7 @@ class StockBarangController extends Controller
 
             $stok = StockBarang::lockForUpdate()->find($request->id);
 
-            if (!$stok) {
+            if (! $stok) {
                 return $this->error(404, 'Data stok tidak ditemukan.');
             }
 
@@ -307,7 +315,7 @@ class StockBarangController extends Controller
 
             if ($lastBatch) {
                 $lastBatch->update([
-                    'hpp_baru' => $newHpp
+                    'hpp_baru' => $newHpp,
                 ]);
             }
 
@@ -322,12 +330,12 @@ class StockBarangController extends Controller
                 properties: [
                     'changes' => [
                         'old' => [
-                            'hpp_baru' => $oldHpp
+                            'hpp_baru' => $oldHpp,
                         ],
                         'new' => [
-                            'hpp_baru' => $newHpp
-                        ]
-                    ]
+                            'hpp_baru' => $newHpp,
+                        ],
+                    ],
                 ],
                 description: "HPP barang ID {$request->id_barang} diubah manual dari {$oldHpp} menjadi {$newHpp}",
                 userId: $request->user_id,
@@ -376,10 +384,14 @@ class StockBarangController extends Controller
                 $batch = StockBarangBatch::lockForUpdate()
                     ->find($reduction['stock_barang_batch_id']);
 
-                if (!$batch || $batch->qty_sisa <= 0) continue;
+                if (! $batch || $batch->qty_sisa <= 0) {
+                    continue;
+                }
 
                 $qtyKurangi = min($reduction['qty'], $batch->qty_sisa);
-                if ($qtyKurangi <= 0) continue;
+                if ($qtyKurangi <= 0) {
+                    continue;
+                }
 
                 $qtyOld = $batch->qty_sisa;
 
@@ -411,12 +423,12 @@ class StockBarangController extends Controller
                     logName: $this->title[0] ?? 'Stok Barang',
                     subjectType: StockBarang::class,
                     subjectId: $stok->id,
-                    event: 'Pengurangan Stok ' . ucfirst(strtolower($reduction['status'])),
+                    event: 'Pengurangan Stok '.ucfirst(strtolower($reduction['status'])),
                     properties: [
                         'changes' => [
                             'old' => ['qty_sisa' => $qtyOld],
                             'new' => ['qty_sisa' => $batch->qty_sisa],
-                        ]
+                        ],
                     ],
                     description: "Stok barang {$namaBarang} (Batch ID {$batch->id}) dikurangi {$qtyKurangi}.",
                     userId: $userId,
@@ -430,7 +442,7 @@ class StockBarangController extends Controller
             foreach ($stokPengurangan as $stockBarangId => $qtyTotal) {
 
                 $stok = StockBarang::lockForUpdate()->find($stockBarangId);
-                if (!$stok) {
+                if (! $stok) {
                     throw new \Exception("Stok barang ID {$stockBarangId} tidak ditemukan.");
                 }
 
@@ -458,13 +470,14 @@ class StockBarangController extends Controller
             }
 
             DB::commit();
+
             return $this->success(null, 200, 'Stok berhasil dikurangi.');
         } catch (\Throwable $e) {
             DB::rollBack();
+
             return $this->error(500, $e->getMessage());
         }
     }
-
 
     public function getItem($id_barang)
     {
@@ -472,7 +485,7 @@ class StockBarangController extends Controller
 
         if ($item) {
             return response()->json([
-                'nama_barang' => $item->nama_barang
+                'nama_barang' => $item->nama_barang,
             ]);
         } else {
             return response()->json(['error' => 'Item not found'], 404);
@@ -530,7 +543,7 @@ class StockBarangController extends Controller
         }
 
         $tokoList = Toko::all()
-            ->sortByDesc(fn($tk) => $tk->id == $request->toko_id ? 1 : 0);
+            ->sortByDesc(fn ($tk) => $tk->id == $request->toko_id ? 1 : 0);
 
         // ===============================
         // 🔥 Ambil stock per toko
@@ -550,7 +563,7 @@ class StockBarangController extends Controller
             $raw = $tk->level_harga;
             $array = json_decode($raw, true);
 
-            if (!is_array($array)) {
+            if (! is_array($array)) {
                 if (is_string($raw) && str_contains($raw, ',')) {
                     $array = array_map('intval', explode(',', $raw));
                 } elseif (is_numeric($raw)) {
@@ -571,14 +584,14 @@ class StockBarangController extends Controller
                 $harga = $hargaMapping[$id] ?? null;
 
                 if ($harga !== null) {
-                    $formatted = 'Rp ' . number_format($harga, 0, ',', '.');
+                    $formatted = 'Rp '.number_format($harga, 0, ',', '.');
                     $output[] = "{$namaLevel} ({$formatted})";
                 }
             }
 
             return [
-                'nama_toko'   => $tk->nama,
-                'stock'       => $stock,
+                'nama_toko' => $tk->nama,
+                'stock' => $stock,
                 'level_harga' => implode(', ', $output),
             ];
         });
@@ -587,14 +600,14 @@ class StockBarangController extends Controller
         // RESPONSE
         // ================================
         $data = [
-            'id'                  => $stockBarang->id,
-            'stock'               => $stockUtama,
-            'hpp_awal'            => $stockBarang ? (float) $stockBarang->hpp_baru : 0.00,
-            'hpp_baru'            => $hppBaru,
+            'id' => $stockBarang->id,
+            'stock' => $stockUtama,
+            'hpp_awal' => $stockBarang ? (float) $stockBarang->hpp_baru : 0.00,
+            'hpp_baru' => $hppBaru,
             'total_harga_success' => $totalHargaSuccess,
-            'total_qty_success'   => $totalQtySuccess,
-            'level_harga'         => $levelHargaKeyValue, // ✅ KEY VALUE
-            'per_toko'            => $dataPerToko,
+            'total_qty_success' => $totalQtySuccess,
+            'level_harga' => $levelHargaKeyValue, // ✅ KEY VALUE
+            'per_toko' => $dataPerToko,
         ];
 
         return $this->success($data, 200, 'Data berhasil diambil!');
@@ -637,7 +650,6 @@ class StockBarangController extends Controller
             }
         }
 
-
         // ================================
         // MASTER LEVEL HARGA
         // ================================
@@ -652,7 +664,7 @@ class StockBarangController extends Controller
         // ================================
         // DATA PER TOKO
         // ================================
-        $tokoList = Toko::all()->sortByDesc(fn($tk) => $tk->id == $request->toko_id ? 1 : 0);
+        $tokoList = Toko::all()->sortByDesc(fn ($tk) => $tk->id == $request->toko_id ? 1 : 0);
 
         // $dataPerToko = $tokoList->map(function ($tk) use ($stockBarang, $levelHargaMaster, $hargaMapping) {
 
@@ -700,12 +712,12 @@ class StockBarangController extends Controller
         // RESPONSE
         // ================================
         $data = [
-            'stock'                => $stockUtama,
-            'hpp_awal'             => $stockBarang->hpp_baru ?? 0,
-            'hpp_baru'             => $stockBarang->hpp_baru ?? 0,
-            'total_harga_success'  => $totalHargaSuccess,
-            'total_qty_success'    => $totalQtySuccess,
-            'level_harga'          => $level_harga, // ✅ PURE ARRAY
+            'stock' => $stockUtama,
+            'hpp_awal' => $stockBarang->hpp_baru ?? 0,
+            'hpp_baru' => $stockBarang->hpp_baru ?? 0,
+            'total_harga_success' => $totalHargaSuccess,
+            'total_qty_success' => $totalQtySuccess,
+            'level_harga' => $level_harga, // ✅ PURE ARRAY
             // 'per_toko'             => $dataPerToko,
         ];
 
@@ -725,21 +737,21 @@ class StockBarangController extends Controller
             return response()->json([
                 'status_code' => 404,
                 'errors' => true,
-                'message' => 'Data tidak ditemukan'
+                'message' => 'Data tidak ditemukan',
             ], 404);
         }
 
         $data = $detail->map(function ($item) {
-            $img     = AssetGenerate::build("qrcodes/barang/{$item->stockBarang->barang->qrcode}.png");
+            $img = AssetGenerate::build("qrcodes/barang/{$item->stockBarang->barang->qrcode}.png");
 
             return [
-                'id'        => $item->id,
-                'qty'       => $item->qty_sisa ?? 0,
+                'id' => $item->id,
+                'qty' => $item->qty_sisa ?? 0,
                 'nama_barang' => TextGenerate::smartTail($item->stockBarang->barang->nama, 10, 30, 5),
-                'harga'     => RupiahGenerate::build($item->harga_beli),
-                'hpp_awal'     => RupiahGenerate::build($item->hpp_awal),
-                'hpp_baru'     => RupiahGenerate::build($item->hpp_baru),
-                'qrcode'    =>  $item->stockBarang->barang->qrcode,
+                'harga' => RupiahGenerate::build($item->harga_beli),
+                'hpp_awal' => RupiahGenerate::build($item->hpp_awal),
+                'hpp_baru' => RupiahGenerate::build($item->hpp_baru),
+                'qrcode' => $item->stockBarang->barang->qrcode,
                 'qrcode_path' => $img,
                 'created_at' => $item->created_at
                     ? $item->created_at->format('Y-m-d H:i:s')
@@ -761,12 +773,12 @@ class StockBarangController extends Controller
 
         $stockBarang = StockBarang::where('barang_id', $id_barang)->where('toko_group_id', $request->toko_group_id)->first();
 
-        if (!$stockBarang) {
+        if (! $stockBarang) {
             return response()->json([
-                'hpp_lama'   => (float) $harga_request,
-                'hpp_baru'   => (float) $harga_request,
-                'stok_lama'  => (int) $qty_request,
-                'stok_baru'  => (int) $qty_request
+                'hpp_lama' => (float) $harga_request,
+                'hpp_baru' => (float) $harga_request,
+                'stok_lama' => (int) $qty_request,
+                'stok_baru' => (int) $qty_request,
             ]);
         }
 
@@ -782,10 +794,10 @@ class StockBarangController extends Controller
             : 0.00;
 
         return response()->json([
-            'hpp_lama'   => (float) $hpp_lama,
-            'hpp_baru'   => (float) $hpp_baru,
-            'stok_lama'  => (int) $totalQtyLama,
-            'stok_baru'  => (int) $totalQtyBaru
+            'hpp_lama' => (float) $hpp_lama,
+            'hpp_baru' => (float) $hpp_baru,
+            'stok_lama' => (int) $totalQtyLama,
+            'stok_baru' => (int) $totalQtyBaru,
         ]);
     }
 
@@ -793,8 +805,8 @@ class StockBarangController extends Controller
     {
         $request->validate([
             'stock_barang_id' => 'required|integer|exists:stock_barang,id',
-            'level_harga'     => 'required|array|min:1',
-            'level_harga.*'   => 'required',
+            'level_harga' => 'required|array|min:1',
+            'level_harga.*' => 'required',
         ]);
 
         try {
@@ -807,7 +819,7 @@ class StockBarangController extends Controller
 
             // 🔥 PAKSA JADI STRING DENGAN PETIK
             // hasil: "[33000,43000,45000]"
-            $levelHargaString = '"' . json_encode($levelHarga) . '"';
+            $levelHargaString = '"'.json_encode($levelHarga).'"';
 
             StockBarang::where('id', $request->stock_barang_id)
                 ->update([
@@ -817,16 +829,16 @@ class StockBarangController extends Controller
             DB::commit();
 
             return response()->json([
-                'status'  => true,
+                'status' => true,
                 'message' => 'Level harga berhasil diperbarui',
-                'data'    => $levelHargaString,
+                'data' => $levelHargaString,
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
-                'status'  => false,
-                'message' => 'Terjadi kesalahan: ' . $e->getMessage(),
+                'status' => false,
+                'message' => 'Terjadi kesalahan: '.$e->getMessage(),
             ], 500);
         }
     }

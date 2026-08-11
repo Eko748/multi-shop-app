@@ -53,13 +53,13 @@ class TransaksiKasirRepo
             });
         }
 
-        if ($filter->role_id == 1) {
+        // if ($filter->role_id == 1) {
             $query->with('toko');
-        }
+        // }
 
-        if (! empty($filter->toko_id) && ($filter->role_id != 1)) {
+        // if (! empty($filter->toko_id) && ($filter->role_id != 1)) {
             $query->where('toko_id', $filter->toko_id);
-        }
+        // }
 
         if (! empty($filter->nota)) {
             $query->where('nota', $filter->nota);

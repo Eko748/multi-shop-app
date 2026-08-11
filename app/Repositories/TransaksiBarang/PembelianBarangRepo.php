@@ -5,7 +5,6 @@ namespace App\Repositories\TransaksiBarang;
 use App\Helpers\RupiahGenerate;
 use App\Models\PembelianBarang;
 use App\Models\PembelianBarangDetail;
-use App\Models\PembelianBarangDetailTemp;
 use Illuminate\Support\Carbon;
 
 class PembelianBarangRepo
@@ -21,12 +20,13 @@ class PembelianBarangRepo
     {
         $query = PembelianBarang::query();
 
-        if (!empty($filter->start_date) && !empty($filter->end_date)) {
+        if (! empty($filter->start_date) && ! empty($filter->end_date)) {
             $query->whereBetween('tanggal', [
                 Carbon::parse($filter->start_date)->startOfDay(),
                 Carbon::parse($filter->end_date)->endOfDay(),
             ]);
         }
+        $query->where('toko_id', $filter->toko_id);
 
         $pembelian = $query->get();
 
@@ -45,36 +45,38 @@ class PembelianBarangRepo
         }
 
         return [
-            'qty'     => $totalQty,
-            'nominal' => RupiahGenerate::build($totalNominal)
+            'qty' => $totalQty,
+            'nominal' => RupiahGenerate::build($totalNominal),
         ];
     }
 
     public function getAll($filter)
     {
-        $query = $this->model->newQuery()->where('toko_id', $filter->toko_id);
+        $query = $this->model->newQuery();
 
-        if (!empty($filter->search)) {
+        if (! empty($filter->search)) {
             $query->where(function ($q) use ($filter) {
                 // Search di kolom utama
-                $q->where('nota', 'like', '%' . $filter->search . '%');
+                $q->where('nota', 'like', '%'.$filter->search.'%');
 
                 // Search di relasi detail -> barang -> nama
                 $q->orWhereHas('detail.barang', function ($q2) use ($filter) {
-                    $q2->where('nama', 'like', '%' . $filter->search . '%');
+                    $q2->where('nama', 'like', '%'.$filter->search.'%');
                 });
             });
         }
 
-        if (!empty($filter->nota)) {
+        $query->where('toko_id', $filter->toko_id);
+
+        if (! empty($filter->nota)) {
             $query->where('nota', $filter->nota);
         }
 
-        if (!empty($filter->start_date) && !empty($filter->end_date)) {
+        if (! empty($filter->start_date) && ! empty($filter->end_date)) {
             $query->whereBetween('tanggal', [$filter->start_date, $filter->end_date]);
         }
 
-        return !empty($filter->limit)
+        return ! empty($filter->limit)
             ? $query->orderByDesc('id')->paginate($filter->limit)
             : $query->orderByDesc('id')->get();
     }
@@ -97,7 +99,7 @@ class PembelianBarangRepo
 
         if ($search) {
             $query->where(function ($q) use ($search) {
-                $q->where('nota', 'like', '%' . $search . '%');
+                $q->where('nota', 'like', '%'.$search.'%');
             });
         }
 
@@ -115,6 +117,7 @@ class PembelianBarangRepo
         if ($item) {
             $item->update($data);
         }
+
         return $item;
     }
 
@@ -124,6 +127,7 @@ class PembelianBarangRepo
         if ($item) {
             $item->update($data);
         }
+
         return $item ? $item->delete() : false;
     }
 
@@ -139,17 +143,17 @@ class PembelianBarangRepo
             ->selectRaw('supplier_id, SUM(qty) as total_qty, SUM(total) as total_nominal, COUNT(*) as total_transaksi')
             ->groupBy('supplier_id');
 
-        if (!empty($filter->search)) {
+        if (! empty($filter->search)) {
             $query->whereHas('supplier', function ($q) use ($filter) {
-                $q->where('nama', 'like', '%' . $filter->search . '%');
+                $q->where('nama', 'like', '%'.$filter->search.'%');
             });
         }
 
-        if (!empty($filter->start_date) && !empty($filter->end_date)) {
+        if (! empty($filter->start_date) && ! empty($filter->end_date)) {
             $query->whereBetween('tanggal', [$filter->start_date, $filter->end_date]);
         }
 
-        return !empty($filter->limit)
+        return ! empty($filter->limit)
             ? $query->orderByDesc('supplier_id')->paginate($filter->limit)
             : $query->orderByDesc('supplier_id')->get();
     }

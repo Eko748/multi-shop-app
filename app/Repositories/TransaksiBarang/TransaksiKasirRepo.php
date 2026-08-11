@@ -21,9 +21,9 @@ class TransaksiKasirRepo
     {
         $query = $this->model->newQuery();
 
-        if (! empty($filter->toko_id) && ($filter->role_id != 1)) {
+        // if (! empty($filter->toko_id) && ($filter->role_id != 1)) {
             $query->where('toko_id', $filter->toko_id);
-        }
+        // }
 
         if (! empty($filter->start_date) && ! empty($filter->end_date)) {
             $query->whereBetween('tanggal', [

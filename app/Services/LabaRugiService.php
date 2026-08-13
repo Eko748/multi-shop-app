@@ -362,9 +362,9 @@ class LabaRugiService
             (int) $nilaiReturSuplier,
             (int) $total_hpp,
             $bebanOperasional,
-            (int) abs($bagiHasilTokoUtama),
-            (int) abs($bagiHasilOwner),
-            (int) abs($totalDividenBagiHasil),
+            (int) $bagiHasilTokoUtama, // Menghilangkan abs()
+            (int) $bagiHasilOwner,     // Menghilangkan abs() agar nilai minus tetap dipertahankan
+            (int) $totalDividenBagiHasil, // Menghilangkan abs()
             (int) $total_labarugi,
             (int) $pendapatanNonTransaksi,
             $singkatanToko,

@@ -16,93 +16,113 @@ class OpenAPIController extends Controller
 {
     use ApiResponse; // 2. Gunakan Trait di sini
 
-public function getLaporanKasir(Request $request)
+    public function getLaporanKasir(Request $request)
     {
+        // 1. Parameter menggunakan format snake_case
+        $startDateInput = $request->input('start_date', now()->startOfMonth()->toDateString());
+        $endDateInput = $request->input('end_date', now()->endOfMonth()->toDateString());
+        $period = $request->input('period', 'monthly'); // 'daily', 'monthly', 'yearly'
         $idToko = $request->input('toko_id', 'all');
-        $period = $request->input('period', 'monthly');
-        $month  = $period === 'daily' ? (int) $request->input('month', now()->month) : null;
-        $year   = (int) $request->input('year', now()->year);
+
+        $startDate = Carbon::parse($startDateInput)->startOfDay();
+        $endDate = Carbon::parse($endDateInput)->endOfDay();
 
         try {
-            // 1. Filter Toko (Induk + Child)
-            $namaToko = 'All';
-            $tokoIds  = [];
+            // 2. Ambil Toko (Semua atau Filter Spesifik + Child)
+            $queryToko = Toko::select('id', 'singkatan', 'nama', 'parent_id');
             if ($idToko !== 'all') {
-                $toko     = Toko::find($idToko);
-                $namaToko = $toko ? $toko->nama : 'Unknown';
-                $tokoIds  = Toko::where('id', $idToko)->orWhere('parent_id', $idToko)->pluck('id')->toArray();
+                $queryToko->where(function ($q) use ($idToko) {
+                    $q->where('id', $idToko)->orWhere('parent_id', $idToko);
+                });
             }
+            $tokos = $queryToko->get();
+            $allTokoIds = $tokos->pluck('id')->toArray();
 
-            // 2. Rentang Tanggal
-            $startDate = ($period === 'daily' && $month)
-                ? Carbon::createFromDate($year, $month, 1)->startOfDay()
-                : Carbon::createFromDate($year, 1, 1)->startOfDay();
-            $endDate   = ($period === 'daily' && $month)
-                ? Carbon::createFromDate($year, $month, 1)->endOfMonth()->endOfDay()
-                : Carbon::createFromDate($year, 12, 31)->endOfDay();
-
-            // 3. Query Kas
+            // 3. Query Utama Kas
             $kasData = KasTransaksi::with('kas')
-                ->when($idToko !== 'all' && !empty($tokoIds), fn($q) => $q->whereHas('kas', fn($sub) => $sub->whereIn('toko_id', $tokoIds)))
+                ->whereHas('kas', fn ($sub) => $sub->whereIn('toko_id', $allTokoIds))
                 ->where('tipe', 'in')
                 ->where('kategori', 'Pendapatan Umum')
                 ->whereBetween('created_at', [$startDate, $endDate])
-                ->get();
+                ->get()
+                ->groupBy(fn ($item) => $item->kas->toko_id ?? null);
 
-            // 4. Pengurang (Helper Privat)
-            $pengurang = $this->getKomponenPengurang($startDate, $endDate, 'bulan');
+            // 4. Query Pengurang (Per Toko)
+            $pengurangPerToko = $this->getKomponenPengurang($startDate, $endDate, 'toko');
 
-            // 5. Kalkulasi Laporan
-            $totals = [];
-            if ($period === 'daily') {
-                $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $month, $year);
-                $dailyTotals = array_fill(1, $daysInMonth, 0);
+            $year = $startDate->year;
+            $month = $startDate->month;
 
-                foreach ($kasData as $data) {
-                    $day = (int) Carbon::parse($data->created_at)->format('j');
-                    $dailyTotals[$day] += $data->total_nominal;
-                }
-
-                $netPengurang = ($pengurang['refund'][$month] ?? 0) - ($pengurang['untung'][$month] ?? 0) + ($pengurang['rugi'][$month] ?? 0);
-                foreach (range(1, $daysInMonth) as $day) {
-                    $dailyTotals[$day] -= ($netPengurang / $daysInMonth);
-                }
-                $totals = [$year => [$month => array_map(fn($v) => round($v, 2), array_values($dailyTotals))]];
-
-            } elseif ($period === 'monthly') {
-                $monthlyTotals = array_fill(1, 12, 0);
-
-                foreach ($kasData as $data) {
-                    $bulan = (int) Carbon::parse($data->created_at)->format('n');
-                    $monthlyTotals[$bulan] += $data->total_nominal;
-                }
-
-                foreach (range(1, 12) as $b) {
-                    $netPengurang = ($pengurang['refund'][$b] ?? 0) - ($pengurang['untung'][$b] ?? 0) + ($pengurang['rugi'][$b] ?? 0);
-                    $monthlyTotals[$b] -= $netPengurang;
-                }
-                $totals = [$year => array_map(fn($v) => round($v, 2), array_values($monthlyTotals))];
-
-            } elseif ($period === 'yearly') {
-                $totalNominal = $kasData->sum('total_nominal');
-                $netPengurangTotal = array_sum($pengurang['refund']) - array_sum($pengurang['untung']) + array_sum($pengurang['rugi']);
-                $totals = [$year => round($totalNominal - $netPengurangTotal, 2)];
-            }
-
-            // 6. Hitung Grand Total
+            $storesList = [];
             $grandTotal = 0;
-            if ($period === 'daily') {
-                $grandTotal = array_sum($totals[$year][$month] ?? []);
-            } elseif ($period === 'monthly') {
-                $grandTotal = array_sum($totals[$year] ?? []);
-            } elseif ($period === 'yearly') {
-                $grandTotal = (float) ($totals[$year] ?? 0);
+
+            // 5. Looping Per Toko
+            foreach ($tokos as $toko) {
+                $tokoId = $toko->id;
+                $txToko = $kasData->get($tokoId, collect());
+
+                $refund = $pengurangPerToko['refund'][$tokoId] ?? 0;
+                $keuntungan = $pengurangPerToko['untung'][$tokoId] ?? 0;
+                $kerugian = $pengurangPerToko['rugi'][$tokoId] ?? 0;
+                $netPengurang = $refund - $keuntungan + $kerugian;
+
+                $timeSeriesData = [];
+                $totalToko = 0;
+
+                if ($period === 'daily') {
+                    $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $month, $year);
+                    $dailyTotals = array_fill(1, $daysInMonth, 0);
+
+                    foreach ($txToko as $data) {
+                        $day = (int) Carbon::parse($data->created_at)->format('j');
+                        $dailyTotals[$day] += $data->total_nominal;
+                    }
+
+                    foreach (range(1, $daysInMonth) as $day) {
+                        $dailyTotals[$day] -= ($netPengurang / $daysInMonth);
+                    }
+
+                    $timeSeriesData = array_map(fn ($v) => round($v, 2), array_values($dailyTotals));
+                    $totalToko = array_sum($timeSeriesData);
+
+                } elseif ($period === 'monthly') {
+                    $monthlyTotals = array_fill(1, 12, 0);
+
+                    foreach ($txToko as $data) {
+                        $b = (int) Carbon::parse($data->created_at)->format('n');
+                        $monthlyTotals[$b] += $data->total_nominal;
+                    }
+
+                    $monthlyTotals[$month] -= $netPengurang;
+
+                    $timeSeriesData = array_map(fn ($v) => round($v, 2), array_values($monthlyTotals));
+                    $totalToko = array_sum($timeSeriesData);
+
+                } elseif ($period === 'yearly') {
+                    $nominalKas = $txToko->sum('total_nominal');
+                    $totalToko = round($nominalKas - $netPengurang, 2);
+                    $timeSeriesData = [$year => $totalToko];
+                }
+
+                $storesList[] = [
+                    'toko_id' => $toko->id,
+                    'singkatan' => $toko->singkatan,
+                    'nama_toko' => $toko->nama,
+                    $period => $timeSeriesData,
+                    'total_omset' => round($totalToko, 2),
+                ];
+
+                $grandTotal += $totalToko;
             }
 
             $responseData = [
-                'nama_toko' => $namaToko,
-                $period     => $totals,
-                'totals'    => round($grandTotal, 2),
+                'periode' => [
+                    'start_date' => $startDate->toDateString(),
+                    'end_date' => $endDate->toDateString(),
+                    'period_type' => $period,
+                ],
+                'stores' => $storesList,
+                'grand_total' => round($grandTotal, 2),
             ];
 
             return $this->success($responseData, 200, 'Data laporan kasir berhasil diambil!');
@@ -114,56 +134,55 @@ public function getLaporanKasir(Request $request)
 
     public function getKomparasiToko(Request $request)
     {
-        $startDate = Carbon::parse($request->input('startDate', now()->toDateString()))->startOfDay();
-        $endDate   = Carbon::parse($request->input('endDate', now()->toDateString()))->endOfDay();
+        // Sesuaikan juga ke start_date & end_date
+        $startDate = Carbon::parse($request->input('start_date', now()->toDateString()))->startOfDay();
+        $endDate = Carbon::parse($request->input('end_date', now()->toDateString()))->endOfDay();
 
         try {
-            $tokos   = Toko::select('id', 'singkatan', 'nama')->get();
+            $tokos = Toko::select('id', 'singkatan', 'nama')->get();
             $kasData = KasTransaksi::with('kas')
                 ->where('tipe', 'in')
                 ->where('kategori', 'Pendapatan Umum')
                 ->whereBetween('created_at', [$startDate, $endDate])
                 ->get()
-                ->groupBy(fn($item) => $item->kas->toko_id ?? null);
+                ->groupBy(fn ($item) => $item->kas->toko_id ?? null);
 
             $pengurang = $this->getKomponenPengurang($startDate, $endDate, 'toko');
 
             $storesComparison = [];
-            $totalSemuaToko   = 0;
+            $totalSemuaToko = 0;
 
             foreach ($tokos as $toko) {
-                $tokoId      = $toko->id;
-                $txToko      = $kasData->get($tokoId, collect());
-                $nominalKas  = $txToko->sum('total_nominal');
+                $tokoId = $toko->id;
+                $txToko = $kasData->get($tokoId, collect());
+                $nominalKas = $txToko->sum('total_nominal');
 
-                $refund      = $pengurang['refund'][$tokoId] ?? 0;
-                $keuntungan  = $pengurang['untung'][$tokoId] ?? 0;
-                $kerugian    = $pengurang['rugi'][$tokoId] ?? 0;
+                $refund = $pengurang['refund'][$tokoId] ?? 0;
+                $keuntungan = $pengurang['untung'][$tokoId] ?? 0;
+                $kerugian = $pengurang['rugi'][$tokoId] ?? 0;
 
                 $totalBersih = $nominalKas - ($refund - $keuntungan + $kerugian);
 
                 $storesComparison[] = [
-                    'toko_id'          => $toko->id,
-                    'singkatan'        => $toko->singkatan,
-                    'nama_toko'        => $toko->nama,
+                    'toko_id' => $toko->id,
+                    'singkatan' => $toko->singkatan,
+                    'nama_toko' => $toko->nama,
                     'jumlah_transaksi' => $txToko->count(),
-                    'total_transaksi'  => round($totalBersih, 2),
+                    'total_transaksi' => round($totalBersih, 2),
                 ];
 
                 $totalSemuaToko += $totalBersih;
             }
 
             $responseData = [
-                'periode'     => ['startDate' => $startDate->toDateString(), 'endDate' => $endDate->toDateString()],
-                'stores'      => $storesComparison,
+                'periode' => ['start_date' => $startDate->toDateString(), 'end_date' => $endDate->toDateString()],
+                'stores' => $storesComparison,
                 'grand_total' => round($totalSemuaToko, 2),
             ];
 
-            // Gunakan $this->success() dari Trait
             return $this->success($responseData, 200, 'Data komparasi toko berhasil diambil!');
 
         } catch (\Throwable $th) {
-            // Gunakan $this->error() dari Trait
             return $this->error(500, 'Gagal mengambil data komparasi toko', $th->getMessage());
         }
     }
@@ -171,13 +190,13 @@ public function getLaporanKasir(Request $request)
     public function getOmset(Request $request)
     {
         $startDate = Carbon::parse($request->input('startDate', now()->toDateString()))->startOfDay();
-        $endDate   = Carbon::parse($request->input('endDate', now()->toDateString()))->endOfDay();
-        $idToko    = $request->input('toko_id', 'all');
+        $endDate = Carbon::parse($request->input('endDate', now()->toDateString()))->endOfDay();
+        $idToko = $request->input('toko_id', 'all');
 
         try {
             // 1. Penanganan Filter Toko (Induk + Child)
             $tokoIds = [];
-            if ($idToko !== 'all' && !empty($idToko)) {
+            if ($idToko !== 'all' && ! empty($idToko)) {
                 $tokoIds = Toko::where('id', $idToko)->orWhere('parent_id', $idToko)->pluck('id')->toArray();
             }
 
@@ -188,15 +207,15 @@ public function getLaporanKasir(Request $request)
                     ->whereNull('transaksi_kasir.deleted_at')
                     ->whereBetween('transaksi_kasir.tanggal', [$startDate, $endDate]);
             })
-            ->when(!empty($tokoIds), fn($q) => $q->whereIn('toko.id', $tokoIds))
-            ->selectRaw('SUM(COALESCE(transaksi_kasir.total_nominal, 0) - COALESCE(transaksi_kasir.total_diskon, 0)) as total_nominal');
+                ->when(! empty($tokoIds), fn ($q) => $q->whereIn('toko.id', $tokoIds))
+                ->selectRaw('SUM(COALESCE(transaksi_kasir.total_nominal, 0) - COALESCE(transaksi_kasir.total_diskon, 0)) as total_nominal');
 
             $totalOmsetKasir = (float) ($queryKasir->first()->total_nominal ?? 0);
 
             // 3. Omset Penjualan Non-Fisik (PNF)
             $queryPNF = PenjualanNonFisik::whereBetween('created_at', [$startDate, $endDate])
-                ->when(!empty($tokoIds), function ($q) use ($tokoIds) {
-                    $q->whereHas('createdBy', fn($sub) => $sub->whereIn('toko_id', $tokoIds));
+                ->when(! empty($tokoIds), function ($q) use ($tokoIds) {
+                    $q->whereHas('createdBy', fn ($sub) => $sub->whereIn('toko_id', $tokoIds));
                 })
                 ->selectRaw('SUM(total_harga_jual) as total_pnf');
 
@@ -208,7 +227,7 @@ public function getLaporanKasir(Request $request)
             $refundReturMember = ReturMemberDetail::where('qty_refund', '>', 0)
                 ->whereHas('retur', function ($query) use ($startDate, $endDate, $tokoIds) {
                     $query->whereBetween('tanggal', [$startDate, $endDate])
-                        ->when(!empty($tokoIds), fn($q) => $q->whereIn('toko_id', $tokoIds));
+                        ->when(! empty($tokoIds), fn ($q) => $q->whereIn('toko_id', $tokoIds));
                 })
                 ->sum('total_refund');
 
@@ -217,7 +236,7 @@ public function getLaporanKasir(Request $request)
                 ->whereBetween('created_at', [$startDate, $endDate])
                 ->where('keterangan', 'untung')
                 ->whereHas('returSupplier', function ($q) use ($tokoIds) {
-                    $q->when(!empty($tokoIds), fn($sub) => $sub->whereIn('toko_id', $tokoIds));
+                    $q->when(! empty($tokoIds), fn ($sub) => $sub->whereIn('toko_id', $tokoIds));
                 })
                 ->sum('selisih');
 
@@ -225,21 +244,21 @@ public function getLaporanKasir(Request $request)
                 ->whereBetween('created_at', [$startDate, $endDate])
                 ->where('keterangan', 'rugi')
                 ->whereHas('returSupplier', function ($q) use ($tokoIds) {
-                    $q->when(!empty($tokoIds), fn($sub) => $sub->whereIn('toko_id', $tokoIds));
+                    $q->when(! empty($tokoIds), fn ($sub) => $sub->whereIn('toko_id', $tokoIds));
                 })
                 ->sum('selisih');
 
-            $returTotal  = $refundReturMember - $keuntunganRefundSupplier + $kerugianRefundSupplier;
+            $returTotal = $refundReturMember - $keuntunganRefundSupplier + $kerugianRefundSupplier;
             $totalKasbon = 0; // Siapkan nilai default
 
             $fixOmset = max($totalOmset - $returTotal - $totalKasbon, 0);
 
             $responseData = [
-                'total'       => round($fixOmset, 2),
-                'kasbon'      => (float) $totalKasbon,
+                'total' => round($fixOmset, 2),
+                'kasbon' => (float) $totalKasbon,
                 'biaya_retur' => round((float) $returTotal, 2),
                 'omset_kasir' => round($totalOmsetKasir, 2),
-                'omset_pnf'   => round($totalOmsetPNF, 2),
+                'omset_pnf' => round($totalOmsetPNF, 2),
             ];
 
             return $this->success($responseData, 200, $totalOmset > 0 ? 'Data omset berhasil diambil' : 'Data omset kosong');
@@ -254,7 +273,7 @@ public function getLaporanKasir(Request $request)
      */
     private function getKomponenPengurang($startDate, $endDate, $groupBy = 'bulan')
     {
-        $groupColumn   = $groupBy === 'bulan' ? 'MONTH(retur_member_detail.created_at)' : 'retur_member.toko_id';
+        $groupColumn = $groupBy === 'bulan' ? 'MONTH(retur_member_detail.created_at)' : 'retur_member.toko_id';
         $supplierGroup = $groupBy === 'bulan' ? 'MONTH(retur_supplier_detail.created_at)' : 'retur_supplier.toko_id';
 
         $refund = ReturMemberDetail::join('retur_member', 'retur_member_detail.retur_id', '=', 'retur_member.id')

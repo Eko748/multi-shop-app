@@ -16,7 +16,7 @@ class OpenAPIController extends Controller
 {
     use ApiResponse; // 2. Gunakan Trait di sini
 
-    public function getLaporanKasir(Request $request)
+public function getLaporanKasir(Request $request)
     {
         $idToko = $request->input('toko_id', 'all');
         $period = $request->input('period', 'monthly');
@@ -56,50 +56,58 @@ class OpenAPIController extends Controller
             $totals = [];
             if ($period === 'daily') {
                 $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $month, $year);
-                $totals = array_fill(1, $daysInMonth, 0);
+                $dailyTotals = array_fill(1, $daysInMonth, 0);
 
                 foreach ($kasData as $data) {
                     $day = (int) Carbon::parse($data->created_at)->format('j');
-                    $totals[$day] += $data->total_nominal;
+                    $dailyTotals[$day] += $data->total_nominal;
                 }
 
                 $netPengurang = ($pengurang['refund'][$month] ?? 0) - ($pengurang['untung'][$month] ?? 0) + ($pengurang['rugi'][$month] ?? 0);
                 foreach (range(1, $daysInMonth) as $day) {
-                    $totals[$day] -= ($netPengurang / $daysInMonth);
+                    $dailyTotals[$day] -= ($netPengurang / $daysInMonth);
                 }
-                $totals = [$year => [$month => array_values($totals)]];
+                $totals = [$year => [$month => array_map(fn($v) => round($v, 2), array_values($dailyTotals))]];
 
             } elseif ($period === 'monthly') {
-                $totals = array_fill(1, 12, 0);
+                $monthlyTotals = array_fill(1, 12, 0);
 
                 foreach ($kasData as $data) {
                     $bulan = (int) Carbon::parse($data->created_at)->format('n');
-                    $totals[$bulan] += $data->total_nominal;
+                    $monthlyTotals[$bulan] += $data->total_nominal;
                 }
 
                 foreach (range(1, 12) as $b) {
                     $netPengurang = ($pengurang['refund'][$b] ?? 0) - ($pengurang['untung'][$b] ?? 0) + ($pengurang['rugi'][$b] ?? 0);
-                    $totals[$b] -= $netPengurang;
+                    $monthlyTotals[$b] -= $netPengurang;
                 }
-                $totals = [$year => array_values($totals)];
+                $totals = [$year => array_map(fn($v) => round($v, 2), array_values($monthlyTotals))];
 
             } elseif ($period === 'yearly') {
                 $totalNominal = $kasData->sum('total_nominal');
                 $netPengurangTotal = array_sum($pengurang['refund']) - array_sum($pengurang['untung']) + array_sum($pengurang['rugi']);
-                $totals = [$year => $totalNominal - $netPengurangTotal];
+                $totals = [$year => round($totalNominal - $netPengurangTotal, 2)];
+            }
+
+            // 6. Hitung Grand Total
+            $grandTotal = 0;
+            if ($period === 'daily') {
+                $grandTotal = array_sum($totals[$year][$month] ?? []);
+            } elseif ($period === 'monthly') {
+                $grandTotal = array_sum($totals[$year] ?? []);
+            } elseif ($period === 'yearly') {
+                $grandTotal = (float) ($totals[$year] ?? 0);
             }
 
             $responseData = [
                 'nama_toko' => $namaToko,
                 $period     => $totals,
-                'totals'    => is_array(reset($totals)) ? array_sum(array_merge(...array_values(reset($totals)))) : array_sum($totals),
+                'totals'    => round($grandTotal, 2),
             ];
 
-            // 3. Gunakan $this->success() dari Trait
             return $this->success($responseData, 200, 'Data laporan kasir berhasil diambil!');
 
         } catch (\Throwable $e) {
-            // 4. Gunakan $this->error() dari Trait
             return $this->error(500, 'Gagal mengambil data laporan kasir', $e->getMessage());
         }
     }

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\RedirectIfAuthenticated;
+use App\Http\Middleware\VerifyApiKey; // 1. Import Middleware baru kamu di sini
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -15,7 +16,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
-            'tamu' => RedirectIfAuthenticated::class
+            'tamu' => RedirectIfAuthenticated::class,
+            'verify.apikey' => VerifyApiKey::class, // 2. Daftarkan di sini!
         ]);
 
         $middleware->statefulApi();

@@ -328,7 +328,14 @@ class LabaRugiService
         // 4.2 Bagi Hasil Owner / Mitra (Dari Pengeluaran Tipe ID 12)
         $bagiHasilOwner = isset($pengeluaran[12]) ? (int) $pengeluaran[12]->total : 0;
 
-        // Total Dividen Bagi Hasil
+        // PENYESUAIAN STOK HILANG:
+        // Menambah Bagi Hasil Pusat dan mengurangi Bagi Hasil Mitra
+        if ($stockHilang > 0) {
+            $bagiHasilTokoUtama += (int) $stockHilang;
+            $bagiHasilOwner -= (int) $stockHilang;
+        }
+
+        // Total Dividen Bagi Hasil (Tetap sama secara akumulasi)
         $totalDividenBagiHasil = $bagiHasilTokoUtama + $bagiHasilOwner;
 
         // ============================

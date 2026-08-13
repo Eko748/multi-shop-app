@@ -4,9 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Helpers\TextGenerate;
 use App\Http\Controllers\Controller;
-use App\Models\KasTransaksi;
 use App\Models\Member;
-use App\Models\PenjualanNonFisik;
+use App\Models\PenjualanNonFisikDetail;
 use App\Models\ReturMemberDetail;
 use App\Models\ReturSupplierDetail;
 use App\Models\Toko;
@@ -27,15 +26,15 @@ class OpenAPIController extends Controller
     public function getLaporanToko(Request $request)
     {
         $startDateInput = $request->input('start_date', now()->startOfMonth()->toDateString());
-        $endDateInput   = $request->input('end_date', now()->endOfMonth()->toDateString());
-        $period         = $request->input('period', 'monthly'); // 'daily', 'monthly', 'yearly'
-        $idToko         = $request->input('toko_id', 'all');
+        $endDateInput = $request->input('end_date', now()->endOfMonth()->toDateString());
+        $period = $request->input('period', 'monthly'); // 'daily', 'monthly', 'yearly'
+        $idToko = $request->input('toko_id', 'all');
 
         $startDate = Carbon::parse($startDateInput)->startOfDay();
-        $endDate   = Carbon::parse($endDateInput)->endOfDay();
+        $endDate = Carbon::parse($endDateInput)->endOfDay();
 
         try {
-            // --- A. FILTER TOKO (INDUK + CHILD) ---
+            // --- 1. FILTER TOKO (INDUK + CHILD) ---
             $queryToko = Toko::select('id', 'singkatan', 'nama', 'parent_id');
             if ($idToko !== 'all') {
                 $queryToko->where(function ($q) use ($idToko) {
@@ -45,87 +44,123 @@ class OpenAPIController extends Controller
             $tokos = $queryToko->get();
             $allTokoIds = $tokos->pluck('id')->toArray();
 
-            // Ambil daftar ID Toko yang bertindak sebagai Parent
             $parentIdsList = Toko::whereIn('id', $allTokoIds)
                 ->whereHas('children')
                 ->pluck('id')
                 ->toArray();
 
-            // --- B. QUERY OMSET KASIR (KasTransaksi Pendapatan Umum) ---
-            $kasData = KasTransaksi::with('kas')
-                ->whereHas('kas', fn ($sub) => $sub->whereIn('toko_id', $allTokoIds))
-                ->where('tipe', 'in')
-                ->where('kategori', 'Pendapatan Umum')
-                ->whereBetween('created_at', [$startDate, $endDate])
+            // --- 2. QUERY PENJUALAN KASIR & HPP (TransaksiKasirDetail + StockBatch) ---
+            $kasirData = TransaksiKasirDetail::join('transaksi_kasir', 'transaksi_kasir.id', '=', 'transaksi_kasir_detail.transaksi_kasir_id')
+                ->join('stock_barang_batch', 'stock_barang_batch.id', '=', 'transaksi_kasir_detail.stock_barang_batch_id')
+                ->whereIn('transaksi_kasir.toko_id', $allTokoIds)
+                ->where('transaksi_kasir.total_qty', '>', 0)
+                ->whereNull('transaksi_kasir.deleted_at')
+                ->whereBetween('transaksi_kasir.tanggal', [$startDate, $endDate])
+                ->selectRaw('
+                    transaksi_kasir.toko_id,
+                    transaksi_kasir_detail.created_at,
+                    SUM(transaksi_kasir_detail.subtotal) as total_penjualan,
+                    SUM(stock_barang_batch.harga_beli * transaksi_kasir_detail.qty) as total_hpp,
+                    COUNT(DISTINCT transaksi_kasir.id) as total_tx
+                ')
+                ->groupBy('transaksi_kasir.toko_id', 'transaksi_kasir_detail.created_at')
                 ->get()
-                ->groupBy(fn ($item) => $item->kas->toko_id ?? null);
+                ->groupBy('toko_id');
 
-            // --- C. QUERY OMSET PENJUALAN NON-FISIK (PNF) ---
-            $pnfData = PenjualanNonFisik::whereBetween('created_at', [$startDate, $endDate])
-                ->whereHas('createdBy', fn ($sub) => $sub->whereIn('toko_id', $allTokoIds))
-                ->selectRaw('created_by, total_harga_jual, created_at')
-                ->with('createdBy:id,toko_id')
+            // --- 3. QUERY PENJUALAN NON-FISIK (PNF) & HPP ---
+            $pnfData = PenjualanNonFisikDetail::whereHas('penjualanNonfisik', function ($q) use ($startDate, $endDate, $allTokoIds) {
+                $q->whereBetween('created_at', [$startDate, $endDate])
+                    ->whereHas('createdBy', fn ($q3) => $q3->whereIn('toko_id', $allTokoIds));
+            })
+                ->selectRaw('
+                    penjualan_non_fisik_detail.created_at,
+                    users.toko_id,
+                    SUM(penjualan_non_fisik_detail.harga_jual * penjualan_non_fisik_detail.qty) as total_penjualan,
+                    SUM(penjualan_non_fisik_detail.hpp * penjualan_non_fisik_detail.qty) as total_hpp
+                ')
+                ->join('penjualan_non_fisik', 'penjualan_non_fisik.id', '=', 'penjualan_non_fisik_detail.penjualan_non_fisik_id')
+                ->join('users', 'users.id', '=', 'penjualan_non_fisik.created_by')
+                ->groupBy('users.toko_id', 'penjualan_non_fisik_detail.created_at')
                 ->get()
-                ->groupBy(fn ($item) => $item->createdBy->toko_id ?? null);
+                ->groupBy('toko_id');
 
-            // --- D. QUERY RETUR MEMBER & SUPPLIER PER TOKO ---
+            // --- 4. QUERY RETUR & LABA RETUR MEMBER ---
             $pengurangPerToko = $this->getKomponenPengurang($startDate, $endDate, 'toko');
 
-            $year  = $startDate->year;
+            // Query Khusus Laba Retur Member: SUM(total_refund - total_hpp)
+            $labaReturMemberPerToko = ReturMemberDetail::join('retur_member', 'retur_member_detail.retur_id', '=', 'retur_member.id')
+                ->where('retur_member_detail.qty_refund', '>', 0)
+                ->whereBetween('retur_member.tanggal', [$startDate, $endDate])
+                ->whereIn('retur_member.toko_id', $allTokoIds)
+                ->selectRaw('retur_member.toko_id, SUM(retur_member_detail.total_refund - retur_member_detail.total_hpp) as laba')
+                ->groupBy('retur_member.toko_id')
+                ->pluck('laba', 'toko_id');
+
+            $year = $startDate->year;
             $month = $startDate->month;
 
             $storesList = [];
             $summary = [
-                'grand_total'       => 0,
+                'grand_total' => 0,
+                'total_laba_kotor' => 0,
+                'total_hpp' => 0,
                 'total_omset_kasir' => 0,
-                'total_omset_pnf'   => 0,
+                'total_omset_pnf' => 0,
                 'total_biaya_retur' => 0,
-                'total_kasbon'      => 0,
-                'total_transaksi'   => 0,
+                'total_kasbon' => 0,
+                'total_transaksi' => 0,
             ];
 
-            // --- E. KALKULASI UTAMA PER TOKO ---
+            // --- 5. KALKULASI UTAMA PER TOKO ---
             foreach ($tokos as $toko) {
-                $tokoId   = $toko->id;
+                $tokoId = $toko->id;
                 $isParent = is_null($toko->parent_id) || in_array($tokoId, $parentIdsList);
 
-                // 1. Transaksi Kasir
-                $txKasirToko    = $kasData->get($tokoId, collect());
-                $omsetKasirToko = (float) $txKasirToko->sum('total_nominal');
-                $jumlahTxKasir  = $txKasirToko->count();
+                // A. Data Kasir
+                $txKasirToko = $kasirData->get($tokoId, collect());
+                $omsetKasirToko = (float) $txKasirToko->sum('total_penjualan');
+                $hppKasirToko = (float) $txKasirToko->sum('total_hpp');
+                $jumlahTxKasir = (int) $txKasirToko->sum('total_tx');
 
-                // 2. Transaksi PNF
-                $txPnfToko    = $pnfData->get($tokoId, collect());
-                $omsetPnfToko = (float) $txPnfToko->sum('total_harga_jual');
+                // B. Data PNF
+                $txPnfToko = $pnfData->get($tokoId, collect());
+                $omsetPnfToko = (float) $txPnfToko->sum('total_penjualan');
+                $hppPnfToko = (float) $txPnfToko->sum('total_hpp');
 
-                // 3. Retur & Kasbon
-                $refund     = $pengurangPerToko['refund'][$tokoId] ?? 0;
-                $keuntungan = $pengurangPerToko['untung'][$tokoId] ?? 0;
-                $kerugian   = $pengurangPerToko['rugi'][$tokoId] ?? 0;
-                $biayaRetur = $refund - $keuntungan + $kerugian;
-                $kasbon     = 0; // Kasbon default
+                // C. Retur & Kasbon
+                $refundMember = $pengurangPerToko['refund'][$tokoId] ?? 0;
+                $keuntunganSupplier = $pengurangPerToko['untung'][$tokoId] ?? 0;
+                $kerugianSupplier = $pengurangPerToko['rugi'][$tokoId] ?? 0;
+                $biayaRetur = $refundMember - $keuntunganSupplier + $kerugianSupplier;
+                $kasbon = 0;
 
-                // 4. Total Omset Bersih (Logika dari getOmset)
-                $totalOmsetGross  = $omsetKasirToko + $omsetPnfToko;
-                $totalOmsetBersih = max($totalOmsetGross - $biayaRetur - $kasbon, 0);
+                // D. Laba Retur Member khusus untuk pengurangan laba kotor
+                $labaReturMember = (float) ($labaReturMemberPerToko[$tokoId] ?? 0);
+                $returLabaTotal = $labaReturMember - $keuntunganSupplier + $kerugianSupplier;
 
-                // 5. Time Series untuk Grafik
+                // E. Perhitungan Total Penjualan, HPP, Omset Bersih, & Laba Kotor
+                $totalPenjualan = $omsetKasirToko + $omsetPnfToko;
+                $totalHpp = $hppKasirToko + $hppPnfToko;
+                $totalOmsetBersih = max($totalPenjualan - $biayaRetur - $kasbon, 0);
+
+                // Formula Laba Kotor (sesuai logic getLabaKotor)
+                $labaKotor = max($totalPenjualan - $totalHpp - $returLabaTotal, 0);
+
+                // F. Deret Waktu untuk Grafik
                 $timeSeriesData = [];
-
                 if ($period === 'daily') {
                     $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $month, $year);
                     $dailyTotals = array_fill(1, $daysInMonth, 0);
 
                     foreach ($txKasirToko as $data) {
                         $day = (int) Carbon::parse($data->created_at)->format('j');
-                        $dailyTotals[$day] += $data->total_nominal;
+                        $dailyTotals[$day] += $data->total_penjualan;
                     }
                     foreach ($txPnfToko as $data) {
                         $day = (int) Carbon::parse($data->created_at)->format('j');
-                        $dailyTotals[$day] += $data->total_harga_jual;
+                        $dailyTotals[$day] += $data->total_penjualan;
                     }
 
-                    // Pengurangan Retur Proporsional Harian
                     foreach (range(1, $daysInMonth) as $day) {
                         $dailyTotals[$day] -= (($biayaRetur + $kasbon) / $daysInMonth);
                         $dailyTotals[$day] = max($dailyTotals[$day], 0);
@@ -138,11 +173,11 @@ class OpenAPIController extends Controller
 
                     foreach ($txKasirToko as $data) {
                         $b = (int) Carbon::parse($data->created_at)->format('n');
-                        $monthlyTotals[$b] += $data->total_nominal;
+                        $monthlyTotals[$b] += $data->total_penjualan;
                     }
                     foreach ($txPnfToko as $data) {
                         $b = (int) Carbon::parse($data->created_at)->format('n');
-                        $monthlyTotals[$b] += $data->total_harga_jual;
+                        $monthlyTotals[$b] += $data->total_penjualan;
                     }
 
                     $monthlyTotals[$month] -= ($biayaRetur + $kasbon);
@@ -154,47 +189,50 @@ class OpenAPIController extends Controller
                     $timeSeriesData = [$year => round($totalOmsetBersih, 2)];
                 }
 
-                // Susun Array Toko
                 $storesList[] = [
-                    'toko_id'          => $toko->id,
-                    'singkatan'        => $toko->singkatan,
-                    'nama_toko'        => $toko->nama,
-                    'is_parent'        => $isParent,
-                    'parent_id'        => $toko->parent_id,
+                    'toko_id' => $toko->id,
+                    'singkatan' => $toko->singkatan,
+                    'nama_toko' => $toko->nama,
+                    'is_parent' => $isParent,
+                    'parent_id' => $toko->parent_id,
                     'jumlah_transaksi' => $jumlahTxKasir,
-                    'ringkasan_omset'  => [
+                    'ringkasan_omset' => [
                         'total_omset_bersih' => round($totalOmsetBersih, 2),
-                        'omset_kasir'        => round($omsetKasirToko, 2),
-                        'omset_pnf'          => round($omsetPnfToko, 2),
-                        'biaya_retur'        => round($biayaRetur, 2),
-                        'kasbon'             => round($kasbon, 2),
+                        'laba_kotor' => round($labaKotor, 2),       // ✅ Laba Kotor
+                        'total_hpp' => round($totalHpp, 2),        // ✅ HPP
+                        'omset_kasir' => round($omsetKasirToko, 2),
+                        'omset_pnf' => round($omsetPnfToko, 2),
+                        'biaya_retur' => round($biayaRetur, 2),
+                        'kasbon' => round($kasbon, 2),
                     ],
-                    $period            => $timeSeriesData,
-                    'total_omset'      => round($totalOmsetBersih, 2),
+                    $period => $timeSeriesData,
+                    'total_omset' => round($totalOmsetBersih, 2),
                 ];
 
-                // Akumulasi ke Ringkasan Dashboard
-                $summary['grand_total']       += $totalOmsetBersih;
+                // Akumulasi Summary
+                $summary['grand_total'] += $totalOmsetBersih;
+                $summary['total_laba_kotor'] += $labaKotor;
+                $summary['total_hpp'] += $totalHpp;
                 $summary['total_omset_kasir'] += $omsetKasirToko;
-                $summary['total_omset_pnf']   += $omsetPnfToko;
+                $summary['total_omset_pnf'] += $omsetPnfToko;
                 $summary['total_biaya_retur'] += $biayaRetur;
-                $summary['total_kasbon']      += $kasbon;
-                $summary['total_transaksi']   += $jumlahTxKasir;
+                $summary['total_kasbon'] += $kasbon;
+                $summary['total_transaksi'] += $jumlahTxKasir;
             }
 
-            // Pembulatan Desimal Ringkasan
+            // Pembulatan Desimal Summary
             foreach ($summary as $key => $val) {
                 $summary[$key] = round($val, 2);
             }
 
             $responseData = [
                 'periode' => [
-                    'start_date'  => $startDate->toDateString(),
-                    'end_date'    => $endDate->toDateString(),
+                    'start_date' => $startDate->toDateString(),
+                    'end_date' => $endDate->toDateString(),
                     'period_type' => $period,
                 ],
                 'summary' => $summary,
-                'stores'  => $storesList,
+                'stores' => $storesList,
             ];
 
             return $this->success($responseData, 200, 'Data laporan toko berhasil diambil!');
@@ -209,17 +247,17 @@ class OpenAPIController extends Controller
      */
     public function getTopMemberBarang(Request $request)
     {
-        $idToko         = $request->input('toko_id', 'all');
+        $idToko = $request->input('toko_id', 'all');
         $startDateInput = $request->input('start_date', now()->startOfMonth()->toDateString());
-        $endDateInput   = $request->input('end_date', now()->endOfMonth()->toDateString());
-        $period         = $request->input('period', 'monthly');
+        $endDateInput = $request->input('end_date', now()->endOfMonth()->toDateString());
+        $period = $request->input('period', 'monthly');
 
         $startDate = Carbon::parse($startDateInput)->startOfDay();
-        $endDate   = Carbon::parse($endDateInput)->endOfDay();
+        $endDate = Carbon::parse($endDateInput)->endOfDay();
 
         try {
             $tokoIds = [];
-            if ($idToko !== 'all' && !empty($idToko)) {
+            if ($idToko !== 'all' && ! empty($idToko)) {
                 $tokoIds = Toko::where('id', $idToko)->orWhere('parent_id', $idToko)->pluck('id')->toArray();
             }
 
@@ -231,7 +269,7 @@ class OpenAPIController extends Controller
             )
                 ->join('retur_member', 'retur_member_detail.retur_id', '=', 'retur_member.id')
                 ->whereBetween(DB::raw('DATE(retur_member.tanggal)'), [$startDate->toDateString(), $endDate->toDateString()])
-                ->when(!empty($tokoIds), fn ($q) => $q->whereIn('retur_member.toko_id', $tokoIds))
+                ->when(! empty($tokoIds), fn ($q) => $q->whereIn('retur_member.toko_id', $tokoIds))
                 ->groupBy('retur_member_detail.barang_id');
 
             $topBarang = TransaksiKasirDetail::select(
@@ -248,14 +286,14 @@ class OpenAPIController extends Controller
                 ->where('transaksi_kasir.total_qty', '>', 0)
                 ->whereNull('transaksi_kasir.deleted_at')
                 ->whereBetween(DB::raw('DATE(transaksi_kasir.tanggal)'), [$startDate->toDateString(), $endDate->toDateString()])
-                ->when(!empty($tokoIds), fn ($q) => $q->whereIn('transaksi_kasir.toko_id', $tokoIds))
+                ->when(! empty($tokoIds), fn ($q) => $q->whereIn('transaksi_kasir.toko_id', $tokoIds))
                 ->groupBy('stock_barang.barang_id', 'barang.nama', 'retur_sub.total_qty_refund', 'retur_sub.total_nominal_refund')
                 ->orderByDesc('net_terjual')
                 ->limit(10)
                 ->get()
                 ->map(fn ($item) => [
                     'nama_barang' => class_exists('TextGenerate') ? TextGenerate::smartTail($item->nama) : $item->nama,
-                    'jumlah'      => (int) $item->net_terjual,
+                    'jumlah' => (int) $item->net_terjual,
                     'total_retur' => (int) $item->total_retur,
                     'total_nilai' => round((float) $item->net_nilai, 2),
                 ]);
@@ -267,7 +305,7 @@ class OpenAPIController extends Controller
             )
                 ->join('retur_member', 'retur_member_detail.retur_id', '=', 'retur_member.id')
                 ->whereBetween(DB::raw('DATE(retur_member.tanggal)'), [$startDate->toDateString(), $endDate->toDateString()])
-                ->when(!empty($tokoIds), fn ($sub) => $sub->whereIn('retur_member.toko_id', $tokoIds))
+                ->when(! empty($tokoIds), fn ($sub) => $sub->whereIn('retur_member.toko_id', $tokoIds))
                 ->groupBy('retur_member_detail.transaksi_kasir_detail_id');
 
             $topMember = Member::select(
@@ -286,27 +324,27 @@ class OpenAPIController extends Controller
                 ->where('transaksi_kasir.total_qty', '>', 0)
                 ->whereNull('transaksi_kasir.deleted_at')
                 ->whereBetween(DB::raw('DATE(transaksi_kasir.tanggal)'), [$startDate->toDateString(), $endDate->toDateString()])
-                ->when(!empty($tokoIds), fn ($q) => $q->whereIn('transaksi_kasir.toko_id', $tokoIds))
+                ->when(! empty($tokoIds), fn ($q) => $q->whereIn('transaksi_kasir.toko_id', $tokoIds))
                 ->groupBy('transaksi_kasir.toko_id', 'toko.nama', 'member.id', 'nama_member')
                 ->orderByDesc('total_pembayaran_setelah_retur')
                 ->limit(10)
                 ->get()
                 ->map(fn ($item) => [
-                    'nama_member'                    => $item->nama_member,
-                    'toko_id'                        => $item->toko_id,
-                    'nama_toko'                      => $item->nama_toko,
-                    'total_barang_dibeli'            => (int) $item->total_barang_dibeli,
-                    'total_pembayaran'               => round((float) $item->total_pembayaran, 2),
+                    'nama_member' => $item->nama_member,
+                    'toko_id' => $item->toko_id,
+                    'nama_toko' => $item->nama_toko,
+                    'total_barang_dibeli' => (int) $item->total_barang_dibeli,
+                    'total_pembayaran' => round((float) $item->total_pembayaran, 2),
                     'total_pembayaran_setelah_retur' => round((float) $item->total_pembayaran_setelah_retur, 2),
                 ]);
 
             $responseData = [
                 'periode' => [
-                    'start_date'  => $startDate->toDateString(),
-                    'end_date'    => $endDate->toDateString(),
+                    'start_date' => $startDate->toDateString(),
+                    'end_date' => $endDate->toDateString(),
                     'period_type' => $period,
                 ],
-                'toko_id'    => $idToko,
+                'toko_id' => $idToko,
                 'top_barang' => $topBarang,
                 'top_member' => $topMember,
             ];
@@ -323,7 +361,7 @@ class OpenAPIController extends Controller
      */
     private function getKomponenPengurang($startDate, $endDate, $groupBy = 'toko')
     {
-        $groupColumn   = $groupBy === 'bulan' ? 'MONTH(retur_member_detail.created_at)' : 'retur_member.toko_id';
+        $groupColumn = $groupBy === 'bulan' ? 'MONTH(retur_member_detail.created_at)' : 'retur_member.toko_id';
         $supplierGroup = $groupBy === 'bulan' ? 'MONTH(retur_supplier_detail.created_at)' : 'retur_supplier.toko_id';
 
         $refund = ReturMemberDetail::join('retur_member', 'retur_member_detail.retur_id', '=', 'retur_member.id')

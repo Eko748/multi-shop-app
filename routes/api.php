@@ -48,6 +48,7 @@ use App\Http\Controllers\TransaksiDigital\ItemNonFisikTipeController;
 use App\Http\Controllers\TransaksiDigital\PenjualanNonFisikController;
 use App\Http\Controllers\Utils\KasController;
 use App\Http\Controllers\Utils\MasterController;
+use App\Http\Controllers\Api\OpenAPIController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -399,3 +400,9 @@ Route::prefix('rekapitulasi')->as('rekapitulasi.')->group(function () {
     Route::get('laporan-pembelian-barang', [LaporanPembelianBarangController::class, 'get'])->name('laporanPembelian');
     Route::get('laporan-pengiriman-barang', [LaporanPengirimanBarangController::class, 'get'])->name('laporanPengiriman');
 });
+
+Route::middleware('verify.apikey')->prefix('v1')->group(function () {
+    });
+    Route::get('/laporan-kasir', [OpenAPIController::class, 'getLaporanKasir']);
+    Route::get('/komparasi-toko', [OpenAPIController::class, 'getKomparasiToko']);
+    Route::get('/omset', [OpenAPIController::class, 'getOmset']);

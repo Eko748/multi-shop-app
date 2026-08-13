@@ -16,7 +16,7 @@ class OpenAPIController extends Controller
 {
     use ApiResponse; // 2. Gunakan Trait di sini
 
-    public function laporan_kasir(Request $request)
+    public function getLaporanKasir(Request $request)
     {
         $idToko = $request->input('toko_id', 'all');
         $period = $request->input('period', 'monthly');

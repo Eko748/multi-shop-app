@@ -203,14 +203,16 @@
                 getDataTable += `<tr class="font-weight-bold"><td colspan="3">${kategori}</td></tr>`;
 
                 items.forEach(([nama, nilai], index) => {
-                    let classBadge = parseFloat(nilai) < 0 ? 'text-danger' : '';
+                    let isNegative = typeof nilai === 'string' ? nilai.includes('-') : parseFloat(
+                        nilai) < 0;
+                    let classBadge = isNegative ? 'text-danger' : '';
                     let isLastItem = index === items.length - 1 ? 'font-weight-bold' : '';
 
                     getDataTable += `
                     <tr class="${isLastItem}">
                         <td class="space-blank"></td>
                         <td>${nama}</td>
-                        <td class="text-right ${classBadge}">${nilai.toLocaleString()}</td>
+                        <td class="text-right ${classBadge}">${nilai}</td>
                     </tr>`;
                 });
             });
@@ -218,13 +220,14 @@
             getDataTable += `<tr><td colspan="3" class="py-2"></td></tr>`;
 
             dataTotalList.forEach(([nama, nilai]) => {
-                let classBadge = parseFloat(nilai) < 0 ? 'text-danger' : '';
+                let isNegative = typeof nilai === 'string' ? nilai.includes('-') : parseFloat(nilai) < 0;
+                let classBadge = isNegative ? 'text-danger' : '';
 
                 getDataTable += `
                 <tr class="font-weight-bold">
                     <td></td>
                     <td>${nama}</td>
-                    <td class="text-right ${classBadge}">${nilai.toLocaleString()}</td>
+                    <td class="text-right ${classBadge}">${nilai}</td>
                 </tr>`;
             });
 
@@ -306,9 +309,11 @@
         }
 
         async function initPageLoad() {
-            await setInputFilter();
-            await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter);
-            await filterList();
+            await Promise.all([
+                setInputFilter(),
+                getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter),
+                filterList(),
+            ]);
         }
     </script>
 @endsection

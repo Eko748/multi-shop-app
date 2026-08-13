@@ -2,21 +2,144 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Helpers\TextGenerate;
 use App\Http\Controllers\Controller;
 use App\Models\KasTransaksi;
+use App\Models\Member;
 use App\Models\PenjualanNonFisik;
 use App\Models\ReturMemberDetail;
 use App\Models\ReturSupplierDetail;
 use App\Models\Toko;
+use App\Models\TransaksiKasirDetail;
 use App\Traits\ApiResponse; // 1. Import Trait
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class OpenAPIController extends Controller
 {
     use ApiResponse; // 2. Gunakan Trait di sini
 
-    public function getLaporanKasir(Request $request)
+    public function getTopMemberBarang(Request $request)
+    {
+        $idToko = $request->input('toko_id', 'all');
+        $startDateInput = $request->input('start_date', now()->startOfMonth()->toDateString());
+        $endDateInput = $request->input('end_date', now()->endOfMonth()->toDateString());
+        $period = $request->input('period', 'monthly'); // 'daily', 'monthly', 'yearly', 'custom'
+
+        $startDate = Carbon::parse($startDateInput)->startOfDay();
+        $endDate = Carbon::parse($endDateInput)->endOfDay();
+
+        try {
+            // 1. Ambil Toko Spesifik & Child-nya
+            $tokoIds = [];
+            if ($idToko !== 'all' && ! empty($idToko)) {
+                $tokoIds = Toko::where('id', $idToko)->orWhere('parent_id', $idToko)->pluck('id')->toArray();
+            }
+
+            // ==========================================
+            // 2. QUERY TOP 10 BARANG TERJUAL
+            // ==========================================
+            $subqueryReturBarang = ReturMemberDetail::select(
+                'retur_member_detail.barang_id',
+                DB::raw('SUM(retur_member_detail.qty_refund) as total_qty_refund'),
+                DB::raw('SUM(retur_member_detail.total_refund) as total_nominal_refund')
+            )
+                ->join('retur_member', 'retur_member_detail.retur_id', '=', 'retur_member.id')
+                ->whereBetween(DB::raw('DATE(retur_member.tanggal)'), [$startDate->toDateString(), $endDate->toDateString()])
+                ->when(! empty($tokoIds), fn ($q) => $q->whereIn('retur_member.toko_id', $tokoIds))
+                ->groupBy('retur_member_detail.barang_id');
+
+            $topBarang = TransaksiKasirDetail::select(
+                'barang.nama',
+                DB::raw('SUM(transaksi_kasir_detail.qty) - COALESCE(retur_sub.total_qty_refund, 0) as net_terjual'),
+                DB::raw('COALESCE(retur_sub.total_qty_refund, 0) as total_retur'),
+                DB::raw('SUM((transaksi_kasir_detail.qty * transaksi_kasir_detail.nominal) - COALESCE(transaksi_kasir_detail.diskon, 0)) - COALESCE(retur_sub.total_nominal_refund, 0) as net_nilai')
+            )
+                ->join('stock_barang_batch', 'transaksi_kasir_detail.stock_barang_batch_id', '=', 'stock_barang_batch.id')
+                ->join('stock_barang', 'stock_barang_batch.stock_barang_id', '=', 'stock_barang.id')
+                ->join('barang', 'stock_barang.barang_id', '=', 'barang.id')
+                ->join('transaksi_kasir', 'transaksi_kasir_detail.transaksi_kasir_id', '=', 'transaksi_kasir.id')
+                ->leftJoinSub($subqueryReturBarang, 'retur_sub', fn ($join) => $join->on('stock_barang.barang_id', '=', 'retur_sub.barang_id'))
+                ->where('transaksi_kasir.total_qty', '>', 0)
+                ->whereNull('transaksi_kasir.deleted_at')
+                ->whereBetween(DB::raw('DATE(transaksi_kasir.tanggal)'), [$startDate->toDateString(), $endDate->toDateString()])
+                ->when(! empty($tokoIds), fn ($q) => $q->whereIn('transaksi_kasir.toko_id', $tokoIds))
+                ->groupBy('stock_barang.barang_id', 'barang.nama', 'retur_sub.total_qty_refund', 'retur_sub.total_nominal_refund')
+                ->orderByDesc('net_terjual')
+                ->limit(10)
+                ->get()
+                ->map(fn ($item) => [
+                    'nama_barang' => class_exists('TextGenerate') ? TextGenerate::smartTail($item->nama) : $item->nama,
+                    'jumlah' => (int) $item->net_terjual,
+                    'total_retur' => (int) $item->total_retur,
+                    'total_nilai' => round((float) $item->net_nilai, 2),
+                ]);
+
+            // ==========================================
+            // 3. QUERY TOP 10 MEMBER
+            // ==========================================
+            $subqueryReturMember = ReturMemberDetail::select(
+                'retur_member_detail.transaksi_kasir_detail_id',
+                DB::raw('SUM(retur_member_detail.qty_refund) as total_qty_refund')
+            )
+                ->join('retur_member', 'retur_member_detail.retur_id', '=', 'retur_member.id')
+                ->whereBetween(DB::raw('DATE(retur_member.tanggal)'), [$startDate->toDateString(), $endDate->toDateString()])
+                ->when(! empty($tokoIds), fn ($sub) => $sub->whereIn('retur_member.toko_id', $tokoIds))
+                ->groupBy('retur_member_detail.transaksi_kasir_detail_id');
+
+            $topMember = Member::select(
+                'member.id',
+                'member.nama as nama_member',
+                'transaksi_kasir.toko_id',
+                'toko.nama as nama_toko',
+                DB::raw('SUM(transaksi_kasir_detail.qty - COALESCE(retur_sum.total_qty_refund, 0)) as total_barang_dibeli'),
+                DB::raw('SUM(transaksi_kasir_detail.subtotal) as total_pembayaran'),
+                DB::raw('SUM((transaksi_kasir_detail.qty - COALESCE(retur_sum.total_qty_refund, 0)) * transaksi_kasir_detail.nominal) as total_pembayaran_setelah_retur')
+            )
+                ->join('transaksi_kasir', 'member.id', '=', 'transaksi_kasir.member_id')
+                ->join('transaksi_kasir_detail', 'transaksi_kasir.id', '=', 'transaksi_kasir_detail.transaksi_kasir_id')
+                ->join('toko', 'transaksi_kasir.toko_id', '=', 'toko.id')
+                ->leftJoinSub($subqueryReturMember, 'retur_sum', 'retur_sum.transaksi_kasir_detail_id', '=', 'transaksi_kasir_detail.id')
+                ->where('transaksi_kasir.total_qty', '>', 0)
+                ->whereNull('transaksi_kasir.deleted_at')
+                ->whereBetween(DB::raw('DATE(transaksi_kasir.tanggal)'), [$startDate->toDateString(), $endDate->toDateString()])
+                ->when(! empty($tokoIds), fn ($q) => $q->whereIn('transaksi_kasir.toko_id', $tokoIds))
+                ->groupBy('transaksi_kasir.toko_id', 'toko.nama', 'member.id', 'nama_member')
+                ->orderByDesc('total_pembayaran_setelah_retur')
+                ->limit(10)
+                ->get()
+                ->map(fn ($item) => [
+                    'nama_member' => $item->nama_member,
+                    'toko_id' => $item->toko_id, // ✅ Diubah menjadi toko_id
+                    'nama_toko' => $item->nama_toko,
+                    'total_barang_dibeli' => (int) $item->total_barang_dibeli,
+                    'total_pembayaran' => round((float) $item->total_pembayaran, 2),
+                    'total_pembayaran_setelah_retur' => round((float) $item->total_pembayaran_setelah_retur, 2),
+                ]);
+
+            // ==========================================
+            // 4. SUSUN RESPONSE API
+            // ==========================================
+            $responseData = [
+                'periode' => [
+                    'start_date' => $startDate->toDateString(),
+                    'end_date' => $endDate->toDateString(),
+                    'period_type' => $period,
+                ],
+                'toko_id' => $idToko,
+                'top_barang' => $topBarang,
+                'top_member' => $topMember,
+            ];
+
+            return $this->success($responseData, 200, 'Data detail top barang dan member berhasil diambil!');
+
+        } catch (\Throwable $th) {
+            return $this->error(500, 'Gagal mengambil detail toko', $th->getMessage());
+        }
+    }
+
+    public function getLaporanToko(Request $request)
     {
         $startDateInput = $request->input('start_date', now()->startOfMonth()->toDateString());
         $endDateInput = $request->input('end_date', now()->endOfMonth()->toDateString());
@@ -27,7 +150,7 @@ class OpenAPIController extends Controller
         $endDate = Carbon::parse($endDateInput)->endOfDay();
 
         try {
-            // 1. Filter Toko
+            // 1. Filter Toko (Sertakan parent_id)
             $queryToko = Toko::select('id', 'singkatan', 'nama', 'parent_id');
             if ($idToko !== 'all') {
                 $queryToko->where(function ($q) use ($idToko) {
@@ -36,6 +159,12 @@ class OpenAPIController extends Controller
             }
             $tokos = $queryToko->get();
             $allTokoIds = $tokos->pluck('id')->toArray();
+
+            // Identifikasi ID mana saja yang menjadi parent dari toko lain dalam database
+            $parentIdsList = Toko::whereIn('id', $allTokoIds)
+                ->whereHas('children') // atau logika whereNull('parent_id') jika berbasis top-level
+                ->pluck('id')
+                ->toArray();
 
             // 2. Query Omset Kasir (KasTransaksi)
             $kasData = KasTransaksi::with('kas')
@@ -76,6 +205,9 @@ class OpenAPIController extends Controller
             foreach ($tokos as $toko) {
                 $tokoId = $toko->id;
 
+                // Penanda Parent & Parent ID
+                $isParent = is_null($toko->parent_id) || in_array($tokoId, $parentIdsList);
+
                 // Transaksi Kasir
                 $txKasirToko = $kasData->get($tokoId, collect());
                 $omsetKasirToko = (float) $txKasirToko->sum('total_nominal');
@@ -92,7 +224,7 @@ class OpenAPIController extends Controller
                 $biayaRetur = $refund - $keuntungan + $kerugian;
                 $kasbon = 0; // Nilai default
 
-                // Omset Bersih Toko = (Kasir + PNF) - Retur - Kasbon
+                // Omset Bersih Toko
                 $totalOmsetGross = $omsetKasirToko + $omsetPnftoko;
                 $totalOmsetBersih = max($totalOmsetGross - $biayaRetur - $kasbon, 0);
 
@@ -103,7 +235,6 @@ class OpenAPIController extends Controller
                     $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $month, $year);
                     $dailyTotals = array_fill(1, $daysInMonth, 0);
 
-                    // Gabung Kasir + PNF ke harian
                     foreach ($txKasirToko as $data) {
                         $day = (int) Carbon::parse($data->created_at)->format('j');
                         $dailyTotals[$day] += $data->total_nominal;
@@ -113,7 +244,6 @@ class OpenAPIController extends Controller
                         $dailyTotals[$day] += $data->total_harga_jual;
                     }
 
-                    // Distribusi pengurang
                     foreach (range(1, $daysInMonth) as $day) {
                         $dailyTotals[$day] -= (($biayaRetur + $kasbon) / $daysInMonth);
                         $dailyTotals[$day] = max($dailyTotals[$day], 0);
@@ -146,6 +276,8 @@ class OpenAPIController extends Controller
                     'toko_id' => $toko->id,
                     'singkatan' => $toko->singkatan,
                     'nama_toko' => $toko->nama,
+                    'is_parent' => $isParent,       // ✅ Flag Boolean (true jika Induk)
+                    'parent_id' => $toko->parent_id, // ✅ ID Toko Induk (null jika top-level)
                     'jumlah_transaksi' => $jumlahTxKasir,
                     'ringkasan_omset' => [
                         'total_omset_bersih' => round($totalOmsetBersih, 2),
@@ -182,10 +314,10 @@ class OpenAPIController extends Controller
                 'stores' => $storesList,
             ];
 
-            return $this->success($responseData, 200, 'Data laporan kasir berhasil diambil!');
+            return $this->success($responseData, 200, 'Data laporan toko berhasil diambil!');
 
         } catch (\Throwable $e) {
-            return $this->error(500, 'Gagal mengambil data laporan kasir', $e->getMessage());
+            return $this->error(500, 'Gagal mengambil data laporan toko', $e->getMessage());
         }
     }
 

@@ -73,14 +73,14 @@ class OpenAPIController extends Controller
                     ->whereHas('createdBy', fn ($q3) => $q3->whereIn('toko_id', $allTokoIds));
             })
                 ->selectRaw('
-                    penjualan_non_fisik_detail.created_at,
+                    td_penjualan_nonfisik_detail.created_at,
                     users.toko_id,
-                    SUM(penjualan_non_fisik_detail.harga_jual * penjualan_non_fisik_detail.qty) as total_penjualan,
-                    SUM(penjualan_non_fisik_detail.hpp * penjualan_non_fisik_detail.qty) as total_hpp
+                    SUM(td_penjualan_nonfisik_detail.harga_jual * td_penjualan_nonfisik_detail.qty) as total_penjualan,
+                    SUM(td_penjualan_nonfisik_detail.hpp * td_penjualan_nonfisik_detail.qty) as total_hpp
                 ')
-                ->join('penjualan_non_fisik', 'penjualan_non_fisik.id', '=', 'penjualan_non_fisik_detail.penjualan_non_fisik_id')
+                ->join('penjualan_non_fisik', 'penjualan_non_fisik.id', '=', 'td_penjualan_nonfisik_detail.penjualan_non_fisik_id')
                 ->join('users', 'users.id', '=', 'penjualan_non_fisik.created_by')
-                ->groupBy('users.toko_id', 'penjualan_non_fisik_detail.created_at')
+                ->groupBy('users.toko_id', 'td_penjualan_nonfisik_detail.created_at')
                 ->get()
                 ->groupBy('toko_id');
 

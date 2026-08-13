@@ -308,7 +308,7 @@ class LabaRugiService
         // Tambahkan Stok Mati
         $nextNumber++;
         $bebanOperasional[] = [
-            'label' => '3.'.$nextNumber.' Stok Mati',
+            'label' => '3.'.$nextNumber.' Stok Mati/Rusak',
             'value' => (int) $stockMati,
         ];
         $totalBeban += $stockMati;

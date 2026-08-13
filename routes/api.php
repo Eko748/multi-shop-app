@@ -403,7 +403,5 @@ Route::prefix('rekapitulasi')->as('rekapitulasi.')->group(function () {
 
 Route::middleware('verify.apikey')->prefix('v1')->group(function () {
     Route::get('/laporan-toko', [OpenAPIController::class, 'getLaporanToko']);
-    Route::get('/komparasi-toko', [OpenAPIController::class, 'getKomparasiToko']);
-    Route::get('/omset', [OpenAPIController::class, 'getOmset']);
     Route::get('/laporan-toko-detail', [OpenAPIController::class, 'getTopMemberBarang']);
 });

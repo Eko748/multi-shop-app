@@ -538,7 +538,7 @@ class StockBarangController extends Controller
                         total_nominal: $totalHargaBeli,
                         item: 'piutang',
                         kategori: 'Piutang',
-                        keterangan: $piutang->piutangTipe->tipe ?? 'Piutang Mitra',
+                        keterangan: $piutang->piutangTipe->tipe ?? 'Stok Barang Bermasalah',
                         sumber: $piutang,
                         tanggal: $fTanggal->toDateString()
                     );

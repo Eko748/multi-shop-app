@@ -297,21 +297,31 @@ class LabaRugiService
         ];
         $totalBeban += $hppSelisihTopup;
 
-        // Tambahkan Stok Hilang
-        $nextNumber++;
-        $bebanOperasional[] = [
-            'label' => '3.'.$nextNumber.' Stok Hilang',
-            'value' => (int) $stockHilang,
-        ];
-        $totalBeban += $stockHilang;
+        // KONDISI KHUSUS BEBAN OPERASIONAL
+        if ($isChild) {
+            // Toko MITRA (Child): Hapus Stok Hilang, urutan Stok Mati naik menggantikannya
+            $nextNumber++;
+            $bebanOperasional[] = [
+                'label' => '3.'.$nextNumber.' Stok Mati/Rusak',
+                'value' => (int) $stockMati,
+            ];
+            $totalBeban += $stockMati;
+        } else {
+            // Toko BUKAN MITRA (Parent): Sertakan Stok Hilang & Stok Mati
+            $nextNumber++;
+            $bebanOperasional[] = [
+                'label' => '3.'.$nextNumber.' Stok Hilang',
+                'value' => (int) $stockHilang,
+            ];
+            $totalBeban += $stockHilang;
 
-        // Tambahkan Stok Mati
-        $nextNumber++;
-        $bebanOperasional[] = [
-            'label' => '3.'.$nextNumber.' Stok Mati/Rusak',
-            'value' => (int) $stockMati,
-        ];
-        $totalBeban += $stockMati;
+            $nextNumber++;
+            $bebanOperasional[] = [
+                'label' => '3.'.$nextNumber.' Stok Mati/Rusak',
+                'value' => (int) $stockMati,
+            ];
+            $totalBeban += $stockMati;
+        }
 
         $bebanOperasional[] = [
             'label' => 'Total Beban Operasional',
@@ -328,11 +338,8 @@ class LabaRugiService
         // 4.2 Bagi Hasil Owner / Mitra (Dari Pengeluaran Tipe ID 12)
         $bagiHasilOwner = isset($pengeluaran[12]) ? (int) $pengeluaran[12]->total : 0;
 
-        // 4.3 Tanggungan Mitra (Otomatis dari nilai Stok Hilang)
-        $tanggunganMitra = (int) $stockHilang;
-
-        // Total Dividen Bagi Hasil
-        $totalDividenBagiHasil = $bagiHasilTokoUtama + $bagiHasilOwner - $tanggunganMitra;
+        // Total Dividen Bagi Hasil (Tanggungan Mitra ditiadakan)
+        $totalDividenBagiHasil = $bagiHasilTokoUtama + $bagiHasilOwner;
         $labaOperasional = $totalPendapatan - $total_hpp - $totalBeban;
 
         if ($isChild) {
@@ -356,7 +363,6 @@ class LabaRugiService
             $bebanOperasional,
             (int) $bagiHasilTokoUtama,
             (int) $bagiHasilOwner,
-            (int) $tanggunganMitra, // Parameter Baru
             (int) $totalDividenBagiHasil,
             (int) $total_labarugi,
             (int) $pendapatanNonTransaksi,
@@ -376,7 +382,6 @@ class LabaRugiService
         $bebanOperasional,
         $bagiHasilTokoUtama,
         $bagiHasilOwner,
-        $tanggunganMitra, // Added Parameter
         $totalDividenBagiHasil,
         $total_labarugi,
         $pendapatanNonTransaksi,
@@ -416,13 +421,12 @@ class LabaRugiService
                 $labelMitra .= " {$singkatanToko}";
             }
 
-            // Tampilkan Poin IV. Bagi Hasil/Deviden
+            // Tampilkan Poin IV. Bagi Hasil/Deviden (Tanggungan Mitra sudah dihapus)
             $laporan[] = [
                 'IV. Bagi Hasil/Deviden',
                 [
                     ['4.1 Bagi Hasil Pusat', RupiahGenerate::build($bagiHasilTokoUtama)],
                     [$labelMitra, RupiahGenerate::build($bagiHasilOwner)],
-                    ['4.3 Tanggungan Mitra', RupiahGenerate::build($tanggunganMitra)],
                     ['Total Bagi Hasil/Dividen', RupiahGenerate::build($totalDividenBagiHasil)],
                 ],
             ];

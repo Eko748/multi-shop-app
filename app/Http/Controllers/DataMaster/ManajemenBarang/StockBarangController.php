@@ -426,11 +426,11 @@ class StockBarangController extends Controller
                     ($stokPengurangan[$batch->stock_barang_id] ?? 0) + $qtyKurangi;
 
                 // stok bermasalah
-                StockBarangBermasalah::create([
+                $bermasalah = StockBarangBermasalah::create([
                     'stock_barang_batch_id' => $batch->id,
-                    'status' => $reduction['status'],
-                    'qty' => $qtyKurangi,
-                    'toko_id' => $tokoId,
+                    'status'                 => $reduction['status'],
+                    'qty'                    => $qtyKurangi,
+                    'toko_id'                => $tokoId,
                 ]);
 
                 // Log & ambil jenis_barang_id dari relasi StockBarang -> Barang
@@ -504,6 +504,8 @@ class StockBarangController extends Controller
                         'jangka'         => $request->jangka ?? 'pendek',
                         'tanggal'        => $fTanggal->toDateString(),
                         'created_by'     => $userId,
+                        'sumber_type'    => StockBarangBermasalah::class,
+                        'sumber_id'      => $bermasalah->id,
                     ]);
 
                     $nominalFormatted = RupiahGenerate::build($totalHargaBeli);

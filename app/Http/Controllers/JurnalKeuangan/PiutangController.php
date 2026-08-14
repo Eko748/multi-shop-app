@@ -306,7 +306,8 @@ class PiutangController extends Controller
                 kategori: 'Pembayaran Piutang',
                 keterangan: $piutang->keterangan,
                 sumber: $piutang,
-                tanggal: now()
+                tanggal: now(),
+                laba: false
             );
 
             KasService::in(
@@ -318,7 +319,8 @@ class PiutangController extends Controller
                 kategori: 'Pembayaran Piutang',
                 keterangan: $piutang->keterangan,
                 sumber: $piutang,
-                tanggal: now()
+                tanggal: now(),
+                laba: false
             );
             DB::commit();
             return $this->success(null, 200, 'Berhasil melakukan pembayaran piutang');

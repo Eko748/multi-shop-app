@@ -4,14 +4,17 @@ namespace App\Http\Controllers\DataMaster\ManajemenBarang;
 
 use App\Enums\StatusStockBarang;
 use App\Helpers\AssetGenerate;
+use App\Helpers\KasJenisBarangGenerate;
 use App\Helpers\LogAktivitasGenerate;
 use App\Helpers\PinCheck;
 use App\Helpers\RupiahGenerate;
 use App\Helpers\TextGenerate;
 use App\Http\Controllers\Controller;
 use App\Models\Barang;
+use App\Models\Kas;
 use App\Models\LevelHarga;
 use App\Models\PembelianBarangDetail;
+use App\Models\Piutang;
 use App\Models\StockBarang;
 use App\Models\StockBarangBatch;
 use App\Models\StockBarangBermasalah;
@@ -387,8 +390,13 @@ class StockBarangController extends Controller
             $tokoId = $request->toko_id;
             $message = $request->message ?? '(Sistem) Stok barang dikurangi.';
 
+            // Cek status mitra toko
+            $toko = Toko::findOrFail($tokoId);
+            $isMitra = (bool) $toko->mitra;
+
             $stokPengurangan = []; // per stock_barang_id
-            $totalHargaBeli = 0;         // 🔥 total beban HPP
+            $totalHargaBeli = 0;   // total beban HPP
+            $jenisBarangId = null; // Variabel penampung jenis_barang_id
 
             foreach ($request->reductions as $reduction) {
 
@@ -406,7 +414,7 @@ class StockBarangController extends Controller
 
                 $qtyOld = $batch->qty_sisa;
 
-                // 🔥 HITUNG TOTAL HPP
+                // HITUNG TOTAL HPP
                 $totalHargaBeli += ($batch->harga_beli * $qtyKurangi);
 
                 // kurangi batch
@@ -425,10 +433,13 @@ class StockBarangController extends Controller
                     'toko_id' => $tokoId,
                 ]);
 
-                // log
-                $stok = StockBarang::find($batch->stock_barang_id);
-                $barang = Barang::find($stok?->id_barang);
-                $namaBarang = $barang?->nama_barang ?? '-';
+                // Log & ambil jenis_barang_id dari relasi StockBarang -> Barang
+                $stok = StockBarang::with('barang')->find($batch->stock_barang_id);
+                if ($stok && $stok->barang) {
+                    $jenisBarangId = $stok->barang->jenis_barang_id;
+                }
+
+                $namaBarang = $stok?->barang?->nama_barang ?? '-';
 
                 LogAktivitasGenerate::store(
                     logName: $this->title[0] ?? 'Stok Barang',
@@ -448,8 +459,8 @@ class StockBarangController extends Controller
             }
 
             /* ============================
-        | UPDATE STOK UTAMA
-        ============================ */
+            | UPDATE STOK UTAMA
+            ============================ */
             foreach ($stokPengurangan as $stockBarangId => $qtyTotal) {
 
                 $stok = StockBarang::lockForUpdate()->find($stockBarangId);
@@ -466,18 +477,80 @@ class StockBarangController extends Controller
             }
 
             /* ============================
-        | 🔥 UPDATE LABA RUGI
-        ============================ */
+            | LABA RUGI / PIUTANG MITRA
+            ============================ */
             if ($totalHargaBeli > 0) {
                 $fTanggal = now();
 
-                KasService::updateLabaRugi(
-                    tokoId: $tokoId,
-                    tahun: $fTanggal->year,
-                    bulan: $fTanggal->month,
-                    tipe: 'out',
-                    nominal: $totalHargaBeli
-                );
+                if ($isMitra) {
+                    // 🔍 CARI MODEL KAS SESUAI toko_id & jenis_barang_id
+                    $kas = Kas::where('toko_id', $tokoId)
+                        ->where('jenis_barang_id', $jenisBarangId)
+                        ->first();
+
+                    if (! $kas) {
+                        throw new \Exception("Data Kas untuk toko ID {$tokoId} dan jenis barang ID {$jenisBarangId} tidak ditemukan.");
+                    }
+
+                    // 🔹 LOGIC UNTUK TOKO MITRA (Pencatatan Piutang)
+                    $piutang = Piutang::create([
+                        'kas_id'          => $kas->id, // Automated dari query Kas
+                        'toko_id'         => $tokoId,
+                        'piutang_tipe_id' => $request->piutang_tipe_id ?? 4,
+                        'keterangan'     => 'Pengurangan Stok Barang Mitra',
+                        'nominal'        => $totalHargaBeli,
+                        'sisa'           => $totalHargaBeli,
+                        'status'         => false,
+                        'jangka'         => $request->jangka ?? 'pendek',
+                        'tanggal'        => $fTanggal->toDateString(),
+                        'created_by'     => $userId,
+                    ]);
+
+                    $nominalFormatted = RupiahGenerate::build($totalHargaBeli);
+                    $kasLabel = KasJenisBarangGenerate::labelForKas($piutang);
+
+                    LogAktivitasGenerate::store(
+                        logName: 'Piutang',
+                        subjectType: Piutang::class,
+                        subjectId: $piutang->id,
+                        event: 'Tambah Data',
+                        properties: [
+                            'changes' => [
+                                'new' => [
+                                    'nominal' => $piutang->nominal,
+                                    'tanggal' => $piutang->tanggal,
+                                    'kas'     => $kasLabel,
+                                ],
+                            ],
+                        ],
+                        description: "{$this->title[0]} ditambahkan pada {$kasLabel} senilai Rp {$nominalFormatted} (ID {$piutang->id})",
+                        userId: $userId,
+                        message: "(Sistem) Piutang otomatis dari pengurangan stok mitra."
+                    );
+
+                    // Neutral IN (tanpa KasService::out)
+                    KasService::neutralIN(
+                        toko_id: $tokoId,
+                        jenis_barang_id: $jenisBarangId,
+                        tipe_kas: $kas->tipe_kas,
+                        total_nominal: $totalHargaBeli,
+                        item: 'piutang',
+                        kategori: 'Piutang',
+                        keterangan: $piutang->piutangTipe->tipe ?? 'Piutang Mitra',
+                        sumber: $piutang,
+                        tanggal: $fTanggal->toDateString()
+                    );
+
+                } else {
+                    // 🔹 LOGIC UNTUK TOKO NON-MITRA
+                    KasService::updateLabaRugi(
+                        tokoId: $tokoId,
+                        tahun: $fTanggal->year,
+                        bulan: $fTanggal->month,
+                        tipe: 'out',
+                        nominal: $totalHargaBeli
+                    );
+                }
             }
 
             DB::commit();

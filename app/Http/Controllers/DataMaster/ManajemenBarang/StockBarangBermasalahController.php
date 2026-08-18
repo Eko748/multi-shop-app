@@ -69,7 +69,7 @@ class StockBarangBermasalahController extends Controller
             $mappedData = collect($data->items())->map(function ($item) {
                 $batch = $item->batch;
                 $barang = $batch?->stockBarang?->barang;
-                $total = (int) ($item->qty ?? 0) + $batch?->harga_beli ?? 0;
+                $total = $item->qty + $batch?->harga_beli;
 
                 return [
                     'id' => $item->id,

@@ -51,39 +51,40 @@ class BarangController extends Controller
                     'brand:id,nama_brand',
                     'stockBarang:id,barang_id,level_harga'
                 ])
-                ->orderByRaw('TRIM(nama) ASC')
                 ->chunk(500, function ($barangs) use (&$mappedData) {
                     foreach ($barangs as $item) {
-
-                        // Ambil object stok pertama jika relasinya HasMany / Collection
                         $stock = $item->stockBarang instanceof \Illuminate\Support\Collection
                             ? $item->stockBarang->first()
                             : $item->stockBarang;
 
                         $rawLevel = $stock->level_harga ?? [];
 
-                        // 1. Jika bertipe string JSON (seperti "[102500,106500,...]"), lakukan json_decode
                         if (is_string($rawLevel)) {
                             $levelHarga = json_decode($rawLevel, true) ?? [];
-                        }
-                        // 2. Jika sudah ter-cast sebagai array (karena $casts di Model)
-                        elseif (is_array($rawLevel)) {
+                        } elseif (is_array($rawLevel)) {
                             $levelHarga = $rawLevel;
-                        }
-                        else {
+                        } else {
                             $levelHarga = [];
                         }
+
+                        // Bersihkan spasi tak kasat mata / Non-Breaking Space (&nbsp;)
+                        $cleanNama = trim(preg_replace('/\s+/u', ' ', $item->nama));
 
                         $mappedData[] = [
                             'id' => $item->id,
                             'qrcode' => $item->qrcode ?? '-',
-                            'nama' => $item->nama,
+                            'nama' => $cleanNama,
                             'jenis' => optional($item->jenis)->nama_jenis_barang ?? '-',
                             'brand' => optional($item->brand)->nama_brand ?? '-',
-                            'level_harga' => $levelHarga, // Mengirimkan Array murni ke JS
+                            'level_harga' => $levelHarga,
                         ];
                     }
                 });
+
+            // FIX URUTAN: Sort ulang seluruh 3.200+ data secara alfabetis (A-Z) di PHP
+            usort($mappedData, function ($a, $b) {
+                return strnatcasecmp($a['nama'], $b['nama']);
+            });
 
             return response()->json([
                 'status_code' => 200,

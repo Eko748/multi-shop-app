@@ -69,6 +69,7 @@ class StockBarangBermasalahController extends Controller
             $mappedData = collect($data->items())->map(function ($item) {
                 $batch = $item->batch;
                 $barang = $batch?->stockBarang?->barang;
+                $total = (int) ($item->qty ?? 0) + $batch?->harga_beli ?? 0;
 
                 return [
                     'id' => $item->id,
@@ -77,6 +78,7 @@ class StockBarangBermasalahController extends Controller
                     'tanggal_masuk' => $batch?->created_at ? $batch->created_at->format('d-m-Y H:i:s') : '-',
                     'harga_beli' => RupiahGenerate::build($batch?->harga_beli ?? 0),
                     'qty' => (int) ($item->qty ?? 0),
+                    'total' => RupiahGenerate::build($total ?? 0),
                     'status' => $item->status ?? '-',
                     'created_at' => $item->created_at ? $item->created_at->format('d-m-Y H:i:s') : '-',
                 ];

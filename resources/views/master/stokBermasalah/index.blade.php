@@ -85,6 +85,7 @@
                                                 <th class="text-wrap align-top">Status</th>
                                                 <th class="text-wrap align-top">Qty</th>
                                                 <th class="text-wrap align-top">Harga Beli</th>
+                                                <th class="text-wrap align-top">Total</th>
                                                 <th class="text-wrap align-top">Batch</th>
                                                 <th class="text-wrap align-top">Data Dibuat</th>
                                             </tr>
@@ -172,6 +173,7 @@
             return {
                 id: data?.id ?? '-',
                 nama_barang: data?.nama_barang ?? '-',
+                total: data?.total ?? '-',
                 harga_beli: data?.harga_beli ?? '-',
                 qty: data?.qty ?? 0,
                 status: data?.status ?? '-',
@@ -207,6 +209,7 @@
                     </td>
                     <td class="${classCol}">${element.qty}</td>
                     <td class="${classCol}">${element.harga_beli}</td>
+                    <td class="${classCol}">${element.total}</td>
                     <td class="${classCol}">${element.tanggal_masuk}</td>
                     <td class="${classCol}">${element.created_at}</td>
                 </tr>`;

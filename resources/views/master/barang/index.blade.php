@@ -141,6 +141,12 @@
                                         <i class="fa fa-filter"></i> Filter
                                     </button>
                                 </div>
+                                <div class="custom-btn-tambah-wrap">
+                                    <button class="btn btn-danger custom-btn-tambah" type="button" id="btn-cetak-pdf"
+                                        onclick="cetakPdfAllBarang()">
+                                        <i class="fa fa-file-pdf"></i> Cetak PDF
+                                    </button>
+                                </div>
                             </div>
 
                             <div class="custom-right">
@@ -342,6 +348,8 @@
 
 @section('asset_js')
     <script src="{{ asset('js/pagination.js') }}"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
 @endsection
 
 @section('js')
@@ -1194,6 +1202,189 @@
                     }
                 });
             });
+        }
+
+        async function cetakPdfAllBarang() {
+            const btnCetak = $('#btn-cetak-pdf');
+            const originalContent = btnCetak.html();
+
+            btnCetak.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Memuat Data...');
+
+            try {
+                let response = await renderAPI(
+                    'GET',
+                    '{{ route('barang.export') }}', {
+                        toko_id: {{ auth()->user()->toko_id }}
+                    }
+                ).then(res => res).catch(err => err.response);
+
+                if (!response || response.status_code !== 200 || !response.data) {
+                    alert(response?.data?.message || 'Gagal mengambil data barang.');
+                    return;
+                }
+
+                btnCetak.html('<i class="fa fa-spinner fa-spin"></i> Membuat PDF...');
+
+                const dataBarang = response.data.data;
+
+                // 1. HITUNG JUMLAH LEVEL HARGA MAKSIMAL DARI SELURUH DATA
+                let maxLevel = 0;
+                dataBarang.forEach(item => {
+                    if (Array.isArray(item.level_harga) && item.level_harga.length > maxLevel) {
+                        maxLevel = item.level_harga.length;
+                    }
+                });
+
+                // Jaga-jaga jika semua level_harga kosong, set minimal 1 kolom
+                if (maxLevel === 0) maxLevel = 1;
+
+                // 2. SUSUN HEADER BARIS 1 (HEADER UTAMA)
+                const headerRow1 = [{
+                        text: 'No',
+                        style: 'tableHeader',
+                        alignment: 'center',
+                        rowspan: 2
+                    },
+                    {
+                        text: 'Nama Barang',
+                        style: 'tableHeader',
+                        rowspan: 2
+                    },
+                    {
+                        text: 'QR Code',
+                        style: 'tableHeader',
+                        rowspan: 2
+                    },
+                    {
+                        text: 'Level Harga',
+                        style: 'tableHeader',
+                        alignment: 'center',
+                        colSpan: maxLevel
+                    }
+                ];
+
+                // Tambahkan placeholder slot kosong untuk colSpan Level Harga
+                for (let i = 1; i < maxLevel; i++) {
+                    headerRow1.push({});
+                }
+
+                // 3. SUSUN HEADER BARIS 2 (SUB-KOLOM LEVEL 1, LEVEL 2, DST)
+                const headerRow2 = [{}, {}, {} // Slot kosong untuk rowspan 2 dari No, Nama, & QR Code
+                ];
+
+                for (let i = 1; i <= maxLevel; i++) {
+                    headerRow2.push({
+                        text: `Lvl ${i}`,
+                        style: 'tableHeader',
+                        alignment: 'right'
+                    });
+                }
+
+                const bodyTable = [headerRow1, headerRow2];
+
+                // 4. SUSUN LEBAR KOLOM (WIDTHS) SECARA DINAMIS
+                // No: 25, Nama: Auto (*), QR Code: 80, Sisa lebar dibagi rata untuk tiap Level Harga
+                const columnWidths = [25, '*', 80];
+                const widthPerLevel = Math.max(50, Math.floor(350 / maxLevel)); // Menyesuaikan lebar min 50px per level
+                for (let i = 0; i < maxLevel; i++) {
+                    columnWidths.push(widthPerLevel);
+                }
+
+                // Helper Format Rupiah
+                const formatRupiah = (val) => {
+                    return (val !== undefined && val !== null && val !== '') ?
+                        'Rp ' + new Intl.NumberFormat('id-ID').format(val) :
+                        '-';
+                };
+
+                // 5. ISI BARIS DATA BARANG
+                dataBarang.forEach((item, index) => {
+                    const row = [{
+                            text: index + 1,
+                            alignment: 'center'
+                        },
+                        item.nama || '-',
+                        item.qrcode || '-'
+                    ];
+
+                    // Render dinamis sebanyak maxLevel
+                    for (let i = 0; i < maxLevel; i++) {
+                        const harga = item.level_harga ? item.level_harga[i] : undefined;
+                        row.push({
+                            text: formatRupiah(harga),
+                            alignment: 'right'
+                        });
+                    }
+
+                    bodyTable.push(row);
+                });
+
+                // 6. DEFINISI DOKUMEN PDFMAKE
+                const docDefinition = {
+                    pageSize: 'A4',
+                    // Gunakan Landscape jika level lebih dari 4 agar muat dengan rapi
+                    pageOrientation: maxLevel > 4 ? 'landscape' : 'portrait',
+                    pageMargins: [20, 25, 20, 25],
+                    header: function(currentPage, pageCount) {
+                        return {
+                            text: `Halaman ${currentPage} dari ${pageCount}`,
+                            alignment: 'right',
+                            margin: [0, 8, 20, 0],
+                            fontSize: 8,
+                            color: '#666666'
+                        };
+                    },
+                    content: [{
+                            text: 'DAFTAR HARGA BARANG',
+                            style: 'docTitle'
+                        },
+                        {
+                            text: `Total Barang: ${dataBarang.length} | Total Level: ${maxLevel} | Tanggal Cetak: ${new Date().toLocaleDateString('id-ID')}`,
+                            style: 'docSubTitle'
+                        },
+                        {
+                            table: {
+                                headerRows: 2,
+                                widths: columnWidths,
+                                body: bodyTable
+                            },
+                            layout: 'compact'
+                        }
+                    ],
+                    styles: {
+                        docTitle: {
+                            fontSize: 13,
+                            bold: true,
+                            alignment: 'center',
+                            margin: [0, 0, 0, 2]
+                        },
+                        docSubTitle: {
+                            fontSize: 8,
+                            alignment: 'center',
+                            margin: [0, 0, 0, 8],
+                            color: '#555555'
+                        },
+                        tableHeader: {
+                            bold: true,
+                            fontSize: 8,
+                            fillColor: '#e6e6e6',
+                            alignment: 'center'
+                        }
+                    },
+                    defaultStyle: {
+                        fontSize: maxLevel > 6 ? 7 : 8 // Mengecilkan font otomatis jika level > 6
+                    }
+                };
+
+                pdfMake.createPdf(docDefinition).download(
+                    `Daftar_Harga_Barang_${new Date().toISOString().slice(0,10)}.pdf`);
+
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                alert('Terjadi kesalahan saat memproses PDF.');
+            } finally {
+                btnCetak.prop('disabled', false).html(originalContent);
+            }
         }
 
         async function initPageLoad() {

@@ -36,6 +36,43 @@ class BarangController extends Controller
         ];
     }
 
+    public function export(Request $request)
+    {
+        $data = Barang::query()
+            ->select('id', 'qrcode', 'nama', 'jenis_barang_id', 'brand_id')
+            ->with([
+                'jenis:id,nama_jenis_barang',
+                'brand:id,nama_brand',
+                'stockBarang:id,barang_id,level_harga'
+            ])
+            ->orderBy('nama', 'asc')
+            ->get()
+            ->map(function ($item) {
+                $levelHarga = $item->stockBarang->level_harga ?? [];
+                if (is_string($levelHarga)) {
+                    $levelHarga = json_decode($levelHarga, true) ?? [];
+                }
+
+                return [
+                    'id' => $item->id,
+                    'qrcode' => $item->qrcode ?? '-',
+                    'nama' => TextGenerate::smartTail($item->nama),
+                    'jenis' => optional($item->jenis)->nama_jenis_barang ?? '-',
+                    'brand' => optional($item->brand)->nama_brand ?? '-',
+                    'level_harga' => $levelHarga,
+                    'harga_eceran' => $levelHarga[0] ?? 0,
+                ];
+            });
+
+        return response()->json([
+            'status_code' => 200,
+            'errors' => false,
+            'message' => 'Sukses mengambil data cetak',
+            'total' => $data->count(),
+            'data' => $data,
+        ], 200);
+    }
+
     public function getbarangs(Request $request)
     {
         $meta['orderBy'] = $request->ascending ? 'asc' : 'desc';

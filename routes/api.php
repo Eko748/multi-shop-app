@@ -115,6 +115,7 @@ Route::prefix('barang')->as('barang.')->group(function () {
     Route::put('put', [BarangController::class, 'update'])->name('update')->middleware('permission:PUT /barang/put');
     Route::delete('delete', [BarangController::class, 'delete'])->name('delete')->middleware('permission:DELETE /barang/delete');
     Route::get('get-brands-by-jenis', [BrandController::class, 'getBrandsByJenis'])->name('getBrandsByJenis');
+    Route::get('export', [BarangController::class, 'export'])->name('export');
 });
 
 Route::prefix('brand')->as('brand.')->group(function () {

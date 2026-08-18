@@ -38,39 +38,57 @@ class BarangController extends Controller
 
     public function export(Request $request)
     {
-        $data = Barang::query()
-            ->select('id', 'qrcode', 'nama', 'jenis_barang_id', 'brand_id')
-            ->with([
-                'jenis:id,nama_jenis_barang',
-                'brand:id,nama_brand',
-                'stockBarang:id,barang_id,level_harga'
-            ])
-            ->orderBy('nama', 'asc')
-            ->get()
-            ->map(function ($item) {
-                $levelHarga = $item->stockBarang->level_harga ?? [];
-                if (is_string($levelHarga)) {
-                    $levelHarga = json_decode($levelHarga, true) ?? [];
-                }
+        // Tingkatkan limit aman
+        ini_set('memory_limit', '512M');
+        set_time_limit(300);
 
-                return [
-                    'id' => $item->id,
-                    'qrcode' => $item->qrcode ?? '-',
-                    'nama' => TextGenerate::smartTail($item->nama),
-                    'jenis' => optional($item->jenis)->nama_jenis_barang ?? '-',
-                    'brand' => optional($item->brand)->nama_brand ?? '-',
-                    'level_harga' => $levelHarga,
-                    'harga_eceran' => $levelHarga[0] ?? 0,
-                ];
-            });
+        try {
+            $mappedData = [];
 
-        return response()->json([
-            'status_code' => 200,
-            'errors' => false,
-            'message' => 'Sukses mengambil data cetak',
-            'total' => $data->count(),
-            'data' => $data,
-        ], 200);
+            // Gunakan chunk untuk memproses data per 500 baris agar RAM tidak jebol
+            Barang::query()
+                ->select('id', 'qrcode', 'nama', 'jenis_barang_id', 'brand_id')
+                ->with([
+                    'jenis:id,nama_jenis_barang',
+                    'brand:id,nama_brand',
+                    'stockBarang:id,barang_id,level_harga'
+                ])
+                ->orderBy('nama', 'asc')
+                ->chunk(500, function ($barangs) use (&$mappedData) {
+                    foreach ($barangs as $item) {
+
+                        $levelHarga = $item->stockBarang->level_harga ?? [];
+                        if (is_string($levelHarga)) {
+                            $levelHarga = json_decode($levelHarga, true) ?? [];
+                        }
+
+                        $mappedData[] = [
+                            'id' => $item->id,
+                            'qrcode' => $item->qrcode ?? '-',
+                            'nama' => $item->nama,
+                            'jenis' => optional($item->jenis)->nama_jenis_barang ?? '-',
+                            'brand' => optional($item->brand)->nama_brand ?? '-',
+                            'level_harga' => $levelHarga,
+                        ];
+                    }
+                });
+
+            return response()->json([
+                'status_code' => 200,
+                'errors' => false,
+                'message' => 'Sukses mengambil data cetak',
+                'total' => count($mappedData),
+                'data' => $mappedData, // Kirim array biasa, bukan Model Collection
+            ], 200);
+
+        } catch (\Exception $e) {
+            // Tangkap dan tampilkan error spesifik agar mudah di-debug
+            return response()->json([
+                'status_code' => 500,
+                'errors' => true,
+                'message' => 'Server Error: ' . $e->getMessage() . ' di Baris ' . $e->getLine()
+            ], 500);
+        }
     }
 
     public function getbarangs(Request $request)

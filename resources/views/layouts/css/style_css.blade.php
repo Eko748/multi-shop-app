@@ -74,7 +74,6 @@
             width: 100% !important;
             /* Judul kategori tetap di atas */
             border-bottom: 1px solid #eee;
-            padding-bottom: 4px;
             margin-top: 2px !important;
         }
 

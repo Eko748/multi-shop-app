@@ -51,7 +51,7 @@ class BarangController extends Controller
                     'brand:id,nama_brand',
                     'stockBarang:id,barang_id,level_harga'
                 ])
-                ->orderBy('nama', 'asc')
+                ->orderByRaw('TRIM(nama) ASC')
                 ->chunk(500, function ($barangs) use (&$mappedData) {
                     foreach ($barangs as $item) {
 

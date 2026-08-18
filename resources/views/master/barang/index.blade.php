@@ -1240,7 +1240,6 @@
                         maxLevel = item.level_harga.length;
                     }
                 });
-
                 if (maxLevel === 0) maxLevel = 1;
 
                 // 2. Header Baris 1
@@ -1248,17 +1247,17 @@
                         text: 'No',
                         style: 'tableHeader',
                         alignment: 'center',
-                        rowspan: 2
+                        rowSpan: 2
                     },
                     {
                         text: 'Nama Barang',
                         style: 'tableHeader',
-                        rowspan: 2
+                        rowSpan: 2
                     },
                     {
                         text: 'QR Code',
                         style: 'tableHeader',
-                        rowspan: 2
+                        rowSpan: 2
                     },
                     {
                         text: 'Level Harga',
@@ -1273,7 +1272,10 @@
                 }
 
                 // 3. Header Baris 2
-                const headerRow2 = [{}, {}, {}];
+                const headerRow2 = [
+                    null, null, null // Gunakan null agar pdfmake tidak merender garis sel kosong di baris ke-2
+                ];
+
                 for (let i = 1; i <= maxLevel; i++) {
                     headerRow2.push({
                         text: `Lvl ${i}`,

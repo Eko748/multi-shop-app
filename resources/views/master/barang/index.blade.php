@@ -1218,7 +1218,7 @@
                     }
                 ).then(res => res).catch(err => err.response);
 
-                if (!response || response.status_code !== 200 || !response.data) {
+                if (!response && !response.status == 200) {
                     notificationAlert('error', 'Info', response?.data?.message ||
                         'Gagal mengambil data barang dari server.');
                     return;
@@ -1226,7 +1226,7 @@
 
                 btnCetak.html('<i class="fa fa-spinner fa-spin"></i> Membuat PDF...');
 
-                const dataBarang = response.data;
+                const dataBarang = response.data.data;
 
                 if (dataBarang.length === 0) {
                     notificationAlert('error', 'Info', 'Tidak ada data barang untuk dicetak.');

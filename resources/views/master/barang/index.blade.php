@@ -1219,15 +1219,21 @@
                 ).then(res => res).catch(err => err.response);
 
                 if (!response || response.status_code !== 200 || !response.data) {
-                    alert(response?.data?.message || 'Gagal mengambil data barang.');
+                    notificationAlert('error', 'Info', response?.data?.message ||
+                        'Gagal mengambil data barang dari server.');
                     return;
                 }
 
                 btnCetak.html('<i class="fa fa-spinner fa-spin"></i> Membuat PDF...');
 
-                const dataBarang = response.data.data;
+                const dataBarang = response.data;
 
-                // 1. HITUNG JUMLAH LEVEL HARGA MAKSIMAL DARI SELURUH DATA
+                if (dataBarang.length === 0) {
+                    notificationAlert('error', 'Info', 'Tidak ada data barang untuk dicetak.');
+                    return;
+                }
+
+                // 1. Hitung jumlah level terbanyak
                 let maxLevel = 0;
                 dataBarang.forEach(item => {
                     if (Array.isArray(item.level_harga) && item.level_harga.length > maxLevel) {
@@ -1235,10 +1241,9 @@
                     }
                 });
 
-                // Jaga-jaga jika semua level_harga kosong, set minimal 1 kolom
                 if (maxLevel === 0) maxLevel = 1;
 
-                // 2. SUSUN HEADER BARIS 1 (HEADER UTAMA)
+                // 2. Header Baris 1
                 const headerRow1 = [{
                         text: 'No',
                         style: 'tableHeader',
@@ -1263,15 +1268,12 @@
                     }
                 ];
 
-                // Tambahkan placeholder slot kosong untuk colSpan Level Harga
                 for (let i = 1; i < maxLevel; i++) {
                     headerRow1.push({});
                 }
 
-                // 3. SUSUN HEADER BARIS 2 (SUB-KOLOM LEVEL 1, LEVEL 2, DST)
-                const headerRow2 = [{}, {}, {} // Slot kosong untuk rowspan 2 dari No, Nama, & QR Code
-                ];
-
+                // 3. Header Baris 2
+                const headerRow2 = [{}, {}, {}];
                 for (let i = 1; i <= maxLevel; i++) {
                     headerRow2.push({
                         text: `Lvl ${i}`,
@@ -1282,32 +1284,29 @@
 
                 const bodyTable = [headerRow1, headerRow2];
 
-                // 4. SUSUN LEBAR KOLOM (WIDTHS) SECARA DINAMIS
-                // No: 25, Nama: Auto (*), QR Code: 80, Sisa lebar dibagi rata untuk tiap Level Harga
-                const columnWidths = [25, '*', 80];
-                const widthPerLevel = Math.max(50, Math.floor(350 / maxLevel)); // Menyesuaikan lebar min 50px per level
+                // 4. Lebar Kolom Dinamis
+                const columnWidths = [25, '*', 75];
+                const widthPerLevel = Math.max(45, Math.floor(320 / maxLevel));
                 for (let i = 0; i < maxLevel; i++) {
                     columnWidths.push(widthPerLevel);
                 }
 
-                // Helper Format Rupiah
+                // Helper Format Rupiah (Aman dari null/undefined)
                 const formatRupiah = (val) => {
-                    return (val !== undefined && val !== null && val !== '') ?
-                        'Rp ' + new Intl.NumberFormat('id-ID').format(val) :
-                        '-';
+                    if (val === undefined || val === null || val === '' || isNaN(val)) return '-';
+                    return 'Rp ' + new Intl.NumberFormat('id-ID').format(val);
                 };
 
-                // 5. ISI BARIS DATA BARANG
+                // 5. Isi Baris Data
                 dataBarang.forEach((item, index) => {
                     const row = [{
-                            text: index + 1,
+                            text: String(index + 1),
                             alignment: 'center'
                         },
-                        item.nama || '-',
-                        item.qrcode || '-'
+                        String(item.nama || '-'),
+                        String(item.qrcode || '-')
                     ];
 
-                    // Render dinamis sebanyak maxLevel
                     for (let i = 0; i < maxLevel; i++) {
                         const harga = item.level_harga ? item.level_harga[i] : undefined;
                         row.push({
@@ -1319,10 +1318,9 @@
                     bodyTable.push(row);
                 });
 
-                // 6. DEFINISI DOKUMEN PDFMAKE
+                // 6. Definisi Dokumen PDF
                 const docDefinition = {
                     pageSize: 'A4',
-                    // Gunakan Landscape jika level lebih dari 4 agar muat dengan rapi
                     pageOrientation: maxLevel > 4 ? 'landscape' : 'portrait',
                     pageMargins: [20, 25, 20, 25],
                     header: function(currentPage, pageCount) {
@@ -1339,7 +1337,7 @@
                             style: 'docTitle'
                         },
                         {
-                            text: `Total Barang: ${dataBarang.length} | Total Level: ${maxLevel} | Tanggal Cetak: ${new Date().toLocaleDateString('id-ID')}`,
+                            text: `Total Barang: ${dataBarang.length} | Total Level: ${maxLevel} | Tanggal: ${new Date().toLocaleDateString('id-ID')}`,
                             style: 'docSubTitle'
                         },
                         {
@@ -1372,17 +1370,29 @@
                         }
                     },
                     defaultStyle: {
-                        fontSize: maxLevel > 6 ? 7 : 8 // Mengecilkan font otomatis jika level > 6
+                        fontSize: maxLevel > 6 ? 7 : 8
                     }
                 };
 
-                pdfMake.createPdf(docDefinition).download(
-                    `Daftar_Harga_Barang_${new Date().toISOString().slice(0,10)}.pdf`);
+                // 7. AMAN UNTUK BROWSER: Gunakan Blob Download untuk menghindari Popup Blocker
+                const pdfDocGenerator = pdfMake.createPdf(docDefinition);
+                pdfDocGenerator.getBlob((blob) => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `Daftar_Harga_Barang_${new Date().toISOString().slice(0,10)}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+
+                    btnCetak.prop('disabled', false).html(originalContent);
+                });
 
             } catch (error) {
-                console.error('Error generating PDF:', error);
-                alert('Terjadi kesalahan saat memproses PDF.');
-            } finally {
+                console.error('Error pdfMake:', error);
+                notificationAlert('error', 'Info', 'Gagal me-render PDF: ' + error.message);
+
                 btnCetak.prop('disabled', false).html(originalContent);
             }
         }

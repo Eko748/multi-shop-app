@@ -38,14 +38,12 @@ class BarangController extends Controller
 
     public function export(Request $request)
     {
-        // Tingkatkan limit aman
         ini_set('memory_limit', '512M');
         set_time_limit(300);
 
         try {
             $mappedData = [];
 
-            // Gunakan chunk untuk memproses data per 500 baris agar RAM tidak jebol
             Barang::query()
                 ->select('id', 'qrcode', 'nama', 'jenis_barang_id', 'brand_id')
                 ->with([
@@ -57,9 +55,23 @@ class BarangController extends Controller
                 ->chunk(500, function ($barangs) use (&$mappedData) {
                     foreach ($barangs as $item) {
 
-                        $levelHarga = $item->stockBarang->level_harga ?? [];
-                        if (is_string($levelHarga)) {
-                            $levelHarga = json_decode($levelHarga, true) ?? [];
+                        // Ambil object stok pertama jika relasinya HasMany / Collection
+                        $stock = $item->stockBarang instanceof \Illuminate\Support\Collection
+                            ? $item->stockBarang->first()
+                            : $item->stockBarang;
+
+                        $rawLevel = $stock->level_harga ?? [];
+
+                        // 1. Jika bertipe string JSON (seperti "[102500,106500,...]"), lakukan json_decode
+                        if (is_string($rawLevel)) {
+                            $levelHarga = json_decode($rawLevel, true) ?? [];
+                        }
+                        // 2. Jika sudah ter-cast sebagai array (karena $casts di Model)
+                        elseif (is_array($rawLevel)) {
+                            $levelHarga = $rawLevel;
+                        }
+                        else {
+                            $levelHarga = [];
                         }
 
                         $mappedData[] = [
@@ -68,7 +80,7 @@ class BarangController extends Controller
                             'nama' => $item->nama,
                             'jenis' => optional($item->jenis)->nama_jenis_barang ?? '-',
                             'brand' => optional($item->brand)->nama_brand ?? '-',
-                            'level_harga' => $levelHarga,
+                            'level_harga' => $levelHarga, // Mengirimkan Array murni ke JS
                         ];
                     }
                 });
@@ -78,11 +90,10 @@ class BarangController extends Controller
                 'errors' => false,
                 'message' => 'Sukses mengambil data cetak',
                 'total' => count($mappedData),
-                'data' => $mappedData, // Kirim array biasa, bukan Model Collection
+                'data' => $mappedData,
             ], 200);
 
         } catch (\Exception $e) {
-            // Tangkap dan tampilkan error spesifik agar mudah di-debug
             return response()->json([
                 'status_code' => 500,
                 'errors' => true,

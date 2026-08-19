@@ -1,10 +1,11 @@
 <?php
 
 use App\Http\Middleware\RedirectIfAuthenticated;
-use App\Http\Middleware\VerifyApiKey; // 1. Import Middleware baru kamu di sini
+use App\Http\Middleware\VerifyApiKey;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Session\TokenMismatchException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -17,7 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
             'tamu' => RedirectIfAuthenticated::class,
-            'verify.apikey' => VerifyApiKey::class, // 2. Daftarkan di sini!
+            'verify.apikey' => VerifyApiKey::class,
         ]);
 
         $middleware->statefulApi();
@@ -29,6 +30,13 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
+
+        $exceptions->render(function (TokenMismatchException $e, $request) {
+            return response()->json([
+                'title'   => 'Login Kembali',
+                'message' => 'Sesi Anda telah berakhir karena tidak ada aktivitas beberapa saat. Silakan reload halaman & login kembali.',
+            ], 419);
+        });
 
         $exceptions->render(function (\Spatie\Permission\Exceptions\UnauthorizedException $e, $request) {
             return response()->json([

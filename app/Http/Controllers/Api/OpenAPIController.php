@@ -33,7 +33,8 @@ class OpenAPIController extends Controller
             $month = $request->input('month', now()->month);
             $year  = $request->input('year', now()->year);
 
-            $tokos = Toko::all();
+            // Ambil hanya kolom yang dibutuhkan dari database
+            $tokos = Toko::select('id', 'parent_id', 'nama', 'singkatan', 'wilayah', 'alamat', 'mitra')->get();
 
             $data = $tokos->map(function ($toko) use ($month, $year) {
                 return [

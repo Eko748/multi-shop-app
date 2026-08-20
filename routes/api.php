@@ -406,3 +406,4 @@ Route::middleware('verify.apikey')->prefix('v1')->group(function () {
     Route::get('/laporan-toko', [OpenAPIController::class, 'getLaporanToko']);
     Route::get('/laporan-toko-detail', [OpenAPIController::class, 'getTopMemberBarang']);
 });
+    Route::get('/neraca-toko', [OpenAPIController::class, 'getNeraca']);

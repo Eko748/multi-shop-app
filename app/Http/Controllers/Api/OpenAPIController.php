@@ -10,6 +10,7 @@ use App\Models\ReturMemberDetail;
 use App\Models\ReturSupplierDetail;
 use App\Models\Toko;
 use App\Models\TransaksiKasirDetail;
+use App\Services\NeracaKeuanganService;
 use App\Traits\ApiResponse;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
@@ -19,6 +20,34 @@ use Illuminate\Support\Facades\DB;
 class OpenAPIController extends Controller
 {
     use ApiResponse;
+    protected $neracaKeuanganService;
+
+    public function __construct(NeracaKeuanganService $neracaKeuanganService)
+    {
+        $this->neracaKeuanganService = $neracaKeuanganService;
+    }
+
+    public function getNeraca(Request $request)
+    {
+        try {
+            $month = $request->input('month', now()->month);
+            $year  = $request->input('year', now()->year);
+
+            $tokos = Toko::all();
+
+            $data = $tokos->map(function ($toko) use ($month, $year) {
+                return [
+                    'toko'   => $toko,
+                    'neraca' => $this->neracaKeuanganService->generateNeraca($month, $year, $toko->id)
+                ];
+            });
+
+            return $this->success($data, 200, 'Data laporan keuangan seluruh toko berhasil diambil!');
+
+        } catch (\Throwable $e) {
+            return $this->error(500, 'Gagal mengambil data laporan keuangan', $e->getMessage());
+        }
+    }
 
     public function getLaporanToko(Request $request)
     {

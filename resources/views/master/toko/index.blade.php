@@ -347,6 +347,11 @@
                 </span>`;
             }
 
+            let mitra = '';
+            if (data?.mitra == true) {
+                mitra = `<sup class="text-danger border border-danger"></sup>`;
+            }
+
             return {
                 id: data?.id ?? '-',
                 nama: data?.nama ?? '-',
@@ -357,6 +362,7 @@
                 toko_group: data?.toko_group ?? '-',
                 detail_button,
                 action_buttons,
+                mitra,
             };
         }
 
@@ -373,7 +379,7 @@
                 getDataTable += `
                 <tr class="text-dark">
                     <td class="${classCol} text-center">${display_from + index}.</td>
-                    <td class="${classCol}">${element.nama}</td>
+                    <td class="${classCol}">${element.nama}${element.mitra}</td>
                     <td class="${classCol}">${element.singkatan}</td>
                     <td class="${classCol}">${element.toko_group}</td>
                     <td class="${classCol}">${element.nama_level_harga}</td>
@@ -469,7 +475,7 @@
                 '<i class="fa fa-circle-plus mr-1"></i>Tambah Data Toko';
 
             const tokoGroup = mode !== 'edit' ?
-                `<div class="col-md-6">
+                `<div class="col-md-4">
                     <div class="form-group">
                         <label for="toko_group_id" class="form-control-label">Grup Toko</label>
                         <select class="form-control" id="toko_group_id" name="toko_group_id">
@@ -478,7 +484,18 @@
                     </div>
                 </div>` : '';
 
-            const cols = mode === 'edit' ? '12' : '6';
+            const mitraInput = mode !== 'edit' ? 
+            `<div class="col-md-4">
+                <div class="form-group">
+                    <label class="form-control-label d-block">Mitra</label>
+                    <div class="custom-control custom-switch mt-2">
+                        <input type="checkbox" class="custom-control-input" id="is_mitra" name="is_mitra" value="1">
+                        <label class="custom-control-label" for="is_mitra">Aktifkan Mitra</label>
+                    </div>
+                </div>
+            </div>` : '';
+
+            const cols = mode === 'edit' ? '12' : '4';
 
             $('#modalLabel').html(title);
 
@@ -556,6 +573,7 @@
                                     </div>
                                 </div>
                                 ${tokoGroup}
+                                ${mitraInput}
                             </div>
                             <div class="form-group">
                                 <label for="alamat" class=" form-control-label">Alamat<span

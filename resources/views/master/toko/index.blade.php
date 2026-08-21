@@ -349,7 +349,7 @@
 
             let mitra = '';
             if (data?.mitra == true) {
-                mitra = `<sup class="text-danger border border-danger"></sup>`;
+                mitra = `<span class="badge badge-danger border border-danger">Mitra</span>`;
             }
 
             return {

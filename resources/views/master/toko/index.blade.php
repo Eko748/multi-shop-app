@@ -489,8 +489,8 @@
                 <div class="form-group">
                     <label class="form-control-label d-block">Mitra</label>
                     <div class="custom-control custom-switch mt-2">
-                        <input type="checkbox" class="custom-control-input" id="is_mitra" name="is_mitra" value="1">
-                        <label class="custom-control-label" for="is_mitra">Aktifkan Mitra</label>
+                        <input type="checkbox" class="custom-control-input" id="mitra" name="mitra" value="1">
+                        <label class="custom-control-label" for="mitra">Aktifkan Mitra</label>
                     </div>
                 </div>
             </div>` : '';

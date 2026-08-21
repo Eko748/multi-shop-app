@@ -379,7 +379,7 @@
                 getDataTable += `
                 <tr class="text-dark">
                     <td class="${classCol} text-center">${display_from + index}.</td>
-                    <td class="${classCol}">${element.nama}${element.mitra}</td>
+                    <td class="${classCol}">${element.nama} ${element.mitra}</td>
                     <td class="${classCol}">${element.singkatan}</td>
                     <td class="${classCol}">${element.toko_group}</td>
                     <td class="${classCol}">${element.nama_level_harga}</td>

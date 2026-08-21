@@ -17,22 +17,45 @@ class TransaksiKasirRepo
         $this->model = $model;
     }
 
-    public function sumNominal($filter)
+    private function applyFilter($query, $filter)
     {
-        $query = $this->model->newQuery();
+        // Filter Search (Nota & Member Name)
+        if (! empty($filter->search)) {
+            $query->where(function ($q) use ($filter) {
+                $q->where('nota', 'like', '%'.$filter->search.'%')
+                    ->orWhereHas('member', function ($q2) use ($filter) {
+                        $q2->where('nama', 'like', '%'.$filter->search.'%');
+                    });
+            });
+        }
 
+        // Filter Toko
         if (! empty($filter->toko_id) && ($filter->role_id != 1)) {
             $query->where('toko_id', $filter->toko_id);
         }
 
+        // Filter Nota
+        if (! empty($filter->nota)) {
+            $query->where('nota', $filter->nota);
+        }
+
+        // Filter Tanggal
         if (! empty($filter->start_date) && ! empty($filter->end_date)) {
             $query->whereBetween('tanggal', [
                 Carbon::parse($filter->start_date)->startOfDay(),
-                Carbon::parse($filter->end_date)->startOfDay(),
+                Carbon::parse($filter->end_date)->endOfDay()
             ]);
         } else {
             $query->whereDate('tanggal', Carbon::today());
         }
+
+        return $query;
+    }
+
+    public function sumNominal($filter)
+    {
+        $query = $this->model->newQuery();
+        $this->applyFilter($query, $filter);
 
         return [
             'qty' => $query->sum('total_qty'),
@@ -43,32 +66,10 @@ class TransaksiKasirRepo
     public function getAll($filter)
     {
         $query = $this->model->newQuery();
-
-        if (! empty($filter->search)) {
-            $query->where(function ($q) use ($filter) {
-                $q->where('nota', 'like', '%'.$filter->search.'%')
-                    ->orWhereHas('member', function ($q2) use ($filter) {
-                        $q2->where('nama', 'like', '%'.$filter->search.'%');
-                    });
-            });
-        }
+        $this->applyFilter($query, $filter);
 
         if ($filter->role_id == 1) {
             $query->with('toko');
-        }
-
-        if (! empty($filter->toko_id) && ($filter->role_id != 1)) {
-            $query->where('toko_id', $filter->toko_id);
-        }
-
-        if (! empty($filter->nota)) {
-            $query->where('nota', $filter->nota);
-        }
-
-        if (! empty($filter->start_date) && ! empty($filter->end_date)) {
-            $query->whereBetween('tanggal', [$filter->start_date, $filter->end_date]);
-        } else {
-            $query->whereDate('tanggal', Carbon::today());
         }
 
         return ! empty($filter->limit)

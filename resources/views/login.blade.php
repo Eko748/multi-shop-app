@@ -527,84 +527,154 @@
         });
 
         // --- 2. FUNCTION SHOW TOKO MODAL ---
-        window.showTokoModal = function(daftarToko, defaultRedirect) {
+        window.showTokoModal = async function(daftarToko, defaultRedirect) {
             let cardsHtml = `
-            <div class="toko-card" data-id="ALL" onclick="selectTokoCard(this, '${defaultRedirect}')" style="
-                border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px 16px; cursor: pointer;
-                background: #ffffff; display: flex; align-items: center; gap: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-                transition: all 0.2s ease-in-out;
-            " onmouseover="this.style.borderColor='#2563eb'; this.style.transform='translateY(-2px)'"
-               onmouseout="this.style.borderColor='#e2e8f0'; this.style.transform='translateY(0)'">
+        <div class="toko-card" data-id="ALL" onclick="selectTokoCard(this, '${defaultRedirect}')" style="
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 14px 16px;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            background: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        " onmouseover="this.style.borderColor='#2563eb'; this.style.transform='translateY(-3px)'; this.style.boxShadow='0 10px 15px -3px rgba(37,99,235,0.1)'"
+           onmouseout="this.style.borderColor='#e2e8f0'; this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.02)'">
 
-                <div style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: #fff; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0;">🌟</div>
-                <div style="text-align: left; flex: 1;">
-                    <div style="font-weight: 700; color: #0f172a; font-size: 14px;">SEMUA TOKO</div>
-                    <div style="font-size: 12px; color: #64748b;">Akses gabungan seluruh data toko</div>
+            <div style="
+                background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+                color: #ffffff;
+                border-radius: 50%;
+                width: 44px;
+                height: 44px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 700;
+                font-size: 18px;
+                flex-shrink: 0;
+                box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);
+            ">
+                🌟
+            </div>
+
+            <div style="text-align: left; min-width: 0; flex: 1;">
+                <div style="font-weight: 700; color: #0f172a; font-size: 14px; line-height: 1.2;">SEMUA TOKO</div>
+                <div style="font-size: 12px; color: #64748b; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    Akses gabungan seluruh data toko
                 </div>
             </div>
-        `;
+        </div>
+    `;
 
             if (Array.isArray(daftarToko)) {
                 daftarToko.forEach(toko => {
-                    let namaToko = toko.nama || 'Toko ' + toko.id;
-                    let alamatToko = toko.alamat || 'Alamat tidak tersedia';
-                    let singkatanToko = toko.singkatan ? toko.singkatan.trim() : (namaToko.charAt(0) || toko
-                        .id);
+                    let namaToko = toko.nama || toko.nama_toko || 'Toko ' + toko.id;
+                    let alamatToko = toko.alamat ? toko.alamat : 'Alamat tidak tersedia';
+                    let singkatanToko = toko.singkatan ? toko.singkatan.trim() : (namaToko.charAt(0) || toko.id);
+
+                    let fontSize = '15px';
+                    if (singkatanToko.length === 3) fontSize = '12px';
+                    else if (singkatanToko.length === 4) fontSize = '10px';
+                    else if (singkatanToko.length > 4) fontSize = '9px';
 
                     cardsHtml += `
-                    <div class="toko-card" data-id="${toko.id}" onclick="selectTokoCard(this, '${defaultRedirect}')" style="
-                        border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px 16px; cursor: pointer;
-                        background: #ffffff; display: flex; align-items: center; gap: 14px; margin-top: 10px;
-                        transition: all 0.2s ease-in-out;
-                    " onmouseover="this.style.borderColor='#2563eb'; this.style.transform='translateY(-2px)'"
-                       onmouseout="this.style.borderColor='#e2e8f0'; this.style.transform='translateY(0)'">
+                <div class="toko-card" data-id="${toko.id}" onclick="selectTokoCard(this, '${defaultRedirect}')" style="
+                    border: 1px solid #e2e8f0;
+                    border-radius: 14px;
+                    padding: 14px 16px;
+                    cursor: pointer;
+                    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+                    background: #ffffff;
+                    display: flex;
+                    align-items: center;
+                    gap: 14px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+                " onmouseover="this.style.borderColor='#2563eb'; this.style.transform='translateY(-3px)'; this.style.boxShadow='0 10px 15px -3px rgba(37,99,235,0.1)'"
+                   onmouseout="this.style.borderColor='#e2e8f0'; this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.02)'">
 
-                        <div style="background: #f1f5f9; color: #1e293b; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0; border: 1px solid #cbd5e1; text-transform: uppercase;">
-                            ${singkatanToko}
+                    <div style="
+                        background: #f1f5f9;
+                        color: #1e293b;
+                        border-radius: 50%;
+                        width: 44px;
+                        height: 44px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-weight: 700;
+                        font-size: ${fontSize};
+                        letter-spacing: -0.5px;
+                        flex-shrink: 0;
+                        border: 1px solid #cbd5e1;
+                        text-transform: uppercase;
+                        overflow: hidden;
+                        padding: 2px;
+                    ">
+                        ${singkatanToko}
+                    </div>
+
+                    <div style="text-align: left; min-width: 0; flex: 1;">
+                        <div style="font-weight: 700; color: #0f172a; font-size: 14px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${namaToko}">
+                            ${namaToko}
                         </div>
-                        <div style="text-align: left; flex: 1;">
-                            <div style="font-weight: 700; color: #0f172a; font-size: 14px;">${namaToko}</div>
-                            <div style="font-size: 12px; color: #64748b;">${alamatToko}</div>
+                        <div style="font-size: 12px; color: #64748b; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${alamatToko}">
+                            ${alamatToko}
                         </div>
                     </div>
-                `;
+                </div>
+            `;
                 });
             }
 
             Swal.fire({
                 title: '<span style="font-size: 22px; font-weight: 800; color: #0f172a;">Pilih Toko Aktif</span>',
-                html: `<div id="toko-grid-container" style="max-height: 380px; overflow-y: auto; padding: 4px;">${cardsHtml}</div>`,
+                html: `
+            <p style="font-size: 13px; color: #64748b; margin-bottom: 20px;">
+                Klik salah satu toko di bawah ini untuk melanjutkan ke dashboard:
+            </p>
+            <div id="toko-grid-container" style="
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+                gap: 14px;
+                max-height: 380px;
+                overflow-y: auto;
+                padding: 4px;
+            ">
+                ${cardsHtml}
+            </div>
+        `,
                 showConfirmButton: false,
+                showCancelButton: false,
                 showCloseButton: true,
                 allowOutsideClick: false,
                 allowEscapeKey: false,
-                width: '680px'
+                width: '680px',
+                padding: '1.75rem',
+                customClass: {
+                    closeButton: 'custom-swal-close-btn'
+                }
             }).then(async (result) => {
-                // Ketika Tombol X (Batal) Diklik
                 if (result.dismiss === Swal.DismissReason.close) {
-                    if (typeof loadingPage === 'function') loadingPage(true);
+                    loadingPage(true);
 
                     try {
-                        let res = await $.ajax({
-                            url: '{{ route('post_cancel_login') }}',
-                            type: 'POST',
-                            data: {
-                                _token: $('meta[name="csrf-token"]').attr('content')
-                            }
-                        });
+                        let response = await renderAPI('POST', '{{ route('post_cancel_login') }}', {});
 
-                        if (res && res.new_csrf_token) {
-                            updateCsrfToken(res.new_csrf_token);
+                        // PERBARUI CSRF TOKEN DI BROWSER DENGAN TOKEN BARU DARI SERVER
+                        if (response && response.data.new_csrf_token) {
+                            $('meta[name="csrf-token"]').attr('content', response.data.new_csrf_token);
+                            $('input[name="_token"]').val(response.data.new_csrf_token);
                         }
                     } catch (err) {
-                        console.error("Gagal cancel login:", err);
+                        console.error("Gagal melakukan cancel login:", err);
                     } finally {
-                        if (typeof loadingPage === 'function') loadingPage(false);
+                        loadingPage(false);
                         resetFormLogin();
-                        if (typeof notificationAlert === 'function') {
-                            notificationAlert('info', 'Info',
-                                'Login dibatalkan. Silakan masukkan kembali data login.');
-                        }
+                        notificationAlert('info', 'Info',
+                            'Login dibatalkan. Silakan masukkan kembali data login.');
                     }
                 }
             });

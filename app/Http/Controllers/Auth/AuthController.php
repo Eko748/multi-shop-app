@@ -40,7 +40,7 @@ class AuthController extends Controller
             // Cek jika Super Admin (role_id = 1 atau id_level = 1)
             if ($user->role_id == 1) {
                 // Ambil seluruh data toko dari database
-                $daftarToko = \App\Models\Toko::select('id', 'nama_toko')->get();
+                $daftarToko = \App\Models\Toko::select('id', 'nama')->get();
 
                 // Jika jumlah toko lebih dari 1
                 if ($daftarToko->count() > 1) {

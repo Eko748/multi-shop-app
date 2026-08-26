@@ -435,7 +435,7 @@
             // Susun option dropdown untuk modal SweetAlert2
             let optionsHtml = `<option value="ALL">-- SEMUA TOKO --</option>`;
             daftarToko.forEach(toko => {
-                optionsHtml += `<option value="${toko.id}">${toko.nama_toko}</option>`;
+                optionsHtml += `<option value="${toko.id}">${toko.nama}</option>`;
             });
 
             Swal.fire({

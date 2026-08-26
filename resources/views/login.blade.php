@@ -466,7 +466,6 @@
         }
 
         function showTokoModal(daftarToko, defaultRedirect) {
-            // Card "SEMUA TOKO"
             let cardsHtml = `
         <div class="toko-card" data-id="ALL" onclick="selectTokoCard(this, '${defaultRedirect}')" style="
             border: 1px solid #e2e8f0;
@@ -508,14 +507,12 @@
         </div>
     `;
 
-            // Card tiap Toko dari Database
             if (Array.isArray(daftarToko)) {
                 daftarToko.forEach(toko => {
                     let namaToko = toko.nama || toko.nama_toko || 'Toko ' + toko.id;
                     let alamatToko = toko.alamat ? toko.alamat : 'Alamat tidak tersedia';
                     let singkatanToko = toko.singkatan ? toko.singkatan.trim() : (namaToko.charAt(0) || toko.id);
 
-                    // Penyesuaian font-size dinamis berdasarkan panjang singkatan
                     let fontSize = '15px';
                     if (singkatanToko.length === 3) fontSize = '12px';
                     else if (singkatanToko.length === 4) fontSize = '10px';
@@ -589,7 +586,7 @@
         `,
                 showConfirmButton: false,
                 showCancelButton: false,
-                showCloseButton: true, // Menampilkan tombol Close bawaan SweetAlert2 di pojok kanan atas
+                showCloseButton: true,
                 allowOutsideClick: false,
                 allowEscapeKey: false,
                 width: '680px',
@@ -598,14 +595,28 @@
                     closeButton: 'custom-swal-close-btn'
                 }
             }).then(async (result) => {
-                // Jika user mengeklik tombol X / Close di pojok kanan atas
+                // Jika tombol X diklik / Modal ditutup
                 if (result.dismiss === Swal.DismissReason.close) {
-                    await renderAPI('POST', '{{ route('post_cancel_login') }}', {});
-                    notificationAlert('info', 'Info', 'Login dibatalkan.');
+                    loadingPage(true); // Tampilkan indikator proses sebentar
+
+                    try {
+                        // Hapus session login di backend
+                        await renderAPI('POST', '{{ route('post_cancel_login') }}', {});
+                    } catch (err) {
+                        console.error("Gagal melakukan cancel login:", err);
+                    } finally {
+                        loadingPage(false);
+
+                        // Reset form dan matikan efek loading/disabled
+                        resetFormLogin();
+
+                        notificationAlert('info', 'Info',
+                            'Login dibatalkan. Silakan masukkan kembali kredensial Anda.');
+                    }
                 }
             });
         }
-        // Fungsi helper saat Card Toko Diklik
+
         async function selectTokoCard(element, defaultRedirect) {
             let tokoId = $(element).data('id');
 
@@ -636,6 +647,19 @@
                 Swal.hideLoading();
                 notificationAlert('error', 'Error', 'Terjadi kesalahan saat memilih toko.');
             }
+        }
+
+        function resetFormLogin() {
+            // 1. Kosongkan nilai field password (opsional: kosongkan username juga)
+            $('#password').val('');
+
+            // 2. Mengaktifkan kembali field & tombol submit jika sebelumnya di-disabled
+            $('#username').prop('disabled', false);
+            $('#password').prop('disabled', false);
+            $('button[type="submit"], .btn-login').prop('disabled', false);
+
+            // 3. Auto focus ke field password atau username
+            $('#password').focus();
         }
     </script>
     <script>

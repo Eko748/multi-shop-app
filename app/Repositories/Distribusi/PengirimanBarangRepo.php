@@ -33,14 +33,17 @@ class PengirimanBarangRepo
             : $query->orderByDesc('id')->get();
     }
 
-    public function getStokPengirimanBarang(int $month, int $year, int $idToko): array
+    public function getStokPengirimanBarang(int $month, int $year, $idToko = null): array
     {
         $details = PengirimanBarangDetail::where('qty_send', '>', 0)
             ->whereHas('pengirimanBarang', function ($q) use ($idToko, $month, $year) {
                 $q->where('status', 'progress')
-                    ->where('toko_asal_id', $idToko)
                     ->whereMonth('send_at', $month)
-                    ->whereYear('send_at', $year);
+                    ->whereYear('send_at', $year)
+                    // Filter toko asal HANYA JIKA $idToko tidak kosong
+                    ->when(!empty($idToko), function ($subQuery) use ($idToko) {
+                        $subQuery->where('toko_asal_id', $idToko);
+                    });
             })
             ->with('batch:id,harga_beli')
             ->get();

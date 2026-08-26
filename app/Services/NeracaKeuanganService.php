@@ -40,7 +40,7 @@ class NeracaKeuanganService
     public function generateNeraca(int $month, int $year, $tokoId)
     {
         // Ambil data dari masing-masing repository
-        $pengeluaranAset = $this->pengeluaranRepo->getPengeluaranAset($month, $year);
+        $pengeluaranAset = $this->pengeluaranRepo->getPengeluaranAset($month, $year, $tokoId);
 
         $hutangItems = $this->hutangRepo->getActiveHutang($month, $year, $tokoId);
         $ekuitasItems = $this->generateEkuitas($month, $year, $tokoId);
@@ -125,9 +125,9 @@ class NeracaKeuanganService
                 ->where('sumber_type', Pengeluaran::class)
                 ->whereBetween('tanggal', [$startDate, $endDate])
                 ->whereHas('kas', function ($q) use ($tokoId) {
-                    if ($tokoId !== 'all' && $tokoId !== null && $tokoId != 0) {
-                        $q->where('toko_id', $tokoId);
-                    }
+                    $q->when(!empty($tokoId) && strtolower((string)$tokoId) !== 'all', function ($subQuery) use ($tokoId) {
+                        $subQuery->where('toko_id', $tokoId);
+                    });
                 });
 
             // 1. Pengeluaran Tipe ID 12 (Bagi Hasil Mitra)
@@ -166,16 +166,16 @@ class NeracaKeuanganService
 
     private function generateKas($tokoId, int $month, int $year)
     {
-        // Ambil data toko untuk cek parent_id
-        $toko = ($tokoId !== null && $tokoId !== 'all') ? Toko::find($tokoId) : null;
+        // Cek apakah $tokoId valid (bukan null, kosong, atau 'all')
+        $isFilteredByToko = !empty($tokoId) && strtolower((string)$tokoId) !== 'all';
+
+        // Ambil data toko untuk cek parent_id jika sedang memfilter toko tertentu
+        $toko = $isFilteredByToko ? Toko::find($tokoId) : null;
         $tokoParentId = $toko?->parent_id;
 
-        // List Kas Toko Ini (untuk Kas Kecil)
+        // List Kas Toko Ini (Jika $tokoId kosong/all, tarik seluruh kas dari semua toko)
         $kasList = Kas::query()
-            ->when(
-                $tokoId !== null && $tokoId !== 'all',
-                fn ($q) => $q->where('toko_id', $tokoId)
-            )
+            ->when($isFilteredByToko, fn ($q) => $q->where('toko_id', $tokoId))
             ->orderBy('jenis_barang_id')
             ->get();
 
@@ -202,44 +202,44 @@ class NeracaKeuanganService
             $jenisNama = $jenisBarangMap[$jenisBarangId];
 
             // --- PROSES KAS BESAR ---
-            // Jika Child, cari kas besar dari $kasParentList. Jika Parent, cari dari $kasList biasa
-            $kasBesarGroup = $kasParentList->where('jenis_barang_id', $jenisBarangId);
-            $kasBesar = $kasBesarGroup->where('tipe_kas', 'besar')->first();
+            // Ambil semua kas besar berdasarkan jenis_barang_id
+            $kasBesarGroup = $kasParentList->where('jenis_barang_id', $jenisBarangId)->where('tipe_kas', 'besar');
             $saldoBesar = 0;
 
-            if ($kasBesar) {
-                $saldoBesar = $this->getSaldoAkhirKas($kasBesar->id, $month, $year);
+            // Hitung akumulasi saldo (mendukung multiple kas jika mode "Semua Toko")
+            foreach ($kasBesarGroup as $kasBesar) {
+                $saldoBesar += $this->getSaldoAkhirKas($kasBesar->id, $month, $year);
             }
 
             if ($saldoBesar > 0) {
                 $kasBesarItems[] = [
-                    'kode' => 'I.1.'.$counterBesar,
-                    'nama' => 'Kas Besar - '.$jenisNama,
-                    'nilai' => (int) $saldoBesar,
+                    'kode'   => 'I.1.'.$counterBesar,
+                    'nama'   => 'Kas Besar - '.$jenisNama,
+                    'nilai'  => (int) $saldoBesar,
                     'format' => RupiahGenerate::build($saldoBesar),
-                    'sub' => 'I.1',
+                    'sub'    => 'I.1',
                 ];
                 $totalKasBesar += $saldoBesar;
                 $counterBesar++;
             }
 
             // --- PROSES KAS KECIL ---
-            // Kas kecil selalu milik toko itu sendiri
-            $kasKecilGroup = $kasList->where('jenis_barang_id', $jenisBarangId);
-            $kasKecil = $kasKecilGroup->where('tipe_kas', 'kecil')->first();
+            // Ambil semua kas kecil berdasarkan jenis_barang_id
+            $kasKecilGroup = $kasList->where('jenis_barang_id', $jenisBarangId)->where('tipe_kas', 'kecil');
             $saldoKecil = 0;
 
-            if ($kasKecil) {
-                $saldoKecil = $this->getSaldoAkhirKas($kasKecil->id, $month, $year);
+            // Hitung akumulasi saldo (mendukung multiple kas jika mode "Semua Toko")
+            foreach ($kasKecilGroup as $kasKecil) {
+                $saldoKecil += $this->getSaldoAkhirKas($kasKecil->id, $month, $year);
             }
 
             if ($saldoKecil > 0) {
                 $kasKecilItems[] = [
-                    'kode' => 'I.2.'.$counterKecil,
-                    'nama' => 'Kas Kecil - '.$jenisNama,
-                    'nilai' => (int) $saldoKecil,
+                    'kode'   => 'I.2.'.$counterKecil,
+                    'nama'   => 'Kas Kecil - '.$jenisNama,
+                    'nilai'  => (int) $saldoKecil,
                     'format' => RupiahGenerate::build($saldoKecil),
-                    'sub' => 'I.2',
+                    'sub'    => 'I.2',
                 ];
                 $totalKasKecil += $saldoKecil;
                 $counterKecil++;
@@ -249,21 +249,21 @@ class NeracaKeuanganService
         return [
             'kasBesar' => [
                 'parent' => [
-                    'kode' => 'I.1',
-                    'nama' => 'Kas Besar',
-                    'nilai' => (int) $totalKasBesar,
+                    'kode'   => 'I.1',
+                    'nama'   => 'Kas Besar',
+                    'nilai'  => (int) $totalKasBesar,
                     'format' => RupiahGenerate::build($totalKasBesar),
                 ],
-                'items' => $kasBesarItems,
+                'items'  => $kasBesarItems,
             ],
             'kasKecil' => [
                 'parent' => [
-                    'kode' => 'I.2',
-                    'nama' => 'Kas Kecil',
-                    'nilai' => (int) $totalKasKecil,
+                    'kode'   => 'I.2',
+                    'nama'   => 'Kas Kecil',
+                    'nilai'  => (int) $totalKasKecil,
                     'format' => RupiahGenerate::build($totalKasKecil),
                 ],
-                'items' => $kasKecilItems,
+                'items'  => $kasKecilItems,
             ],
         ];
     }

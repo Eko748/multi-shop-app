@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Repositories;
 
 use App\Models\Piutang;
@@ -6,13 +7,24 @@ use Carbon\Carbon;
 
 class PiutangRepository
 {
-    public function getActivePiutang($month, $year, $tokoId)
+    /**
+     * Mengambil data piutang aktif
+     *
+     * @param int|string $month
+     * @param int|string $year
+     * @param mixed $tokoId ID Toko (jika null/kosong, data dari semua toko akan ditarik)
+     * @return array
+     */
+    public function getActivePiutang($month, $year, $tokoId = null)
     {
         $endDate = Carbon::create($year, $month, 1)->endOfMonth();
 
         $data = Piutang::where('status', '0')
             ->whereDate('tanggal', '<=', $endDate)
-            ->where('toko_id', $tokoId)
+            // Filter toko_id HANYA JIKA $tokoId tidak kosong
+            ->when(!empty($tokoId), function ($query) use ($tokoId) {
+                $query->where('toko_id', $tokoId);
+            })
             ->withSum('piutangDetail', 'nominal')
             ->get();
 

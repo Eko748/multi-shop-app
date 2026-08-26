@@ -53,11 +53,7 @@ use App\Http\Controllers\Utils\MasterController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::post('/switch-toko', function (Request $request) {
-    session(['active_toko_id' => $request->toko_id]);
-    return response()->json(['message' => 'Berhasil pindah toko']);
-});
-
+Route::post('/switch-toko', [AuthController::class, 'switchToko'])->name('switch.toko');
 Route::post('/select-toko', [AuthController::class, 'selectToko'])->name('post_select_toko');
 Route::post('/cancel-login', [AuthController::class, 'postCancelLogin'])->name('post_cancel_login');
 

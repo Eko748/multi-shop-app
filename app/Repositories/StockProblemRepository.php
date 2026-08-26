@@ -6,11 +6,22 @@ use App\Models\StockBarangBermasalah;
 
 class StockProblemRepository
 {
-    public function getStockProblem($month, $year, $toko_id): array
+    /**
+     * Dapatkan rekap stok barang bermasalah (hilang & mati).
+     *
+     * @param int|string $month
+     * @param int|string $year
+     * @param mixed $toko_id ID Toko (jika null/kosong, data dari semua toko akan ditarik)
+     * @return array
+     */
+    public function getStockProblem($month, $year, $toko_id = null): array
     {
-        $stokProblem = StockBarangBermasalah::where('toko_id', $toko_id)
-            ->whereYear('created_at', $year)
+        $stokProblem = StockBarangBermasalah::whereYear('created_at', $year)
             ->whereMonth('created_at', $month)
+            // Filter toko_id HANYA JIKA $toko_id tidak kosong
+            ->when(!empty($toko_id), function ($query) use ($toko_id) {
+                $query->where('toko_id', $toko_id);
+            })
             ->with('batch')
             ->whereIn('status', ['hilang', 'mati'])
             ->get()

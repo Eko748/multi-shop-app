@@ -23,6 +23,15 @@ class User extends Authenticatable
         'remember_token',
     ];
 
+    public function getTokoIdAttribute($value)
+    {
+        if ($this->role_id == 1 && session()->has('active_toko_id')) {
+            return session('active_toko_id');
+        }
+
+        return $value;
+    }
+
     public function catatanBelumDibaca()
     {
         return $this->hasMany(Catatan::class, 'toko_tujuan_id', 'toko_id')

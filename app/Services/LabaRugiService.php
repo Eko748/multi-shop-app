@@ -26,28 +26,26 @@ class LabaRugiService
         return $this->hitungDetailLabaRugi($month, $year, $tokoId, true);
     }
 
-    public function hitungLabaRugiTahunSebelumnya($year, $tokoId)
+    public function hitungLabaRugiTahunSebelumnya($year, $tokoId = null)
     {
-        $query = LabaRugiTahunan::where('tahun', '<', $year);
-
-        if ($tokoId !== 'all') {
-            $query->where('toko_id', $tokoId);
-        }
-
-        return (int) $query->sum('laba_bersih');
+        return (int) LabaRugiTahunan::where('tahun', '<', $year)
+            ->when(!empty($tokoId) && strtolower((string)$tokoId) !== 'all', function ($query) use ($tokoId) {
+                $query->where('toko_id', $tokoId);
+            })
+            ->sum('laba_bersih');
     }
 
-    public function hitungLabaRugiRange($month, $year, $tokoId)
+    public function hitungLabaRugiRange($month, $year, $tokoId = null)
     {
         $results = [];
 
         // 1. Query Laba Rugi Dasar
         $query = LabaRugi::where('tahun', $year)
-            ->where('bulan', '<=', $month);
-
-        if ($tokoId !== 'all') {
-            $query->where('toko_id', $tokoId);
-        }
+            ->where('bulan', '<=', $month)
+            // Filter toko_id HANYA JIKA $tokoId tidak kosong dan bukan string 'all'
+            ->when(!empty($tokoId) && strtolower((string)$tokoId) !== 'all', function ($q) use ($tokoId) {
+                $q->where('toko_id', $tokoId);
+            });
 
         $data = $query
             ->pluck('laba_bersih', 'bulan')
@@ -57,7 +55,7 @@ class LabaRugiService
         $isParent = false;
         $parentKasIds = [];
 
-        if ($tokoId !== 'all') {
+        if (!empty($tokoId) && strtolower((string)$tokoId) !== 'all') {
             $toko = Toko::find($tokoId);
 
             // Toko dianggap PARENT jika parent_id-nya null/kosong

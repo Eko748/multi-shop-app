@@ -30,7 +30,7 @@ class TransaksiKasirRepo
         }
 
         // Filter Toko
-        if (! empty($filter->toko_id) && ($filter->role_id != 1)) {
+        if (! empty($filter->toko_id)) {
             $query->where('toko_id', $filter->toko_id);
         }
 

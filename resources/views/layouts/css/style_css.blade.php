@@ -2,6 +2,32 @@
     <link rel="stylesheet" href="{{ asset('flat-able-lite/dist/assets/css/style.css') }}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css">
     <style>
+        
+        #siteHeader,
+        .pcoded-header {
+            z-index: 1030 !important;
+            overflow: visible !important;
+        }
+
+        .m-header,
+        .brand {
+            overflow: visible !important;
+        }
+
+        .badge-dot-green {
+            width: 6px;
+            height: 6px;
+            background-color: #22c55e;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .active-toko {
+            background-color: #f0fdf4 !important;
+            font-weight: bold;
+            color: #166534 !important;
+        }
+
         /* Styling Navbar Horizontal Able Pro */
         .pcoded-navbar.theme-horizontal .pcoded-inner-navbar>li>a {
             padding: 8px 10px !important;

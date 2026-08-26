@@ -7,12 +7,23 @@ use App\Models\ReturSupplier;
 
 class ReturRepository
 {
-    public function getReturData(int $month, int $year, int $tokoId): array
+    /**
+     * Mengambil data retur member dan supplier
+     *
+     * @param int $month
+     * @param int $year
+     * @param mixed $tokoId ID Toko (jika null/kosong, data dari semua toko akan ditarik)
+     * @return array
+     */
+    public function getReturData(int $month, int $year, $tokoId = null): array
     {
         $returMemberQuery = ReturMemberDetail::whereYear('created_at', $year)
             ->whereMonth('created_at', '<=', $month)
-            ->whereHas('retur', function ($q) use ($tokoId) {
-                $q->where('toko_id', $tokoId);
+            // Filter retur member berdasarkan toko HANYA JIKA $tokoId tidak kosong
+            ->when(!empty($tokoId), function ($query) use ($tokoId) {
+                $query->whereHas('retur', function ($q) use ($tokoId) {
+                    $q->where('toko_id', $tokoId);
+                });
             });
 
         $returMember = $returMemberQuery
@@ -25,7 +36,10 @@ class ReturRepository
         $returSupplierQuery = ReturSupplier::where('status', 'proses')
             ->whereYear('tanggal', $year)
             ->whereMonth('tanggal', '<=', $month)
-            ->where('toko_id', $tokoId);
+            // Filter retur supplier berdasarkan toko HANYA JIKA $tokoId tidak kosong
+            ->when(!empty($tokoId), function ($query) use ($tokoId) {
+                $query->where('toko_id', $tokoId);
+            });
 
         $returSupplier = $returSupplierQuery
             ->selectRaw('

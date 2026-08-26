@@ -7,13 +7,24 @@ use Carbon\Carbon;
 
 class HutangRepository
 {
-    public function getActiveHutang($month, $year, $tokoId)
+    /**
+     * Mengambil data hutang aktif
+     *
+     * @param int|string $month
+     * @param int|string $year
+     * @param mixed $tokoId ID Toko (jika null/kosong, data dari semua toko akan ditarik)
+     * @return array
+     */
+    public function getActiveHutang($month, $year, $tokoId = null)
     {
         $endDate = Carbon::create($year, $month, 1)->endOfMonth();
 
         return Hutang::where('status', 0)
             ->whereDate('tanggal', '<=', $endDate)
-            ->where('toko_id', $tokoId)
+            // Filter toko_id HANYA JIKA $tokoId tidak kosong
+            ->when(!empty($tokoId), function ($query) use ($tokoId) {
+                $query->where('toko_id', $tokoId);
+            })
             ->withSum('hutangDetail', 'nominal')
             ->get()
             ->map(function ($item, $index) {
@@ -35,18 +46,29 @@ class HutangRepository
             ->toArray();
     }
 
-    public function getActiveHutangPengiriman($month, $year, $tokoId)
+    /**
+     * Mengambil data hutang pengiriman aktif berdasarkan toko asal
+     *
+     * @param int|string $month
+     * @param int|string $year
+     * @param mixed $tokoId ID Toko Asal (jika null/kosong, data dari semua toko asal akan ditarik)
+     * @return array
+     */
+    public function getActiveHutangPengiriman($month, $year, $tokoId = null)
     {
         $data = Hutang::query()
             ->where('status', '0')
             ->whereYear('tanggal', $year)
             ->whereMonth('tanggal', '<=', $month)
 
+            // Filter relasi morph pengiriman barang berdasarkan toko asal HANYA JIKA $tokoId tidak kosong
             ->whereHasMorph(
                 'sumber',
                 [\App\Models\PengirimanBarang::class],
                 function ($q) use ($tokoId) {
-                    $q->where('toko_asal_id', $tokoId);
+                    $q->when(!empty($tokoId), function ($subQuery) use ($tokoId) {
+                        $subQuery->where('toko_asal_id', $tokoId);
+                    });
                 }
             )
 

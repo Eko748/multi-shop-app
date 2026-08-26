@@ -27,6 +27,8 @@
     @stack('styles')
     @yield('css')
     <script>
+        window.ALL = null;
+
         document.onreadystatechange = function() {
             var state = document.readyState;
             if (state == 'complete') {
@@ -65,8 +67,68 @@
     <script src="{{ asset('js/main.js') }}?v={{ filemtime(public_path('js/main.js')) }}"></script>
     @yield('js')
     @stack('scripts')
+
     <script>
         const allowedPermissions = @json(View::getShared()['allowedPermissions'] ?? []);
+
+        $(document).ready(function() {
+            $('#dropdownTokoHeaderBtn').on('show.bs.dropdown', function() {
+                let $menu = $(this).next('.dropdown-menu');
+                $('body').append($menu.detach());
+                let offset = $(this).offset();
+                $menu.css({
+                    'display': 'block',
+                    'top': offset.top + $(this).outerHeight() + 4,
+                    'left': offset.left,
+                    'z-index': 999999,
+                    'position': 'absolute',
+                    'background-color': '#ffffff',
+                    'opacity': '1'
+                });
+            });
+
+            $('#dropdownTokoHeaderBtn').on('hide.bs.dropdown', function() {
+                let $menu = $('body').find('.dropdown-menu[aria-labelledby="dropdownTokoHeaderBtn"]');
+                $(this).after($menu.detach());
+                $menu.css('display', '');
+            });
+        });
+
+        function switchTokoHeader(tokoId) {
+            // 1. Tampilkan overlay loading full-screen
+            const loadingOverlay = document.getElementById('global-loading-overlay');
+            if (loadingOverlay) {
+                loadingOverlay.style.display = 'block';
+            }
+
+            // 2. Kirim request ganti toko ke backend
+            fetch("{{ route('switch.toko') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        toko_id: tokoId
+                    })
+                })
+                .then(response => {
+                    if (response.ok) {
+                        // Reload halaman (overlay tetap tampil sampai halaman selesai di-render ulang)
+                        window.location.reload();
+                    } else {
+                        if (loadingOverlay) loadingOverlay.style.display = 'none';
+                        notificationAlert('warning', 'Info', 'Gagal mengganti toko.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    if (loadingOverlay) loadingOverlay.style.display = 'none';
+                    alert('Terjadi kesalahan koneksi.');
+                    notificationAlert('warning', 'Info', 'Terjadi kesalahan koneksi.');
+
+                });
+        }
     </script>
 </body>
 

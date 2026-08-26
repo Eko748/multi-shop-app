@@ -8,7 +8,15 @@ use Carbon\Carbon;
 
 class PengeluaranRepository
 {
-    public function getPengeluaranAset(int $month, int $year): array
+    /**
+     * Mengambil rekap pengeluaran aset (kecil & besar)
+     *
+     * @param int $month
+     * @param int $year
+     * @param mixed $tokoId ID Toko (jika null/kosong, data dari semua toko akan ditarik)
+     * @return array
+     */
+    public function getPengeluaranAset(int $month, int $year, $tokoId = null): array
     {
         $endDate = Carbon::create($year, $month, 1)->endOfMonth();
 
@@ -18,6 +26,10 @@ class PengeluaranRepository
         )
             ->whereNotNull('aset')
             ->whereDate('tanggal', '<=', $endDate)
+            // Filter toko_id HANYA JIKA $tokoId tidak kosong
+            ->when(!empty($tokoId), function ($query) use ($tokoId) {
+                $query->where('toko_id', $tokoId);
+            })
             ->groupBy('aset')
             ->pluck('total', 'aset')
             ->toArray();

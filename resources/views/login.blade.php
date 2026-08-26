@@ -437,6 +437,7 @@
         }
 
         let errorTimeout = null;
+        let isSubmitting = false;
 
         function showErrorText(msg) {
             let $errBox = $('#error-message');
@@ -484,7 +485,8 @@
 
         // --- 1. FUNCTION SUBMIT LOGIN ---
         window.submitLogin = function(element) {
-            // Ambil nilai input
+            if (isSubmitting) return; // Hentikan jika sedang proses kirim
+            isSubmitting = true;
             let container = element ? $(element).closest('form, div') : $(document);
             let username = $('#username').val() || container.find('input[name="username"]').val();
             let password = $('#password').val() || container.find('input[name="password"]').val();
@@ -540,6 +542,7 @@
                     resetFormLogin();
                 },
                 complete: function() {
+                    isSubmitting = false; // Reset status setelah request selesai
                     if (typeof loadingPage === 'function') loadingPage(false);
                 }
             });

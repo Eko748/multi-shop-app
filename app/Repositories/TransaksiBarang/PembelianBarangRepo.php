@@ -26,7 +26,10 @@ class PembelianBarangRepo
                 Carbon::parse($filter->end_date)->endOfDay(),
             ]);
         }
-        $query->where('toko_id', $filter->toko_id);
+
+        if (! empty($filter->toko_id)) {
+            $query->where('toko_id', $filter->toko_id);
+        }
 
         $pembelian = $query->get();
 
@@ -66,7 +69,9 @@ class PembelianBarangRepo
             });
         }
 
-        $query->where('toko_id', $filter->toko_id);
+        if (! empty($filter->toko_id)) {
+            $query->where('toko_id', $filter->toko_id);
+        }
 
         if (! empty($filter->nota)) {
             $query->where('nota', $filter->nota);

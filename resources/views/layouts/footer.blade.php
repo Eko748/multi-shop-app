@@ -1,39 +1,23 @@
-{{-- <footer class="site-footer new_footer_area bg_color p-4">
-    <div class="new_footer_top">
-        <div class="footer_bg">
-            <div class="row justify-content-between">
-                <div class="col-lg-3 col-md-6 d-flex justify-content-start">
-                    <div class="f_widget social-widget wow fadeInLeft" data-wow-delay="0.8s"
-                        style="visibility: visible; animation-delay: 0.8s; animation-name: fadeInLeft;">
-                        <h3 class="f-title f_600 t_color f_size_18">Kontak Kami</h3>
-                        <div id="kontak" class="f_social_icon">
-                            <a href="https://chat.whatsapp.com/EG7v7NMd5BpF3QZyYX4TZ6" target="_blank" class="fab fa-whatsapp"></a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="footer_bg_one"></div>
-            <div class="footer_bg_two"></div>
-        </div>
-    </div>
-    <div class="footer_bottom">
-        <div class="row align-items-center">
-            <div class="col-lg-12 col-sm-12">
-                <p class="mb-0 f_400">&copy; Copyright {{ now()->year }}
-                    {{ env('APP_NAME') ?? 'GSS' }}</p>
-            </div>
-        </div>
-    </div>
-</footer> --}}
 @php
-    $apk = '';
-    if (auth()->user()->id_level == 1) {
-            $apk = env('APP_NAME') ?? 'GSS';
+    $apk = env('APP_NAME', 'GSS');
+
+    if (auth()->user()->role_id == 1) {
+        $activeTokoId = session('active_toko_id', 'ALL');
+
+        if ($activeTokoId !== 'ALL') {
+            // Ambil singkatan dari session atau query toko jika memilih toko spesifik
+            $apk = session('active_toko_singkatan')
+                ?? optional(auth()->user()->toko)->singkatan
+                ?? env('APP_NAME', 'GSS');
+        } else {
+            $apk = env('APP_NAME', 'GSS') . ' (ALL)';
         }
-    else {
-            $apk = Auth::user()->toko->singkatan;
-        }
+    } else {
+        // Menggunakan optional() agar aman jika relasi toko bernilai null
+        $apk = optional(auth()->user()->toko)->singkatan ?? env('APP_NAME', 'GSS');
+    }
 @endphp
+
 <footer class="app-footer">
     <div class="footer-container">
         <!-- Brand -->
@@ -72,13 +56,13 @@
         <!-- Contact -->
         <div class="footer-col">
             <h4>Kontak</h4>
-            <p>Email: {{ $apk }}.lumoa@toko.app</p>
+            <p>Email: {{ strtolower(str_replace(' ', '', $apk)) }}.lumoa@toko.app</p>
             <p>WhatsApp: +62 812-3456-7890</p>
             <span class="footer-badge">🔒 Secure Transaction</span>
         </div>
     </div>
 
     <div class="footer-bottom">
-        © {{ now()->year }} {{ $apk }} . All rights reserved.
+        © {{ now()->year }} {{ $apk }}. All rights reserved.
     </div>
 </footer>

@@ -159,6 +159,20 @@ class AuthController extends Controller
         return response()->json(['status' => 'logged_out']);
     }
 
+    public function switchToko(Request $request)
+    {
+        $tokoId = $request->input('toko_id');
+
+        if ($tokoId === 'ALL') {
+            session(['active_toko_id' => 'ALL', 'active_toko_singkatan' => 'ALL']);
+        } else {
+            $toko = \App\Models\Toko::findOrFail($tokoId);
+            session(['active_toko_id' => $toko->id, 'active_toko_singkatan' => $toko->singkatan]);
+        }
+
+        return response()->json(['success' => true]);
+    }
+
     public function dashboard()
     {
         $menu = ['Dashboard'];

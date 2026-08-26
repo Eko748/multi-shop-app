@@ -599,12 +599,21 @@
                     loadingPage(true);
 
                     try {
-                        let response = await renderAPI('POST', '{{ route('post_cancel_login') }}', {});
+                        // Gunakan $.ajax murni dan atur headers secara manual tanpa CSRF
+                        let response = await $.ajax({
+                            url: '{{ route('post_cancel_login') }}',
+                            type: 'POST',
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest'
+                                // X-CSRF-TOKEN sengaja DIHAPUS/TIDAK DIKIRIM
+                            },
+                            dataType: 'json'
+                        });
 
-                        // PERBARUI CSRF TOKEN DI BROWSER DENGAN TOKEN BARU DARI SERVER
-                        if (response && response.data.new_csrf_token) {
-                            $('meta[name="csrf-token"]').attr('content', response.data.new_csrf_token);
-                            $('input[name="_token"]').val(response.data.new_csrf_token);
+                        // Perbarui token CSRF baru dari server ke Form Login
+                        if (response && response.new_csrf_token) {
+                            $('meta[name="csrf-token"]').attr('content', response.new_csrf_token);
+                            $('input[name="_token"]').val(response.new_csrf_token);
                         }
                     } catch (err) {
                         console.error("Gagal melakukan cancel login:", err);

@@ -37,6 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             'cancel-login',
             'post-cancel-login',
+            '*/cancel-login*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

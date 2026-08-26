@@ -16,6 +16,8 @@
     <link rel="stylesheet" href="{{ asset('css/login/style.css') }}" />
     <link rel="stylesheet" href="{{ asset('css/sweetalert2.css') }}" />
     <link rel="stylesheet" href="{{ asset('css/login/loading.css') }}" />
+    <!-- SweetAlert2 CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/stylesheet/sweetalert2@11/sweetalert2.min.css">
     <script>
         document.onreadystatechange = function() {
             var state = document.readyState;
@@ -344,6 +346,7 @@
     <script src="{{ asset('js/sweetalert2.js') }}"></script>
     <script src="{{ asset('js/axios.js') }}"></script>
     <script src="{{ asset('js/restAPI.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <script>
         document.querySelectorAll('#username, #password').forEach(input => {

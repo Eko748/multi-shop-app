@@ -40,7 +40,7 @@ class AuthController extends Controller
 
                 // Cek jika Super Admin / Level 1
                 if ($user->id_level == 1 || $user->role_id == 1) {
-                    $daftarToko = \App\Models\Toko::select('id', 'nama')->get();
+                    $daftarToko = \App\Models\Toko::select('id', 'nama', 'singkatan', 'alamat')->get();
 
                     if ($daftarToko->count() > 1) {
                         // TANDAI BAHWA USER BELUM MEMILIH TOKO

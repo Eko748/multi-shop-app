@@ -433,97 +433,149 @@
                 }
             }
         }
-
-        function showTokoModal(daftarToko, defaultRedirect) {
-            // 1. Buat opsi 'SEMUA TOKO' di bagian awal card
-            let cardsHtml = `
+function showTokoModal(daftarToko, defaultRedirect) {
+    // Card "SEMUA TOKO"
+    let cardsHtml = `
         <div class="toko-card" data-id="ALL" onclick="selectTokoCard(this, '${defaultRedirect}')" style="
-            border: 2px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 16px;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 14px 16px;
             cursor: pointer;
-            transition: all 0.2s ease;
-            background: #f9fafb;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            background: #ffffff;
             display: flex;
             align-items: center;
-            gap: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        " onmouseover="this.style.borderColor='#21469c'; this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='#e5e7eb'; this.style.transform='translateY(0)'">
-            <div style="background: #e0e7ff; color: #21469c; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">
-                <i class="fas fa-store"></i> 🌟
+            gap: 14px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        " onmouseover="this.style.borderColor='#2563eb'; this.style.transform='translateY(-3px)'; this.style.boxShadow='0 10px 15px -3px rgba(37,99,235,0.1)'"
+           onmouseout="this.style.borderColor='#e2e8f0'; this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.02)'">
+
+            <div style="
+                background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+                color: #ffffff;
+                border-radius: 50%;
+                width: 44px;
+                height: 44px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 700;
+                font-size: 18px;
+                flex-shrink: 0;
+                box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);
+            ">
+                🌟
             </div>
-            <div style="text-align: left;">
-                <div style="font-weight: 700; color: #1f2937; font-size: 14px;">SEMUA TOKO (AKSES PUSAT)</div>
-                <div style="font-size: 12px; color: #6b7280;">Akses gabungan seluruh data toko</div>
+
+            <div style="text-align: left; min-width: 0; flex: 1;">
+                <div style="font-weight: 700; color: #0f172a; font-size: 14px; line-height: 1.2;">SEMUA TOKO</div>
+                <div style="font-size: 12px; color: #64748b; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    Akses gabungan seluruh data toko
+                </div>
             </div>
         </div>
     `;
 
-            // 2. Loop daftar toko dari backend
-            if (Array.isArray(daftarToko)) {
-                daftarToko.forEach(toko => {
-                    let namaToko = toko.nama || toko.nama_toko || 'Toko ' + toko.id;
-                    cardsHtml += `
+    // Card tiap Toko dari Database
+    if (Array.isArray(daftarToko)) {
+        daftarToko.forEach(toko => {
+            let namaToko = toko.nama || toko.nama_toko || 'Toko ' + toko.id;
+            let alamatToko = toko.alamat ? toko.alamat : 'Alamat tidak tersedia';
+
+            // Ambil singkatan dari DB, jika kosong fallback ke ID / Huruf Pertama
+            let singkatanToko = toko.singkatan ? toko.singkatan.trim() : (namaToko.charAt(0) || toko.id);
+
+            // Penyesuaian font-size dinamis berdasarkan panjang karakter singkatan
+            let fontSize = '15px'; // 1-2 karakter
+            if (singkatanToko.length === 3) {
+                fontSize = '12px';
+            } else if (singkatanToko.length === 4) {
+                fontSize = '10px';
+            } else if (singkatanToko.length > 4) {
+                fontSize = '9px';
+            }
+
+            cardsHtml += `
                 <div class="toko-card" data-id="${toko.id}" onclick="selectTokoCard(this, '${defaultRedirect}')" style="
-                    border: 2px solid #e5e7eb;
-                    border-radius: 12px;
-                    padding: 16px;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 14px;
+                    padding: 14px 16px;
                     cursor: pointer;
-                    transition: all 0.2s ease;
+                    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
                     background: #ffffff;
                     display: flex;
                     align-items: center;
-                    gap: 12px;
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-                " onmouseover="this.style.borderColor='#21469c'; this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='#e5e7eb'; this.style.transform='translateY(0)'">
-                    <div style="background: #f3f4f6; color: #374151; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">
-                        ${toko.id}
+                    gap: 14px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+                " onmouseover="this.style.borderColor='#2563eb'; this.style.transform='translateY(-3px)'; this.style.boxShadow='0 10px 15px -3px rgba(37,99,235,0.1)'"
+                   onmouseout="this.style.borderColor='#e2e8f0'; this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.02)'">
+
+                    <div style="
+                        background: #f1f5f9;
+                        color: #1e293b;
+                        border-radius: 50%;
+                        width: 44px;
+                        height: 44px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-weight: 700;
+                        font-size: ${fontSize};
+                        letter-spacing: -0.5px;
+                        flex-shrink: 0;
+                        border: 1px solid #cbd5e1;
+                        text-transform: uppercase;
+                        overflow: hidden;
+                        padding: 2px;
+                    ">
+                        ${singkatanToko}
                     </div>
-                    <div style="text-align: left;">
-                        <div style="font-weight: 600; color: #111827; font-size: 14px;">${namaToko}</div>
-                        <div style="font-size: 12px; color: #9ca3af;">ID Toko: #${toko.id}</div>
+
+                    <div style="text-align: left; min-width: 0; flex: 1;">
+                        <div style="font-weight: 700; color: #0f172a; font-size: 14px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${namaToko}">
+                            ${namaToko}
+                        </div>
+                        <div style="font-size: 12px; color: #64748b; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${alamatToko}">
+                            ${alamatToko}
+                        </div>
                     </div>
                 </div>
             `;
-                });
-            }
+        });
+    }
 
-            Swal.fire({
-                title: 'Pilih Toko Aktif',
-                html: `
-            <p style="font-size: 13px; color: #6b7280; margin-bottom: 16px;">
+    Swal.fire({
+        title: '<span style="font-size: 22px; font-weight: 800; color: #0f172a;">Pilih Toko Aktif</span>',
+        html: `
+            <p style="font-size: 13px; color: #64748b; margin-bottom: 20px;">
                 Klik salah satu toko di bawah ini untuk melanjutkan ke dashboard:
             </p>
             <div id="toko-grid-container" style="
                 display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-                gap: 12px;
-                max-height: 360px;
+                grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+                gap: 14px;
+                max-height: 380px;
                 overflow-y: auto;
                 padding: 4px;
             ">
                 ${cardsHtml}
             </div>
         `,
-                showConfirmButton: false, // Tombol confirm dihilangkan karena menggunakan Card Click
-                showCancelButton: true,
-                cancelButtonText: 'Batal / Logout',
-                cancelButtonColor: '#ef4444',
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-                customClass: {
-                    popup: 'swal-wide-modal'
-                },
-                width: '650px'
-            }).then(async (result) => {
-                // Jika user menekan tombol Batal atau menutup modal tanpa memilih card
-                if (result.dismiss === Swal.DismissReason.cancel) {
-                    await renderAPI('POST', '{{ route('post_cancel_login') }}', {});
-                    notificationAlert('info', 'Info', 'Login dibatalkan.');
-                }
-            });
+        showConfirmButton: false,
+        showCancelButton: true,
+        cancelButtonText: 'Batal / Logout',
+        cancelButtonColor: '#ef4444',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        width: '680px',
+        padding: '1.75rem'
+    }).then(async (result) => {
+        if (result.dismiss === Swal.DismissReason.cancel) {
+            await renderAPI('POST', '{{ route('post_cancel_login') }}', {});
+            notificationAlert('info', 'Info', 'Login dibatalkan.');
         }
-
+    });
+}
         // Fungsi helper saat Card Toko Diklik
         async function selectTokoCard(element, defaultRedirect) {
             let tokoId = $(element).data('id');

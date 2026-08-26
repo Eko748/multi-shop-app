@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'tamu' => RedirectIfAuthenticated::class,
             'verify.apikey' => VerifyApiKey::class,
+            'ensure.toko' => \App\Http\Middleware\EnsureTokoIsSelected::class,
         ]);
 
         $middleware->statefulApi();

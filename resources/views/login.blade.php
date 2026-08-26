@@ -294,7 +294,7 @@
                             <b>MASUK KE APLIKASI</b>
                         </p>
                         <div id="error-message"
-                            class="hidden my-3 p-3 rounded-lg bg-red-500 text-white border border-red-600 text-sm font-medium transition-all duration-300">
+                            class="hidden my-3 p-3 rounded-lg bg-danger text-dark border border-red-600 text-sm font-medium transition-all duration-300">
                         </div>
                         @if ($errors->any())
                             @foreach ($errors->all() as $error)

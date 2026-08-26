@@ -253,8 +253,8 @@
             $('#listData').html(loadingData());
 
             let filterParams = {
-                id_level: @json(auth()->user()->role_id),
-                id_toko: @json(auth()->user()->toko_id),
+                id_level: {{ auth()->user()->role_id }},
+                id_toko: {{ auth()->user()->toko_id }},
             };
 
             let getDataRest = await renderAPI(
@@ -484,7 +484,7 @@
                     </div>
                 </div>` : '';
 
-            const mitraInput = mode !== 'edit' ? 
+            const mitraInput = mode !== 'edit' ?
             `<div class="col-md-4">
                 <div class="form-group">
                     <label class="form-control-label d-block">Mitra</label>

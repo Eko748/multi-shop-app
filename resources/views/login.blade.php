@@ -293,6 +293,9 @@
                         <p class="font-urbanis text-base font-medium text-bgray-600 pt-2 dark:text-bgray-50">
                             <b>MASUK KE APLIKASI</b>
                         </p>
+                        <div id="error-message"
+                            class="hidden my-3 p-3 rounded-lg bg-red-100 text-red-700 border border-red-200 text-sm font-medium">
+                        </div>
                         @if ($errors->any())
                             @foreach ($errors->all() as $error)
                                 <p>{{ $error }}</p>
@@ -325,7 +328,8 @@
                             </svg>
                         </button>
                     </div>
-                    <button type="button" id="btn-login" onclick="submitLogin()" style="background-color: rgb(33 70 156);"
+                    <button type="button" id="btn-login" onclick="submitLogin()"
+                        style="background-color: rgb(33 70 156);"
                         class="py-3.5 flex items-center justify-center text-white font-bold bg-success-300 hover:bg-success-400 transition-all rounded-lg w-full">
                         Masuk
                     </button>
@@ -458,17 +462,19 @@
         }
 
         // --- 1. FUNCTION SUBMIT LOGIN ---
-        window.submitLogin = function() {
-            let username = $('#username').val();
-            let password = $('#password').val();
+        window.submitLogin = function(element) {
+            // 1. Reset & Sembunyikan pesan error sebelumnya
+            $('#error-message').addClass('hidden').html('');
+
+            // 2. Ambil nilai input dari ID atau atribut name
+            let container = element ? $(element).closest('form, div') : $(document);
+            let username = $('#username').val() || container.find('input[name="username"]').val();
+            let password = $('#password').val() || container.find('input[name="password"]').val();
             let csrfToken = $('meta[name="csrf-token"]').attr('content');
 
+            // Validasi Input Kosong
             if (!username || !password) {
-                if (typeof notificationAlert === 'function') {
-                    notificationAlert('warning', 'Peringatan', 'Username dan Password wajib diisi.');
-                } else {
-                    Swal.fire('Peringatan', 'Username dan Password wajib diisi.', 'warning');
-                }
+                showErrorText('Username dan Password wajib diisi.');
                 return;
             }
 
@@ -484,14 +490,22 @@
                     password: password
                 },
                 success: function(response) {
-                    // Synchronize CSRF Token terbaru dari response server
+                    // Synchronize CSRF Token terbaru jika ada
                     if (response.new_csrf_token) {
                         updateCsrfToken(response.new_csrf_token);
                     }
 
+                    // Mencegah lolos status_code 300 / error di block success
+                    if (response.status_code === 300 || response.error === true) {
+                        showErrorText(response.message || 'Username atau password salah.');
+                        resetFormLogin();
+                        return;
+                    }
+
+                    // Redirect atau tampilkan modal pilih toko
                     if (response.data && response.data.show_toko_selection) {
                         showTokoModal(response.data.daftar_toko, response.data.route_redirect);
-                    } else {
+                    } else if (response.data && response.data.route_redirect) {
                         window.location.href = response.data.route_redirect;
                     }
                 },
@@ -499,11 +513,14 @@
                     let res = xhr.responseJSON;
                     let message = res?.message || 'Username atau password salah.';
 
-                    if (typeof notificationAlert === 'function') {
-                        notificationAlert('error', 'Login Gagal', message);
-                    } else {
-                        Swal.fire('Gagal', message, 'error');
+                    // Tampilkan pesan error di tag HTML
+                    showErrorText(message);
+
+                    // Synchronize CSRF Token jika dikirim di response error
+                    if (res && res.new_csrf_token) {
+                        updateCsrfToken(res.new_csrf_token);
                     }
+
                     resetFormLogin();
                 },
                 complete: function() {
@@ -511,6 +528,11 @@
                 }
             });
         };
+
+        // Helper untuk Render Pesan Error ke HTML
+        function showErrorText(msg) {
+            $('#error-message').removeClass('hidden').html(msg);
+        }
 
         // Trigger saat Tombol Klik (opsional jika tombol punya class/id)
         $(document).on('click', '#btn-login, .btn-login', function(e) {
@@ -573,7 +595,8 @@
                 daftarToko.forEach(toko => {
                     let namaToko = toko.nama || toko.nama_toko || 'Toko ' + toko.id;
                     let alamatToko = toko.alamat ? toko.alamat : 'Alamat tidak tersedia';
-                    let singkatanToko = toko.singkatan ? toko.singkatan.trim() : (namaToko.charAt(0) || toko.id);
+                    let singkatanToko = toko.singkatan ? toko.singkatan.trim() : (namaToko.charAt(0) || toko
+                        .id);
 
                     let fontSize = '15px';
                     if (singkatanToko.length === 3) fontSize = '12px';

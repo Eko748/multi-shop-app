@@ -121,15 +121,23 @@ class AuthController extends Controller
 
     public function postCancelLogin(Request $request)
     {
-        // Logout dan invalidate session secara menyeluruh
+        // 1. Logout user dari Guard
         Auth::logout();
-        $request->session()->invalidate();
+
+        // 2. Hapus data session spesifik yang digunakan saat login/pilih toko
+        $request->session()->forget([
+            'active_toko_id',
+            'pending_toko_selection',
+            'daftar_toko'
+        ]);
+
+        // 3. Regenerate CSRF token agar tetap fresh tapi TIDAK merusak session
         $request->session()->regenerateToken();
 
         return response()->json([
             'status_code' => 200,
-            'message' => 'Login dibatalkan dan session telah dibersihkan.',
-            'new_csrf_token' => csrf_token() // Mengirim token CSRF baru ke frontend
+            'message' => 'Login dibatalkan.',
+            'csrf_token' => csrf_token() // Mengirimkan token baru
         ]);
     }
 

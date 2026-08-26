@@ -433,9 +433,10 @@
                 }
             }
         }
-function showTokoModal(daftarToko, defaultRedirect) {
-    // Card "SEMUA TOKO"
-    let cardsHtml = `
+
+        function showTokoModal(daftarToko, defaultRedirect) {
+            // Card "SEMUA TOKO"
+            let cardsHtml = `
         <div class="toko-card" data-id="ALL" onclick="selectTokoCard(this, '${defaultRedirect}')" style="
             border: 1px solid #e2e8f0;
             border-radius: 14px;
@@ -476,26 +477,26 @@ function showTokoModal(daftarToko, defaultRedirect) {
         </div>
     `;
 
-    // Card tiap Toko dari Database
-    if (Array.isArray(daftarToko)) {
-        daftarToko.forEach(toko => {
-            let namaToko = toko.nama || toko.nama_toko || 'Toko ' + toko.id;
-            let alamatToko = toko.alamat ? toko.alamat : 'Alamat tidak tersedia';
+            // Card tiap Toko dari Database
+            if (Array.isArray(daftarToko)) {
+                daftarToko.forEach(toko => {
+                    let namaToko = toko.nama || toko.nama_toko || 'Toko ' + toko.id;
+                    let alamatToko = toko.alamat ? toko.alamat : 'Alamat tidak tersedia';
 
-            // Ambil singkatan dari DB, jika kosong fallback ke ID / Huruf Pertama
-            let singkatanToko = toko.singkatan ? toko.singkatan.trim() : (namaToko.charAt(0) || toko.id);
+                    // Ambil singkatan dari DB, jika kosong fallback ke ID / Huruf Pertama
+                    let singkatanToko = toko.singkatan ? toko.singkatan.trim() : (namaToko.charAt(0) || toko.id);
 
-            // Penyesuaian font-size dinamis berdasarkan panjang karakter singkatan
-            let fontSize = '15px'; // 1-2 karakter
-            if (singkatanToko.length === 3) {
-                fontSize = '12px';
-            } else if (singkatanToko.length === 4) {
-                fontSize = '10px';
-            } else if (singkatanToko.length > 4) {
-                fontSize = '9px';
-            }
+                    // Penyesuaian font-size dinamis berdasarkan panjang karakter singkatan
+                    let fontSize = '15px'; // 1-2 karakter
+                    if (singkatanToko.length === 3) {
+                        fontSize = '12px';
+                    } else if (singkatanToko.length === 4) {
+                        fontSize = '10px';
+                    } else if (singkatanToko.length > 4) {
+                        fontSize = '9px';
+                    }
 
-            cardsHtml += `
+                    cardsHtml += `
                 <div class="toko-card" data-id="${toko.id}" onclick="selectTokoCard(this, '${defaultRedirect}')" style="
                     border: 1px solid #e2e8f0;
                     border-radius: 14px;
@@ -541,41 +542,46 @@ function showTokoModal(daftarToko, defaultRedirect) {
                     </div>
                 </div>
             `;
-        });
-    }
+                });
+            }
 
-    Swal.fire({
-        title: '<span style="font-size: 22px; font-weight: 800; color: #0f172a;">Pilih Toko Aktif</span>',
-        html: `
-            <p style="font-size: 13px; color: #64748b; margin-bottom: 20px;">
-                Klik salah satu toko di bawah ini untuk melanjutkan ke dashboard:
-            </p>
-            <div id="toko-grid-container" style="
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-                gap: 14px;
-                max-height: 380px;
-                overflow-y: auto;
-                padding: 4px;
-            ">
-                ${cardsHtml}
-            </div>
-        `,
-        showConfirmButton: false,
-        showCancelButton: true,
-        cancelButtonText: 'Batal / Logout',
-        cancelButtonColor: '#ef4444',
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        width: '680px',
-        padding: '1.75rem'
-    }).then(async (result) => {
-        if (result.dismiss === Swal.DismissReason.cancel) {
-            await renderAPI('POST', '{{ route('post_cancel_login') }}', {});
-            notificationAlert('info', 'Info', 'Login dibatalkan.');
+            Swal.fire({
+                title: '<span style="font-size: 22px; font-weight: 800; color: #0f172a;">Pilih Toko Aktif</span>',
+                html: `
+        <p style="font-size: 13px; color: #64748b; margin-bottom: 16px;">
+            Klik salah satu toko di bawah ini untuk melanjutkan ke dashboard:
+        </p>
+        <div id="toko-grid-container" style="
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 14px;
+            max-height: 320px;
+            overflow-y: auto;
+            padding: 4px;
+            margin-bottom: 10px;
+        ">
+            ${cardsHtml}
+        </div>
+    `,
+                showConfirmButton: false,
+                showCancelButton: true,
+                cancelButtonText: '<i class="fas fa-times" style="margin-right: 6px;"></i> Batal saja',
+                cancelButtonColor: '#ef4444',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                width: '680px',
+                padding: '1.5rem',
+                customClass: {
+                    actions: 'swal-actions-custom',
+                    cancelButton: 'swal-cancel-btn-custom'
+                }
+            }).then(async (result) => {
+                if (result.dismiss === Swal.DismissReason.cancel) {
+                    await renderAPI('POST', '{{ route('post_cancel_login') }}', {});
+                    notificationAlert('info', 'Info', 'Login dibatalkan.');
+                }
+            });
         }
-    });
-}
         // Fungsi helper saat Card Toko Diklik
         async function selectTokoCard(element, defaultRedirect) {
             let tokoId = $(element).data('id');

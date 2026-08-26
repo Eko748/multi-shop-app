@@ -457,18 +457,24 @@
             $('#password').focus();
         }
 
-        // --- 1. AJAX Form Submit Login ---
+        // --- 1. FUNCTION SUBMIT LOGIN ---
         $('#form-login').on('submit', function(e) {
             e.preventDefault();
+            submitLogin(this);
+        });
+
+        window.submitLogin = function(formElement) {
+            let form = $(formElement);
 
             if (typeof loadingPage === 'function') loadingPage(true);
+            $('button[type="submit"], .btn-login').prop('disabled', true);
 
             $.ajax({
-                url: $(this).attr('action') || '{{ route('login') }}',
+                url: form.attr('action') || '{{ route('login') }}',
                 type: 'POST',
-                data: $(this).serialize(),
+                data: form.serialize(),
                 success: function(response) {
-                    // Update token dari server setelah login sukses
+                    // Perbarui CSRF Token segera setelah login berhasil
                     if (response.new_csrf_token) {
                         updateCsrfToken(response.new_csrf_token);
                     }
@@ -481,54 +487,63 @@
                 },
                 error: function(xhr) {
                     let res = xhr.responseJSON;
+                    let message = res?.message || 'Username atau password salah.';
+
                     if (typeof notificationAlert === 'function') {
-                        notificationAlert('error', 'Login Gagal', res?.message ||
-                            'Username/Password salah.');
+                        notificationAlert('error', 'Login Gagal', message);
                     } else {
-                        alert(res?.message || 'Login gagal.');
+                        Swal.fire('Gagal', message, 'error');
                     }
+                    resetFormLogin();
                 },
                 complete: function() {
                     if (typeof loadingPage === 'function') loadingPage(false);
                 }
             });
-        });
+        };
 
-        // --- 2. Modal Pilih Toko ---
-        function showTokoModal(daftarToko, defaultRedirect) {
+        // --- 2. FUNCTION SHOW TOKO MODAL ---
+        window.showTokoModal = function(daftarToko, defaultRedirect) {
             let cardsHtml = `
-        <div class="toko-card" data-id="ALL" onclick="selectTokoCard(this, '${defaultRedirect}')" style="
-            border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px 16px; cursor: pointer;
-            background: #ffffff; display: flex; align-items: center; gap: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-        ">
-            <div style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: #fff; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0;">🌟</div>
-            <div style="text-align: left; flex: 1;">
-                <div style="font-weight: 700; color: #0f172a; font-size: 14px;">SEMUA TOKO</div>
-                <div style="font-size: 12px; color: #64748b;">Akses gabungan seluruh data toko</div>
+            <div class="toko-card" data-id="ALL" onclick="selectTokoCard(this, '${defaultRedirect}')" style="
+                border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px 16px; cursor: pointer;
+                background: #ffffff; display: flex; align-items: center; gap: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+                transition: all 0.2s ease-in-out;
+            " onmouseover="this.style.borderColor='#2563eb'; this.style.transform='translateY(-2px)'"
+               onmouseout="this.style.borderColor='#e2e8f0'; this.style.transform='translateY(0)'">
+
+                <div style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: #fff; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0;">🌟</div>
+                <div style="text-align: left; flex: 1;">
+                    <div style="font-weight: 700; color: #0f172a; font-size: 14px;">SEMUA TOKO</div>
+                    <div style="font-size: 12px; color: #64748b;">Akses gabungan seluruh data toko</div>
+                </div>
             </div>
-        </div>
-    `;
+        `;
 
             if (Array.isArray(daftarToko)) {
                 daftarToko.forEach(toko => {
                     let namaToko = toko.nama || 'Toko ' + toko.id;
                     let alamatToko = toko.alamat || 'Alamat tidak tersedia';
-                    let singkatanToko = toko.singkatan ? toko.singkatan.trim() : (namaToko.charAt(0) || toko.id);
+                    let singkatanToko = toko.singkatan ? toko.singkatan.trim() : (namaToko.charAt(0) || toko
+                    .id);
 
                     cardsHtml += `
-                <div class="toko-card" data-id="${toko.id}" onclick="selectTokoCard(this, '${defaultRedirect}')" style="
-                    border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px 16px; cursor: pointer;
-                    background: #ffffff; display: flex; align-items: center; gap: 14px; margin-top: 10px;
-                ">
-                    <div style="background: #f1f5f9; color: #1e293b; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0; border: 1px solid #cbd5e1; text-transform: uppercase;">
-                        ${singkatanToko}
+                    <div class="toko-card" data-id="${toko.id}" onclick="selectTokoCard(this, '${defaultRedirect}')" style="
+                        border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px 16px; cursor: pointer;
+                        background: #ffffff; display: flex; align-items: center; gap: 14px; margin-top: 10px;
+                        transition: all 0.2s ease-in-out;
+                    " onmouseover="this.style.borderColor='#2563eb'; this.style.transform='translateY(-2px)'"
+                       onmouseout="this.style.borderColor='#e2e8f0'; this.style.transform='translateY(0)'">
+
+                        <div style="background: #f1f5f9; color: #1e293b; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0; border: 1px solid #cbd5e1; text-transform: uppercase;">
+                            ${singkatanToko}
+                        </div>
+                        <div style="text-align: left; flex: 1;">
+                            <div style="font-weight: 700; color: #0f172a; font-size: 14px;">${namaToko}</div>
+                            <div style="font-size: 12px; color: #64748b;">${alamatToko}</div>
+                        </div>
                     </div>
-                    <div style="text-align: left; flex: 1;">
-                        <div style="font-weight: 700; color: #0f172a; font-size: 14px;">${namaToko}</div>
-                        <div style="font-size: 12px; color: #64748b;">${alamatToko}</div>
-                    </div>
-                </div>
-            `;
+                `;
                 });
             }
 
@@ -541,7 +556,7 @@
                 allowEscapeKey: false,
                 width: '680px'
             }).then(async (result) => {
-                // Klik Tombol X (Batal)
+                // Ketika Tombol X (Batal) Diklik
                 if (result.dismiss === Swal.DismissReason.close) {
                     if (typeof loadingPage === 'function') loadingPage(true);
 
@@ -569,10 +584,10 @@
                     }
                 }
             });
-        }
+        };
 
-        // --- 3. Eksekusi Pilih Toko ---
-        async function selectTokoCard(element, redirectUrl) {
+        // --- 3. FUNCTION SELECT TOKO CARD ---
+        window.selectTokoCard = async function(element, redirectUrl) {
             let tokoId = $(element).attr('data-id') || $(element).data('id');
             let currentToken = $('meta[name="csrf-token"]').attr('content');
 
@@ -600,15 +615,15 @@
                 if (response.status_code === 200 || response.error === false) {
                     window.location.href = response.route_redirect || redirectUrl || '/dashboard';
                 } else {
-                    alert(response.message || 'Gagal memilih toko.');
+                    Swal.fire('Gagal', response.message || 'Gagal memilih toko.', 'error');
                 }
             } catch (xhr) {
                 console.error("Error Select Toko:", xhr);
-                alert(xhr.responseJSON?.message || 'Terjadi kesalahan CSRF / Session.');
+                Swal.fire('Error', xhr.responseJSON?.message || 'Terjadi kesalahan CSRF / Session.', 'error');
             } finally {
                 if (typeof loadingPage === 'function') loadingPage(false);
             }
-        }
+        };
     </script>
     <script>
         document.addEventListener("mousemove", function(e) {

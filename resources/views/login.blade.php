@@ -16,6 +16,8 @@
     <link rel="stylesheet" href="{{ asset('css/login/style.css') }}" />
     <link rel="stylesheet" href="{{ asset('css/sweetalert2.css') }}" />
     <link rel="stylesheet" href="{{ asset('css/login/loading.css') }}" />
+    <link rel="stylesheet" href="{{ asset('css/fontawesome.min.css') }}">
+
     <!-- SweetAlert2 CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/stylesheet/sweetalert2@11/sweetalert2.min.css">
     <script>
@@ -34,6 +36,35 @@
         }
     </script>
     <style>
+        /* Styling Tombol Bulat Close di Pojok Kanan Atas Modal */
+        .custom-swal-close-btn {
+            position: absolute !important;
+            top: 16px !important;
+            right: 16px !important;
+            width: 34px !important;
+            height: 34px !important;
+            border-radius: 50% !important;
+            background-color: #f1f5f9 !important;
+            color: #64748b !important;
+            font-size: 18px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            transition: all 0.2s ease !important;
+            border: 1px solid #e2e8f0 !important;
+            outline: none !important;
+            box-shadow: none !important;
+        }
+
+        .custom-swal-close-btn:hover {
+            background-color: #ef4444 !important;
+            /* Berubah merah saat di-hover */
+            color: #ffffff !important;
+            border-color: #ef4444 !important;
+            transform: rotate(90deg);
+            /* Efek rotasi saat hover */
+        }
+
         .loader {
             position: absolute;
             top: calc(50% - 32px);
@@ -482,19 +513,13 @@
                 daftarToko.forEach(toko => {
                     let namaToko = toko.nama || toko.nama_toko || 'Toko ' + toko.id;
                     let alamatToko = toko.alamat ? toko.alamat : 'Alamat tidak tersedia';
-
-                    // Ambil singkatan dari DB, jika kosong fallback ke ID / Huruf Pertama
                     let singkatanToko = toko.singkatan ? toko.singkatan.trim() : (namaToko.charAt(0) || toko.id);
 
-                    // Penyesuaian font-size dinamis berdasarkan panjang karakter singkatan
-                    let fontSize = '15px'; // 1-2 karakter
-                    if (singkatanToko.length === 3) {
-                        fontSize = '12px';
-                    } else if (singkatanToko.length === 4) {
-                        fontSize = '10px';
-                    } else if (singkatanToko.length > 4) {
-                        fontSize = '9px';
-                    }
+                    // Penyesuaian font-size dinamis berdasarkan panjang singkatan
+                    let fontSize = '15px';
+                    if (singkatanToko.length === 3) fontSize = '12px';
+                    else if (singkatanToko.length === 4) fontSize = '10px';
+                    else if (singkatanToko.length > 4) fontSize = '9px';
 
                     cardsHtml += `
                 <div class="toko-card" data-id="${toko.id}" onclick="selectTokoCard(this, '${defaultRedirect}')" style="
@@ -548,35 +573,33 @@
             Swal.fire({
                 title: '<span style="font-size: 22px; font-weight: 800; color: #0f172a;">Pilih Toko Aktif</span>',
                 html: `
-        <p style="font-size: 13px; color: #64748b; margin-bottom: 16px;">
-            Klik salah satu toko di bawah ini untuk melanjutkan ke dashboard:
-        </p>
-        <div id="toko-grid-container" style="
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-            gap: 14px;
-            max-height: 320px;
-            overflow-y: auto;
-            padding: 4px;
-            margin-bottom: 10px;
-        ">
-            ${cardsHtml}
-        </div>
-    `,
+            <p style="font-size: 13px; color: #64748b; margin-bottom: 20px;">
+                Klik salah satu toko di bawah ini untuk melanjutkan ke dashboard:
+            </p>
+            <div id="toko-grid-container" style="
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+                gap: 14px;
+                max-height: 380px;
+                overflow-y: auto;
+                padding: 4px;
+            ">
+                ${cardsHtml}
+            </div>
+        `,
                 showConfirmButton: false,
-                showCancelButton: true,
-                cancelButtonText: '<i class="fas fa-times" style="margin-right: 6px;"></i> Batal saja',
-                cancelButtonColor: '#ef4444',
+                showCancelButton: false,
+                showCloseButton: true, // Menampilkan tombol Close bawaan SweetAlert2 di pojok kanan atas
                 allowOutsideClick: false,
                 allowEscapeKey: false,
                 width: '680px',
-                padding: '1.5rem',
+                padding: '1.75rem',
                 customClass: {
-                    actions: 'swal-actions-custom',
-                    cancelButton: 'swal-cancel-btn-custom'
+                    closeButton: 'custom-swal-close-btn'
                 }
             }).then(async (result) => {
-                if (result.dismiss === Swal.DismissReason.cancel) {
+                // Jika user mengeklik tombol X / Close di pojok kanan atas
+                if (result.dismiss === Swal.DismissReason.close) {
                     await renderAPI('POST', '{{ route('post_cancel_login') }}', {});
                     notificationAlert('info', 'Info', 'Login dibatalkan.');
                 }

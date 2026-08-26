@@ -4,13 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Helpers\ActivityLogger;
 use App\Http\Controllers\Controller;
-use App\Models\DetailKasir;
-use App\Models\DetailToko;
-use App\Models\Kasir;
-use App\Models\Member;
-use App\Models\StockBarang;
 use App\Models\Toko;
-use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -30,7 +24,10 @@ class AuthController extends Controller
 
         if (Auth::attempt($credentials)) {
             try {
+                // Regenerate session ID dan Token CSRF
                 $request->session()->regenerate();
+                $newCsrfToken = csrf_token(); // Ambil token CSRF terbaru setelah regenerate
+
                 $user = Auth::user();
 
                 $user->update([
@@ -40,7 +37,7 @@ class AuthController extends Controller
 
                 // Cek jika Super Admin / Level 1
                 if ($user->id_level == 1 || $user->role_id == 1) {
-                    $daftarToko = \App\Models\Toko::select('id', 'nama', 'singkatan', 'alamat')->get();
+                    $daftarToko = Toko::select('id', 'nama', 'singkatan', 'alamat')->get();
 
                     if ($daftarToko->count() > 1) {
                         // TANDAI BAHWA USER BELUM MEMILIH TOKO
@@ -51,6 +48,7 @@ class AuthController extends Controller
                             'status_code' => 200,
                             'error' => false,
                             'message' => "Silakan pilih toko",
+                            'new_csrf_token' => $newCsrfToken, // Send token ke frontend
                             'data' => [
                                 'show_toko_selection' => true,
                                 'daftar_toko' => $daftarToko,
@@ -75,6 +73,7 @@ class AuthController extends Controller
                     'status_code' => 200,
                     'error' => false,
                     'message' => "Successfully",
+                    'new_csrf_token' => $newCsrfToken, // Send token ke frontend
                     'data' => [
                         'show_toko_selection' => false,
                         'route_redirect' => $route
@@ -121,17 +120,14 @@ class AuthController extends Controller
 
     public function postCancelLogin(Request $request)
     {
-        // 1. Logout user dari session auth
         Auth::logout();
 
-        // 2. Hapus data session spesifik
         $request->session()->forget([
             'active_toko_id',
             'pending_toko_selection',
             'daftar_toko'
         ]);
 
-        // 3. Regenerate CSRF token agar aman untuk request berikutnya
         $request->session()->regenerateToken();
 
         return response()->json([
@@ -143,7 +139,6 @@ class AuthController extends Controller
 
     public function cancelLogin(Request $request)
     {
-        // Logout otomatis jika modal dibatalkan / ditutup tanpa memilih toko
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

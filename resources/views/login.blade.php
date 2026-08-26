@@ -664,8 +664,8 @@
                 );
 
                 let resData = resSelect.data || resSelect;
-                if (resData && (resData.status_code == 200 || resData.status == 200)) {
-                    window.location.href = resData.route_redirect || defaultRedirect;
+                if (resData && resData.status == 200) {
+                    window.location.href = resData.data.route_redirect || defaultRedirect;
                 } else {
                     Swal.hideLoading();
                     notificationAlert('error', 'Error', 'Gagal memilih toko.');

@@ -644,35 +644,59 @@
             $('#password').focus();
         }
 
-        async function selectTokoCard(element, defaultRedirect) {
-            let tokoId = $(element).data('id');
+        async function selectTokoCard(element, redirectUrl) {
+            // 1. Ambil ID Toko dari atribut data-id
+            let tokoId = $(element).attr('data-id') || $(element).data('id');
 
-            // Memberikan indikasi visual loading pada card yang diklik
-            $(element).css({
-                'border-color': '#21469c',
-                'background-color': '#eff6ff'
-            });
+            // 2. Ambil token CSRF paling segar dari Meta Tag
+            let csrfToken = $('meta[name="csrf-token"]').attr('content');
 
-            Swal.showLoading();
+            // Tampilkan Indikator Loading
+            if (typeof loadingPage === 'function') loadingPage(true);
 
             try {
-                let resSelect = await renderAPI(
-                    'POST',
-                    '{{ route('post_select_toko') }}', {
+                // 3. Kirim AJAX ke Endpoint API
+                let response = await $.ajax({
+                    url: 'https://tes.lumoa.app/api/select-toko',
+                    type: 'POST',
+                    dataType: 'json',
+                    contentType: 'application/json',
+                    headers: {
+                        'X-CSRF-TOKEN': csrfToken, // Header CSRF
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    },
+                    // Jika API menggunakan Cookie Session/Sanctum:
+                    xhrFields: {
+                        withCredentials: true
+                    },
+                    data: JSON.stringify({
+                        _token: csrfToken,
                         toko_id: tokoId
-                    }
-                );
+                    })
+                });
 
-                let resData = resSelect.data || resSelect;
-                if (resData && resData.status == 200) {
-                    window.location.href = resData.data.route_redirect || defaultRedirect;
+                // 4. Handling Response Sukses
+                if (response.status_code === 200 || response.error === false) {
+                    window.location.href = response.route_redirect || redirectUrl || '/dashboard';
                 } else {
-                    Swal.hideLoading();
-                    notificationAlert('error', 'Error', 'Gagal memilih toko.');
+                    if (typeof notificationAlert === 'function') {
+                        notificationAlert('error', 'Gagal', response.message || 'Gagal memilih toko.');
+                    } else {
+                        alert(response.message || 'Gagal memilih toko.');
+                    }
                 }
-            } catch (err) {
-                Swal.hideLoading();
-                notificationAlert('error', 'Error', 'Terjadi kesalahan saat memilih toko.');
+            } catch (xhr) {
+                console.error("Error Select Toko:", xhr);
+                let errorMsg = xhr.responseJSON?.message || 'Terjadi kesalahan CSRF / Session Expired.';
+
+                if (typeof notificationAlert === 'function') {
+                    notificationAlert('error', 'Error', errorMsg);
+                } else {
+                    alert(errorMsg);
+                }
+            } finally {
+                if (typeof loadingPage === 'function') loadingPage(false);
             }
         }
     </script>

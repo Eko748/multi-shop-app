@@ -59,6 +59,7 @@ Route::post('/switch-toko', function (Request $request) {
 });
 
 Route::post('/select-toko', [AuthController::class, 'selectToko'])->name('post_select_toko');
+Route::post('/cancel-login', [AuthController::class, 'cancelLogin'])->name('post_cancel_login');
 
 Route::get('/user', function (Request $request) {
     return $request->user();

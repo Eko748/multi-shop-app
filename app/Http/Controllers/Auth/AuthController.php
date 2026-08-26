@@ -29,55 +29,69 @@ class AuthController extends Controller
         ActivityLogger::log('Login', []);
 
         if (Auth::attempt($credentials)) {
-            $request->session()->regenerate();
-            $user = Auth::user();
+            try {
+                $request->session()->regenerate();
+                $user = Auth::user();
 
-            $user->update([
-                'ip_login' => $request->ip(),
-                'last_activity' => Carbon::now(),
-            ]);
+                $user->update([
+                    'ip_login' => $request->ip(),
+                    'last_activity' => Carbon::now(),
+                ]);
 
-            // Cek jika Super Admin (role_id = 1 atau id_level = 1)
-            if ($user->role_id == 1) {
-                // Ambil seluruh data toko dari database
-                $daftarToko = \App\Models\Toko::select('id', 'nama')->get();
+                // Cek jika Super Admin / Level 1
+                if ($user->id_level == 1 || $user->role_id == 1) {
+                    $daftarToko = \App\Models\Toko::select('id', 'nama')->get();
 
-                // Jika jumlah toko lebih dari 1
-                if ($daftarToko->count() > 1) {
-                    return response()->json([
-                        'status_code' => 200,
-                        'error' => false,
-                        'message' => "Silakan pilih toko",
-                        'data' => [
-                            'show_toko_selection' => true,
-                            'daftar_toko' => $daftarToko,
-                            'route_redirect' => route('dashboard.index')
-                        ]
-                    ], 200);
+                    if ($daftarToko->count() > 1) {
+                        // TANDAI BAHWA USER BELUM MEMILIH TOKO
+                        session(['active_toko_id' => null]);
+                        session(['pending_toko_selection' => true]);
+
+                        return response()->json([
+                            'status_code' => 200,
+                            'error' => false,
+                            'message' => "Silakan pilih toko",
+                            'data' => [
+                                'show_toko_selection' => true,
+                                'daftar_toko' => $daftarToko,
+                                'route_redirect' => route('dashboard.index')
+                            ]
+                        ], 200);
+                    } else {
+                        session(['active_toko_id' => $daftarToko->first()->id ?? $user->toko_id]);
+                        session()->forget('pending_toko_selection');
+                    }
                 } else {
-                    // Jika cuma 1 toko, otomatis set session ke toko tersebut
-                    session(['active_toko_id' => $daftarToko->first()->id ?? $user->toko_id]);
+                    session(['active_toko_id' => $user->toko_id]);
+                    session()->forget('pending_toko_selection');
                 }
-            } else {
-                // Untuk user non-superadmin, set toko aktif dari toko_id bawaan user
-                session(['active_toko_id' => $user->toko_id]);
-            }
 
-            // Penentuan Route Redirect standar
-            $route = route('dashboard.index');
-            if ($user->nama_level == 'petugas') {
-                $route = url('/petugas/dashboard');
-            }
+                $route = route('dashboard.index');
+                if (isset($user->nama_level) && $user->nama_level == 'petugas') {
+                    $route = url('/petugas/dashboard');
+                }
 
-            return response()->json([
-                'status_code' => 200,
-                'error' => false,
-                'message' => "Successfully",
-                'data' => [
-                    'show_toko_selection' => false,
-                    'route_redirect' => $route
-                ]
-            ], 200);
+                return response()->json([
+                    'status_code' => 200,
+                    'error' => false,
+                    'message' => "Successfully",
+                    'data' => [
+                        'show_toko_selection' => false,
+                        'route_redirect' => $route
+                    ]
+                ], 200);
+
+            } catch (\Exception $e) {
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                return response()->json([
+                    'status_code' => 500,
+                    'error' => true,
+                    'message' => "Terjadi kesalahan server: " . $e->getMessage(),
+                ], 500);
+            }
         } else {
             return response()->json([
                 'status_code' => 300,
@@ -87,15 +101,15 @@ class AuthController extends Controller
         }
     }
 
-    // Tambahkan Method khusus untuk menyimpan Pilihan Toko ke Session
     public function selectToko(Request $request)
     {
         $request->validate([
             'toko_id' => 'required'
         ]);
 
-        // Simpan toko_id (bisa ID toko tertentu atau 'ALL') ke session
+        // Simpan toko pilihan dan hilangkan status pending
         session(['active_toko_id' => $request->toko_id]);
+        session()->forget('pending_toko_selection');
 
         return response()->json([
             'status_code' => 200,
@@ -103,6 +117,16 @@ class AuthController extends Controller
             'message' => 'Toko berhasil dipilih',
             'route_redirect' => route('dashboard.index')
         ]);
+    }
+
+    public function cancelLogin(Request $request)
+    {
+        // Logout otomatis jika modal dibatalkan / ditutup tanpa memilih toko
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return response()->json(['status' => 'logged_out']);
     }
 
     public function dashboard()

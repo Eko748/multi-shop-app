@@ -432,48 +432,126 @@
         }
 
         function showTokoModal(daftarToko, defaultRedirect) {
-            // Susun option dropdown untuk modal SweetAlert2
-            let optionsHtml = `<option value="ALL">-- SEMUA TOKO --</option>`;
-            daftarToko.forEach(toko => {
-                optionsHtml += `<option value="${toko.id}">${toko.nama}</option>`;
-            });
+            // 1. Buat opsi 'SEMUA TOKO' di bagian awal card
+            let cardsHtml = `
+        <div class="toko-card" data-id="ALL" onclick="selectTokoCard(this, '${defaultRedirect}')" style="
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: #f9fafb;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        " onmouseover="this.style.borderColor='#21469c'; this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='#e5e7eb'; this.style.transform='translateY(0)'">
+            <div style="background: #e0e7ff; color: #21469c; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">
+                <i class="fas fa-store"></i> 🌟
+            </div>
+            <div style="text-align: left;">
+                <div style="font-weight: 700; color: #1f2937; font-size: 14px;">SEMUA TOKO (AKSES PUSAT)</div>
+                <div style="font-size: 12px; color: #6b7280;">Akses gabungan seluruh data toko</div>
+            </div>
+        </div>
+    `;
+
+            // 2. Loop daftar toko dari backend
+            if (Array.isArray(daftarToko)) {
+                daftarToko.forEach(toko => {
+                    let namaToko = toko.nama || toko.nama_toko || 'Toko ' + toko.id;
+                    cardsHtml += `
+                <div class="toko-card" data-id="${toko.id}" onclick="selectTokoCard(this, '${defaultRedirect}')" style="
+                    border: 2px solid #e5e7eb;
+                    border-radius: 12px;
+                    padding: 16px;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                    background: #ffffff;
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+                " onmouseover="this.style.borderColor='#21469c'; this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='#e5e7eb'; this.style.transform='translateY(0)'">
+                    <div style="background: #f3f4f6; color: #374151; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">
+                        ${toko.id}
+                    </div>
+                    <div style="text-align: left;">
+                        <div style="font-weight: 600; color: #111827; font-size: 14px;">${namaToko}</div>
+                        <div style="font-size: 12px; color: #9ca3af;">ID Toko: #${toko.id}</div>
+                    </div>
+                </div>
+            `;
+                });
+            }
 
             Swal.fire({
-                title: 'Pilih Akses Toko',
+                title: 'Pilih Toko Aktif',
                 html: `
-            <p class="text-sm text-gray-600 mb-4">Anda memiliki akses ke beberapa toko. Silakan pilih toko yang ingin diakses saat ini:</p>
-            <select id="swal-select-toko" class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                ${optionsHtml}
-            </select>
+            <p style="font-size: 13px; color: #6b7280; margin-bottom: 16px;">
+                Klik salah satu toko di bawah ini untuk melanjutkan ke dashboard:
+            </p>
+            <div id="toko-grid-container" style="
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+                gap: 12px;
+                max-height: 360px;
+                overflow-y: auto;
+                padding: 4px;
+            ">
+                ${cardsHtml}
+            </div>
         `,
-                focusConfirm: false,
+                showConfirmButton: false, // Tombol confirm dihilangkan karena menggunakan Card Click
+                showCancelButton: true,
+                cancelButtonText: 'Batal / Logout',
+                cancelButtonColor: '#ef4444',
                 allowOutsideClick: false,
-                confirmButtonText: 'Lanjutkan Masuk',
-                confirmButtonColor: '#21469c',
-                preConfirm: () => {
-                    return document.getElementById('swal-select-toko').value;
-                }
+                allowEscapeKey: false,
+                customClass: {
+                    popup: 'swal-wide-modal'
+                },
+                width: '650px'
             }).then(async (result) => {
-                if (result.isConfirmed) {
-                    loadingPage(true);
-                    let selectedTokoId = result.value;
-
-                    // Kirim toko pilihan ke backend untuk disimpan di Session
-                    let resSelect = await renderAPI(
-                        'POST',
-                        '{{ route('post_select_toko') }}', {
-                            toko_id: selectedTokoId
-                        }
-                    );
-
-                    if (resSelect && resSelect.status == 200) {
-                        window.location.href = resSelect.data.route_redirect;
-                    } else {
-                        loadingPage(false);
-                        notificationAlert('error', 'Error', 'Gagal memilih toko.');
-                    }
+                // Jika user menekan tombol Batal atau menutup modal tanpa memilih card
+                if (result.dismiss === Swal.DismissReason.cancel) {
+                    await renderAPI('POST', '{{ route('post_cancel_login') }}', {});
+                    notificationAlert('info', 'Info', 'Login dibatalkan.');
                 }
             });
+        }
+
+        // Fungsi helper saat Card Toko Diklik
+        async function selectTokoCard(element, defaultRedirect) {
+            let tokoId = $(element).data('id');
+
+            // Memberikan indikasi visual loading pada card yang diklik
+            $(element).css({
+                'border-color': '#21469c',
+                'background-color': '#eff6ff'
+            });
+
+            Swal.showLoading();
+
+            try {
+                let resSelect = await renderAPI(
+                    'POST',
+                    '{{ route('post_select_toko') }}', {
+                        toko_id: tokoId
+                    }
+                );
+
+                let resData = resSelect.data || resSelect;
+                if (resData && (resData.status_code == 200 || resData.status == 200)) {
+                    window.location.href = resData.route_redirect || defaultRedirect;
+                } else {
+                    Swal.hideLoading();
+                    notificationAlert('error', 'Error', 'Gagal memilih toko.');
+                }
+            } catch (err) {
+                Swal.hideLoading();
+                notificationAlert('error', 'Error', 'Terjadi kesalahan saat memilih toko.');
+            }
         }
     </script>
     <script>

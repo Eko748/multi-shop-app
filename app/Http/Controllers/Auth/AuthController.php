@@ -106,24 +106,27 @@ class AuthController extends Controller
             'toko_id' => 'required'
         ]);
 
+        // Tentukan singkatan berdasarkan pilihan toko
         if ($request->toko_id === 'ALL') {
             $singkatan = 'ALL';
         } else {
+            // Cari toko yang dipilih di database
             $toko = \App\Models\Toko::find($request->toko_id);
             $singkatan = $toko ? $toko->singkatan : null;
         }
 
+        // Simpan active_toko_id & singkatannya ke session
         session([
-            'active_toko_id' => $request->toko_id,
+            'active_toko_id'        => $request->toko_id,
             'active_toko_singkatan' => $singkatan
         ]);
 
         session()->forget('pending_toko_selection');
 
         return response()->json([
-            'status_code' => 200,
-            'error' => false,
-            'message' => 'Toko berhasil dipilih',
+            'status_code'    => 200,
+            'error'          => false,
+            'message'        => 'Toko berhasil dipilih',
             'route_redirect' => route('dashboard.index')
         ]);
     }

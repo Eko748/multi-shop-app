@@ -79,7 +79,7 @@
             </a>
             <div class="brand">
                 <div class="logo" aria-hidden="true">
-                    {{ session('selected_toko_singkatan', Auth::user()->toko->singkatan ?? 'APP') }}
+                    {{ session('active_toko_singkatan', Auth::user()->toko->singkatan ?? 'APP') }}
                 </div>
                 <div>
                     {{ Auth::user()->leveluser->name }}

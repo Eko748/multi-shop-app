@@ -476,7 +476,7 @@
             $('.btn-login, #btn-login, button[type="submit"]').prop('disabled', true);
 
             $.ajax({
-                url: '{{ route('login') }}',
+                url: '{{ route('post_login') }}',
                 type: 'POST',
                 data: {
                     _token: csrfToken,

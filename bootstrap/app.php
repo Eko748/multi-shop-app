@@ -33,6 +33,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             \App\Http\Middleware\SetActiveTokoContext::class,
         ]);
+
+        $middleware->validateCsrfTokens(except: [
+            'cancel-login',
+            'post-cancel-login',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
 

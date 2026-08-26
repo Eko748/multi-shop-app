@@ -106,8 +106,18 @@ class AuthController extends Controller
             'toko_id' => 'required'
         ]);
 
-        // Simpan toko pilihan dan hilangkan status pending
-        session(['active_toko_id' => $request->toko_id]);
+        if ($request->toko_id === 'ALL') {
+            $singkatan = 'ALL';
+        } else {
+            $toko = \App\Models\Toko::find($request->toko_id);
+            $singkatan = $toko ? $toko->singkatan : null;
+        }
+
+        session([
+            'active_toko_id' => $request->toko_id,
+            'active_toko_singkatan' => $singkatan
+        ]);
+
         session()->forget('pending_toko_selection');
 
         return response()->json([

@@ -79,7 +79,7 @@
             </a>
             <div class="brand">
                 <div class="logo" aria-hidden="true">
-                    {{ Auth::user()->toko->singkatan }}
+                    {{ session('selected_toko_singkatan', Auth::user()->toko->singkatan ?? 'APP') }}
                 </div>
                 <div>
                     {{ Auth::user()->leveluser->name }}
@@ -124,7 +124,9 @@
                             $count = auth()->user()->catatanBelumDibaca()->count();
                         @endphp
 
-                        <a href="{{ route('catatan.index') }}" class="neu-btn position-relative {{ request()->routeIs('catatan.*') ? 'active' : '' }}" title="Catatan">
+                        <a href="{{ route('catatan.index') }}"
+                            class="neu-btn position-relative {{ request()->routeIs('catatan.*') ? 'active' : '' }}"
+                            title="Catatan">
                             <i class="feather icon-bell"></i>
 
                             @if ($count > 0)

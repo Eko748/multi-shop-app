@@ -119,6 +119,20 @@ class AuthController extends Controller
         ]);
     }
 
+    public function postCancelLogin(Request $request)
+    {
+        // Logout dan invalidate session secara menyeluruh
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return response()->json([
+            'status_code' => 200,
+            'message' => 'Login dibatalkan dan session telah dibersihkan.',
+            'new_csrf_token' => csrf_token() // Mengirim token CSRF baru ke frontend
+        ]);
+    }
+
     public function cancelLogin(Request $request)
     {
         // Logout otomatis jika modal dibatalkan / ditutup tanpa memilih toko

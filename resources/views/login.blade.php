@@ -595,26 +595,44 @@
                     closeButton: 'custom-swal-close-btn'
                 }
             }).then(async (result) => {
-                // Jika tombol X diklik / Modal ditutup
                 if (result.dismiss === Swal.DismissReason.close) {
-                    loadingPage(true); // Tampilkan indikator proses sebentar
+                    loadingPage(true);
 
                     try {
-                        // Hapus session login di backend
-                        await renderAPI('POST', '{{ route('post_cancel_login') }}', {});
+                        let response = await renderAPI('POST', '{{ route('post_cancel_login') }}', {});
+
+                        // Jika server mengirimkan token CSRF baru, perbarui token di DOM
+                        if (response && response.new_csrf_token) {
+                            $('meta[name="csrf-token"]').attr('content', response.new_csrf_token);
+                            $('input[name="_token"]').val(response.new_csrf_token);
+                        }
                     } catch (err) {
                         console.error("Gagal melakukan cancel login:", err);
                     } finally {
                         loadingPage(false);
-
-                        // Reset form dan matikan efek loading/disabled
                         resetFormLogin();
-
                         notificationAlert('info', 'Info',
-                            'Login dibatalkan. Silakan masukkan kembali kredensial Anda.');
+                            'Login dibatalkan. Silakan masukkan kembali data login.');
                     }
                 }
             });
+        }
+
+        function resetFormLogin() {
+            // 1. Kosongkan nilai password
+            $('#password').val('');
+
+            // 2. Aktifkan kembali input dan tombol login
+            $('#username, #password').prop('disabled', false);
+            $('button[type="submit"], .btn-login').prop('disabled', false).removeClass('disabled');
+
+            // 3. Reset event handler submit form (apabila form sempat terkunci)
+            if (typeof resetFormState === 'function') {
+                resetFormState();
+            }
+
+            // 4. Fokuskan kembali ke input password
+            $('#password').focus();
         }
 
         async function selectTokoCard(element, defaultRedirect) {
@@ -647,19 +665,6 @@
                 Swal.hideLoading();
                 notificationAlert('error', 'Error', 'Terjadi kesalahan saat memilih toko.');
             }
-        }
-
-        function resetFormLogin() {
-            // 1. Kosongkan nilai field password (opsional: kosongkan username juga)
-            $('#password').val('');
-
-            // 2. Mengaktifkan kembali field & tombol submit jika sebelumnya di-disabled
-            $('#username').prop('disabled', false);
-            $('#password').prop('disabled', false);
-            $('button[type="submit"], .btn-login').prop('disabled', false);
-
-            // 3. Auto focus ke field password atau username
-            $('#password').focus();
         }
     </script>
     <script>

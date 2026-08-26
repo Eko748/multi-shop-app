@@ -294,7 +294,7 @@
                             <b>MASUK KE APLIKASI</b>
                         </p>
                         <div id="error-message"
-                            class="hidden my-3 p-3 rounded-lg bg-red-100 text-red-700 border border-red-200 text-sm font-medium">
+                            class="hidden my-3 p-3 rounded-lg bg-red-500 text-white border border-red-600 text-sm font-medium transition-all duration-300">
                         </div>
                         @if ($errors->any())
                             @foreach ($errors->all() as $error)
@@ -436,6 +436,27 @@
             );
         }
 
+        let errorTimeout = null;
+
+        function showErrorText(msg) {
+            let $errBox = $('#error-message');
+
+            // 1. Reset timer sebelumnya jika user spam klik/login berkali-kali
+            if (errorTimeout) {
+                clearTimeout(errorTimeout);
+            }
+
+            // 2. Set pesan dan tampilkan elemen
+            $errBox.html(msg).removeClass('hidden').show();
+
+            // 3. Otomatis sembunyikan kembali setelah 3000ms (3 detik)
+            errorTimeout = setTimeout(function() {
+                $errBox.fadeOut(300, function() {
+                    $(this).addClass('hidden').html('');
+                });
+            }, 3000);
+        }
+
         // Helper untuk memperbarui Token CSRF di seluruh DOM & jQuery Setup
         function updateCsrfToken(newToken) {
             if (!newToken) return;
@@ -463,10 +484,7 @@
 
         // --- 1. FUNCTION SUBMIT LOGIN ---
         window.submitLogin = function(element) {
-            // 1. Reset & Sembunyikan pesan error sebelumnya
-            $('#error-message').addClass('hidden').html('');
-
-            // 2. Ambil nilai input dari ID atau atribut name
+            // Ambil nilai input
             let container = element ? $(element).closest('form, div') : $(document);
             let username = $('#username').val() || container.find('input[name="username"]').val();
             let password = $('#password').val() || container.find('input[name="password"]').val();
@@ -490,19 +508,18 @@
                     password: password
                 },
                 success: function(response) {
-                    // Synchronize CSRF Token terbaru jika ada
                     if (response.new_csrf_token) {
                         updateCsrfToken(response.new_csrf_token);
                     }
 
-                    // Mencegah lolos status_code 300 / error di block success
+                    // Handle jika HTTP status 200 namun mengembalikan error/status 300
                     if (response.status_code === 300 || response.error === true) {
                         showErrorText(response.message || 'Username atau password salah.');
                         resetFormLogin();
                         return;
                     }
 
-                    // Redirect atau tampilkan modal pilih toko
+                    // Redirect / Modal Pilih Toko
                     if (response.data && response.data.show_toko_selection) {
                         showTokoModal(response.data.daftar_toko, response.data.route_redirect);
                     } else if (response.data && response.data.route_redirect) {
@@ -513,10 +530,9 @@
                     let res = xhr.responseJSON;
                     let message = res?.message || 'Username atau password salah.';
 
-                    // Tampilkan pesan error di tag HTML
+                    // Tampilkan pesan error 3 detik
                     showErrorText(message);
 
-                    // Synchronize CSRF Token jika dikirim di response error
                     if (res && res.new_csrf_token) {
                         updateCsrfToken(res.new_csrf_token);
                     }

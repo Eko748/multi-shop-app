@@ -28,6 +28,10 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\LogUserLogout::class,
             \App\Http\Middleware\ShareMenuPermissions::class,
         ]);
+
+        $middleware->web(append: [
+            \App\Http\Middleware\SetActiveTokoContext::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
 

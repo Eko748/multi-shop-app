@@ -411,15 +411,69 @@
             }).catch(function(error) {
                 loadingPage(false);
                 let resp = error.response;
-                notificationAlert('error', 'Error', resp.data.message);
+                notificationAlert('error', 'Error', resp ? resp.data.message : 'Terjadi kesalahan');
                 return resp;
             });
-            if (getDataRest.status == 200) {
+
+            if (getDataRest && getDataRest.status == 200) {
                 let rest_data = getDataRest.data.data;
-                setTimeout(function() {
-                    window.location.href = rest_data.route_redirect
-                }, 500);
+                loadingPage(false);
+
+                // Jika response membutuhkan Pemilihan Toko
+                if (rest_data.show_toko_selection) {
+                    showTokoModal(rest_data.daftar_toko, rest_data.route_redirect);
+                } else {
+                    // Login langsung berhasil tanpa perlu pilih toko
+                    setTimeout(function() {
+                        window.location.href = rest_data.route_redirect;
+                    }, 500);
+                }
             }
+        }
+
+        function showTokoModal(daftarToko, defaultRedirect) {
+            // Susun option dropdown untuk modal SweetAlert2
+            let optionsHtml = `<option value="ALL">-- SEMUA TOKO --</option>`;
+            daftarToko.forEach(toko => {
+                optionsHtml += `<option value="${toko.id}">${toko.nama_toko}</option>`;
+            });
+
+            Swal.fire({
+                title: 'Pilih Akses Toko',
+                html: `
+            <p class="text-sm text-gray-600 mb-4">Anda memiliki akses ke beberapa toko. Silakan pilih toko yang ingin diakses saat ini:</p>
+            <select id="swal-select-toko" class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                ${optionsHtml}
+            </select>
+        `,
+                focusConfirm: false,
+                allowOutsideClick: false,
+                confirmButtonText: 'Lanjutkan Masuk',
+                confirmButtonColor: '#21469c',
+                preConfirm: () => {
+                    return document.getElementById('swal-select-toko').value;
+                }
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    loadingPage(true);
+                    let selectedTokoId = result.value;
+
+                    // Kirim toko pilihan ke backend untuk disimpan di Session
+                    let resSelect = await renderAPI(
+                        'POST',
+                        '{{ route('post_select_toko') }}', {
+                            toko_id: selectedTokoId
+                        }
+                    );
+
+                    if (resSelect && resSelect.status == 200) {
+                        window.location.href = resSelect.data.route_redirect;
+                    } else {
+                        loadingPage(false);
+                        notificationAlert('error', 'Error', 'Gagal memilih toko.');
+                    }
+                }
+            });
         }
     </script>
     <script>

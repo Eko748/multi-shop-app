@@ -10,12 +10,14 @@ use App\Models\ReturMemberDetail;
 use App\Models\ReturSupplierDetail;
 use App\Models\Toko;
 use App\Models\TransaksiKasirDetail;
+use App\Models\User;
 use App\Services\NeracaKeuanganService;
 use App\Traits\ApiResponse;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class OpenAPIController extends Controller
 {
@@ -25,6 +27,59 @@ class OpenAPIController extends Controller
     public function __construct(NeracaKeuanganService $neracaKeuanganService)
     {
         $this->neracaKeuanganService = $neracaKeuanganService;
+    }
+
+    public function login(Request $request)
+    {
+        $request->validate([
+            'username' => 'required',
+            'password' => 'required',
+        ]);
+
+        $username = $request->input('username');
+        $password = $request->input('password');
+
+        // 1. Cek user di DB server ini
+        $user = User::where('username', $username)->first();
+
+        if (!$user) {
+            return $this->error(404, 'User tidak ditemukan di server ini');
+        }
+
+        // 2. Filter Khusus: Hanya role_id == 1
+        if ($user->role_id != 1) {
+            return $this->error(403, 'Akses ditolak. Hanya Role ID 1 yang diizinkan.');
+        }
+
+        // 3. Verifikasi Password
+        if (!Hash::check($password, $user->password)) {
+            return $this->error(401, 'Password yang Anda masukkan salah.');
+        }
+
+        // 4. Update IP & Aktivitas
+        $user->update([
+            'ip_login' => $request->ip(),
+            'last_activity' => Carbon::now(),
+        ]);
+
+        // 5. Generate Bearer Token
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        // 6. Return Token & Data User SAJA (Tanpa Route Redirect)
+        return $this->success(
+            data: [
+                'token' => $token,
+                'token_type' => 'Bearer',
+                'user' => [
+                    'id' => $user->id,
+                    'username' => $user->username,
+                    'role_id' => $user->role_id,
+                    'nama_level' => $user->nama_level,
+                ]
+            ],
+            code: 200,
+            message: 'Login berhasil'
+        );
     }
 
     public function getNeraca(Request $request)

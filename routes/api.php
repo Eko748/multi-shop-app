@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\OpenAPIController;
+use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\CatatanController;
 use App\Http\Controllers\Auth\DashboardController;
 use App\Http\Controllers\DataMaster\Entitas\MemberController;
@@ -51,6 +52,13 @@ use App\Http\Controllers\Utils\KasController;
 use App\Http\Controllers\Utils\MasterController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
+Route::post('/switch-toko', function (Request $request) {
+    session(['active_toko_id' => $request->toko_id]);
+    return response()->json(['message' => 'Berhasil pindah toko']);
+});
+
+Route::post('/select-toko', [AuthController::class, 'selectToko'])->name('post_select_toko');
 
 Route::get('/user', function (Request $request) {
     return $request->user();

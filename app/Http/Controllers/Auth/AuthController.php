@@ -37,29 +37,72 @@ class AuthController extends Controller
                 'last_activity' => Carbon::now(),
             ]);
 
-            $route = '';
-            if ($user->id_level == 1) {
-                $route = route('dashboard.index');
-            } elseif ($user->nama_level == 'petugas') {
-                $route = redirect('/petugas/dashboard');
+            // Cek jika Super Admin (role_id = 1 atau id_level = 1)
+            if ($user->role_id == 1) {
+                // Ambil seluruh data toko dari database
+                $daftarToko = \App\Models\Toko::select('id', 'nama_toko')->get();
+
+                // Jika jumlah toko lebih dari 1
+                if ($daftarToko->count() > 1) {
+                    return response()->json([
+                        'status_code' => 200,
+                        'error' => false,
+                        'message' => "Silakan pilih toko",
+                        'data' => [
+                            'show_toko_selection' => true,
+                            'daftar_toko' => $daftarToko,
+                            'route_redirect' => route('dashboard.index')
+                        ]
+                    ], 200);
+                } else {
+                    // Jika cuma 1 toko, otomatis set session ke toko tersebut
+                    session(['active_toko_id' => $daftarToko->first()->id ?? $user->toko_id]);
+                }
             } else {
-                $route = route('dashboard.index');
+                // Untuk user non-superadmin, set toko aktif dari toko_id bawaan user
+                session(['active_toko_id' => $user->toko_id]);
             }
+
+            // Penentuan Route Redirect standar
+            $route = route('dashboard.index');
+            if ($user->nama_level == 'petugas') {
+                $route = url('/petugas/dashboard');
+            }
+
             return response()->json([
                 'status_code' => 200,
                 'error' => false,
                 'message' => "Successfully",
-                'data' => array(
+                'data' => [
+                    'show_toko_selection' => false,
                     'route_redirect' => $route
-                )
+                ]
             ], 200);
         } else {
             return response()->json([
                 'status_code' => 300,
                 'error' => true,
-                'message' => "Terjadi Kesalahan",
+                'message' => "Username atau password salah",
             ], 300);
         }
+    }
+
+    // Tambahkan Method khusus untuk menyimpan Pilihan Toko ke Session
+    public function selectToko(Request $request)
+    {
+        $request->validate([
+            'toko_id' => 'required'
+        ]);
+
+        // Simpan toko_id (bisa ID toko tertentu atau 'ALL') ke session
+        session(['active_toko_id' => $request->toko_id]);
+
+        return response()->json([
+            'status_code' => 200,
+            'error' => false,
+            'message' => 'Toko berhasil dipilih',
+            'route_redirect' => route('dashboard.index')
+        ]);
     }
 
     public function dashboard()

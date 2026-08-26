@@ -325,7 +325,7 @@
                             </svg>
                         </button>
                     </div>
-                    <button type="button" onclick="submitLogin()" style="background-color: rgb(33 70 156);"
+                    <button type="button" id="btn-login" onclick="submitLogin()" style="background-color: rgb(33 70 156);"
                         class="py-3.5 flex items-center justify-center text-white font-bold bg-success-300 hover:bg-success-400 transition-all rounded-lg w-full">
                         Masuk
                     </button>
@@ -458,23 +458,33 @@
         }
 
         // --- 1. FUNCTION SUBMIT LOGIN ---
-        $('#form-login').on('submit', function(e) {
-            e.preventDefault();
-            submitLogin(this);
-        });
+        window.submitLogin = function() {
+            let username = $('#username').val();
+            let password = $('#password').val();
+            let csrfToken = $('meta[name="csrf-token"]').attr('content');
 
-        window.submitLogin = function(formElement) {
-            let form = $(formElement);
+            if (!username || !password) {
+                if (typeof notificationAlert === 'function') {
+                    notificationAlert('warning', 'Peringatan', 'Username dan Password wajib diisi.');
+                } else {
+                    Swal.fire('Peringatan', 'Username dan Password wajib diisi.', 'warning');
+                }
+                return;
+            }
 
             if (typeof loadingPage === 'function') loadingPage(true);
-            $('button[type="submit"], .btn-login').prop('disabled', true);
+            $('.btn-login, #btn-login, button[type="submit"]').prop('disabled', true);
 
             $.ajax({
-                url: form.attr('action') || '{{ route('login') }}',
+                url: '{{ route('login') }}',
                 type: 'POST',
-                data: form.serialize(),
+                data: {
+                    _token: csrfToken,
+                    username: username,
+                    password: password
+                },
                 success: function(response) {
-                    // Perbarui CSRF Token segera setelah login berhasil
+                    // Synchronize CSRF Token terbaru dari response server
                     if (response.new_csrf_token) {
                         updateCsrfToken(response.new_csrf_token);
                     }
@@ -502,6 +512,20 @@
             });
         };
 
+        // Trigger saat Tombol Klik (opsional jika tombol punya class/id)
+        $(document).on('click', '#btn-login, .btn-login', function(e) {
+            e.preventDefault();
+            submitLogin();
+        });
+
+        // Trigger Enter Key pada Input Password
+        $(document).on('keypress', '#username, #password', function(e) {
+            if (e.which === 13) { // Keycode Enter
+                e.preventDefault();
+                submitLogin();
+            }
+        });
+
         // --- 2. FUNCTION SHOW TOKO MODAL ---
         window.showTokoModal = function(daftarToko, defaultRedirect) {
             let cardsHtml = `
@@ -525,7 +549,7 @@
                     let namaToko = toko.nama || 'Toko ' + toko.id;
                     let alamatToko = toko.alamat || 'Alamat tidak tersedia';
                     let singkatanToko = toko.singkatan ? toko.singkatan.trim() : (namaToko.charAt(0) || toko
-                    .id);
+                        .id);
 
                     cardsHtml += `
                     <div class="toko-card" data-id="${toko.id}" onclick="selectTokoCard(this, '${defaultRedirect}')" style="

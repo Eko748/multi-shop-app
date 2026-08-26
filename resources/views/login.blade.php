@@ -602,9 +602,9 @@
                         let response = await renderAPI('POST', '{{ route('post_cancel_login') }}', {});
 
                         // PERBARUI CSRF TOKEN DI BROWSER DENGAN TOKEN BARU DARI SERVER
-                        if (response && response.new_csrf_token) {
-                            $('meta[name="csrf-token"]').attr('content', response.new_csrf_token);
-                            $('input[name="_token"]').val(response.new_csrf_token);
+                        if (response && response.data.new_csrf_token) {
+                            $('meta[name="csrf-token"]').attr('content', response.data.new_csrf_token);
+                            $('input[name="_token"]').val(response.data.new_csrf_token);
                         }
                     } catch (err) {
                         console.error("Gagal melakukan cancel login:", err);

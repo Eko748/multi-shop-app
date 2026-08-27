@@ -26,7 +26,7 @@ class ArusKasService
     public function getArusKasData(Request $request)
     {
         // --------------------------------------------------------------------------
-        // 1. SORTING & TANGGAL BASE
+        // 1. SORTING & TANGGAL BASE (Aman dari String Kosong)
         // --------------------------------------------------------------------------
         $orderDirection = strtolower($request->order ?? ($request->ascending ? 'asc' : 'desc'));
         if (! in_array($orderDirection, ['asc', 'desc'])) {
@@ -36,19 +36,23 @@ class ArusKasService
         $sortBy     = strtolower($request->sort_by ?? 'tanggal');
         $sortColumn = ($sortBy === 'nominal') ? 'total_nominal' : 'tanggal';
 
-        // 🔥 Cek apakah ada filter tanggal spesifik yang dikirim dan tidak kosong
+        // Cek apakah ada filter tanggal spesifik yang dikirim dan tidak kosong
         $hasDateFilter = !empty($request->from_date) && !empty($request->to_date);
 
         if ($hasDateFilter) {
-            // Jika ada filter tanggal spesifik, gunakan ini
             $startDate = Carbon::parse($request->from_date)->startOfDay();
             $endDate   = Carbon::parse($request->to_date)->endOfDay();
+
+            // Definisikan default aman untuk kalkulasi saldo awal jika rentang tanggal dipakai
+            $month = (int) Carbon::now()->month;
+            $year  = (int) Carbon::now()->year;
         } else {
-            // Jika kosong, abaikan dan langsung pakai default bulan/tahun aktif
-            $month     = $request->month ?? Carbon::now()->month;
-            $year      = $request->year ?? Carbon::now()->year;
-            $startDate = Carbon::create($year, $month, 1)->startOfDay();
-            $endDate   = Carbon::create($year, $month, 1)->endOfMonth()->endOfDay();
+            // Ambil bulan/tahun dengan aman dan pastikan dikonversi ke integer
+            $month = !empty($request->month) ? (int) $request->month : (int) Carbon::now()->month;
+            $year  = !empty($request->year) ? (int) $request->year : (int) Carbon::now()->year;
+
+            $startDate = Carbon::create($year, $month, 1, 0, 0, 0)->startOfDay();
+            $endDate   = Carbon::create($year, $month, 1, 0, 0, 0)->endOfMonth()->endOfDay();
         }
 
         // Filter Toko
@@ -131,12 +135,12 @@ class ArusKasService
         $totalRows = (clone $query)->count();
 
         if ($hasDateFilter) {
-            // 🔥 Jika ada filter dari-sampai tanggal: Bypass paginasi (ambil semua)
+            // Jika ada filter dari-sampai tanggal: Bypass paginasi (ambil semua)
             $rawResult    = $query->orderBy($sortColumn, $orderDirection)->orderBy('id', 'desc')->get();
             $hasMorePages = false;
             $currentPage  = 1;
         } else {
-            // 🔥 Jika normal: Gunakan Skip & Take (Dinamis Offset)
+            // Jika normal: Gunakan Skip & Take (Dinamis Offset)
             $skip  = (int) ($request->skip ?? 0);
             $limit = (int) ($request->limit ?? 30);
 

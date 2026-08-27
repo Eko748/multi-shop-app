@@ -301,7 +301,7 @@
                 $('#loader-row').remove();
 
                 if (getDataRest && getDataRest.status == 200 && Array.isArray(getDataRest.data.data)) {
-                    let resData = getDataRest.data;
+                    let resData = getDataRest.data.data;
                     hasMorePages = resData.has_more_pages;
 
                     let handleDataArray = await Promise.all(

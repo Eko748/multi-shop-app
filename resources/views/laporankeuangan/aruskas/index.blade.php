@@ -278,12 +278,12 @@
             } else {
                 // Jika scroll (isAppend = true), loader di-append di bawah tabel
                 $('#listData').append(`
-            <tr id="loader-row">
-                <td colspan="14" class="text-center py-3">
-                    <i class="fa fa-spinner fa-spin"></i> Memuat data lanjutan...
-                </td>
-            </tr>
-        `);
+                    <tr id="loader-row">
+                        <td colspan="14" class="text-center py-3">
+                            <i class="fa fa-spinner fa-spin"></i> Memuat data lanjutan...
+                        </td>
+                    </tr>
+                `);
             }
 
             try {
@@ -292,6 +292,7 @@
                     skip: skipCount, // 🔥 Dikirim sebagai offset ke Backend Laravel
                     search: search,
                     ascending: ascending,
+                    toko_id: {{ auth()->user()->toko_id }},
                     ...filter
                 });
 
@@ -572,7 +573,7 @@
 
                 let selectedTokoIds = $('#f_toko').val();
                 if (selectedTokoIds && selectedTokoIds.length > 0) {
-                    customFilter['toko_id'] = selectedTokoIds;
+                    customFilter['toko_selected'] = selectedTokoIds;
                 }
 
                 // TANGKAP FILTER KATEGORI (Mendukung Single / Multi-Select)

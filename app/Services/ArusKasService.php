@@ -102,10 +102,27 @@ class ArusKasService
             'hutang_in'     => 0, 'hutang_out'    => 0,
         ];
 
+        // Process Mapping sekaligus formatting (1 Pass Processing)
         $data = $query->get()->map(function ($item) use (&$totals) {
             $nilai = (float) $item->total_nominal;
-            $jenis = strtolower($item->item);
-            $tipe  = strtolower($item->tipe);
+            $tipe  = strtolower(trim($item->tipe)); // 'in' atau 'out'
+
+            // Normalisasi kata kunci item dari database ('kecil', 'besar', 'hutang', 'piutang')
+            $rawItem = strtolower(trim($item->item));
+
+            // Mapping alias untuk mengantisipasi variasi string dari DB
+            $jenisMap = [
+                'kecil'     => 'kas_kecil',
+                'kas kecil' => 'kas_kecil',
+                'kas_kecil' => 'kas_kecil',
+                'besar'     => 'kas_besar',
+                'kas besar' => 'kas_besar',
+                'kas_besar' => 'kas_besar',
+                'piutang'   => 'piutang',
+                'hutang'    => 'hutang',
+            ];
+
+            $jenis = $jenisMap[$rawItem] ?? $rawItem;
 
             $rowTotals = [
                 'kas_kecil_in'  => 0, 'kas_kecil_out' => 0,
@@ -115,9 +132,10 @@ class ArusKasService
             ];
 
             $key = "{$jenis}_{$tipe}";
+
             if (array_key_exists($key, $rowTotals)) {
                 $rowTotals[$key] = $nilai;
-                $totals[$key] += $nilai;
+                $totals[$key] += $nilai; // Akumulasi total berjalan
             }
 
             $namaToko = $item->kas?->toko?->nama ?? '-';
@@ -127,7 +145,7 @@ class ArusKasService
                 'tgl'             => Carbon::parse($item->tanggal)->format('d-m-Y H:i:s'),
                 'subjek'          => "Toko {$namaToko}",
                 'kategori'        => $item->kategori,
-                'item'            => $item->keterangan,
+                'item'            => $item->keterangan, // Teks deskripsi transaksi (e.g. Kas Aksesoris)
                 'nilai_transaksi' => $this->formatAngka($nilai),
                 'kas_kecil_in'    => $this->formatAngka($rowTotals['kas_kecil_in']),
                 'kas_kecil_out'   => $this->formatAngka($rowTotals['kas_kecil_out']),

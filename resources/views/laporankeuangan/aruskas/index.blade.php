@@ -24,9 +24,11 @@
         }
 
         .table-responsive {
-            max-height: none !important;
-            overflow-y: visible !important;
             overflow-x: auto;
+            overflow-y: auto;
+            /* Wajib ada agar vertikal ikut aktif di dalam kotak */
+            max-height: 600px;
+            /* Batasi tinggi kotak tabel */
         }
 
         #bulan_tahun[readonly] {
@@ -628,15 +630,36 @@
         }
 
         $('.table-responsive').off('scroll').on('scroll', async function() {
-            let container = $(this);
+            let el = this;
 
-            // Hitung sisa jarak scroll ke bawah
-            let scrollHeight = container[0].scrollHeight;
-            let scrollTop = container.scrollTop();
-            let clientHeight = container.innerHeight();
+            // Perhitungan murni posisi bawah elemen (tidak terpengaruh geseran horizontal)
+            let isAtBottom = (el.scrollHeight - el.scrollTop) <= (el.clientHeight + 50);
 
-            // Jika sisa jarak ke bawah tinggal 50px lagi
-            if (scrollHeight - scrollTop - clientHeight <= 50) {
+            if (isAtBottom) {
+                if (hasMorePages && !isLoading) {
+                    currentPage++;
+
+                    await getListData(
+                        30,
+                        currentPage,
+                        defaultAscending,
+                        defaultSearch,
+                        customFilter,
+                        true
+                    );
+                }
+            }
+        });
+
+        // Hapus event lama, pasang event global yang mendeteksi window atau container utama tabel
+        $(window).off('scroll.infiniteList').on('scroll.infiniteList', async function() {
+            // Cek posisi scroll dari jendela browser / parent container utama
+            let scrollHeight = $(document).height();
+            let scrollTop = $(window).scrollTop();
+            let clientHeight = $(window).height();
+
+            // Jika sisa jarak dari bawah tinggal 100px
+            if (scrollHeight - (scrollTop + clientHeight) <= 100) {
                 if (hasMorePages && !isLoading) {
                     currentPage++;
 

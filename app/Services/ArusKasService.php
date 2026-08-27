@@ -25,13 +25,11 @@ class ArusKasService
 
     public function getArusKasData(Request $request)
     {
-        // 1. Tentukan Direction Order (asc/desc)
         $orderDirection = strtolower($request->order ?? ($request->ascending ? 'asc' : 'desc'));
         if (! in_array($orderDirection, ['asc', 'desc'])) {
             $orderDirection = 'desc';
         }
 
-        // 2. Tentukan Kolom Sorting (sort_by)
         $sortBy = strtolower($request->sort_by ?? 'tanggal');
         $sortColumn = ($sortBy === 'nominal') ? 'total_nominal' : 'tanggal';
 
@@ -52,7 +50,6 @@ class ArusKasService
             $endDate = Carbon::parse($toDate)->endOfDay();
         }
 
-        // Penanganan penentuan Toko Akses secara konsisten (Mendukung 'all', null, '')
         $isFilteredByToko = ! empty($tokoId) && strtolower((string) $tokoId) !== 'all';
         $accessibleTokoIds = $this->getAccessibleTokoIds($isFilteredByToko ? $tokoId : null);
 
@@ -65,23 +62,25 @@ class ArusKasService
             }
         }
 
-        // 3. Base Query (Tambahkan Eager Loading 'kas.toko' untuk menghindari N+1 Query)
+        // Base Query
         $query = KasTransaksi::with(['kas.toko'])
             ->whereBetween('tanggal', [$startDate, $endDate])
             ->whereHas('kas', function ($q) use ($accessibleTokoIds) {
+                // Hanya jalankan filter jika toko terdaftar
                 if (! empty($accessibleTokoIds)) {
                     $q->whereIn('toko_id', $accessibleTokoIds);
+                } else {
+                    // Jika tidak ada toko yang bisa diakses/ditemukan, paksa return kosong
+                    $q->whereRaw('1 = 0');
                 }
             })
             ->where('total_nominal', '>', 0);
 
-        // 4. FILTER KATEGORI
         if ($request->filled('kategori')) {
             $kategori = is_array($request->kategori) ? $request->kategori : [$request->kategori];
             $query->whereIn('kategori', $kategori);
         }
 
-        // 5. FITUR SEARCH
         if ($request->filled('search')) {
             $searchTerm = trim(strtolower($request->search));
             $query->where(function ($q) use ($searchTerm) {
@@ -93,11 +92,9 @@ class ArusKasService
             });
         }
 
-        // 6. DYNAMIC SORTING
         $query->orderBy($sortColumn, $orderDirection)
             ->orderBy('id', 'desc');
 
-        // Peta temporary untuk menghitung akumulasi total
         $totals = [
             'kas_kecil_in'  => 0, 'kas_kecil_out' => 0,
             'kas_besar_in'  => 0, 'kas_besar_out' => 0,
@@ -105,7 +102,6 @@ class ArusKasService
             'hutang_in'     => 0, 'hutang_out'    => 0,
         ];
 
-        // Process Mapping sekaligus formatting (1 Pass Processing)
         $data = $query->get()->map(function ($item) use (&$totals) {
             $nilai = (float) $item->total_nominal;
             $jenis = strtolower($item->item);
@@ -121,7 +117,7 @@ class ArusKasService
             $key = "{$jenis}_{$tipe}";
             if (array_key_exists($key, $rowTotals)) {
                 $rowTotals[$key] = $nilai;
-                $totals[$key] += $nilai; // Akumulasi total berjalan
+                $totals[$key] += $nilai;
             }
 
             $namaToko = $item->kas?->toko?->nama ?? '-';
@@ -144,8 +140,8 @@ class ArusKasService
             ];
         });
 
-        // 7. Hitung Saldo Awal Kas
-        $kasList = Kas::whereIn('toko_id', $accessibleTokoIds)->get();
+        // Saldo Awal
+        $kasList = ! empty($accessibleTokoIds) ? Kas::whereIn('toko_id', $accessibleTokoIds)->get() : collect();
         $kecil_awal = 0;
         $besar_awal = 0;
 
@@ -160,7 +156,6 @@ class ArusKasService
         $piutang_awal = 0;
         $hutang_awal  = 0;
 
-        // 8. Susun Data Total Respon
         $data_total = [
             'kas_kecil' => [
                 'saldo_awal'     => $this->formatAngka($kecil_awal),
@@ -228,21 +223,27 @@ class ArusKasService
             : $kas->saldo_awal;
     }
 
-    private function getAccessibleTokoIds($tokoId)
+    protected function getAccessibleTokoIds($tokoId = null)
     {
-        $toko = Toko::find($tokoId);
-
-        // 1. Jika ini adalah parent (parent_id null) → tidak boleh dilihat oleh siapapun
-        //    Maka hanya bisa melihat dirinya sendiri (atau bisa juga return empty, sesuai kebutuhan)
-        if ($toko->parent_id === null) {
-            return [$tokoId];
+        // Jika tokoId tidak diisi atau 'all', ambil semua ID toko yang diizinkan pengguna
+        if (empty($tokoId) || strtolower((string) $tokoId) === 'all') {
+            return Toko::pluck('id')->toArray(); // Sesuaikan dengan logika otorisasi Anda
         }
 
-        // 2. Ambil semua child dari toko ini (jika ada)
-        $childIds = Toko::where('parent_id', $tokoId)->pluck('id')->toArray();
+        $toko = Toko::find($tokoId);
 
-        // 3. Child hanya bisa melihat dirinya sendiri + anak-anaknya
-        return array_unique(array_merge([$tokoId], $childIds));
+        // CEK NULL: Jika toko tidak ditemukan, kembalikan array kosong agar query tidak error
+        if (! $toko) {
+            return [];
+        }
+
+        // Menggunakan optional chaining / safe navigation
+        $parentId = $toko->parent_id ?? $toko->id;
+
+        return Toko::where('id', $parentId)
+            ->orWhere('parent_id', $parentId)
+            ->pluck('id')
+            ->toArray();
     }
 
     private function formatAngka($value)

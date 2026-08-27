@@ -36,15 +36,12 @@ class ArusKasService
         $month = $request->month ?? Carbon::now()->month;
         $year = $request->year ?? Carbon::now()->year;
 
-        $fromDate = $request->from_date;
-        $toDate = $request->to_date;
-
         $startDate = Carbon::create($year, $month, 1)->startOfDay();
         $endDate = Carbon::create($year, $month, 1)->endOfMonth()->endOfDay();
 
-        if ($fromDate && $toDate) {
-            $startDate = Carbon::parse($fromDate)->startOfDay();
-            $endDate = Carbon::parse($toDate)->endOfDay();
+        if ($request->filled('from_date') && $request->filled('to_date')) {
+            $startDate = Carbon::parse($request->from_date)->startOfDay();
+            $endDate = Carbon::parse($request->to_date)->endOfDay();
         }
 
         $tokoIds = [];
@@ -66,18 +63,28 @@ class ArusKasService
             });
         }
 
+        // 🔥 PERBAIKAN FILTER KATEGORI: Pastikan string koma/array diparsing ke whereIn
         if ($request->filled('kategori')) {
-            $kategori = is_array($request->kategori) ? $request->kategori : [$request->kategori];
-            $query->whereIn('kategori', $kategori);
+            $kategoriParams = $request->kategori;
+            $kategoriArray = is_array($kategoriParams) ? $kategoriParams : explode(',', $kategoriParams);
+
+            // Bersihkan dari spasi/nilai kosong
+            $kategoriArray = array_filter(array_map('trim', $kategoriArray), fn($val) => !empty($val));
+
+            if (!empty($kategoriArray)) {
+                $query->whereIn('kategori', $kategoriArray);
+            }
         }
 
+        // 🔥 PERBAIKAN SEARCH: Ditambah field singkatan toko (seperti GLO/CLP)
         if ($request->filled('search')) {
             $searchTerm = trim(strtolower($request->search));
             $query->where(function ($q) use ($searchTerm) {
                 $q->whereRaw('LOWER(kategori) LIKE ?', ["%{$searchTerm}%"])
                     ->orWhereRaw('LOWER(keterangan) LIKE ?', ["%{$searchTerm}%"])
                     ->orWhereHas('kas.toko', function ($tokoQuery) use ($searchTerm) {
-                        $tokoQuery->whereRaw('LOWER(nama) LIKE ?', ["%{$searchTerm}%"]);
+                        $tokoQuery->whereRaw('LOWER(nama) LIKE ?', ["%{$searchTerm}%"])
+                                  ->orWhereRaw('LOWER(singkatan) LIKE ?', ["%{$searchTerm}%"]);
                     });
             });
         }
@@ -98,11 +105,11 @@ class ArusKasService
             'piutang'   => 'piutang',   'hutang'    => 'hutang',
         ];
 
-        // Iterasi cepat untuk kalkulasi summary seluruh baris
-        (clone $query)->get(['total_nominal', 'tipe', 'item'])->each(function ($item) use (&$totals, $jenisMap) {
+        // Hapus array parameter ['total_nominal', 'tipe', 'item'] agar tidak meledak jika kolom item tidak ada murni di DB
+        (clone $query)->get()->each(function ($item) use (&$totals, $jenisMap) {
             $nilai   = (float) $item->total_nominal;
             $tipe    = strtolower(trim($item->tipe));
-            $rawItem = strtolower(trim($item->item));
+            $rawItem = strtolower(trim($item->item ?? $item->keterangan ?? '')); // Fallback aman
             $jenis   = $jenisMap[$rawItem] ?? $rawItem;
             $key     = "{$jenis}_{$tipe}";
 
@@ -123,7 +130,7 @@ class ArusKasService
         $data = collect($paginatedQuery->items())->map(function ($item) use ($jenisMap) {
             $nilai   = (float) $item->total_nominal;
             $tipe    = strtolower(trim($item->tipe));
-            $rawItem = strtolower(trim($item->item));
+            $rawItem = strtolower(trim($item->item ?? $item->keterangan ?? ''));
             $jenis   = $jenisMap[$rawItem] ?? $rawItem;
 
             $rowTotals = [
@@ -151,8 +158,8 @@ class ArusKasService
                 'kas_besar_out'   => $this->formatAngka($rowTotals['kas_besar_out']),
                 'piutang_in'      => $this->formatAngka($rowTotals['piutang_in']),
                 'piutang_out'     => $this->formatAngka($rowTotals['piutang_out']),
-                'hutang_in'      => $this->formatAngka($rowTotals['hutang_in']),
-                'hutang_out'     => $this->formatAngka($rowTotals['hutang_out']),
+                'hutang_in'       => $this->formatAngka($rowTotals['hutang_in']),
+                'hutang_out'      => $this->formatAngka($rowTotals['hutang_out']),
             ];
         });
 

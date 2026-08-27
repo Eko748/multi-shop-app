@@ -25,6 +25,8 @@
 
         .table-responsive {
             overflow-x: auto;
+            max-height: 70vh;
+            overflow-y: auto;
         }
 
         #bulan_tahun[readonly] {
@@ -346,6 +348,43 @@
                 isLoading = false;
             }
         }
+
+        // --------------------------------------------------------------------------
+        // INFINITE SCROLL LISTENER (Sangat Adaptif)
+        // --------------------------------------------------------------------------
+        function setupInfiniteScroll() {
+            // 1. Tangkap target scroll (bisa div container tabel atau window)
+            let scrollTarget = $('.table-responsive').length ? $('.table-responsive') : $(window);
+
+            scrollTarget.off('scroll').on('scroll', function() {
+                let container = $(this);
+                let scrollTop, innerHeight, scrollHeight;
+
+                if (container.is(window)) {
+                    scrollTop = $(window).scrollTop();
+                    innerHeight = $(window).height();
+                    scrollHeight = $(document).height();
+                } else {
+                    scrollTop = container.scrollTop();
+                    innerHeight = container.innerHeight();
+                    scrollHeight = container[0].scrollHeight;
+                }
+
+                // Trigger jika sisa scroll tinggal 150px dari bawah
+                if ((scrollTop + innerHeight) >= (scrollHeight - 150)) {
+                    if (hasMorePages && !isLoading) {
+                        currentPage++;
+                        getListData(currentLimit, currentPage, currentAscending, currentSearch, currentFilter,
+                            true);
+                    }
+                }
+            });
+        }
+
+        // Panggil sekali saat document ready / inisialisasi awal
+        $(document).ready(function() {
+            setupInfiniteScroll();
+        });
 
         function generateRowHtml(element, index) {
             // Menangani kondisi jika fungsi handleData(item) mengembalikan objek bertingkat

@@ -13,6 +13,15 @@
 @endsection
 
 @section('content')
+    @php
+        $activeToko = session('active_toko_id', auth()->user()->toko_id ?? 'ALL');
+        $isAllToko = strtoupper($activeToko) === 'ALL';
+        $tokoNama =
+            auth()->user()->toko?->nama ??
+            (session()->has('active_toko_name') ? session('active_toko_name') : 'Toko Pusat / Admin');
+        $tokoId = auth()->user()->toko_id ?? session('active_toko_id');
+    @endphp
+
     <div class="pcoded-main-container">
         <div class="pcoded-content pt-1 mt-1">
             @include('components.breadcrumbs')
@@ -24,8 +33,8 @@
                                 <div class="col-12 col-xl-6 col-lg-6 mb-2">
                                     <div class="row">
                                         <div class="col-6 col-xxl-2 col-lg-4 col-xl-3">
-                                            <button class="btn btn-primary text-white add-data w-100" data-container="body"
-                                                data-toggle="tooltip" data-placement="top" title="Tambah Pengiriman Barang">
+                                            <button class="btn btn-primary text-white w-100 add-data" type="button"
+                                                title="Tambah Pengiriman Barang">
                                                 <i class="fa fa-plus-circle"></i> Tambah
                                             </button>
                                         </div>
@@ -132,9 +141,8 @@
                             <div class="col-md-3">
                                 <div class="form-group">
                                     <label>Toko Asal<sup class="text-danger">*</sup></label>
-                                    <input type="text" class="form-control" value="{{ auth()->user()->toko->nama }}"
-                                        disabled>
-                                    <input type="hidden" id="toko_asal_id" value="{{ auth()->user()->toko_id }}">
+                                    <input type="text" class="form-control" value="{{ $tokoNama }}" disabled>
+                                    <input type="hidden" id="toko_asal_id" value="{{ $tokoId }}">
                                 </div>
                             </div>
                             <div class="col-md-3">
@@ -595,7 +603,7 @@
                     limit: limit,
                     ascending: ascending,
                     search: search,
-                    toko_id: '{{ auth()->user()->toko_id }}',
+                    toko_id: {{ auth()->user()->toko_id }},
                     ...filterParams
                 }
             ).then(function(response) {

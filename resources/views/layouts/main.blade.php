@@ -70,6 +70,7 @@
 
     <script>
         const allowedPermissions = @json(View::getShared()['allowedPermissions'] ?? []);
+        window.activeTokoId = {{ session('active_toko_id', auth()->user()->toko_id ?? 'ALL') }};
 
         $(document).ready(function() {
             $('#dropdownTokoHeaderBtn').on('show.bs.dropdown', function() {
@@ -95,13 +96,11 @@
         });
 
         function switchTokoHeader(tokoId) {
-            // 1. Tampilkan overlay loading full-screen
             const loadingOverlay = document.getElementById('global-loading-overlay');
             if (loadingOverlay) {
                 loadingOverlay.style.display = 'block';
             }
 
-            // 2. Kirim request ganti toko ke backend
             fetch("{{ route('switch.toko') }}", {
                     method: 'POST',
                     headers: {
@@ -114,7 +113,6 @@
                 })
                 .then(response => {
                     if (response.ok) {
-                        // Reload halaman (overlay tetap tampil sampai halaman selesai di-render ulang)
                         window.location.reload();
                     } else {
                         if (loadingOverlay) loadingOverlay.style.display = 'none';
@@ -129,6 +127,94 @@
 
                 });
         }
+
+        function handleGlobalAddButtonState(activeTokoId) {
+            const isAll = !activeTokoId || String(activeTokoId).toUpperCase() === 'ALL';
+
+            // Mendukung selector .add-data DAN #btn-add-data
+            $('.add-data, #btn-add-data').each(function() {
+                const $btn = $(this);
+                const $wrapper = $btn.parent();
+
+                if (isAll) {
+                    $btn.addClass('disabled')
+                        .prop('disabled', true)
+                        .css('cursor', 'not-allowed')
+                        .attr('title', "Tidak dapat menambah data saat filter toko 'ALL'")
+                        .attr('data-original-title', "Tidak dapat menambah data saat filter toko 'ALL'");
+
+                    // 1. Simpan & Lepas Onclick Inline jika ada
+                    if ($btn.attr('onclick')) {
+                        $btn.attr('data-onclick-backup', $btn.attr('onclick')).removeAttr('onclick');
+                    }
+
+                    // 2. Simpan & Lepas Modal Bootstrap jika ada
+                    if ($btn.attr('data-toggle')) {
+                        $btn.attr('data-toggle-disabled', $btn.attr('data-toggle')).removeAttr('data-toggle');
+                    }
+                    if ($btn.attr('data-bs-toggle')) {
+                        $btn.attr('data-bs-toggle-disabled', $btn.attr('data-bs-toggle')).removeAttr(
+                            'data-bs-toggle');
+                    }
+
+                    $btn.css('pointer-events', 'auto');
+
+                    if ($wrapper.find('.info-toko-warning').length === 0) {
+                        $wrapper.append(`
+                            <small class="text-danger d-block text-center info-toko-warning" style="font-size: 9px;">
+                                Pilih toko untuk tambah
+                            </small>
+                        `);
+                    }
+                } else {
+                    $btn.removeClass('disabled')
+                        .prop('disabled', false)
+                        .css({
+                            'cursor': '',
+                            'pointer-events': ''
+                        })
+                        .attr('title', "Tambah Data")
+                        .attr('data-original-title', "Tambah Data");
+
+                    // 1. Kembalikan Onclick Inline jika sebelumnya dilepas
+                    if ($btn.attr('data-onclick-backup')) {
+                        $btn.attr('onclick', $btn.attr('data-onclick-backup')).removeAttr('data-onclick-backup');
+                    }
+
+                    // 2. Kembalikan Modal Bootstrap
+                    if ($btn.attr('data-toggle-disabled')) {
+                        $btn.attr('data-toggle', $btn.attr('data-toggle-disabled')).removeAttr(
+                            'data-toggle-disabled');
+                    }
+                    if ($btn.attr('data-bs-toggle-disabled')) {
+                        $btn.attr('data-bs-toggle', $btn.attr('data-bs-toggle-disabled')).removeAttr(
+                            'data-bs-toggle-disabled');
+                    }
+
+                    $wrapper.find('.info-toko-warning').remove();
+                }
+
+                if ($.fn.tooltip && $btn.data('bs.tooltip')) {
+                    $btn.tooltip('dispose').tooltip();
+                }
+            });
+        }
+
+        // Global Interseptor Event Capture (Menahan klik sebelum fungsi JS lain dipanggil)
+        document.addEventListener('click', function(e) {
+            const target = e.target.closest('.add-data, #btn-add-data');
+            if (target && target.classList.contains('disabled')) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                return false;
+            }
+        }, true); // Event capture mode (true)
+
+        $(document).ready(function() {
+            const activeToko = window.activeTokoId || 'ALL';
+            handleGlobalAddButtonState(activeToko);
+        });
     </script>
 </body>
 

@@ -34,7 +34,7 @@
                                                     <i class="fa fa-filter my-1"></i>
                                                 </button>
                                                 <button type="button"
-                                                    class="btn btn-md btn-outline-primary d-flex align-items-center justify-content-center"
+                                                    class="btn btn-md add-data btn-outline-primary d-flex align-items-center justify-content-center"
                                                     onclick="openAddModal()" data-container="body" data-toggle="tooltip"
                                                     data-placement="top" style="flex: 1 1 45px; max-width: 150px;"
                                                     title="Tambah Data Saldo Digital">
@@ -107,7 +107,7 @@
                                                     <i class="fa fa-filter my-1"></i>
                                                 </button>
                                                 <button type="button"
-                                                    class="btn btn-md btn-outline-primary d-flex align-items-center justify-content-center"
+                                                    class="btn btn-md add-data btn-outline-primary d-flex align-items-center justify-content-center"
                                                     onclick="openAddModal3()" data-container="body" data-toggle="tooltip"
                                                     data-placement="top" style="flex: 1 1 45px; max-width: 150px;"
                                                     title="Tambah Data Item Non Fisik">
@@ -170,7 +170,7 @@
                                                     <i class="fa fa-filter my-1"></i>
                                                 </button>
                                                 <button type="button"
-                                                    class="btn btn-md btn-outline-primary d-flex align-items-center justify-content-center"
+                                                    class="btn btn-md add-data btn-outline-primary d-flex align-items-center justify-content-center"
                                                     onclick="openAddModal2()" data-container="body" data-toggle="tooltip"
                                                     data-placement="top" style="flex: 1 1 45px; max-width: 150px;"
                                                     title="Tambah Data Kategori Saldo">
@@ -233,7 +233,7 @@
                                                     <i class="fa fa-filter my-1"></i>
                                                 </button>
                                                 <button type="button"
-                                                    class="btn btn-md btn-outline-primary d-flex align-items-center justify-content-center"
+                                                    class="btn btn-md add-data btn-outline-primary d-flex align-items-center justify-content-center"
                                                     onclick="openAddModal4()" data-container="body" data-toggle="tooltip"
                                                     data-placement="top" style="flex: 1 1 45px; max-width: 150px;"
                                                     title="Tambah Data Tipe Item">

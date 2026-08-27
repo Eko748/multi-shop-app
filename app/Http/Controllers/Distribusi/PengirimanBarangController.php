@@ -75,7 +75,8 @@ class PengirimanBarangController extends Controller
                     END AS qty_total
                 ");
 
-            if ($id_toko != 1) {
+            // PERBAIKAN: Hanya filter toko jika toko_id ADA, tidak kosong, dan BUKAN 'all' / '1' (Super Admin / Pusat)
+            if (!empty($id_toko) && $id_toko !== 'all' && $id_toko != 1) {
                 $query->where(function ($q) use ($id_toko) {
                     $q->where('toko_asal_id', $id_toko)
                         ->orWhere(function ($r) use ($id_toko) {
@@ -184,18 +185,17 @@ class PengirimanBarangController extends Controller
             return response()->json([
                 'data' => $mappedData,
                 'status_code' => 200,
-                'errors' => false, // Diubah menjadi false karena prosesnya sukses
+                'errors' => false,
                 'message' => 'Sukses',
                 'pagination' => $data['meta'],
             ], 200);
 
         } catch (\Exception $e) {
-            // Mengembalikan response JSON yang rapi saat terjadi error sistem
             return response()->json([
                 'status_code' => 500,
                 'errors' => true,
                 'message' => 'Terjadi kesalahan pada server',
-                'debug_message' => $e->getMessage(), // Hapus/comment baris ini di mode produksi demi keamanan
+                'debug_message' => $e->getMessage(),
             ], 500);
         }
     }

@@ -288,6 +288,7 @@
         let currentAscending = 0;
         let currentPage = 1;
         let currentSearch = '';
+        let currentFilter = {};
         let isLoading = false;
         let hasMorePages = true;
         let currentLimit = 30;

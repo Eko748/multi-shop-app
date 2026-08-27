@@ -285,8 +285,9 @@
         ];
         let currentSortBy = 'tanggal';
         let currentOrder = 'desc';
-        let currentAscending = 0;
+        let currentAscending = 0;yy
         let currentPage = 1;
+        let currentSearch = '';
         let isLoading = false;
         let hasMorePages = true;
         let currentLimit = 30;

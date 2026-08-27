@@ -36,13 +36,15 @@ class ArusKasService
         $sortBy     = strtolower($request->sort_by ?? 'tanggal');
         $sortColumn = ($sortBy === 'nominal') ? 'total_nominal' : 'tanggal';
 
-        // Cek apakah user menggunakan Filter Tanggal Spesifik
-        $hasDateFilter = $request->filled('from_date') && $request->filled('to_date');
+        // 🔥 Cek apakah ada filter tanggal spesifik yang dikirim dan tidak kosong
+        $hasDateFilter = !empty($request->from_date) && !empty($request->to_date);
 
         if ($hasDateFilter) {
+            // Jika ada filter tanggal spesifik, gunakan ini
             $startDate = Carbon::parse($request->from_date)->startOfDay();
             $endDate   = Carbon::parse($request->to_date)->endOfDay();
         } else {
+            // Jika kosong, abaikan dan langsung pakai default bulan/tahun aktif
             $month     = $request->month ?? Carbon::now()->month;
             $year      = $request->year ?? Carbon::now()->year;
             $startDate = Carbon::create($year, $month, 1)->startOfDay();

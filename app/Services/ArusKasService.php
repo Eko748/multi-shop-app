@@ -48,32 +48,34 @@ class ArusKasService
         }
 
         // --------------------------------------------------------------------------
-        // LOGIKA FILTER TOKO HANYA JIKA ADA INPUT EKSPLISIT DARI REQUEST
+        // LOGIKA SIMPLE FILTER TOKO
         // --------------------------------------------------------------------------
-        $tokoIdParam = $request->toko_selected ?? $request->toko_id;
+        $tokoIds = [];
 
-        // Cek apakah ada input toko spesifik (bukan null, bukan '', dan bukan 'all')
-        $isFilteredByToko = ! empty($tokoIdParam) && strtolower((string) $tokoIdParam) !== 'all';
-
-        if ($isFilteredByToko) {
-            $accessibleTokoIds = $this->getAccessibleTokoIds($tokoIdParam);
-        } else {
-            // Jika tidak ada request toko_id / toko_selected, atau nilainya 'all',
-            // kosongkan array ini agar query utama TIDAK menerapkan filter whereIn('toko_id') sama sekali
-            $accessibleTokoIds = [];
+        // Prioritas 1: Jika ada toko_selected (misal dari filter multi-select: [2, 4])
+        if ($request->filled('toko_selected')) {
+            $selected = is_array($request->toko_selected) ? $request->toko_selected : [$request->toko_selected];
+            $tokoIds = array_filter($selected, fn ($val) => ! empty($val) && strtolower((string) $val) !== 'all');
         }
+        // Prioritas 2: Jika tidak ada toko_selected, cek toko_id tunggal
+        elseif ($request->filled('toko_id') && strtolower((string) $request->toko_id) !== 'all') {
+            $tokoIds = [$request->toko_id];
+        }
+
+        // Catatan: Jika tokoIds KOSONG, artinya ALL (tampilkan semua toko tanpa filter)
         // --------------------------------------------------------------------------
 
-        // Base Query
+        // Base Query Transaksi
         $query = KasTransaksi::with(['kas.toko'])
             ->whereBetween('tanggal', [$startDate, $endDate])
-            ->when(! empty($accessibleTokoIds), function ($q) use ($accessibleTokoIds) {
-                // HANYA filter toko jika ada toko spesifik yang dipilih
-                $q->whereHas('kas', function ($kasQuery) use ($accessibleTokoIds) {
-                    $kasQuery->whereIn('toko_id', $accessibleTokoIds);
-                });
-            })
             ->where('total_nominal', '>', 0);
+
+        // Filter toko HANYA jika $tokoIds ada isinya
+        if (! empty($tokoIds)) {
+            $query->whereHas('kas', function ($q) use ($tokoIds) {
+                $q->whereIn('toko_id', $tokoIds);
+            });
+        }
 
         if ($request->filled('kategori')) {
             $kategori = is_array($request->kategori) ? $request->kategori : [$request->kategori];
@@ -101,11 +103,10 @@ class ArusKasService
             'hutang_in'     => 0, 'hutang_out'    => 0,
         ];
 
-        // Process Mapping sekaligus formatting (1 Pass Processing)
+        // Mapping Row & Accumulate Totals
         $data = $query->get()->map(function ($item) use (&$totals) {
             $nilai = (float) $item->total_nominal;
             $tipe  = strtolower(trim($item->tipe));
-
             $rawItem = strtolower(trim($item->item));
 
             $jenisMap = [
@@ -150,15 +151,17 @@ class ArusKasService
                 'kas_besar_out'   => $this->formatAngka($rowTotals['kas_besar_out']),
                 'piutang_in'      => $this->formatAngka($rowTotals['piutang_in']),
                 'piutang_out'     => $this->formatAngka($rowTotals['piutang_out']),
-                'hutang_in'       => $this->formatAngka($rowTotals['hutang_in']),
-                'hutang_out'      => $this->formatAngka($rowTotals['hutang_out']),
+                'hutang_in'      => $this->formatAngka($rowTotals['hutang_in']),
+                'hutang_out'     => $this->formatAngka($rowTotals['hutang_out']),
             ];
         });
 
-        // Saldo Awal: Ambil kas berdasarkan kriteria filter (atau seluruh Kas jika ALL)
-        $kasList = ! empty($accessibleTokoIds)
-            ? Kas::whereIn('toko_id', $accessibleTokoIds)->get()
-            : Kas::all();
+        // --------------------------------------------------------------------------
+        // KALKULASI SALDO AWAL (Juga menyesuaikan filter toko)
+        // --------------------------------------------------------------------------
+        $kasList = ! empty($tokoIds)
+            ? Kas::whereIn('toko_id', $tokoIds)->get()
+            : Kas::all(); // Ambil semua Kas jika tidak ada filter toko
 
         $kecil_awal = 0;
         $besar_awal = 0;

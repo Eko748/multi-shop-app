@@ -262,100 +262,97 @@
         let totalRowCount = 0;
 
         async function getListData(limit = 30, page = 1, ascending = 0, search = '', customFilter = {}, isAppend = false) {
-    if (isLoading) return;
-    isLoading = true;
+            if (isLoading) return;
+            isLoading = true;
 
-    if (!isAppend) {
-        currentPage = 1;
-        $('#listData').html(loadingData());
-    } else {
-        $('#listData').append(
-            `<tr id="loader-row"><td colspan="${$('#head-table th').length}" class="text-center py-3"><i class="fa fa-spinner fa-spin"></i> Memuat data...</td></tr>`
-        );
-    }
-
-    let filterParams = {};
-    if (customFilter['month'] && customFilter['year']) {
-        filterParams.month = customFilter['month'];
-        filterParams.year = customFilter['year'];
-    }
-    if (customFilter['toko_id']) filterParams.toko_id = customFilter['toko_id'];
-    if (customFilter['toko_selected']) filterParams.toko_selected = customFilter['toko_selected'];
-    if (customFilter['kategori']) filterParams.kategori = customFilter['kategori'];
-
-    try {
-        let getDataRest = await renderAPI(
-            'GET',
-            '{{ route('master.aruskas.get') }}', {
-                page: page,
-                limit: limit,
-                ascending: ascending,
-                search: search,
-                toko_id: {{ auth()->user()->toko_id }},
-                sort_by: currentSortBy,
-                order: currentOrder,
-                ...filterParams
+            if (!isAppend) {
+                currentPage = 1;
+                $('#listData').html(loadingData());
+            } else {
+                $('#listData').append(
+                    `<tr id="loader-row"><td colspan="${$('#head-table th').length}" class="text-center py-3"><i class="fa fa-spinner fa-spin"></i> Memuat data...</td></tr>`
+                );
             }
-        );
 
-        $('#loader-row').remove();
+            let filterParams = {};
+            if (customFilter['month'] && customFilter['year']) {
+                filterParams.month = customFilter['month'];
+                filterParams.year = customFilter['year'];
+            }
+            if (customFilter['toko_id']) filterParams.toko_id = customFilter['toko_id'];
+            if (customFilter['toko_selected']) filterParams.toko_selected = customFilter['toko_selected'];
+            if (customFilter['kategori']) filterParams.kategori = customFilter['kategori'];
 
-        // Layer 1: Data Axios (getDataRest.data)
-        // Layer 2: Data Backend (getDataRest.data.data)
-        let backendResponse = getDataRest?.data;
-        let rowList = backendResponse?.data;
+            try {
+                let getDataRest = await renderAPI(
+                    'GET',
+                    '{{ route('master.aruskas.get') }}', {
+                        page: page,
+                        limit: limit,
+                        ascending: ascending,
+                        search: search,
+                        toko_id: {{ auth()->user()->toko_id }},
+                        sort_by: currentSortBy,
+                        order: currentOrder,
+                        ...filterParams
+                    }
+                );
 
-        if (getDataRest && getDataRest.status == 200 && Array.isArray(rowList)) {
-            hasMorePages = backendResponse.has_more_pages;
+                $('#loader-row').remove();
 
-            // Jika Data Kosong
-            if (rowList.length === 0 && !isAppend) {
-                await totalListData(backendResponse.data_total);
-                let emptyRow = `
+                let backendResponse = getDataRest?.data;
+                let rowList = backendResponse?.data;
+
+                if (getDataRest && getDataRest.status == 200 && Array.isArray(rowList)) {
+                    hasMorePages = backendResponse.has_more_pages;
+
+                    if (rowList.length === 0 && !isAppend) {
+                        await totalListData(backendResponse.data_total);
+                        let emptyRow = `
                 <tr class="text-dark">
                     <td class="text-center" colspan="${$('#head-table th').length}"> Data tidak ditemukan </td>
                 </tr>`;
-                $('#listData').html(emptyRow);
-            } else {
-                // 1. Map data transaksi via handleData
-                let handleDataArray = await Promise.all(
-                    rowList.map(async item => await handleData(item))
-                );
+                        $('#listData').html(emptyRow);
+                    } else {
+                        // 1. Map data transaksi via handleData
+                        let handleDataArray = await Promise.all(
+                            rowList.map(async item => await handleData(item))
+                        );
 
-                // 2. Render Total Keseluruhan
-                await totalListData(backendResponse.data_total);
+                        // 2. Render Total Keseluruhan
+                        await totalListData(backendResponse.data_total);
 
-                // 3. Render Baris Tabel (Append atau Replace)
-                if (isAppend) {
-                    let currentCount = $('#listData tr').length;
-                    await appendListData(handleDataArray, currentCount);
+                        // 3. Render Baris Tabel (Append atau Replace)
+                        if (isAppend) {
+                            let currentCount = $('#listData tr').length;
+                            await appendListData(handleDataArray, currentCount);
+                        } else {
+                            await setListData(handleDataArray);
+                        }
+                    }
                 } else {
-                    await setListData(handleDataArray);
-                }
-            }
-        } else {
-            await totalListData(null);
-            let errorMessage = backendResponse?.message || 'Data gagal dimuat';
-            let errorRow = `
+                    await totalListData(null);
+                    let errorMessage = backendResponse?.message || 'Data gagal dimuat';
+                    let errorRow = `
             <tr class="text-dark">
                 <td class="text-center" colspan="${$('#head-table th').length}"> ${errorMessage} </td>
             </tr>`;
-            $('#listData').html(errorRow);
+                    $('#listData').html(errorRow);
+                }
+            } catch (err) {
+                $('#loader-row').remove();
+                console.error("Error fetching data:", err);
+            } finally {
+                isLoading = false;
+            }
         }
-    } catch (err) {
-        $('#loader-row').remove();
-        console.error("Error fetching data:", err);
-    } finally {
-        isLoading = false;
-    }
-}
 
-function generateRowHtml(element, index) {
-    // Menangani kondisi jika fungsi handleData(item) mengembalikan objek bertingkat
-    let row = element?.data ? element.data : element;
-    let classCol = 'align-top text-dark text-wrap';
+        function generateRowHtml(element, index) {
+            // Menangani kondisi jika fungsi handleData(item) mengembalikan objek bertingkat
+            let row = element?.data ? element.data : element;
+            let classCol = 'align-top text-dark text-wrap';
 
-    return `
+            return `
         <tr class="text-dark">
             <td class="${classCol} text-center">${index + 1}.</td>
             <td class="${classCol} td-data">${row.tgl}</td>
@@ -372,7 +369,27 @@ function generateRowHtml(element, index) {
             <td class="${classCol} text-right">${row.hutang_in}</td>
             <td class="${classCol} text-right">${row.hutang_out}</td>
         </tr>`;
-}
+        }
+
+        async function handleData(data) {
+
+            return {
+                id: data?.id ?? '-',
+                tgl: data?.tgl,
+                subjek: data?.subjek ?? '-',
+                kategori: data?.kategori ?? '-',
+                item: data?.item ?? '-',
+                nilai_transaksi: data?.nilai_transaksi ?? 0,
+                kas_kecil_in: data?.kas_kecil_in ?? 0,
+                kas_kecil_out: data?.kas_kecil_out ?? 0,
+                kas_besar_in: data?.kas_besar_in ?? 0,
+                kas_besar_out: data?.kas_besar_out ?? 0,
+                piutang_in: data?.piutang_in ?? 0,
+                piutang_out: data?.piutang_out ?? 0,
+                hutang_in: data?.hutang_in ?? 0,
+                hutang_out: data?.hutang_out ?? 0
+            };
+        }
 
         async function setListData(dataList) {
             let getDataTable = '';

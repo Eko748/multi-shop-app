@@ -497,18 +497,6 @@
             $('[data-toggle="tooltip"]').tooltip();
         }
 
-        $('.table-responsive').off('scroll').on('scroll', function() {
-            let container = $(this);
-
-            // Trigger jika sisa scroll tinggal 100px dari dasar tabel
-            if (container.scrollTop() + container.innerHeight() >= container[0].scrollHeight - 100) {
-                if (hasMorePages && !isLoading) {
-                    currentPage++;
-                    getListData(currentLimit, currentPage, currentAscending, currentSearch, currentFilter, true);
-                }
-            }
-        });
-
         function setInputFilter() {
             const now = new Date();
             const year = now.getFullYear();
@@ -658,25 +646,28 @@
                     customFilter['toko_id'] = selectedTokoIds;
                 }
 
-                // TANGKAP FILTER KATEGORI
+                // TANGKAP FILTER KATEGORI (Mendukung Single / Multi-Select)
                 let selectedKategori = $('#f_kategori').val();
                 if (selectedKategori) {
                     customFilter['kategori'] = selectedKategori;
                 }
 
                 defaultSearch = $('.tb-search').val();
-                currentPage = 1;
+                currentPage = 1; // Reset halaman ke 1 saat submit filter
 
                 await defaultTime(monthText, year);
+                // IsAppend set to false (replace data)
                 await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
-                    customFilter);
+                    customFilter, false);
             });
 
             document.getElementById('tb-reset').addEventListener('click', async function() {
                 $('#bulan_tahun').val('').trigger('change');
                 $('#custom-filter select').val(null).trigger('change');
+                $('.tb-search').val(''); // Reset input search juga
+
                 customFilter = {};
-                defaultSearch = $('.tb-search').val();
+                defaultSearch = '';
                 currentPage = 1;
 
                 // Reset Sorting
@@ -686,7 +677,7 @@
 
                 await defaultTime(null, null);
                 await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
-                    customFilter);
+                    customFilter, false);
             });
 
             // EVENT HANDLER UNTUK SORTING KOLOM
@@ -701,10 +692,36 @@
                 }
 
                 updateSortIcons();
+                currentPage = 1; // Reset ke page 1 jika sorting diubah
                 await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
-                    customFilter);
+                    customFilter, false);
             });
         }
+
+        // --------------------------------------------------------------------------
+        // 🔥 INI BAGIAN KUNCI: EVENT SCROLL UNTUK INFINITE SCROLL / PAGINASI
+        // Pastikan listener scroll kamu mempassing `defaultSearch` & `customFilter`
+        // --------------------------------------------------------------------------
+        $('.table-responsive').off('scroll').on('scroll', async function() {
+            let container = $(this);
+
+            // Deteksi jika scroll menyentuh batas bawah
+            if (container.scrollTop() + container.innerHeight() >= container[0].scrollHeight - 50) {
+                if (hasMorePages && !isLoading) {
+                    currentPage++; // Tambah page
+
+                    // 🔥 WAJIB sertakan defaultSearch, customFilter, DAN parameter isAppend = true
+                    await getListData(
+                        defaultLimitPage,
+                        currentPage,
+                        defaultAscending,
+                        defaultSearch,
+                        customFilter,
+                        true // flag agar data baru di-APPEND, bukan menimpa data lama
+                    );
+                }
+            }
+        });
 
         function updateSortIcons() {
             $('.sortable').each(function() {

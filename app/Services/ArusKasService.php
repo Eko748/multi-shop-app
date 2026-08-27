@@ -25,34 +25,42 @@ class ArusKasService
 
     public function getArusKasData(Request $request)
     {
+        // --------------------------------------------------------------------------
+        // 1. SORTING & TANGGAL BASE
+        // --------------------------------------------------------------------------
         $orderDirection = strtolower($request->order ?? ($request->ascending ? 'asc' : 'desc'));
         if (! in_array($orderDirection, ['asc', 'desc'])) {
             $orderDirection = 'desc';
         }
 
-        $sortBy = strtolower($request->sort_by ?? 'tanggal');
+        $sortBy     = strtolower($request->sort_by ?? 'tanggal');
         $sortColumn = ($sortBy === 'nominal') ? 'total_nominal' : 'tanggal';
 
-        $month = $request->month ?? Carbon::now()->month;
-        $year = $request->year ?? Carbon::now()->year;
+        // Cek apakah user menggunakan Filter Tanggal Spesifik
+        $hasDateFilter = $request->filled('from_date') && $request->filled('to_date');
 
-        $startDate = Carbon::create($year, $month, 1)->startOfDay();
-        $endDate = Carbon::create($year, $month, 1)->endOfMonth()->endOfDay();
-
-        if ($request->filled('from_date') && $request->filled('to_date')) {
+        if ($hasDateFilter) {
             $startDate = Carbon::parse($request->from_date)->startOfDay();
-            $endDate = Carbon::parse($request->to_date)->endOfDay();
+            $endDate   = Carbon::parse($request->to_date)->endOfDay();
+        } else {
+            $month     = $request->month ?? Carbon::now()->month;
+            $year      = $request->year ?? Carbon::now()->year;
+            $startDate = Carbon::create($year, $month, 1)->startOfDay();
+            $endDate   = Carbon::create($year, $month, 1)->endOfMonth()->endOfDay();
         }
 
+        // Filter Toko
         $tokoIds = [];
         if ($request->filled('toko_selected')) {
             $selected = is_array($request->toko_selected) ? $request->toko_selected : [$request->toko_selected];
-            $tokoIds = array_filter($selected, fn ($val) => ! empty($val) && strtolower((string) $val) !== 'all');
+            $tokoIds  = array_filter($selected, fn ($val) => ! empty($val) && strtolower((string) $val) !== 'all');
         } elseif ($request->filled('toko_id') && strtolower((string) $request->toko_id) !== 'all') {
-            $tokoIds = [$request->toko_id];
+            $tokoIds = is_array($request->toko_id) ? $request->toko_id : [$request->toko_id];
         }
 
-        // Base Query Transaksi
+        // --------------------------------------------------------------------------
+        // 2. BASE QUERY & FILTERING
+        // --------------------------------------------------------------------------
         $query = KasTransaksi::with(['kas.toko'])
             ->whereBetween('tanggal', [$startDate, $endDate])
             ->where('total_nominal', '>', 0);
@@ -63,34 +71,32 @@ class ArusKasService
             });
         }
 
-        // 1. FILTER KATEGORI
-if ($request->filled('kategori')) {
-    $kategori = is_array($request->kategori) ? $request->kategori : [$request->kategori];
-    // Pastikan membuang element kosong jika berupa array
-    $kategori = array_filter($kategori, fn($v) => !is_null($v) && $v !== '');
+        // FILTER KATEGORI (Membuang null & empty string)
+        if ($request->filled('kategori')) {
+            $kategori = is_array($request->kategori) ? $request->kategori : [$request->kategori];
+            $kategori = array_filter($kategori, fn($v) => !is_null($v) && $v !== '');
 
-    if (!empty($kategori)) {
-        $query->whereIn('kategori', $kategori);
-    }
-}
+            if (!empty($kategori)) {
+                $query->whereIn('kategori', $kategori);
+            }
+        }
 
-// 2. FILTER SEARCH (WAJIB PERHATIKAN OPERATOR ENCAPSULATION)
-if ($request->filled('search') && trim($request->search) !== '') {
-    $searchTerm = trim(strtolower($request->search));
+        // FILTER SEARCH (Encapsulation dengan where(function) agar OR tidak merusak Kategori)
+        if ($request->filled('search') && trim($request->search) !== '') {
+            $searchTerm = trim(strtolower($request->search));
 
-    // Gunakan where(function) agar kondisi OR di dalamnya diisolasi kurung () di SQL
-    $query->where(function ($q) use ($searchTerm) {
-        $q->whereRaw('LOWER(kategori) LIKE ?', ["%{$searchTerm}%"])
-          ->orWhereRaw('LOWER(keterangan) LIKE ?', ["%{$searchTerm}%"])
-          ->orWhereHas('kas.toko', function ($tokoQuery) use ($searchTerm) {
-              $tokoQuery->whereRaw('LOWER(nama) LIKE ?', ["%{$searchTerm}%"])
-                        ->orWhereRaw('LOWER(singkatan) LIKE ?', ["%{$searchTerm}%"]);
-          });
-    });
-}
+            $query->where(function ($q) use ($searchTerm) {
+                $q->whereRaw('LOWER(kategori) LIKE ?', ["%{$searchTerm}%"])
+                ->orWhereRaw('LOWER(keterangan) LIKE ?', ["%{$searchTerm}%"])
+                ->orWhereHas('kas.toko', function ($tokoQuery) use ($searchTerm) {
+                    $tokoQuery->whereRaw('LOWER(nama) LIKE ?', ["%{$searchTerm}%"])
+                                ->orWhereRaw('LOWER(singkatan) LIKE ?', ["%{$searchTerm}%"]);
+                });
+            });
+        }
 
         // --------------------------------------------------------------------------
-        // 1. HITUNG TOTAL KESELURUHAN DATA (Bahkan jika dipaginasi 30 data)
+        // 3. HITUNG TOTAL KESELURUHAN DATA RINGKASAN
         // --------------------------------------------------------------------------
         $totals = [
             'kas_kecil_in'  => 0, 'kas_kecil_out' => 0,
@@ -105,11 +111,10 @@ if ($request->filled('search') && trim($request->search) !== '') {
             'piutang'   => 'piutang',   'hutang'    => 'hutang',
         ];
 
-        // Hapus array parameter ['total_nominal', 'tipe', 'item'] agar tidak meledak jika kolom item tidak ada murni di DB
         (clone $query)->get()->each(function ($item) use (&$totals, $jenisMap) {
             $nilai   = (float) $item->total_nominal;
             $tipe    = strtolower(trim($item->tipe));
-            $rawItem = strtolower(trim($item->item ?? $item->keterangan ?? '')); // Fallback aman
+            $rawItem = strtolower(trim($item->item ?? $item->keterangan ?? ''));
             $jenis   = $jenisMap[$rawItem] ?? $rawItem;
             $key     = "{$jenis}_{$tipe}";
 
@@ -119,15 +124,32 @@ if ($request->filled('search') && trim($request->search) !== '') {
         });
 
         // --------------------------------------------------------------------------
-        // 2. PAGINASI DATA (Default Limit 30)
+        // 4. LOGIKA FETCH DATA (BYPASS TANGGAL VS OFFSET-SKIP)
         // --------------------------------------------------------------------------
-        $perPage = (int) ($request->limit ?? 30);
-        $paginatedQuery = $query->orderBy($sortColumn, $orderDirection)
-            ->orderBy('id', 'desc')
-            ->paginate($perPage);
+        $totalRows = (clone $query)->count();
 
-        // Mapping Row Paginasi
-        $data = collect($paginatedQuery->items())->map(function ($item) use ($jenisMap) {
+        if ($hasDateFilter) {
+            // 🔥 Jika ada filter dari-sampai tanggal: Bypass paginasi (ambil semua)
+            $rawResult    = $query->orderBy($sortColumn, $orderDirection)->orderBy('id', 'desc')->get();
+            $hasMorePages = false;
+            $currentPage  = 1;
+        } else {
+            // 🔥 Jika normal: Gunakan Skip & Take (Dinamis Offset)
+            $skip  = (int) ($request->skip ?? 0);
+            $limit = (int) ($request->limit ?? 30);
+
+            $rawResult = $query->orderBy($sortColumn, $orderDirection)
+                            ->orderBy('id', 'desc')
+                            ->skip($skip)
+                            ->take($limit)
+                            ->get();
+
+            $hasMorePages = ($skip + $rawResult->count()) < $totalRows;
+            $currentPage  = floor($skip / max($limit, 1)) + 1;
+        }
+
+        // Mapping Row Data
+        $data = collect($rawResult)->map(function ($item) use ($jenisMap) {
             $nilai   = (float) $item->total_nominal;
             $tipe    = strtolower(trim($item->tipe));
             $rawItem = strtolower(trim($item->item ?? $item->keterangan ?? ''));
@@ -163,7 +185,9 @@ if ($request->filled('search') && trim($request->search) !== '') {
             ];
         });
 
-        // Saldo Awal Calculations
+        // --------------------------------------------------------------------------
+        // 5. KALKULASI SALDO AWAL & RESPONSE JSON
+        // --------------------------------------------------------------------------
         $kasList = ! empty($tokoIds) ? Kas::whereIn('toko_id', $tokoIds)->get() : Kas::all();
         $kecil_awal = 0;
         $besar_awal = 0;
@@ -208,11 +232,11 @@ if ($request->filled('search') && trim($request->search) !== '') {
         ];
 
         return response()->json([
-            'data'          => $data,
-            'data_total'    => $data_total,
-            'current_page'  => $paginatedQuery->currentPage(),
-            'has_more_pages' => $paginatedQuery->hasMorePages(),
-            'total_rows'    => $paginatedQuery->total(),
+            'data'           => $data,
+            'data_total'     => $data_total,
+            'current_page'   => $currentPage,
+            'has_more_pages' => $hasMorePages,
+            'total_rows'     => $totalRows,
         ]);
     }
 

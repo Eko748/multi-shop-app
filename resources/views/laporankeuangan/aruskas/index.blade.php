@@ -264,64 +264,36 @@
         let hasMorePages = true;
         let currentLimit = 30;
         let totalRowCount = 0;
+        let skipCount = 0;
 
-        $(window).off('scroll').on('scroll', function() {
-            // Pemicu: 200px sebelum bagian paling bawah layar tersentuh
-            if ($(window).scrollTop() + $(window).height() >= $(document).height() - 200) {
-                if (hasMorePages && !isLoading) {
-                    currentPage++;
-                    getListData(currentLimit, currentPage, currentAscending, currentSearch, currentFilter, true);
-                }
-            }
-        });
-
-        async function getListData(limit = 30, page = 1, ascending = 0, search = '', customFilter = {}, isAppend = false) {
+        async function getListData(limit = 30, page = 1, ascending = false, search = '', filter = {}, isAppend = false) {
             if (isLoading) return;
             isLoading = true;
 
+            // 🔥 Tentukan nilai OFFSET (skip)
             if (!isAppend) {
-                currentPage = 1;
+                // Jika render/filter baru, hitung skip berdasarkan page (atau reset ke 0 jika page 1)
+                skipCount = (page - 1) * limit;
                 $('#listData').html(loadingData());
             } else {
-                // Hapus loader lama jika ada
-                $('#loader-row').remove();
-
-                // Sisipkan loader baru di paling bawah
-                $('#listData').append(
-                    `<tr id="loader-row">
-                <td colspan="${$('#head-table th').length || 14}" class="text-center py-3">
-                    <i class="fa fa-spinner fa-spin"></i> Memuat data...
+                // Jika scroll (isAppend = true), loader di-append di bawah tabel
+                $('#listData').append(`
+            <tr id="loader-row">
+                <td colspan="14" class="text-center py-3">
+                    <i class="fa fa-spinner fa-spin"></i> Memuat data lanjutan...
                 </td>
-            </tr>`
-                );
-
-                // 🔥 Otomatis trigger fetch data saat baris loader ini mulai terlihat di layar
-                observeLoader();
+            </tr>
+        `);
             }
-
-            let filterParams = {};
-            if (customFilter['month'] && customFilter['year']) {
-                filterParams.month = customFilter['month'];
-                filterParams.year = customFilter['year'];
-            }
-            if (customFilter['toko_id']) filterParams.toko_id = customFilter['toko_id'];
-            if (customFilter['toko_selected']) filterParams.toko_selected = customFilter['toko_selected'];
-            if (customFilter['kategori']) filterParams.kategori = customFilter['kategori'];
 
             try {
-                let getDataRest = await renderAPI(
-                    'GET',
-                    '{{ route('master.aruskas.get') }}', {
-                        page: page,
-                        limit: limit,
-                        ascending: ascending,
-                        search: search,
-                        toko_id: {{ auth()->user()->toko_id }},
-                        sort_by: currentSortBy,
-                        order: currentOrder,
-                        ...filterParams
-                    }
-                );
+                let getDataRest = await renderAPI('GET', '{{ route('master.aruskas.get') }}', {
+                    limit: limit,
+                    skip: skipCount, // 🔥 Dikirim sebagai offset ke Backend Laravel
+                    search: search,
+                    ascending: ascending,
+                    ...filter
+                });
 
                 $('#loader-row').remove();
 
@@ -329,72 +301,29 @@
                 let rowList = backendResponse?.data;
 
                 if (getDataRest && getDataRest.status == 200 && Array.isArray(rowList)) {
-                    hasMorePages = backendResponse.has_more_pages ?? false;
+                    hasMorePages = backendResponse.has_more_pages;
 
-                    if (rowList.length === 0 && !isAppend) {
-                        await totalListData(backendResponse.data_total);
-                        let emptyRow = `
-                <tr class="text-dark">
-                    <td class="text-center" colspan="${$('#head-table th').length || 14}"> Data tidak ditemukan </td>
-                </tr>`;
-                        $('#listData').html(emptyRow);
+                    // 🔥 Tambahkan skipCount sebanyak data yang BARU SAJA didapatkan
+                    skipCount += rowList.length;
+
+                    let handleDataArray = await Promise.all(
+                        rowList.map(async item => await handleData(item))
+                    );
+
+                    await totalListData(backendResponse.data_total);
+
+                    if (isAppend) {
+                        let currentCount = $('#listData tr').length;
+                        await appendListData(handleDataArray, currentCount);
                     } else {
-                        let handleDataArray = await Promise.all(
-                            rowList.map(async item => await handleData(item))
-                        );
-
-                        await totalListData(backendResponse.data_total);
-
-                        if (isAppend) {
-                            let currentCount = $('#listData tr').length;
-                            await appendListData(handleDataArray, currentCount);
-                        } else {
-                            await setListData(handleDataArray);
-                        }
+                        await setListData(handleDataArray);
                     }
-                } else {
-                    await totalListData(null);
-                    let errorMessage = backendResponse?.message || 'Data gagal dimuat';
-                    let errorRow = `
-            <tr class="text-dark">
-                <td class="text-center" colspan="${$('#head-table th').length || 14}"> ${errorMessage} </td>
-            </tr>`;
-                    $('#listData').html(errorRow);
                 }
             } catch (err) {
                 $('#loader-row').remove();
                 console.error("Error fetching data:", err);
             } finally {
                 isLoading = false;
-            }
-        }
-
-        // --------------------------------------------------------------------------
-        // HELPER INTERSECTION OBSERVER
-        // --------------------------------------------------------------------------
-        let scrollObserver;
-
-        function observeLoader() {
-            if (scrollObserver) scrollObserver.disconnect();
-
-            scrollObserver = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    // Jika elemen loader terlihat di viewport browser
-                    if (entry.isIntersecting && hasMorePages && !isLoading) {
-                        currentPage++;
-                        getListData(currentLimit, currentPage, currentAscending, currentSearch,
-                            currentFilter, true);
-                    }
-                });
-            }, {
-                root: null, // Menggunakan viewport layar utama
-                rootMargin: '100px', // Trigger 100px sebelum loader benar-benar muncul
-                threshold: 0.1
-            });
-
-            let target = document.querySelector('#loader-row');
-            if (target) {
-                scrollObserver.observe(target);
             }
         }
 
@@ -665,7 +594,7 @@
                 $('#bulan_tahun').val('').trigger('change');
                 $('#custom-filter select').val(null).trigger('change');
                 $('.tb-search').val(''); // Reset input search juga
-
+                skipCount = 0;
                 customFilter = {};
                 defaultSearch = '';
                 currentPage = 1;
@@ -698,26 +627,22 @@
             });
         }
 
-        // --------------------------------------------------------------------------
-        // 🔥 INI BAGIAN KUNCI: EVENT SCROLL UNTUK INFINITE SCROLL / PAGINASI
-        // Pastikan listener scroll kamu mempassing `defaultSearch` & `customFilter`
-        // --------------------------------------------------------------------------
         $('.table-responsive').off('scroll').on('scroll', async function() {
             let container = $(this);
 
-            // Deteksi jika scroll menyentuh batas bawah
+            // Deteksi scroll batas bawah (toleransi 50px)
             if (container.scrollTop() + container.innerHeight() >= container[0].scrollHeight - 50) {
                 if (hasMorePages && !isLoading) {
-                    currentPage++; // Tambah page
+                    currentPage++; // Tetap naikkan currentPage jika ada logika UI lain yang pakai
 
-                    // 🔥 WAJIB sertakan defaultSearch, customFilter, DAN parameter isAppend = true
+                    // 🔥 Panggil dengan parameter yang sama seperti pemanggilan kamu yang lain
                     await getListData(
-                        defaultLimitPage,
+                        30,               // Load 30 data lanjutan saat scroll
                         currentPage,
                         defaultAscending,
                         defaultSearch,
                         customFilter,
-                        true // flag agar data baru di-APPEND, bukan menimpa data lama
+                        true              // isAppend = true
                     );
                 }
             }

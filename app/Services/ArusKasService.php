@@ -57,6 +57,7 @@ class ArusKasService
             $filterToko = is_array($filterToko) ? $filterToko : [$filterToko];
             $filterToko = array_filter($filterToko, fn ($val) => ! empty($val) && strtolower((string) $val) !== 'all');
 
+            // Tambahkan pengecekan ini: Hanya intersect jika array $filterToko memang berisi ID spesifik
             if (! empty($filterToko)) {
                 $accessibleTokoIds = array_values(array_intersect($accessibleTokoIds, $filterToko));
             }
@@ -159,8 +160,9 @@ class ArusKasService
         });
 
         // Saldo Awal
-        $kasList = ! empty($accessibleTokoIds) ? Kas::whereIn('toko_id', $accessibleTokoIds)->get() : collect();
-        $kecil_awal = 0;
+        $kasList = ! empty($accessibleTokoIds)
+            ? Kas::whereIn('toko_id', $accessibleTokoIds)->get()
+            : Kas::all(); // Fallback jika accessibleTokoIds terlepas, tetap hitung semua kas        $kecil_awal = 0;
         $besar_awal = 0;
 
         foreach ($kasList as $kas) {
@@ -243,23 +245,25 @@ class ArusKasService
 
     protected function getAccessibleTokoIds($tokoId = null)
     {
-        // Jika tokoId tidak diisi atau 'all', ambil semua ID toko yang diizinkan pengguna
+        // Jika tokoId kosong atau 'all', ambil SELURUH ID toko aktif yang belum dihapus (withoutTrashed)
         if (empty($tokoId) || strtolower((string) $tokoId) === 'all') {
-            return Toko::pluck('id')->toArray(); // Sesuaikan dengan logika otorisasi Anda
+            return Toko::whereNull('deleted_at')->pluck('id')->toArray();
         }
 
-        $toko = Toko::find($tokoId);
+        $toko = Toko::whereNull('deleted_at')->find($tokoId);
 
-        // CEK NULL: Jika toko tidak ditemukan, kembalikan array kosong agar query tidak error
         if (! $toko) {
             return [];
         }
 
-        // Menggunakan optional chaining / safe navigation
         $parentId = $toko->parent_id ?? $toko->id;
 
-        return Toko::where('id', $parentId)
-            ->orWhere('parent_id', $parentId)
+        // Ambil parent dan seluruh cabang/child yang aktif
+        return Toko::whereNull('deleted_at')
+            ->where(function ($query) use ($parentId) {
+                $query->where('id', $parentId)
+                    ->orWhere('parent_id', $parentId);
+            })
             ->pluck('id')
             ->toArray();
     }

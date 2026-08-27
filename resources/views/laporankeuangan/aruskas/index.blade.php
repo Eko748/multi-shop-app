@@ -487,12 +487,11 @@
             $('[data-toggle="tooltip"]').tooltip();
         }
 
-        // --------------------------------------------------------------------------
-        // INFINITE SCROLL LISTENER (Pada Table Container)
-        // --------------------------------------------------------------------------
-        $('.table-responsive').on('scroll', function() {
+        $('.table-responsive').off('scroll').on('scroll', function() {
             let container = $(this);
-            if (container.scrollTop() + container.innerHeight() >= container[0].scrollHeight - 50) {
+
+            // Trigger jika sisa scroll tinggal 100px dari dasar tabel
+            if (container.scrollTop() + container.innerHeight() >= container[0].scrollHeight - 100) {
                 if (hasMorePages && !isLoading) {
                     currentPage++;
                     getListData(currentLimit, currentPage, currentAscending, currentSearch, currentFilter, true);

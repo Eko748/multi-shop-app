@@ -63,24 +63,31 @@ class ArusKasService
             });
         }
 
-        // 🔥 PERBAIKAN FILTER KATEGORI: Pastikan string koma/array diparsing ke whereIn
-        if ($request->filled('kategori')) {
-            $kategori = is_array($request->kategori) ? $request->kategori : [$request->kategori];
-            $query->whereIn('kategori', $kategori);
-        }
+        // 1. FILTER KATEGORI
+if ($request->filled('kategori')) {
+    $kategori = is_array($request->kategori) ? $request->kategori : [$request->kategori];
+    // Pastikan membuang element kosong jika berupa array
+    $kategori = array_filter($kategori, fn($v) => !is_null($v) && $v !== '');
 
-        // 🔥 PERBAIKAN SEARCH: Ditambah field singkatan toko (seperti GLO/CLP)
-        if ($request->filled('search')) {
-            $searchTerm = trim(strtolower($request->search));
-            $query->where(function ($q) use ($searchTerm) {
-                $q->whereRaw('LOWER(kategori) LIKE ?', ["%{$searchTerm}%"])
-                    ->orWhereRaw('LOWER(keterangan) LIKE ?', ["%{$searchTerm}%"])
-                    ->orWhereHas('kas.toko', function ($tokoQuery) use ($searchTerm) {
-                        $tokoQuery->whereRaw('LOWER(nama) LIKE ?', ["%{$searchTerm}%"])
-                                  ->orWhereRaw('LOWER(singkatan) LIKE ?', ["%{$searchTerm}%"]);
-                    });
-            });
-        }
+    if (!empty($kategori)) {
+        $query->whereIn('kategori', $kategori);
+    }
+}
+
+// 2. FILTER SEARCH (WAJIB PERHATIKAN OPERATOR ENCAPSULATION)
+if ($request->filled('search') && trim($request->search) !== '') {
+    $searchTerm = trim(strtolower($request->search));
+
+    // Gunakan where(function) agar kondisi OR di dalamnya diisolasi kurung () di SQL
+    $query->where(function ($q) use ($searchTerm) {
+        $q->whereRaw('LOWER(kategori) LIKE ?', ["%{$searchTerm}%"])
+          ->orWhereRaw('LOWER(keterangan) LIKE ?', ["%{$searchTerm}%"])
+          ->orWhereHas('kas.toko', function ($tokoQuery) use ($searchTerm) {
+              $tokoQuery->whereRaw('LOWER(nama) LIKE ?', ["%{$searchTerm}%"])
+                        ->orWhereRaw('LOWER(singkatan) LIKE ?', ["%{$searchTerm}%"]);
+          });
+    });
+}
 
         // --------------------------------------------------------------------------
         // 1. HITUNG TOTAL KESELURUHAN DATA (Bahkan jika dipaginasi 30 data)

@@ -34,7 +34,7 @@ class ArusKasService
         $sortColumn = ($sortBy === 'nominal') ? 'total_nominal' : 'tanggal';
 
         $tokoId = $request->toko_id;
-        $filterToko = $request->toko_selected ?? $request->id_toko;
+        $filterToko = $request->toko_selected ?? $request->toko_id;
 
         $month = $request->month ?? Carbon::now()->month;
         $year = $request->year ?? Carbon::now()->year;

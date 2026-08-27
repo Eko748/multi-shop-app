@@ -26,7 +26,7 @@ class ArusKasService
     public function getArusKasData(Request $request)
     {
         // --------------------------------------------------------------------------
-        // 1. SORTING & TANGGAL BASE (Aman dari String Kosong)
+        // 1. SORTING & TANGGAL BASE
         // --------------------------------------------------------------------------
         $orderDirection = strtolower($request->order ?? ($request->ascending ? 'asc' : 'desc'));
         if (! in_array($orderDirection, ['asc', 'desc'])) {
@@ -36,18 +36,14 @@ class ArusKasService
         $sortBy     = strtolower($request->sort_by ?? 'tanggal');
         $sortColumn = ($sortBy === 'nominal') ? 'total_nominal' : 'tanggal';
 
-        // Cek apakah ada filter tanggal spesifik yang dikirim dan tidak kosong
         $hasDateFilter = !empty($request->from_date) && !empty($request->to_date);
 
         if ($hasDateFilter) {
             $startDate = Carbon::parse($request->from_date)->startOfDay();
             $endDate   = Carbon::parse($request->to_date)->endOfDay();
-
-            // Definisikan default aman untuk kalkulasi saldo awal jika rentang tanggal dipakai
             $month = (int) Carbon::now()->month;
             $year  = (int) Carbon::now()->year;
         } else {
-            // Ambil bulan/tahun dengan aman dan pastikan dikonversi ke integer
             $month = !empty($request->month) ? (int) $request->month : (int) Carbon::now()->month;
             $year  = !empty($request->year) ? (int) $request->year : (int) Carbon::now()->year;
 
@@ -55,13 +51,19 @@ class ArusKasService
             $endDate   = Carbon::create($year, $month, 1, 0, 0, 0)->endOfMonth()->endOfDay();
         }
 
-        // Filter Toko
+        // --------------------------------------------------------------------------
+        // PERBAIKAN: FILTER TOKO (toko_selected / toko_id / Tampil Semua)
+        // --------------------------------------------------------------------------
         $tokoIds = [];
+
         if ($request->filled('toko_selected')) {
-            $selected = is_array($request->toko_selected) ? $request->toko_selected : [$request->toko_selected];
-            $tokoIds  = array_filter($selected, fn ($val) => ! empty($val) && strtolower((string) $val) !== 'all');
-        } elseif ($request->filled('toko_id') && strtolower((string) $request->toko_id) !== 'all') {
-            $tokoIds = is_array($request->toko_id) ? $request->toko_id : [$request->toko_id];
+            $selected = $request->toko_selected;
+            $selected = is_array($selected) ? $selected : [$selected];
+            $tokoIds  = array_filter($selected, fn ($val) => !empty($val) && strtolower((string) $val) !== 'all');
+        } elseif ($request->filled('toko_id')) {
+            $selected = $request->toko_id;
+            $selected = is_array($selected) ? $selected : [$selected];
+            $tokoIds  = array_filter($selected, fn ($val) => !empty($val) && strtolower((string) $val) !== 'all');
         }
 
         // --------------------------------------------------------------------------
@@ -71,13 +73,13 @@ class ArusKasService
             ->whereBetween('tanggal', [$startDate, $endDate])
             ->where('total_nominal', '>', 0);
 
-        if (! empty($tokoIds)) {
+        if (!empty($tokoIds)) {
             $query->whereHas('kas', function ($q) use ($tokoIds) {
                 $q->whereIn('toko_id', $tokoIds);
             });
         }
 
-        // FILTER KATEGORI (Membuang null & empty string)
+        // FILTER KATEGORI
         if ($request->filled('kategori')) {
             $kategori = is_array($request->kategori) ? $request->kategori : [$request->kategori];
             $kategori = array_filter($kategori, fn($v) => !is_null($v) && $v !== '');
@@ -87,7 +89,7 @@ class ArusKasService
             }
         }
 
-        // FILTER SEARCH (Encapsulation dengan where(function) agar OR tidak merusak Kategori)
+        // FILTER SEARCH
         if ($request->filled('search') && trim($request->search) !== '') {
             $searchTerm = trim(strtolower($request->search));
 
@@ -96,7 +98,7 @@ class ArusKasService
                 ->orWhereRaw('LOWER(keterangan) LIKE ?', ["%{$searchTerm}%"])
                 ->orWhereHas('kas.toko', function ($tokoQuery) use ($searchTerm) {
                     $tokoQuery->whereRaw('LOWER(nama) LIKE ?', ["%{$searchTerm}%"])
-                                ->orWhereRaw('LOWER(singkatan) LIKE ?', ["%{$searchTerm}%"]);
+                              ->orWhereRaw('LOWER(singkatan) LIKE ?', ["%{$searchTerm}%"]);
                 });
             });
         }

@@ -310,9 +310,20 @@
                 currentPage = 1;
                 $('#listData').html(loadingData());
             } else {
+                // Hapus loader lama jika ada
+                $('#loader-row').remove();
+
+                // Sisipkan loader baru di paling bawah
                 $('#listData').append(
-                    `<tr id="loader-row"><td colspan="${$('#head-table th').length}" class="text-center py-3"><i class="fa fa-spinner fa-spin"></i> Memuat data...</td></tr>`
+                    `<tr id="loader-row">
+                <td colspan="${$('#head-table th').length || 14}" class="text-center py-3">
+                    <i class="fa fa-spinner fa-spin"></i> Memuat data...
+                </td>
+            </tr>`
                 );
+
+                // 🔥 Otomatis trigger fetch data saat baris loader ini mulai terlihat di layar
+                observeLoader();
             }
 
             let filterParams = {};
@@ -345,25 +356,22 @@
                 let rowList = backendResponse?.data;
 
                 if (getDataRest && getDataRest.status == 200 && Array.isArray(rowList)) {
-                    hasMorePages = backendResponse.has_more_pages;
+                    hasMorePages = backendResponse.has_more_pages ?? false;
 
                     if (rowList.length === 0 && !isAppend) {
                         await totalListData(backendResponse.data_total);
                         let emptyRow = `
                 <tr class="text-dark">
-                    <td class="text-center" colspan="${$('#head-table th').length}"> Data tidak ditemukan </td>
+                    <td class="text-center" colspan="${$('#head-table th').length || 14}"> Data tidak ditemukan </td>
                 </tr>`;
                         $('#listData').html(emptyRow);
                     } else {
-                        // 1. Map data transaksi via handleData
                         let handleDataArray = await Promise.all(
                             rowList.map(async item => await handleData(item))
                         );
 
-                        // 2. Render Total Keseluruhan
                         await totalListData(backendResponse.data_total);
 
-                        // 3. Render Baris Tabel (Append atau Replace)
                         if (isAppend) {
                             let currentCount = $('#listData tr').length;
                             await appendListData(handleDataArray, currentCount);
@@ -376,7 +384,7 @@
                     let errorMessage = backendResponse?.message || 'Data gagal dimuat';
                     let errorRow = `
             <tr class="text-dark">
-                <td class="text-center" colspan="${$('#head-table th').length}"> ${errorMessage} </td>
+                <td class="text-center" colspan="${$('#head-table th').length || 14}"> ${errorMessage} </td>
             </tr>`;
                     $('#listData').html(errorRow);
                 }
@@ -385,6 +393,35 @@
                 console.error("Error fetching data:", err);
             } finally {
                 isLoading = false;
+            }
+        }
+
+        // --------------------------------------------------------------------------
+        // HELPER INTERSECTION OBSERVER
+        // --------------------------------------------------------------------------
+        let scrollObserver;
+
+        function observeLoader() {
+            if (scrollObserver) scrollObserver.disconnect();
+
+            scrollObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    // Jika elemen loader terlihat di viewport browser
+                    if (entry.isIntersecting && hasMorePages && !isLoading) {
+                        currentPage++;
+                        getListData(currentLimit, currentPage, currentAscending, currentSearch,
+                            currentFilter, true);
+                    }
+                });
+            }, {
+                root: null, // Menggunakan viewport layar utama
+                rootMargin: '100px', // Trigger 100px sebelum loader benar-benar muncul
+                threshold: 0.1
+            });
+
+            let target = document.querySelector('#loader-row');
+            if (target) {
+                scrollObserver.observe(target);
             }
         }
 

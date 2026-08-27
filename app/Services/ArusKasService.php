@@ -65,15 +65,8 @@ class ArusKasService
 
         // 🔥 PERBAIKAN FILTER KATEGORI: Pastikan string koma/array diparsing ke whereIn
         if ($request->filled('kategori')) {
-            $kategoriParams = $request->kategori;
-            $kategoriArray = is_array($kategoriParams) ? $kategoriParams : explode(',', $kategoriParams);
-
-            // Bersihkan dari spasi/nilai kosong
-            $kategoriArray = array_filter(array_map('trim', $kategoriArray), fn($val) => !empty($val));
-
-            if (!empty($kategoriArray)) {
-                $query->whereIn('kategori', $kategoriArray);
-            }
+            $kategori = is_array($request->kategori) ? $request->kategori : [$request->kategori];
+            $query->whereIn('kategori', $kategori);
         }
 
         // 🔥 PERBAIKAN SEARCH: Ditambah field singkatan toko (seperti GLO/CLP)

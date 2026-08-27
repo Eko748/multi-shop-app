@@ -24,11 +24,9 @@
         }
 
         .table-responsive {
+            max-height: none !important;
+            overflow-y: visible !important;
             overflow-x: auto;
-            overflow-y: auto;
-            /* Wajib ada agar vertikal ikut aktif di dalam kotak */
-            max-height: 600px;
-            /* Batasi tinggi kotak tabel */
         }
 
         #bulan_tahun[readonly] {

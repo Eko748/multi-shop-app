@@ -138,12 +138,12 @@ class ArusKasService
                 $totals[$key] += $nilai; // Akumulasi total berjalan
             }
 
-            $namaToko = $item->kas?->toko?->nama ?? '-';
+            $namaToko = $item->kas?->toko?->singkatan ?? '-';
 
             return [
                 'id'              => $item->id,
                 'tgl'             => Carbon::parse($item->tanggal)->format('d-m-Y H:i:s'),
-                'subjek'          => "Toko {$namaToko}",
+                'subjek'          => $namaToko,
                 'kategori'        => $item->kategori,
                 'item'            => $item->keterangan, // Teks deskripsi transaksi (e.g. Kas Aksesoris)
                 'nilai_transaksi' => $this->formatAngka($nilai),

@@ -24,9 +24,9 @@
         }
 
         .table-responsive {
+            max-height: none !important;
+            overflow-y: visible !important;
             overflow-x: auto;
-            max-height: 70vh;
-            overflow-y: auto;
         }
 
         #bulan_tahun[readonly] {
@@ -262,6 +262,16 @@
         let hasMorePages = true;
         let currentLimit = 30;
         let totalRowCount = 0;
+
+        $(window).off('scroll').on('scroll', function() {
+            // Pemicu: 200px sebelum bagian paling bawah layar tersentuh
+            if ($(window).scrollTop() + $(window).height() >= $(document).height() - 200) {
+                if (hasMorePages && !isLoading) {
+                    currentPage++;
+                    getListData(currentLimit, currentPage, currentAscending, currentSearch, currentFilter, true);
+                }
+            }
+        });
 
         async function getListData(limit = 30, page = 1, ascending = 0, search = '', customFilter = {}, isAppend = false) {
             if (isLoading) return;

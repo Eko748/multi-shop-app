@@ -33,33 +33,47 @@ class ArusKasController extends Controller
     public function getArusKas(Request $request)
     {
         try {
-            $result = $this->arusKasService->getArusKasData($request);
+            $serviceResult = $this->arusKasService->getArusKasData($request);
+
+            // Jika Service mengembalikan JsonResponse, ubah ke Array
+            $result = ($serviceResult instanceof \Illuminate\Http\JsonResponse)
+                ? $serviceResult->getData(true)
+                : $serviceResult;
+
+            $data = $result['data'] ?? [];
+            $dataTotal = $result['data_total'] ?? null;
+            $hasMorePages = $result['has_more_pages'] ?? false;
+            $totalRows = $result['total_rows'] ?? 0;
 
             // 🔥 Jika data kosong
-            if (empty($result['data']) || count($result['data']) === 0) {
+            if (empty($data)) {
                 return response()->json([
-                    'data' => $result['data'],
-                    'data_total' => $result['data_total'],
-                    'status_code' => 200,
-                    'errors' => false,
-                    'message' => 'Data Bulan ini Belum ada',
+                    'data'           => [],
+                    'data_total'     => $dataTotal,
+                    'has_more_pages' => false,
+                    'total_rows'     => 0,
+                    'status_code'    => 200,
+                    'errors'         => false,
+                    'message'        => 'Data Bulan ini Belum ada',
                 ], 200);
             }
 
             return response()->json([
-                'data' => $result['data'],
-                'data_total' => $result['data_total'],
-                'status_code' => 200,
-                'errors' => false,
-                'message' => 'Berhasil',
+                'data'           => $data,
+                'data_total'     => $dataTotal,
+                'has_more_pages' => $hasMorePages,
+                'total_rows'     => $totalRows,
+                'status_code'    => 200,
+                'errors'         => false,
+                'message'        => 'Berhasil',
             ], 200);
         } catch (\Throwable $th) {
             return response()->json([
-                'status' => 'error',
-                'message' => 'Data Tidak Ada',
+                'status'       => 'error',
+                'message'      => 'Data Gagal Dimuat',
                 'message_back' => $th->getMessage(),
-                'status_code' => 500,
-            ]);
+                'status_code'  => 500,
+            ], 500);
         }
     }
 

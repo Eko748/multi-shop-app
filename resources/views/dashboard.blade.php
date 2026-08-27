@@ -118,30 +118,43 @@
                                     <div class="col-12 glass bg-primary text-white">
                                         <img src="{{ asset('images/dash-1.svg') }}" alt="img" class="img-fluid"
                                             style="position: absolute; top: 0; right: 0; width: 65px; height: auto; z-index: 1;">
-                                        <div class="row justify-content-between align-items-center">
-                                            <div class="col-8 col-xl-9 col-lg-12">
-                                                <h5 class="mb-2 text-light font-weight-bold">Total Omset</h5>
-                                                <div class="d-flex align-items-center mb-2">
-                                                    <div class="avatar bg-primary text-white mx-2">
-                                                        <i class="fa fa-dollar-sign fa-2x"></i>
-                                                    </div>
-                                                    <div>
-                                                        <h3 class="text-light mb-0" id="total-pendapatan">Rp 0
-                                                        </h3>
-                                                        <hr class="p-0 m-1">
-                                                        <small><i class="fa fa-circle-info mr-1"></i><b
-                                                                id="info-omset">Omset
-                                                                per hari
-                                                                ini</b></small>
+                                        <div class="glass flex-fill text-dark">
+                                            <div class="row justify-content-between align-items-start">
+                                                <div class="col-8 col-xl-9 col-lg-12">
+                                                    <h5 class="mb-2 text-dark font-weight-bold" id="title-card-omset">
+                                                        Total Omset</h5>
+                                                    <div class="d-flex align-items-start mb-2">
+                                                        <div class="avatar bg-primary text-white mx-2 p-3 rounded-circle">
+                                                            <i class="fa fa-dollar-sign fa-2x"></i>
+                                                        </div>
+                                                        <div class="flex-grow-1">
+                                                            <h3 class="text-dark mb-0" id="total-pendapatan">Rp 0</h3>
+
+                                                            <div id="wrapper-pengeluaran"
+                                                                class="d-none mt-2 pt-2 border-top border-secondary">
+                                                                <div
+                                                                    class="d-flex align-items-center justify-content-between border-secondary">
+                                                                    <small class="text-danger font-weight-bold mb-0">
+                                                                        Pengeluaran:</small>
+                                                                    <span class="text-dark font-weight-bold"
+                                                                        id="total-pengeluaran-val">Rp 0</span>
+                                                                </div>
+                                                            </div>
+
+                                                            <hr class="p-0 m-1">
+                                                            <small><i class="fa fa-circle-info mr-1"></i><b
+                                                                    id="info-omset">Omset per hari ini</b></small>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                            <div class="col-4 col-xl-3 col-lg-12 text-right">
-                                                <button class="btn-dynamic btn btn-outline-light w-100" type="button"
-                                                    data-toggle="collapse" data-target="#filter-collapse3" title="Filter"
-                                                    aria-expanded="false" aria-controls="filter-collapse3">
-                                                    <i class="fa fa-filter"></i>
-                                                </button>
+                                                <div class="col-4 col-xl-3 col-lg-12 text-right">
+                                                    <button class="btn-dynamic btn btn-outline-primary w-100" type="button"
+                                                        data-toggle="collapse" data-target="#filter-collapse3"
+                                                        title="Filter" aria-expanded="false"
+                                                        aria-controls="filter-collapse3">
+                                                        <i class="fa fa-filter"></i>
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                         <div class="collapse" id="filter-collapse3">
@@ -250,7 +263,8 @@
                                                         class="filter-option form-select form-select-sm w-auto">
                                                         <option value="all">Semua Toko</option>
                                                         @foreach ($toko as $tokoData)
-                                                            <option value="{{ $tokoData->id }}">{{ $tokoData->singkatan }}
+                                                            <option value="{{ $tokoData->id }}">
+                                                                {{ $tokoData->singkatan }}
                                                             </option>
                                                         @endforeach
                                                     </select>
@@ -458,14 +472,28 @@
             const response = await renderAPI(
                 'GET',
                 '{{ route('dashboard.omset') }}', {
-                    id_toko: '{{ auth()->user()->toko_id }}',
+                    toko_id: {{ auth()->user()->toko_id ?? 'null' }},
+                    role_id: {{ auth()->user()->role_id ?? 'null' }},
                     ...filterParams
                 }
             ).catch(error => error.response);
 
             if (response && response.status === 200) {
-                const data = response.data.data;
-                $('#total-pendapatan').html(formatRupiah(data?.total ?? 0));
+                const resData = response.data.data;
+
+                // Tampilkan total omset
+                $('#total-pendapatan').html(formatRupiah(resData?.total ?? 0));
+
+                // Cek apakah data pengeluaran dikirim oleh backend (khusus Owner/Pusat)
+                if (resData.hasOwnProperty('total_pengeluaran') && resData.total_pengeluaran !== null) {
+                    $('#total-pengeluaran-val').html(formatRupiah(resData.total_pengeluaran));
+                    $('#wrapper-pengeluaran').removeClass('d-none'); // Munculkan elemen pengeluaran
+                    $('#title-card-omset').text('Total Omset'); // Sesuaikan judul card untuk Owner
+                } else {
+                    $('#wrapper-pengeluaran').addClass('d-none');
+                    $('#title-card-omset').text('Total Omset');
+                }
+
             } else {
                 console.error(response?.data?.message || "Error retrieving omset.");
             }
@@ -482,7 +510,7 @@
             const response = await renderAPI(
                 'GET',
                 '{{ route('dashboard.laba-kotor') }}', {
-                    id_toko: '{{ auth()->user()->toko_id }}',
+                    toko_id: {{ auth()->user()->toko_id }},
                     ...filterParams
                 }
             ).catch(error => error.response);
@@ -506,7 +534,7 @@
             const response = await renderAPI(
                 'GET',
                 '{{ route('dashboard.jumlah-transaksi') }}', {
-                    id_toko: '{{ auth()->user()->toko_id }}',
+                    toko_id: {{ auth()->user()->toko_id }},
                     ...filterParams
                 }
             ).catch(error => error.response);
@@ -583,11 +611,14 @@
         async function getLaporanPenjualan(customFilter5 = {}) {
             let filterParams = {};
 
-            if ('{{ auth()->user()->toko_id != 1 }}') {
-                filterParams.nama_toko = '{{ auth()->user()->toko_id }}';
-            } else if (customFilter5['nama_toko']) {
-                filterParams.nama_toko = customFilter5['nama_toko'];
+            if ({{ auth()->user()->toko_id }} != 1) {
+                filterParams.toko_id = {{ auth()->user()->toko_id }};
+            } else if (customFilter5['toko_id']) {
+                filterParams.toko_id = customFilter5['toko_id'];
             }
+
+            // Kirim role_id juga ke backend agar sinkron dengan pengecekan role_id == 1
+            filterParams.role_id = {{ auth()->user()->role_id }};
 
             if (customFilter5['period']) {
                 filterParams.period = customFilter5['period'];
@@ -602,13 +633,14 @@
             try {
                 const getDataRest = await renderAPI(
                     'GET',
-                    '{{ route('dashboard.rekapitulasi-penjualan') }}',
+                    '{{ route('dashboard.rekapitulasi-penjualan') }}', // Sesuaikan route jika namanya berbeda
                     filterParams
                 );
 
                 if (getDataRest && getDataRest.status === 200) {
                     const responseData = getDataRest.data?.data || {
                         nama_toko: "All",
+                        is_grouped: false,
                         daily: {},
                         monthly: {},
                         yearly: {},
@@ -628,8 +660,7 @@
             const filterMonth = document.getElementById('filter-month');
             const filterYearContainer = document.getElementById('filter-year-container');
             const filterYear = document.getElementById('filter-year');
-            const total = document.getElementById('total-penjualan');
-            const chartContainer = document.getElementById('laporan-chart');
+            const totalPenjualanEl = document.getElementById('total-penjualan');
 
             filterMonthContainer.style.display = (period === 'daily') ? 'block' : 'none';
             filterYearContainer.style.display = (period === 'daily' || period === 'monthly' || period === 'yearly') ?
@@ -644,8 +675,12 @@
             const activeYear = parseInt(filterYear.value, 10);
             const activeMonth = parseInt(filterMonth.value, 10);
 
+            if (totalPenjualanEl) {
+                totalPenjualanEl.textContent = formatRupiah(apiResponse?.totals || 0);
+            }
+
             await new Promise((resolve) => setTimeout(resolve, 300));
-            updateChart(apiResponse, period, activeYear, activeMonth, 'bar');
+            renderLaporanCharts(apiResponse, period, activeYear, activeMonth, 'bar');
 
             const chartTypeMapping = {
                 'chart-area': 'area',
@@ -656,20 +691,141 @@
             const setActiveChartButton = (activeId) => {
                 Object.keys(chartTypeMapping).forEach((id) => {
                     const button = document.getElementById(id);
-                    button.classList.toggle('btn-primary', id === activeId);
-                    button.classList.toggle('btn-outline-primary', id !== activeId);
+                    if (button) {
+                        button.classList.toggle('btn-primary', id === activeId);
+                        button.classList.toggle('btn-outline-primary', id !== activeId);
+                    }
                 });
             };
 
             Object.keys(chartTypeMapping).forEach((id) => {
-                document.getElementById(id).addEventListener('click', () => {
-                    const chartType = chartTypeMapping[id];
-                    updateChart(apiResponse, period, activeYear, activeMonth, chartType);
-                    setActiveChartButton(id);
-                });
+                const btn = document.getElementById(id);
+                if (btn) {
+                    btn.addEventListener('click', () => {
+                        const chartType = chartTypeMapping[id];
+                        renderLaporanCharts(apiResponse, period, activeYear, activeMonth, chartType);
+                        setActiveChartButton(id);
+                    });
+                }
             });
 
             setActiveChartButton('chart-bar');
+        }
+
+        // Fungsi baru untuk merender chart secara dinamis (mendukung mode group Mitra & Cabang)
+        function renderLaporanCharts(apiResponse, period, year, month, chartType) {
+            const chartContainer = document.getElementById('laporan-chart');
+            chartContainer.innerHTML = ''; // Bersihkan container utama
+
+            if (apiResponse?.is_grouped) {
+                // Mode Grouped (Role 1 tanpa filter toko spesifik): Ada 'Mitra' dan 'Cabang'
+                const groupedData = apiResponse[period] || {};
+                const keys = Object.keys(groupedData); // ['Mitra', 'Cabang']
+
+                keys.forEach((groupName, index) => {
+                    const subDiv = document.createElement('div');
+                    subDiv.id = `laporan-sub-chart-${index}`;
+                    subDiv.className = 'mb-6 w-full';
+                    chartContainer.appendChild(subDiv);
+
+                    // Ambil data spesifik per grup berdasarkan period
+                    let seriesData = [];
+                    let categories = [];
+
+                    if (period === 'daily') {
+                        seriesData = groupedData[groupName] || [];
+                        categories = Array.from({
+                            length: seriesData.length
+                        }, (_, i) => i + 1);
+                    } else if (period === 'monthly') {
+                        seriesData = groupedData[groupName] || [];
+                        categories = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov',
+                            'Des'
+                        ];
+                    } else if (period === 'yearly') {
+                        seriesData = Object.values(groupedData[groupName] || {});
+                        categories = Object.keys(groupedData[groupName] || {});
+                    }
+
+                    createSingleApexChart(subDiv.id, `Laporan Penjualan (${groupName})`, categories, seriesData,
+                        chartType);
+                });
+            } else {
+                // Mode Normal (Single Toko / All tanpa group khusus)
+                const singleDiv = document.createElement('div');
+                singleDiv.id = 'laporan-single-chart';
+                singleDiv.className = 'w-full';
+                chartContainer.appendChild(singleDiv);
+
+                let seriesData = [];
+                let categories = [];
+
+                if (period === 'daily') {
+                    seriesData = apiResponse?.daily?.[year]?.[month] || [];
+                    categories = Array.from({
+                        length: seriesData.length
+                    }, (_, i) => i + 1);
+                } else if (period === 'monthly') {
+                    seriesData = apiResponse?.monthly?.[year] || [];
+                    categories = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+                } else if (period === 'yearly') {
+                    const yearlyObj = apiResponse?.yearly || {};
+                    seriesData = Object.values(yearlyObj);
+                    categories = Object.keys(yearlyObj);
+                }
+
+                createSingleApexChart('laporan-single-chart', `Laporan Penjualan - ${apiResponse?.nama_toko || 'All'}`,
+                    categories, seriesData, chartType);
+            }
+        }
+
+        // Helper untuk inisialisasi ApexCharts individual
+        function createSingleApexChart(containerId, titleText, categories, dataValues, chartType) {
+            const options = {
+                series: [{
+                    name: 'Total Pendapatan',
+                    data: dataValues
+                }],
+                chart: {
+                    height: 320,
+                    type: chartType,
+                    toolbar: {
+                        show: true
+                    }
+                },
+                title: {
+                    text: titleText,
+                    align: 'left',
+                    style: {
+                        fontSize: '15px',
+                        fontWeight: 'bold'
+                    }
+                },
+                stroke: {
+                    curve: 'smooth',
+                    width: 2
+                },
+                dataLabels: {
+                    enabled: false
+                },
+                xaxis: {
+                    categories: categories
+                },
+                yaxis: {
+                    labels: {
+                        formatter: (value) => formatRupiah(value)
+                    }
+                },
+                tooltip: {
+                    y: {
+                        formatter: (value) => formatRupiah(value)
+                    }
+                },
+                colors: ['#1abc9c']
+            };
+
+            const chart = new ApexCharts(document.getElementById(containerId), options);
+            chart.render();
         }
 
         const getDaysInMonth = (year, month) => new Date(year, month, 0).getDate();
@@ -783,6 +939,7 @@
             let getDataRest = await renderAPI(
                 'GET',
                 '{{ route('dashboard.komparasi-toko') }}', {
+                    role_id: {{ auth()->user()->role_id }},
                     ...filterParams
                 }
             ).then(function(response) {
@@ -804,103 +961,126 @@
             const chartContainer = document.getElementById('komparasi-chart');
             const totalPenjualan = document.getElementById('total-penjualan2');
 
-            const tokoData = apiResponse?.singkatan || [];
-
-            const categories = tokoData.map(item => Object.keys(item)[0]);
-            const jumlahTransaksi = tokoData.map(item => Object.values(item)[0].jumlah_transaksi || 0);
-            const totalTransaksi = tokoData.map(item => Object.values(item)[0].total_transaksi || 0);
-
+            chartContainer.innerHTML = '';
             totalPenjualan.textContent = formatRupiah(apiResponse?.total || 0);
 
-            const chartOptions = {
-                series: [{
-                        name: 'Jumlah Transaksi',
+            const rawData = apiResponse?.singkatan;
+
+            // Helper function untuk merender 1 chart standar
+            const renderSingleChart = (containerEl, titleText, dataArray) => {
+                const categories = dataArray.map(item => Object.keys(item)[0]);
+                const jumlahTransaksi = dataArray.map(item => Object.values(item)[0].jumlah_transaksi || 0);
+                const totalTransaksi = dataArray.map(item => Object.values(item)[0].total_transaksi || 0);
+
+                const chartOptions = {
+                    series: [{
+                            name: 'Jumlah Transaksi',
+                            type: 'line',
+                            data: jumlahTransaksi
+                        },
+                        {
+                            name: 'Total Transaksi',
+                            type: 'area',
+                            data: totalTransaksi
+                        },
+                    ],
+                    chart: {
+                        height: 350,
                         type: 'line',
-                        data: jumlahTransaksi,
-                    },
-                    {
-                        name: 'Total Transaksi',
-                        type: 'area',
-                        data: totalTransaksi,
-                    },
-                ],
-                chart: {
-                    height: 400,
-                    type: 'line',
-                    toolbar: {
-                        show: true,
-                        tools: {
-                            download: true,
+                        toolbar: {
+                            show: true
                         },
                     },
-                },
-                stroke: {
-                    curve: 'smooth',
-                    width: [3, 2],
-                },
-                dataLabels: {
-                    enabled: true,
-                    formatter: (value, {
-                        seriesIndex
-                    }) => {
-                        if (seriesIndex === 1) {
-                            if (value === 0) {
-                                return
-                            } else {
-                                return formatRupiah(value);
-                            }
+                    title: {
+                        text: titleText,
+                        align: 'left',
+                        style: {
+                            fontSize: '15px',
+                            fontWeight: 'bold'
                         }
-                        return value;
                     },
-                },
-                tooltip: {
-                    y: {
+                    stroke: {
+                        curve: 'smooth',
+                        width: [3, 2]
+                    },
+                    dataLabels: {
+                        enabled: true,
                         formatter: (value, {
                             seriesIndex
                         }) => {
                             if (seriesIndex === 1) {
-                                return formatRupiah(value);
+                                return value === 0 ? '' : formatRupiah(value);
                             }
                             return value;
                         },
                     },
-                },
-                xaxis: {
-                    categories: categories,
-                    title: {
-                        text: 'Nama Toko',
+                    tooltip: {
+                        y: {
+                            formatter: (value, {
+                                seriesIndex
+                            }) => {
+                                if (seriesIndex === 1) return formatRupiah(value);
+                                return value;
+                            }
+                        }
                     },
-                },
-                yaxis: [{
+                    xaxis: {
+                        categories: categories,
                         title: {
-                            text: 'Jumlah Transaksi',
+                            text: 'Nama Toko'
                         },
                     },
-                    {
-                        opposite: true,
-                        title: {
-                            text: 'Total Transaksi',
+                    yaxis: [{
+                            title: {
+                                text: 'Jumlah Transaksi'
+                            }
                         },
+                        {
+                            opposite: true,
+                            title: {
+                                text: 'Total Transaksi'
+                            }
+                        },
+                    ],
+                    colors: ['#1E90FF', '#1abc9c'],
+                    legend: {
+                        position: 'top'
                     },
-                ],
-                colors: ['#1E90FF', '#1abc9c'],
-                fill: {
-                    type: ['solid', 'gradient'],
-                    gradient: {
-                        shade: 'light',
-                        type: 'vertical',
-                        gradientToColors: ['#32CD32'],
-                        stops: [0, 100],
-                    },
-                },
-                legend: {
-                    position: 'top',
-                },
+                };
+
+                const chart = new ApexCharts(containerEl, chartOptions);
+                chart.render();
             };
 
-            chartContainer.innerHTML = '';
-            const chart = new ApexCharts(chartContainer, chartOptions);
-            chart.render();
+            if (rawData && !Array.isArray(rawData)) {
+                const keys = Object.keys(rawData);
+
+                if (keys.length === 1) {
+                    const groupName = keys[0];
+                    const items = rawData[groupName];
+                    const singleDiv = document.createElement('div');
+                    singleDiv.className = 'w-full';
+                    chartContainer.appendChild(singleDiv);
+
+                    renderSingleChart(singleDiv, `Komparasi Toko (${groupName})`, items);
+                } else {
+                    keys.forEach((groupName, index) => {
+                        const items = rawData[groupName];
+                        const subDiv = document.createElement('div');
+                        subDiv.id = `sub-chart-${index}`;
+                        subDiv.className = 'mb-6 w-full';
+                        chartContainer.appendChild(subDiv);
+
+                        renderSingleChart(subDiv, `Komparasi Toko (${groupName})`, items);
+                    });
+                }
+            } else {
+                const normalDiv = document.createElement('div');
+                normalDiv.className = 'w-full';
+                chartContainer.appendChild(normalDiv);
+
+                renderSingleChart(normalDiv, 'Komparasi Seluruh Toko', rawData || []);
+            }
         }
 
         async function filterKomparasiToko() {
@@ -949,10 +1129,10 @@
         async function getTopPenjualan(customFilter2 = {}) {
             let filterParams = {};
 
-            if ('{{ auth()->user()->toko_id != 1 }}') {
-                filterParams.id_toko = '{{ auth()->user()->toko_id }}';
-            } else if (customFilter2['id_toko']) {
-                filterParams.id_toko = customFilter2['id_toko'];
+            if ({{ auth()->user()->toko_id }} != 1) {
+                filterParams.toko_id = {{ auth()->user()->toko_id }};
+            } else if (customFilter2['toko_id']) {
+                filterParams.toko_id = customFilter2['toko_id'];
             }
 
             let getDataRest = await renderAPI(
@@ -1064,10 +1244,10 @@
         async function getTopMember(customFilter3 = {}) {
             let filterParams = {};
 
-            if ('{{ auth()->user()->toko_id != 1 }}') {
-                filterParams.id_toko = '{{ auth()->user()->toko_id }}';
-            } else if (customFilter3['id_toko']) {
-                filterParams.id_toko = customFilter3['id_toko'];
+            if ({{ auth()->user()->toko_id }} != 1) {
+                filterParams.toko_id = {{ auth()->user()->toko_id }};
+            } else if (customFilter3['toko_id']) {
+                filterParams.toko_id = customFilter3['toko_id'];
             }
 
             let getDataRest = await renderAPI(
@@ -1124,7 +1304,7 @@
             </span>`;
 
             let toko = '';
-            if ('{{ auth()->user()->toko_id }}' == 1) {
+            if ({{ auth()->user()->toko_id }} == 1) {
                 toko = `<span class="badge badge-success text-white">${nama_toko}</span>`;
             }
 
@@ -1194,13 +1374,13 @@
 
                     if (select.id === 'f-barang-toko' && select.value.trim()) {
                         customFilter2 = {
-                            id_toko: select.value.trim()
+                            toko_id: select.value.trim()
                         };
                         await getTopPenjualan(customFilter2);
                     }
                     if (select.id === 'f-member-toko' && select.value.trim()) {
                         customFilter3 = {
-                            id_toko: select.value.trim()
+                            toko_id: select.value.trim()
                         };
                         await getTopMember(customFilter3);
                     }

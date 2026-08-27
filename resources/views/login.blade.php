@@ -604,7 +604,7 @@
             <div style="text-align: left; min-width: 0; flex: 1;">
                 <div style="font-weight: 700; color: #0f172a; font-size: 14px; line-height: 1.2;">SEMUA TOKO</div>
                 <div style="font-size: 12px; color: #64748b; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                    Akses gabungan seluruh data toko
+                    Akses seluruh toko
                 </div>
             </div>
         </div>
@@ -672,7 +672,7 @@
             }
 
             Swal.fire({
-                title: '<span style="font-size: 22px; font-weight: 800; color: #0f172a;">Pilih Toko Aktif</span>',
+                title: '<span style="font-size: 22px; font-weight: 800; color: #0f172a;">Pilih Toko</span>',
                 html: `
             <p style="font-size: 13px; color: #64748b; margin-bottom: 20px;">
                 Klik salah satu toko di bawah ini untuk melanjutkan ke dashboard:

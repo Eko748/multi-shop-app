@@ -62,7 +62,7 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 Route::prefix('dashboard')->as('dashboard.')->group(function () {
-    Route::get('/get-rekapitulasi-penjualan', [DashboardController::class, 'laporan_kasir'])->name('rekapitulasi-penjualan')->middleware('permission:GET /dashboard/get-rekapitulasi-penjualan');
+    Route::get('/get-rekapitulasi-penjualan', [DashboardController::class, 'getLaporanKasir'])->name('rekapitulasi-penjualan')->middleware('permission:GET /dashboard/get-rekapitulasi-penjualan');
     Route::get('/get-komparasi-toko', [DashboardController::class, 'getKomparasiToko'])->name('komparasi-toko')->middleware('permission:GET /dashboard/get-komparasi-toko');
     Route::get('/get-top-barang', [DashboardController::class, 'getBarangJual'])->name('top-barang')->middleware('permission:GET /dashboard/get-top-barang');
     Route::get('/get-top-member', [DashboardController::class, 'getMember'])->name('top-member')->middleware('permission:GET /dashboard/get-top-member');

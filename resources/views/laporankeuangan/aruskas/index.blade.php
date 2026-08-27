@@ -630,19 +630,23 @@
         $('.table-responsive').off('scroll').on('scroll', async function() {
             let container = $(this);
 
-            // Deteksi scroll batas bawah (toleransi 50px)
-            if (container.scrollTop() + container.innerHeight() >= container[0].scrollHeight - 50) {
-                if (hasMorePages && !isLoading) {
-                    currentPage++; // Tetap naikkan currentPage jika ada logika UI lain yang pakai
+            // Hitung sisa jarak scroll ke bawah
+            let scrollHeight = container[0].scrollHeight;
+            let scrollTop = container.scrollTop();
+            let clientHeight = container.innerHeight();
 
-                    // 🔥 Panggil dengan parameter yang sama seperti pemanggilan kamu yang lain
+            // Jika sisa jarak ke bawah tinggal 50px lagi
+            if (scrollHeight - scrollTop - clientHeight <= 50) {
+                if (hasMorePages && !isLoading) {
+                    currentPage++;
+
                     await getListData(
-                        30,               // Load 30 data lanjutan saat scroll
+                        30,
                         currentPage,
                         defaultAscending,
                         defaultSearch,
                         customFilter,
-                        true              // isAppend = true
+                        true // isAppend = true
                     );
                 }
             }

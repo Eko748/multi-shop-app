@@ -33,8 +33,9 @@ class ArusKasService
         $sortBy = strtolower($request->sort_by ?? 'tanggal');
         $sortColumn = ($sortBy === 'nominal') ? 'total_nominal' : 'tanggal';
 
-        $tokoId = $request->toko_id;
-        $filterToko = $request->toko_selected ?? $request->toko_id;
+        // 1. Ambil input request
+        $tokoIdInput = $request->toko_id;
+        $tokoSelectedInput = $request->toko_selected;
 
         $month = $request->month ?? Carbon::now()->month;
         $year = $request->year ?? Carbon::now()->year;
@@ -50,14 +51,18 @@ class ArusKasService
             $endDate = Carbon::parse($toDate)->endOfDay();
         }
 
-        $isFilteredByToko = ! empty($tokoId) && strtolower((string) $tokoId) !== 'all';
-        $accessibleTokoIds = $this->getAccessibleTokoIds($isFilteredByToko ? $tokoId : null);
+        // 2. Cek apakah ada filter toko spesifik (bukan null, kosong, atau 'all')
+        $hasTokoIdFilter = ! empty($tokoIdInput) && strtolower((string) $tokoIdInput) !== 'all';
 
-        if (! empty($filterToko)) {
-            $filterToko = is_array($filterToko) ? $filterToko : [$filterToko];
+        // Ambil daftar toko awal berdasarkan toko_id utama
+        $accessibleTokoIds = $this->getAccessibleTokoIds($hasTokoIdFilter ? $tokoIdInput : null);
+
+        // 3. Tangani toko_selected HANYA jika nilainya spesifik (bukan 'all')
+        if (! empty($tokoSelectedInput)) {
+            $filterToko = is_array($tokoSelectedInput) ? $tokoSelectedInput : [$tokoSelectedInput];
             $filterToko = array_filter($filterToko, fn ($val) => ! empty($val) && strtolower((string) $val) !== 'all');
 
-            // Tambahkan pengecekan ini: Hanya intersect jika array $filterToko memang berisi ID spesifik
+            // Lakukan intersect HANYA jika memang ada filter toko spesifik yang dipih
             if (! empty($filterToko)) {
                 $accessibleTokoIds = array_values(array_intersect($accessibleTokoIds, $filterToko));
             }

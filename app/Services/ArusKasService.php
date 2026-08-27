@@ -162,7 +162,8 @@ class ArusKasService
         // Saldo Awal
         $kasList = ! empty($accessibleTokoIds)
             ? Kas::whereIn('toko_id', $accessibleTokoIds)->get()
-            : Kas::all(); // Fallback jika accessibleTokoIds terlepas, tetap hitung semua kas        $kecil_awal = 0;
+            : Kas::all(); // Fallback jika accessibleTokoIds terlepas, tetap hitung semua kas
+        $kecil_awal = 0;
         $besar_awal = 0;
 
         foreach ($kasList as $kas) {

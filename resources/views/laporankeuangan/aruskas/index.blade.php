@@ -11,51 +11,22 @@
     <link rel="stylesheet" href="{{ asset('css/flatpickr.min.css') }}">
     <link rel="stylesheet" href="{{ asset('css/month-select.css') }}">
     <style>
-        /* 1. Paksa tabel tidak collapse & memiliki lebar minimal agar tidak menciut */
-        .table-responsive {
-            width: 100%;
-            max-height: 75vh !important;
-            /* Batasi tinggi container tabel agar scroll terjadi di dalam box */
-            overflow-y: auto !important;
-            overflow-x: auto !important;
-            position: relative;
+        .th-data {
+            width: 160px;
         }
 
-        .table-responsive table {
-            width: 100%;
-            min-width: 1600px;
-            /* Menjaga seluruh 14 kolom mendapatkan porsi lebar yang cukup */
-            border-collapse: separate;
-            border-spacing: 0;
-        }
-
-        /* 2. Solusi Sticky Header: Header tetap diam di atas saat di-scroll */
-        .table-responsive thead th {
-            position: sticky;
-            top: 0;
-            background-color: #f8f9fa;
-            /* Warna background header agar tidak transparan saat ditimpa data */
-            z-index: 2;
-            box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.1);
-        }
-
-        /* 3. Disamakan lebar th dan td agar sejajar presisi */
-        .th-data,
         .td-data {
-            min-width: 140px;
-            max-width: 200px;
-            word-wrap: break-word;
-            white-space: normal;
-        }
-
-        /* Lebar khusus kolom nominal angka di sebelah kanan */
-        .table-responsive th:nth-child(n+6),
-        .table-responsive td:nth-child(n+6) {
-            min-width: 110px;
+            width: 100px;
         }
 
         .data-total {
             min-width: 140px;
+        }
+
+        .table-responsive {
+            max-height: none !important;
+            overflow-y: visible !important;
+            overflow-x: auto;
         }
 
         #bulan_tahun[readonly] {

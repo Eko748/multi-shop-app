@@ -33,10 +33,6 @@ class ArusKasService
         $sortBy = strtolower($request->sort_by ?? 'tanggal');
         $sortColumn = ($sortBy === 'nominal') ? 'total_nominal' : 'tanggal';
 
-        // 1. Ambil input request
-        $tokoIdInput = $request->toko_id;
-        $tokoSelectedInput = $request->toko_selected;
-
         $month = $request->month ?? Carbon::now()->month;
         $year = $request->year ?? Carbon::now()->year;
 
@@ -51,34 +47,31 @@ class ArusKasService
             $endDate = Carbon::parse($toDate)->endOfDay();
         }
 
-        // 2. Cek apakah ada filter toko spesifik (bukan null, kosong, atau 'all')
-        $hasTokoIdFilter = ! empty($tokoIdInput) && strtolower((string) $tokoIdInput) !== 'all';
+        // --------------------------------------------------------------------------
+        // LOGIKA FILTER TOKO HANYA JIKA ADA INPUT EKSPLISIT DARI REQUEST
+        // --------------------------------------------------------------------------
+        $tokoIdParam = $request->toko_selected ?? $request->toko_id;
 
-        // Ambil daftar toko awal berdasarkan toko_id utama
-        $accessibleTokoIds = $this->getAccessibleTokoIds($hasTokoIdFilter ? $tokoIdInput : null);
+        // Cek apakah ada input toko spesifik (bukan null, bukan '', dan bukan 'all')
+        $isFilteredByToko = ! empty($tokoIdParam) && strtolower((string) $tokoIdParam) !== 'all';
 
-        // 3. Tangani toko_selected HANYA jika nilainya spesifik (bukan 'all')
-        if (! empty($tokoSelectedInput)) {
-            $filterToko = is_array($tokoSelectedInput) ? $tokoSelectedInput : [$tokoSelectedInput];
-            $filterToko = array_filter($filterToko, fn ($val) => ! empty($val) && strtolower((string) $val) !== 'all');
-
-            // Lakukan intersect HANYA jika memang ada filter toko spesifik yang dipih
-            if (! empty($filterToko)) {
-                $accessibleTokoIds = array_values(array_intersect($accessibleTokoIds, $filterToko));
-            }
+        if ($isFilteredByToko) {
+            $accessibleTokoIds = $this->getAccessibleTokoIds($tokoIdParam);
+        } else {
+            // Jika tidak ada request toko_id / toko_selected, atau nilainya 'all',
+            // kosongkan array ini agar query utama TIDAK menerapkan filter whereIn('toko_id') sama sekali
+            $accessibleTokoIds = [];
         }
+        // --------------------------------------------------------------------------
 
         // Base Query
         $query = KasTransaksi::with(['kas.toko'])
             ->whereBetween('tanggal', [$startDate, $endDate])
-            ->whereHas('kas', function ($q) use ($accessibleTokoIds) {
-                // Hanya jalankan filter jika toko terdaftar
-                if (! empty($accessibleTokoIds)) {
-                    $q->whereIn('toko_id', $accessibleTokoIds);
-                } else {
-                    // Jika tidak ada toko yang bisa diakses/ditemukan, paksa return kosong
-                    $q->whereRaw('1 = 0');
-                }
+            ->when(! empty($accessibleTokoIds), function ($q) use ($accessibleTokoIds) {
+                // HANYA filter toko jika ada toko spesifik yang dipilih
+                $q->whereHas('kas', function ($kasQuery) use ($accessibleTokoIds) {
+                    $kasQuery->whereIn('toko_id', $accessibleTokoIds);
+                });
             })
             ->where('total_nominal', '>', 0);
 
@@ -111,12 +104,10 @@ class ArusKasService
         // Process Mapping sekaligus formatting (1 Pass Processing)
         $data = $query->get()->map(function ($item) use (&$totals) {
             $nilai = (float) $item->total_nominal;
-            $tipe  = strtolower(trim($item->tipe)); // 'in' atau 'out'
+            $tipe  = strtolower(trim($item->tipe));
 
-            // Normalisasi kata kunci item dari database ('kecil', 'besar', 'hutang', 'piutang')
             $rawItem = strtolower(trim($item->item));
 
-            // Mapping alias untuk mengantisipasi variasi string dari DB
             $jenisMap = [
                 'kecil'     => 'kas_kecil',
                 'kas kecil' => 'kas_kecil',
@@ -141,7 +132,7 @@ class ArusKasService
 
             if (array_key_exists($key, $rowTotals)) {
                 $rowTotals[$key] = $nilai;
-                $totals[$key] += $nilai; // Akumulasi total berjalan
+                $totals[$key] += $nilai;
             }
 
             $namaToko = $item->kas?->toko?->singkatan ?? '-';
@@ -151,7 +142,7 @@ class ArusKasService
                 'tgl'             => Carbon::parse($item->tanggal)->format('d-m-Y H:i:s'),
                 'subjek'          => $namaToko,
                 'kategori'        => $item->kategori,
-                'item'            => $item->keterangan, // Teks deskripsi transaksi (e.g. Kas Aksesoris)
+                'item'            => $item->keterangan,
                 'nilai_transaksi' => $this->formatAngka($nilai),
                 'kas_kecil_in'    => $this->formatAngka($rowTotals['kas_kecil_in']),
                 'kas_kecil_out'   => $this->formatAngka($rowTotals['kas_kecil_out']),
@@ -164,10 +155,11 @@ class ArusKasService
             ];
         });
 
-        // Saldo Awal
+        // Saldo Awal: Ambil kas berdasarkan kriteria filter (atau seluruh Kas jika ALL)
         $kasList = ! empty($accessibleTokoIds)
             ? Kas::whereIn('toko_id', $accessibleTokoIds)->get()
-            : Kas::all(); // Fallback jika accessibleTokoIds terlepas, tetap hitung semua kas
+            : Kas::all();
+
         $kecil_awal = 0;
         $besar_awal = 0;
 

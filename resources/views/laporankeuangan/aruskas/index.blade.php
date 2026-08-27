@@ -237,7 +237,6 @@
     <script>
         let title = 'Arus Kas';
         let defaultLimitPage = 10;
-        let currentPage = 1;
         let totalPage = 1;
         let defaultAscending = 0;
         let defaultSearch = '';
@@ -255,6 +254,145 @@
         ];
         let currentSortBy = 'tanggal';
         let currentOrder = 'desc';
+
+        let currentPage = 1;
+        let isLoading = false;
+        let hasMorePages = true;
+        let currentLimit = 30;
+        let totalRowCount = 0;
+
+        async function getListData(limit = 30, page = 1, ascending = 0, search = '', customFilter = {}, isAppend = false) {
+            if (isLoading) return;
+            isLoading = true;
+
+            if (!isAppend) {
+                currentPage = 1;
+                $('#listData').html(loadingData());
+            } else {
+                $('#listData').append(
+                    `<tr id="loader-row"><td colspan="${$('#head-table th').length}" class="text-center py-3"><i class="fa fa-spinner fa-spin"></i> Memuat data...</td></tr>`
+                    );
+            }
+
+            let filterParams = {};
+            if (customFilter['month'] && customFilter['year']) {
+                filterParams.month = customFilter['month'];
+                filterParams.year = customFilter['year'];
+            }
+            if (customFilter['toko_id']) filterParams.toko_id = customFilter['toko_id'];
+            if (customFilter['toko_selected']) filterParams.toko_selected = customFilter['toko_selected'];
+            if (customFilter['kategori']) filterParams.kategori = customFilter['kategori'];
+
+            try {
+                let getDataRest = await renderAPI(
+                    'GET',
+                    '{{ route('master.aruskas.get') }}', {
+                        page: page,
+                        limit: limit,
+                        ascending: ascending,
+                        search: search,
+                        toko_id: {{ auth()->user()->toko_id }},
+                        sort_by: currentSortBy,
+                        order: currentOrder,
+                        ...filterParams
+                    }
+                );
+
+                $('#loader-row').remove();
+
+                if (getDataRest && getDataRest.status == 200 && Array.isArray(getDataRest.data.data)) {
+                    let resData = getDataRest.data;
+                    hasMorePages = resData.has_more_pages;
+
+                    let handleDataArray = await Promise.all(
+                        resData.data.map(async item => await handleData(item))
+                    );
+
+                    // Update Total Kas Keseluruhan
+                    await totalListData(resData.data_total);
+
+                    // Append atau Replace Row Tabel
+                    if (isAppend) {
+                        let currentCount = $('#listData tr').length;
+                        await appendListData(handleDataArray, currentCount);
+                    } else {
+                        await setListData(handleDataArray);
+                    }
+
+                    if (resData.data.length == 0 && !isAppend) {
+                        let errorRow = `
+                <tr class="text-dark">
+                    <th class="text-center" colspan="${$('#head-table th').length}"> Data tidak ditemukan </th>
+                </tr>`;
+                        $('#listData').html(errorRow);
+                    }
+                } else {
+                    await totalListData(null);
+                    let errorMessage = getDataRest?.data?.message || 'Data gagal dimuat';
+                    let errorRow = `
+            <tr class="text-dark">
+                <th class="text-center" colspan="${$('#head-table th').length}"> ${errorMessage} </th>
+            </tr>`;
+                    $('#listData').html(errorRow);
+                }
+            } catch (err) {
+                $('#loader-row').remove();
+            } finally {
+                isLoading = false;
+            }
+        }
+
+        function generateRowHtml(element, index) {
+            let classCol = 'align-top text-dark text-wrap';
+            return `
+        <tr class="text-dark">
+            <td class="${classCol} text-center">${index + 1}.</td>
+            <td class="${classCol} td-data">${element.tgl}</td>
+            <td class="${classCol} td-data">${element.subjek}</td>
+            <td class="${classCol}">${element.kategori}</td>
+            <td class="${classCol} td-data">${element.item}</td>
+            <td class="${classCol} text-right">${element.nilai_transaksi.toLocaleString()}</td>
+            <td class="${classCol} text-right">${element.kas_kecil_in.toLocaleString()}</td>
+            <td class="${classCol} text-right">${element.kas_kecil_out.toLocaleString()}</td>
+            <td class="${classCol} text-right">${element.kas_besar_in.toLocaleString()}</td>
+            <td class="${classCol} text-right">${element.kas_besar_out.toLocaleString()}</td>
+            <td class="${classCol} text-right">${element.piutang_in.toLocaleString()}</td>
+            <td class="${classCol} text-right">${element.piutang_out.toLocaleString()}</td>
+            <td class="${classCol} text-right">${element.hutang_in.toLocaleString()}</td>
+            <td class="${classCol} text-right">${element.hutang_out.toLocaleString()}</td>
+        </tr>`;
+        }
+
+        async function setListData(dataList) {
+            let getDataTable = '';
+            dataList.forEach((element, index) => {
+                getDataTable += generateRowHtml(element, index);
+            });
+            $('#listData').html(getDataTable);
+            $('[data-toggle="tooltip"]').tooltip();
+        }
+
+        async function appendListData(dataList, startIndex) {
+            let getDataTable = '';
+            dataList.forEach((element, index) => {
+                getDataTable += generateRowHtml(element, startIndex + index);
+            });
+            $('#listData').append(getDataTable);
+            $('[data-toggle="tooltip"]').tooltip();
+        }
+
+        // --------------------------------------------------------------------------
+        // INFINITE SCROLL LISTENER (Pada Table Container)
+        // --------------------------------------------------------------------------
+        $('.table-responsive').on('scroll', function() {
+            let container = $(this);
+            if (container.scrollTop() + container.innerHeight() >= container[0].scrollHeight - 50) {
+                if (hasMorePages && !isLoading) {
+                    currentPage++;
+                    getListData(currentLimit, currentPage, currentAscending, currentSearch, currentFilter, true);
+                }
+            }
+        });
 
         function setInputFilter() {
             const now = new Date();
@@ -319,116 +457,6 @@
                     $(this).text(bulanID[index]);
                 });
             }, 50);
-        }
-
-        async function getListData(limit = 10, page = 1, ascending = 0, search = '', customFilter = {}) {
-            $('#listData').html(loadingData());
-
-            let filterParams = {};
-
-            if (customFilter['month'] && customFilter['year']) {
-                filterParams.month = customFilter['month'];
-                filterParams.year = customFilter['year'];
-            }
-
-            if (customFilter['id_toko']) {
-                filterParams.id_toko = customFilter['id_toko'];
-            }
-
-            // Filter Kategori
-            if (customFilter['kategori']) {
-                filterParams.kategori = customFilter['kategori'];
-            }
-
-            let getDataRest = await renderAPI(
-                'GET',
-                '{{ route('master.aruskas.get') }}', {
-                    page: page,
-                    limit: limit,
-                    ascending: ascending,
-                    search: search,
-                    toko_id: {{ auth()->user()->toko_id }},
-                    sort_by: currentSortBy, // Parameter sorting kolom (tanggal / nominal)
-                    order: currentOrder, // asc / desc
-                    ...filterParams
-                }
-            ).then(function(response) {
-                return response;
-            }).catch(function(error) {
-                let resp = error.response;
-                return resp;
-            });
-
-            if (getDataRest && getDataRest.status == 200 && Array.isArray(getDataRest.data.data)) {
-                let handleDataArray = await Promise.all(
-                    getDataRest.data.data.map(async item => await handleData(item))
-                );
-                await totalListData(getDataRest.data.data_total);
-                await setListData(handleDataArray);
-                if (getDataRest.data.data.length == 0) {
-                    let errorRow = `
-            <tr class="text-dark">
-                <th class="text-center" colspan="${$('#head-table th').length}"> ${getDataRest.data.message} </th>
-            </tr>`;
-                    $('#listData').html(errorRow);
-                }
-            } else {
-                await totalListData(null);
-                let errorMessage = getDataRest?.data?.message || 'Data gagal dimuat';
-                let errorRow = `
-            <tr class="text-dark">
-                <th class="text-center" colspan="${$('#head-table th').length}"> ${errorMessage} </th>
-            </tr>`;
-                $('#listData').html(errorRow);
-            }
-        }
-
-        async function handleData(data) {
-
-            return {
-                id: data?.id ?? '-',
-                tgl: data?.tgl,
-                subjek: data?.subjek ?? '-',
-                kategori: data?.kategori ?? '-',
-                item: data?.item ?? '-',
-                nilai_transaksi: data?.nilai_transaksi ?? 0,
-                kas_kecil_in: data?.kas_kecil_in ?? 0,
-                kas_kecil_out: data?.kas_kecil_out ?? 0,
-                kas_besar_in: data?.kas_besar_in ?? 0,
-                kas_besar_out: data?.kas_besar_out ?? 0,
-                piutang_in: data?.piutang_in ?? 0,
-                piutang_out: data?.piutang_out ?? 0,
-                hutang_in: data?.hutang_in ?? 0,
-                hutang_out: data?.hutang_out ?? 0
-            };
-        }
-
-        async function setListData(dataList) {
-            let getDataTable = '';
-            let classCol = 'align-top text-dark text-wrap';
-            dataList.forEach((element, index) => {
-                getDataTable += `
-                    <tr class="text-dark">
-                        <td class="${classCol} text-center">${index + 1}.</td>
-                        <td class="${classCol} td-data">${element.tgl}</td>
-                        <td class="${classCol} td-data">${element.subjek}</td>
-                        <td class="${classCol}">${element.kategori}</td>
-                        <td class="${classCol} td-data">${element.item}</td>
-                        <td class="${classCol} text-right">${element.nilai_transaksi.toLocaleString()}</td>
-                        <td class="${classCol} text-right">${element.kas_kecil_in.toLocaleString()}</td>
-                        <td class="${classCol} text-right">${element.kas_kecil_out.toLocaleString()}</td>
-                        <td class="${classCol} text-right">${element.kas_besar_in.toLocaleString()}</td>
-                        <td class="${classCol} text-right">${element.kas_besar_out.toLocaleString()}</td>
-                        <td class="${classCol} text-right">${element.piutang_in.toLocaleString()}</td>
-                        <td class="${classCol} text-right">${element.piutang_out.toLocaleString()}</td>
-                        <td class="${classCol} text-right">${element.hutang_in.toLocaleString()}</td>
-                        <td class="${classCol} text-right">${element.hutang_out.toLocaleString()}</td>
-                    </tr>`;
-            });
-
-            $('#listData').html(getDataTable);
-            $('[data-toggle="tooltip"]').tooltip();
-            renderPagination();
         }
 
         async function totalListData(data) {
@@ -512,7 +540,7 @@
 
                 let selectedTokoIds = $('#f_toko').val();
                 if (selectedTokoIds && selectedTokoIds.length > 0) {
-                    customFilter['id_toko'] = selectedTokoIds;
+                    customFilter['toko_id'] = selectedTokoIds;
                 }
 
                 // TANGKAP FILTER KATEGORI

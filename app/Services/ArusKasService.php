@@ -47,30 +47,19 @@ class ArusKasService
             $endDate = Carbon::parse($toDate)->endOfDay();
         }
 
-        // --------------------------------------------------------------------------
-        // LOGIKA SIMPLE FILTER TOKO
-        // --------------------------------------------------------------------------
         $tokoIds = [];
-
-        // Prioritas 1: Jika ada toko_selected (misal dari filter multi-select: [2, 4])
         if ($request->filled('toko_selected')) {
             $selected = is_array($request->toko_selected) ? $request->toko_selected : [$request->toko_selected];
             $tokoIds = array_filter($selected, fn ($val) => ! empty($val) && strtolower((string) $val) !== 'all');
-        }
-        // Prioritas 2: Jika tidak ada toko_selected, cek toko_id tunggal
-        elseif ($request->filled('toko_id') && strtolower((string) $request->toko_id) !== 'all') {
+        } elseif ($request->filled('toko_id') && strtolower((string) $request->toko_id) !== 'all') {
             $tokoIds = [$request->toko_id];
         }
-
-        // Catatan: Jika tokoIds KOSONG, artinya ALL (tampilkan semua toko tanpa filter)
-        // --------------------------------------------------------------------------
 
         // Base Query Transaksi
         $query = KasTransaksi::with(['kas.toko'])
             ->whereBetween('tanggal', [$startDate, $endDate])
             ->where('total_nominal', '>', 0);
 
-        // Filter toko HANYA jika $tokoIds ada isinya
         if (! empty($tokoIds)) {
             $query->whereHas('kas', function ($q) use ($tokoIds) {
                 $q->whereIn('toko_id', $tokoIds);
@@ -93,9 +82,9 @@ class ArusKasService
             });
         }
 
-        $query->orderBy($sortColumn, $orderDirection)
-            ->orderBy('id', 'desc');
-
+        // --------------------------------------------------------------------------
+        // 1. HITUNG TOTAL KESELURUHAN DATA (Bahkan jika dipaginasi 30 data)
+        // --------------------------------------------------------------------------
         $totals = [
             'kas_kecil_in'  => 0, 'kas_kecil_out' => 0,
             'kas_besar_in'  => 0, 'kas_besar_out' => 0,
@@ -103,24 +92,39 @@ class ArusKasService
             'hutang_in'     => 0, 'hutang_out'    => 0,
         ];
 
-        // Mapping Row & Accumulate Totals
-        $data = $query->get()->map(function ($item) use (&$totals) {
-            $nilai = (float) $item->total_nominal;
-            $tipe  = strtolower(trim($item->tipe));
+        $jenisMap = [
+            'kecil'     => 'kas_kecil', 'kas kecil' => 'kas_kecil', 'kas_kecil' => 'kas_kecil',
+            'besar'     => 'kas_besar', 'kas besar' => 'kas_besar', 'kas_besar' => 'kas_besar',
+            'piutang'   => 'piutang',   'hutang'    => 'hutang',
+        ];
+
+        // Iterasi cepat untuk kalkulasi summary seluruh baris
+        (clone $query)->get(['total_nominal', 'tipe', 'item'])->each(function ($item) use (&$totals, $jenisMap) {
+            $nilai   = (float) $item->total_nominal;
+            $tipe    = strtolower(trim($item->tipe));
             $rawItem = strtolower(trim($item->item));
+            $jenis   = $jenisMap[$rawItem] ?? $rawItem;
+            $key     = "{$jenis}_{$tipe}";
 
-            $jenisMap = [
-                'kecil'     => 'kas_kecil',
-                'kas kecil' => 'kas_kecil',
-                'kas_kecil' => 'kas_kecil',
-                'besar'     => 'kas_besar',
-                'kas besar' => 'kas_besar',
-                'kas_besar' => 'kas_besar',
-                'piutang'   => 'piutang',
-                'hutang'    => 'hutang',
-            ];
+            if (array_key_exists($key, $totals)) {
+                $totals[$key] += $nilai;
+            }
+        });
 
-            $jenis = $jenisMap[$rawItem] ?? $rawItem;
+        // --------------------------------------------------------------------------
+        // 2. PAGINASI DATA (Default Limit 30)
+        // --------------------------------------------------------------------------
+        $perPage = (int) ($request->limit ?? 30);
+        $paginatedQuery = $query->orderBy($sortColumn, $orderDirection)
+            ->orderBy('id', 'desc')
+            ->paginate($perPage);
+
+        // Mapping Row Paginasi
+        $data = collect($paginatedQuery->items())->map(function ($item) use ($jenisMap) {
+            $nilai   = (float) $item->total_nominal;
+            $tipe    = strtolower(trim($item->tipe));
+            $rawItem = strtolower(trim($item->item));
+            $jenis   = $jenisMap[$rawItem] ?? $rawItem;
 
             $rowTotals = [
                 'kas_kecil_in'  => 0, 'kas_kecil_out' => 0,
@@ -130,18 +134,14 @@ class ArusKasService
             ];
 
             $key = "{$jenis}_{$tipe}";
-
             if (array_key_exists($key, $rowTotals)) {
                 $rowTotals[$key] = $nilai;
-                $totals[$key] += $nilai;
             }
-
-            $namaToko = $item->kas?->toko?->singkatan ?? '-';
 
             return [
                 'id'              => $item->id,
                 'tgl'             => Carbon::parse($item->tanggal)->format('d-m-Y H:i:s'),
-                'subjek'          => $namaToko,
+                'subjek'          => $item->kas?->toko?->singkatan ?? '-',
                 'kategori'        => $item->kategori,
                 'item'            => $item->keterangan,
                 'nilai_transaksi' => $this->formatAngka($nilai),
@@ -156,13 +156,8 @@ class ArusKasService
             ];
         });
 
-        // --------------------------------------------------------------------------
-        // KALKULASI SALDO AWAL (Juga menyesuaikan filter toko)
-        // --------------------------------------------------------------------------
-        $kasList = ! empty($tokoIds)
-            ? Kas::whereIn('toko_id', $tokoIds)->get()
-            : Kas::all(); // Ambil semua Kas jika tidak ada filter toko
-
+        // Saldo Awal Calculations
+        $kasList = ! empty($tokoIds) ? Kas::whereIn('toko_id', $tokoIds)->get() : Kas::all();
         $kecil_awal = 0;
         $besar_awal = 0;
 
@@ -173,9 +168,6 @@ class ArusKasService
                 $besar_awal += $this->getSaldoAwal($kas, $year, $month);
             }
         }
-
-        $piutang_awal = 0;
-        $hutang_awal  = 0;
 
         $data_total = [
             'kas_kecil' => [
@@ -193,25 +185,28 @@ class ArusKasService
                 'saldo_akhir'    => $this->formatAngka($besar_awal + ($totals['kas_besar_in'] - $totals['kas_besar_out'])),
             ],
             'piutang' => [
-                'saldo_awal'     => $this->formatAngka($piutang_awal),
+                'saldo_awal'     => $this->formatAngka(0),
                 'piutang_in'     => $this->formatAngka($totals['piutang_in']),
                 'piutang_out'    => $this->formatAngka($totals['piutang_out']),
                 'saldo_berjalan' => $this->formatAngka($totals['piutang_in'] - $totals['piutang_out']),
-                'saldo_akhir'    => $this->formatAngka($piutang_awal + ($totals['piutang_in'] - $totals['piutang_out'])),
+                'saldo_akhir'    => $this->formatAngka($totals['piutang_in'] - $totals['piutang_out']),
             ],
             'hutang' => [
-                'saldo_awal'     => $this->formatAngka($hutang_awal),
+                'saldo_awal'     => $this->formatAngka(0),
                 'hutang_in'      => $this->formatAngka($totals['hutang_in']),
                 'hutang_out'     => $this->formatAngka($totals['hutang_out']),
                 'saldo_berjalan' => $this->formatAngka($totals['hutang_in'] - $totals['hutang_out']),
-                'saldo_akhir'    => $this->formatAngka($hutang_awal + ($totals['hutang_in'] - $totals['hutang_out'])),
+                'saldo_akhir'    => $this->formatAngka($totals['hutang_in'] - $totals['hutang_out']),
             ],
         ];
 
-        return [
-            'data'       => $data,
-            'data_total' => $data_total,
-        ];
+        return response()->json([
+            'data'          => $data,
+            'data_total'    => $data_total,
+            'current_page'  => $paginatedQuery->currentPage(),
+            'has_more_pages' => $paginatedQuery->hasMorePages(),
+            'total_rows'    => $paginatedQuery->total(),
+        ]);
     }
 
     private function getSaldoAwal($kas, $year, $month)

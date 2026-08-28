@@ -24,22 +24,12 @@
 
                                 <select id="selectTokoHeader" onchange="switchTokoHeader(this.value)"
                                     class="custom-select custom-select-sm ml-1"
-                                    style="width: 110px; height: 22px; padding: 0 16px 0 6px; font-size: 10px; font-weight: bold; background-color: #ffffff !important; color: #0f172a !important; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer;">
+                                    style="width: 70px; height: 22px; padding: 0 16px 0 6px; font-size: 10px; font-weight: bold; background-color: #ffffff !important; color: #0f172a !important; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer;">
                                     <option value="ALL" {{ $activeTokoId == 'ALL' ? 'selected' : '' }}>Semua</option>
                                     @foreach ($daftarToko as $toko)
-                                        @php
-                                            $labelToko = '';
-                                            if ($toko->parent_id === null || $toko->parent_id === undefined) {
-                                                $labelToko = 'Gudang';
-                                            } elseif ($toko->mitra) {
-                                                $labelToko = 'Mitra';
-                                            } else {
-                                                $labelToko = 'Cabang';
-                                            }
-                                        @endphp
                                         <option value="{{ $toko->id }}"
                                             {{ $activeTokoId == $toko->id ? 'selected' : '' }}>
-                                            {{ $toko->singkatan }} ({{ $labelToko }})
+                                            {{ $toko->singkatan }}
                                         </option>
                                     @endforeach
                                 </select>

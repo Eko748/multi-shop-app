@@ -210,10 +210,10 @@
 @endsection
 
 @section('asset_js')
-    <script src="{{ asset('js/pagination.js') }}"></script>
     <script src="{{ asset('js/moment.js') }}"></script>
     <script src="{{ asset('js/daterange-picker.js') }}"></script>
     <script src="{{ asset('js/daterange-custom.js') }}"></script>
+    <script src="{{ asset('js/pagination.js') }}"></script>
 @endsection
 
 @section('js')
@@ -538,6 +538,7 @@
             document.getElementById('tb-reset').addEventListener('click', async function() {
                 $('.select2').val('').trigger('change');
                 $('.tb-search').val('');
+                $('#daterange').val('');
 
                 customFilter = {};
                 defaultSearch = '';
@@ -548,6 +549,7 @@
                 currentSortToko = '';
                 currentOrder = 'desc';
 
+                await setTimeReport();
                 await getListData(defaultLimitPage, currentPage, 0, defaultSearch, customFilter);
             });
         }
@@ -563,9 +565,9 @@
         }
 
         async function initPageLoad() {
+            await setTimeReport();
+            await setDynamicButton();
             await Promise.all([
-                setDynamicButton(),
-                setTimeReport(),
                 selectMulti(selectOptions),
                 getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter),
                 searchList(),

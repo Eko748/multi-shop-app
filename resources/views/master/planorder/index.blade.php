@@ -134,7 +134,7 @@
                                             </div>
                                             <span><strong class="fw-bold"><i class="fa fa-box"></i></strong> Jumlah stock
                                                 barang yang
-                                                tersisa</span>
+                                                tersisa dan item terjual sesuai periode filter</span>
                                         </div>
                                         <div class="text-bold d-flex align-items-center mb-2">
                                             <em class="fa fa-circle mx-1"></em>

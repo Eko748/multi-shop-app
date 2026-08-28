@@ -60,33 +60,36 @@ class NeracaController extends Controller
             $year  = $request->input('year', now()->year);
             $tokoId = $request->input('toko_id');
 
-            // Jika toko_id tidak ada, ambil semua toko lalu akumulasikan
             if (empty($tokoId)) {
-                $tokos = \App\Models\Toko::all(); // Sesuaikan dengan namespace Model Toko Anda
+                $tokos = \App\Models\Toko::all();
 
                 $accumulatedData = null;
-                $accumulatedNotes = [];
+                $accumulatedNote = [
+                    'stock_hilang' => [
+                        'qty' => 0,
+                        'total_hpp' => 0,
+                    ]
+                ];
 
                 foreach ($tokos as $toko) {
                     $result = $this->neracaKeuanganService->generateNeraca($month, $year, $toko->id);
 
-                    // Gabungkan catatan / note jika ada
-                    if (!empty($result['note'])) {
-                        $accumulatedNotes[$toko->id] = $result['note'];
+                    // Akumulasikan note jika strukturnya memiliki stock_hilang
+                    if (!empty($result['note']['stock_hilang'])) {
+                        $accumulatedNote['stock_hilang']['qty'] += (int) ($result['note']['stock_hilang']['qty'] ?? 0);
+                        $accumulatedNote['stock_hilang']['total_hpp'] += (int) ($result['note']['stock_hilang']['total_hpp'] ?? 0);
                     }
 
                     if ($accumulatedData === null) {
                         $accumulatedData = $result['data'];
                     } else {
-                        // Akumulasikan nilai berdasarkan struktur Aktiva & Pasiva
                         $accumulatedData = $this->sumNeracaStructure($accumulatedData, $result['data']);
                     }
                 }
 
                 $finalData = $accumulatedData ?? [];
-                $finalNote = $accumulatedNotes;
+                $finalNote = $accumulatedNote;
             } else {
-                // Jika toko_id ada, jalankan seperti biasa
                 $data = $this->neracaKeuanganService->generateNeraca($month, $year, $tokoId);
                 $finalData = $data['data'];
                 $finalNote = $data['note'];

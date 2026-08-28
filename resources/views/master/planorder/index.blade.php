@@ -1,7 +1,7 @@
 @extends('layouts.main')
 
 @section('title')
-    Plan Order All Toko
+    Lokasi & Riwayat Barang
 @endsection
 
 @section('css')
@@ -218,7 +218,7 @@
 
 @section('js')
     <script>
-        let title = 'Plan Order';
+        let title = 'Lokasi & Riwayat Barang';
         let currentPage = 1;
         let totalPage = 1;
         let defaultAscending = 0;

@@ -64,20 +64,26 @@ class NeracaController extends Controller
                 $tokos = \App\Models\Toko::all();
 
                 $accumulatedData = null;
+
+                // Inisialisasi struktur note agar sama persis dengan return getStockProblem()
                 $accumulatedNote = [
-                    'stock_hilang' => [
-                        'qty' => 0,
-                        'total_hpp' => 0,
-                    ]
+                    'stock_hilang' => ['qty' => 0, 'total_hpp' => 0],
+                    'stock_mati'   => ['qty' => 0, 'total_hpp' => 0],
                 ];
 
                 foreach ($tokos as $toko) {
                     $result = $this->neracaKeuanganService->generateNeraca($month, $year, $toko->id);
 
-                    // Akumulasikan note jika strukturnya memiliki stock_hilang
-                    if (!empty($result['note']['stock_hilang'])) {
+                    // Akumulasi langsung nilai stock_hilang
+                    if (isset($result['note']['stock_hilang'])) {
                         $accumulatedNote['stock_hilang']['qty'] += (int) ($result['note']['stock_hilang']['qty'] ?? 0);
                         $accumulatedNote['stock_hilang']['total_hpp'] += (int) ($result['note']['stock_hilang']['total_hpp'] ?? 0);
+                    }
+
+                    // Akumulasi langsung nilai stock_mati
+                    if (isset($result['note']['stock_mati'])) {
+                        $accumulatedNote['stock_mati']['qty'] += (int) ($result['note']['stock_mati']['qty'] ?? 0);
+                        $accumulatedNote['stock_mati']['total_hpp'] += (int) ($result['note']['stock_mati']['total_hpp'] ?? 0);
                     }
 
                     if ($accumulatedData === null) {

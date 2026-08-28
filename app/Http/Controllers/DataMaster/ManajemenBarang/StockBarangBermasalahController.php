@@ -79,7 +79,7 @@ class StockBarangBermasalahController extends Controller
                     'harga_beli' => RupiahGenerate::build($batch?->harga_beli ?? 0),
                     'qty' => (int) ($item->qty ?? 0),
                     'total' => RupiahGenerate::build($total ?? 0),
-                    'status' => $item->status ?? '-',
+                    'status' => ($item->status === 'mati') ? 'Mati/Rusak' : ($item->status ?? '-'),
                     'created_at' => $item->created_at ? $item->created_at->format('d-m-Y H:i:s') : '-',
                 ];
             });

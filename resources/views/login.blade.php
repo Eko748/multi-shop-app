@@ -629,7 +629,7 @@
                     }
 
                     let labelToko = label ?
-                        `<sup><span style="background-color: ${bgColor}; color: ${textColor}; padding: 2px 6px; font-size: 75%; font-weight: 700; border-radius: 4px; display: inline-block;">${label}</span></sup>` :
+                        `<sup><span style="background-color: ${bgColor}; color: ${textColor}; padding: 3px 8px; line-height: 1.5; font-size: 70%; font-weight: 700; border-radius: 4px; display: inline-block;">${label}</span></sup>` :
                         '';
                     let namaToko = toko.nama || toko.nama_toko || 'Toko ' + toko.id;
                     let alamatToko = toko.alamat ? toko.alamat : 'Alamat tidak tersedia';

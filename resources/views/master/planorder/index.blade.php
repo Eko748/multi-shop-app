@@ -159,17 +159,23 @@
                                 </div>
                             </div>
                             <div class="collapse mt-2 pl-4" id="filter-collapse">
-                                <form id="custom-filter" class="d-flex justify-content-start align-items-center">
-                                    <input class="form-control" type="text" id="daterange" name="daterange"
-                                        placeholder="Pilih rentang tanggal">
-                                    <select name="f_toko" id="f_toko" class="form-select select2 mb-lg-0"
-                                        style="width: 200px;"></select>
-                                    <button class="btn btn-info mr-2 h-100 mb-2 mx-2" id="tb-filter" type="submit">
-                                        <i class="fa fa-magnifying-glass mr-2"></i>Cari
-                                    </button>
-                                    <button type="button" class="btn btn-secondary mr-2 h-100 mb-2" id="tb-reset">
-                                        <i class="fa fa-rotate mr-2"></i>Reset
-                                    </button>
+                                <form id="custom-filter" class="row g-2 align-items-center">
+                                    <div class="col-auto" style="min-width: 240px;">
+                                        <input class="form-control" type="text" id="daterange" name="daterange"
+                                            placeholder="Pilih rentang tanggal">
+                                    </div>
+                                    <div class="col-auto">
+                                        <select name="f_toko" id="f_toko" class="form-select select2"
+                                            style="width: 200px;"></select>
+                                    </div>
+                                    <div class="col-auto">
+                                        <button class="btn btn-info px-3" id="tb-filter" type="submit">
+                                            <i class="fa fa-magnifying-glass mr-2"></i>Cari
+                                        </button>
+                                        <button type="button" class="btn btn-secondary px-3 ml-1" id="tb-reset">
+                                            <i class="fa fa-rotate mr-2"></i>Reset
+                                        </button>
+                                    </div>
                                 </form>
                             </div>
                             <div class="card-body p-0">
@@ -546,9 +552,20 @@
             });
         }
 
+        function setTimeReport() {
+            const now = new Date();
+            const formattedNow =
+                `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+
+            $('#time-report').html(
+                `<i class="fa fa-file-text mr-1"></i><b>${title}</b> saat ini <br>(<b class="text-primary">${formattedNow}</b>)`
+            );
+        }
+
         async function initPageLoad() {
             await Promise.all([
                 setDynamicButton(),
+                setTimeReport(),
                 selectMulti(selectOptions),
                 getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter),
                 searchList(),

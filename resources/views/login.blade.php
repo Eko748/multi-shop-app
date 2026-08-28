@@ -612,6 +612,7 @@
 
             if (Array.isArray(daftarToko)) {
                 daftarToko.forEach(toko => {
+                    let mitra = toko.mitra ? '<sup><span class="badge bg-danger">Mitra</span></sup>' : '';
                     let namaToko = toko.nama || toko.nama_toko || 'Toko ' + toko.id;
                     let alamatToko = toko.alamat ? toko.alamat : 'Alamat tidak tersedia';
                     let singkatanToko = toko.singkatan ? toko.singkatan.trim() : (namaToko.charAt(0) || toko
@@ -660,7 +661,7 @@
 
                     <div style="text-align: left; min-width: 0; flex: 1;">
                         <div style="font-weight: 700; color: #0f172a; font-size: 14px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${namaToko}">
-                            ${namaToko}
+                            ${namaToko} ${mitra}
                         </div>
                         <div style="font-size: 12px; color: #64748b; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${alamatToko}">
                             ${alamatToko}

@@ -613,15 +613,24 @@
             if (Array.isArray(daftarToko)) {
                 daftarToko.forEach(toko => {
                     let label = '';
+                    let bgColor = '';
+                    let textColor = '#ffffff';
+
                     if (toko.parent_id === null || toko.parent_id === undefined) {
                         label = 'Gudang';
+                        bgColor = '#ffc107'; // Kuning
+                        textColor = '#000000'; // Teks hitam agar kontras
                     } else if (toko.mitra) {
                         label = 'Mitra';
+                        bgColor = '#dc3545'; // Merah
                     } else {
                         label = 'Cabang';
+                        bgColor = '#0d6efd'; // Biru
                     }
 
-                    let labelToko = label ? `<sup><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-500 text-white">${label}</span></sup>` : '';
+                    let labelToko = label ?
+                        `<sup><span style="background-color: ${bgColor}; color: ${textColor}; padding: 2px 6px; font-size: 75%; font-weight: 700; border-radius: 4px; display: inline-block;">${label}</span></sup>` :
+                        '';
                     let namaToko = toko.nama || toko.nama_toko || 'Toko ' + toko.id;
                     let alamatToko = toko.alamat ? toko.alamat : 'Alamat tidak tersedia';
                     let singkatanToko = toko.singkatan ? toko.singkatan.trim() : (namaToko.charAt(0) || toko

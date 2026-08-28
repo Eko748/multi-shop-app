@@ -39,22 +39,29 @@ class NeracaKeuanganService
 
     public function generateNeraca(int $month, int $year, $tokoId)
     {
-        // Ambil data dari masing-masing repository
-        $pengeluaranAset = $this->pengeluaranRepo->getPengeluaranAset($month, $year, $tokoId);
+        // Jika tokoId kosong atau 'all', ambil semua ID toko aktif
+        if (empty($tokoId) || strtolower((string) $tokoId) === 'all') {
+            $tokoIds = Toko::whereNull('deleted_at')->pluck('id')->toArray();
+        } else {
+            $tokoIds = [$tokoId];
+        }
 
-        $hutangItems = $this->hutangRepo->getActiveHutang($month, $year, $tokoId);
-        $ekuitasItems = $this->generateEkuitas($month, $year, $tokoId);
-        $returData = $this->returRepo->getReturData($month, $year, $tokoId);
-        $piutangData = $this->piutangRepo->getActivePiutang($month, $year, $tokoId);
-        $penyesuaianNeraca = $this->neracaRepo->getTotalPenyesuaian($month, $year, $tokoId);
-        $stokProblem = $this->stokProblemRepo->getStockProblem($month, $year, $tokoId);
-        $pengirimanData = $this->pengirimanBarangRepo->getStokPengirimanBarang($month, $year, $tokoId);
-        // Kas besar/kecil via service
-        $kasData = $this->generateKas($tokoId, $month, $year);
+        $allGeneratedNeraca = [];
+        $allNotes = [];
 
-        // Satukan hasil akhir
-        return [
-            'data' => $this->composeNeracaStructure(
+        // Loop dan generate neraca untuk setiap toko
+        foreach ($tokoIds as $id) {
+            $pengeluaranAset = $this->pengeluaranRepo->getPengeluaranAset($month, $year, $id);
+            $hutangItems = $this->hutangRepo->getActiveHutang($month, $year, $id);
+            $ekuitasItems = $this->generateEkuitas($month, $year, $id);
+            $returData = $this->returRepo->getReturData($month, $year, $id);
+            $piutangData = $this->piutangRepo->getActivePiutang($month, $year, $id);
+            $penyesuaianNeraca = $this->neracaRepo->getTotalPenyesuaian($month, $year, $id);
+            $stokProblem = $this->stokProblemRepo->getStockProblem($month, $year, $id);
+            $pengirimanData = $this->pengirimanBarangRepo->getStokPengirimanBarang($month, $year, $id);
+            $kasData = $this->generateKas($id, $month, $year);
+
+            $allGeneratedNeraca[] = $this->composeNeracaStructure(
                 $pengeluaranAset,
                 $hutangItems,
                 $ekuitasItems,
@@ -65,10 +72,96 @@ class NeracaKeuanganService
                 $month,
                 $year,
                 $pengirimanData,
-                $tokoId
-            ),
-            'note' => $stokProblem,
+                $id
+            );
+
+            if (!empty($stokProblem)) {
+                $allNotes[] = $stokProblem;
+            }
+        }
+
+        // Jika hanya 1 toko, langsung kembalikan hasilnya tanpa penggabungan
+        if (count($tokoIds) === 1) {
+            return [
+                'data' => $allGeneratedNeraca[0],
+                'note' => $allNotes[0] ?? null,
+            ];
+        }
+
+        // Jika lebih dari 1 toko, gabungkan dan jumlahkan berdasarkan kode yang sama
+        return [
+            'data' => $this->mergeNeracaStructures($allGeneratedNeraca),
+            'note' => $allNotes,
         ];
+    }
+
+    private function mergeNeracaStructures(array $neracas): array
+    {
+        $mergedTemplate = $neracas[0];
+
+        // Helper rekursif untuk menjumlahkan nilai pada struktur kategori & item
+        $sumItems = function (&$targetItems, $sourceItems) {
+            $itemMap = [];
+            foreach ($targetItems as $item) {
+                $key = $item['kode'] ?? ($item['nama'] ?? uniqid());
+                $itemMap[$key] = $item;
+            }
+
+            foreach ($sourceItems as $item) {
+                $key = $item['kode'] ?? ($item['nama'] ?? uniqid());
+                if (isset($itemMap[$key])) {
+                    $itemMap[$key]['nilai'] = (int) ($itemMap[$key]['nilai'] ?? 0) + (int) ($item['nilai'] ?? 0);
+                    $itemMap[$key]['format'] = RupiahGenerate::build($itemMap[$key]['nilai']);
+
+                    // Jika memiliki sub-item (seperti subkategori), gabungkan juga
+                    if (isset($item['item']) && is_array($item['item'])) {
+                        if (!isset($itemMap[$key]['item'])) {
+                            $itemMap[$key]['item'] = [];
+                        }
+                        // Rekursif merge untuk item bersarang
+                        $subMap = [];
+                        foreach ($itemMap[$key]['item'] as $sub) {
+                            $subMap[$sub['kode'] ?? $sub['nama']] = $sub;
+                        }
+                        foreach ($item['item'] as $sub) {
+                            $sKey = $sub['kode'] ?? $sub['nama'];
+                            if (isset($subMap[$sKey])) {
+                                $subMap[$sKey]['nilai'] = (int) ($subMap[$sKey]['nilai'] ?? 0) + (int) ($sub['nilai'] ?? 0);
+                                $subMap[$sKey]['format'] = RupiahGenerate::build($subMap[$sKey]['nilai']);
+                            } else {
+                                $subMap[$sKey] = $sub;
+                            }
+                        }
+                        $itemMap[$key]['item'] = array_values($subMap);
+                    }
+                } else {
+                    $itemMap[$key] = $item;
+                }
+            }
+            $targetItems = array_values($itemMap);
+        };
+
+        // Iterasi mulai dari neraca kedua dan gabungkan ke neraca pertama
+        for ($i = 1; $i < count($neracas); $i++) {
+            $current = $neracas[$i];
+
+            foreach ($current as $katIndex => $kategori) {
+                $mergedTemplate[$katIndex]['total'] = (int) ($mergedTemplate[$katIndex]['total'] ?? 0) + (int) ($kategori['total'] ?? 0);
+                $mergedTemplate[$katIndex]['format'] = RupiahGenerate::build($mergedTemplate[$katIndex]['total']);
+
+                foreach ($kategori['subkategori'] as $subKatIndex => $subkategori) {
+                    $mergedTemplate[$katIndex]['subkategori'][$subKatIndex]['total'] = (int) ($mergedTemplate[$katIndex]['subkategori'][$subKatIndex]['total'] ?? 0) + (int) ($subkategori['total'] ?? 0);
+                    $mergedTemplate[$katIndex]['subkategori'][$subKatIndex]['format'] = RupiahGenerate::build($mergedTemplate[$katIndex]['subkategori'][$subKatIndex]['total']);
+
+                    $sumItems(
+                        $mergedTemplate[$katIndex]['subkategori'][$subKatIndex]['item'],
+                        $subkategori['item']
+                    );
+                }
+            }
+        }
+
+        return $mergedTemplate;
     }
 
     private function generateEkuitas(int $month, int $year, $tokoId)

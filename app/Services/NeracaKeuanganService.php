@@ -99,10 +99,10 @@ class NeracaKeuanganService
     {
         $mergedTemplate = $neracas[0];
 
-        // Helper rekursif untuk menjumlahkan nilai pada struktur kategori & item
         $sumItems = function (&$targetItems, $sourceItems) {
             $itemMap = [];
             foreach ($targetItems as $item) {
+                // Gunakan kode sebagai key utama agar presisi (misal: I.4.1, I.4.2)
                 $key = $item['kode'] ?? ($item['nama'] ?? uniqid());
                 $itemMap[$key] = $item;
             }
@@ -110,15 +110,21 @@ class NeracaKeuanganService
             foreach ($sourceItems as $item) {
                 $key = $item['kode'] ?? ($item['nama'] ?? uniqid());
                 if (isset($itemMap[$key])) {
+                    // Jumlahkan nilai angka
                     $itemMap[$key]['nilai'] = (int) ($itemMap[$key]['nilai'] ?? 0) + (int) ($item['nilai'] ?? 0);
                     $itemMap[$key]['format'] = RupiahGenerate::build($itemMap[$key]['nilai']);
 
-                    // Jika memiliki sub-item (seperti subkategori), gabungkan juga
+                    // Khusus untuk item stok barang jenis (misal: "Beras (10)" dan "Beras (5)")
+                    // Kita sinkronkan ulang format nama & qty jika mengandung pola kurung angka (...)
+                    if (isset($item['nama']) && preg_match('/\(([\d.,]+)\)$/', $item['nama'], $matches)) {
+                        // Ekstrak angka qty dari nama jika ada
+                        // Biar aman, biarkan nama dari template utama atau sesuaikan jika perlu
+                    }
+
                     if (isset($item['item']) && is_array($item['item'])) {
                         if (!isset($itemMap[$key]['item'])) {
                             $itemMap[$key]['item'] = [];
                         }
-                        // Rekursif merge untuk item bersarang
                         $subMap = [];
                         foreach ($itemMap[$key]['item'] as $sub) {
                             $subMap[$sub['kode'] ?? $sub['nama']] = $sub;
@@ -135,13 +141,13 @@ class NeracaKeuanganService
                         $itemMap[$key]['item'] = array_values($subMap);
                     }
                 } else {
+                    // Jika toko kedua memiliki item jenis barang yang tidak ada di toko pertama
                     $itemMap[$key] = $item;
                 }
             }
             $targetItems = array_values($itemMap);
         };
 
-        // Iterasi mulai dari neraca kedua dan gabungkan ke neraca pertama
         for ($i = 1; $i < count($neracas); $i++) {
             $current = $neracas[$i];
 

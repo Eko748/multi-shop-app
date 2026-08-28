@@ -8,7 +8,14 @@
     <link rel="stylesheet" href="{{ asset('css/button-action.css') }}">
     <link rel="stylesheet" href="{{ asset('css/table.css') }}">
     <link rel="stylesheet" href="{{ asset('css/sweetalert2.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/daterange-picker.css') }}">
     <style>
+        #daterange[readonly] {
+            background-color: white !important;
+            cursor: pointer !important;
+            color: inherit !important;
+        }
+
         .header-wrapper {
             justify-content: center;
             position: relative;
@@ -74,7 +81,7 @@
                 <div class="col-xl-12">
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
-                            <div class="d-flex gap-1">
+                            <div class="d-flex gap-1" style="gap: 0.5rem">
                                 <button class="btn-dynamic btn btn-outline-primary" type="button" data-toggle="collapse"
                                     data-target="#filter-collapse" aria-expanded="false" aria-controls="filter-collapse">
                                     <i class="fa fa-filter"></i> Filter
@@ -84,6 +91,7 @@
                                     aria-controls="info-collapse">
                                     <i class="fa fa-circle-info"></i> Informasi
                                 </button>
+                                <span id="time-report" class="font-weight-bold"></span>
                             </div>
                             <div class="d-flex justify-content-between align-items-center flex-wrap">
                                 <select name="limitPage" id="limitPage" class="form-control mr-2 mb-2 mb-lg-0"
@@ -152,6 +160,8 @@
                             </div>
                             <div class="collapse mt-2 pl-4" id="filter-collapse">
                                 <form id="custom-filter" class="d-flex justify-content-start align-items-center">
+                                    <input class="form-control" type="text" id="daterange" name="daterange"
+                                        placeholder="Pilih rentang tanggal">
                                     <select name="f_toko" id="f_toko" class="form-select select2 mb-lg-0"
                                         style="width: 200px;"></select>
                                     <button class="btn btn-info mr-2 h-100 mb-2 mx-2" id="tb-filter" type="submit">
@@ -195,6 +205,9 @@
 
 @section('asset_js')
     <script src="{{ asset('js/pagination.js') }}"></script>
+    <script src="{{ asset('js/moment.js') }}"></script>
+    <script src="{{ asset('js/daterange-picker.js') }}"></script>
+    <script src="{{ asset('js/daterange-custom.js') }}"></script>
 @endsection
 
 @section('js')
@@ -252,7 +265,9 @@
         async function getListData(limit = 10, page = 1, ascending = 0, search = '', filter = {}) {
             $('#listData').html(renderData());
 
-            let filterParams = {};
+            let filterParams = {
+                ...customFilter
+            };
             if (filter['toko_id']) {
                 filterParams.toko_id = filter['toko_id'];
             }
@@ -487,9 +502,29 @@
                     delete customFilter['toko_id'];
                 }
 
+                let startDate = dateRangePickerList.data('daterangepicker').startDate;
+                let endDate = dateRangePickerList.data('daterangepicker').endDate;
+
+                if (!startDate || !endDate) {
+                    startDate = null;
+                    endDate = null;
+                } else {
+                    startDate = startDate.startOf('day').format('YYYY-MM-DD HH:mm:ss');
+                    endDate = endDate.endOf('day').format('YYYY-MM-DD HH:mm:ss');
+                }
+
+                customFilter = {
+                    startDate: $("#daterange").val() != '' ? startDate : '',
+                    endDate: $("#daterange").val() != '' ? endDate : '',
+                };
+
                 defaultSearch = $('.tb-search').val();
                 defaultLimitPage = $('#limitPage').val();
                 currentPage = 1;
+
+                $('#time-report').html(
+                    `<i class="fa fa-file-text mr-1"></i><b>${title}</b> <br>(<b class="text-primary">${startDate}</b> s/d <b class="text-primary">${endDate}</b>)`
+                );
 
                 await getListData(defaultLimitPage, currentPage, 0, defaultSearch, customFilter);
             });

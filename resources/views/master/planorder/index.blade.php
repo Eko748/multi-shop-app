@@ -58,7 +58,7 @@
 
         th.sortable-col,
         td[class*="header-"] {
-            width: 1% !important;
+            width: 3% !important;
             white-space: nowrap !important;
             padding-left: 4px !important;
             padding-right: 4px !important;

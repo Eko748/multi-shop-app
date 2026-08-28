@@ -46,6 +46,15 @@
             background-color: rgba(0, 0, 0, 0.1);
             cursor: pointer;
         }
+
+        /* Tambahan untuk menciutkan kolom warna-warni */
+        th.sortable-col,
+        td[class*="header-"] {
+            width: 1% !important;
+            white-space: nowrap !important;
+            padding-left: 4px !important;
+            padding-right: 4px !important;
+        }
     </style>
 @endsection
 

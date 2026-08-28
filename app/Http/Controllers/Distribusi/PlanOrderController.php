@@ -28,7 +28,6 @@ class PlanOrderController extends Controller
     public function getplanorder(Request $request)
     {
         try {
-            // 1. Direction Sorting
             $orderDirection = strtolower($request->input('order', 'desc'));
             if (! in_array($orderDirection, ['asc', 'desc'])) {
                 $orderDirection = 'desc';
@@ -36,6 +35,10 @@ class PlanOrderController extends Controller
 
             $limit = $request->has('limit') && $request->limit <= 50 ? (int) $request->limit : 10;
             $page = (int) $request->input('page', 1);
+
+            $startDate = $request->input('startDate');
+            $endDate = $request->input('endDate');
+            $hasDate = ! empty($startDate) && ! empty($endDate);
 
             $selectedTokoIds = $request->input('toko_id', []);
             if (empty($selectedTokoIds)) {
@@ -47,7 +50,7 @@ class PlanOrderController extends Controller
                 ->get();
 
             // =========================================================
-            // 2. QUERY AGGREGATION GLOBAL (Mencegah N+1)
+            // 2. QUERY AGGREGATION GLOBAL (Stock, OTW, Last Order, Terjual)
             // =========================================================
             $stockGrouped = StockBarangBatch::selectRaw('stock_barang.barang_id, stock_barang_batch.toko_id, SUM(qty_sisa) as total_stock')
                 ->join('stock_barang', 'stock_barang.id', '=', 'stock_barang_batch.stock_barang_id')
@@ -73,6 +76,26 @@ class PlanOrderController extends Controller
                 ->get()
                 ->groupBy('barang_id');
 
+            // Query Terjual (Diadaptasi dari getRatingBarang dengan filter rentang tanggal / default hari ini)
+            $terjualQuery = TransaksiKasirDetail::selectRaw('stock_barang.barang_id, transaksi_kasir.toko_id, SUM(transaksi_kasir_detail.qty - COALESCE(retur_member_detail.qty_request,0)) as net_terjual')
+                ->join('transaksi_kasir', 'transaksi_kasir.id', '=', 'transaksi_kasir_detail.transaksi_kasir_id')
+                ->join('stock_barang_batch', 'stock_barang_batch.id', '=', 'transaksi_kasir_detail.stock_barang_batch_id')
+                ->join('stock_barang', 'stock_barang.id', '=', 'stock_barang_batch.stock_barang_id')
+                ->leftJoin('retur_member_detail', function ($join) {
+                    $join->on('transaksi_kasir_detail.id', '=', 'retur_member_detail.transaksi_kasir_detail_id');
+                })
+                ->whereIn('transaksi_kasir.toko_id', $selectedTokoIds);
+
+            if ($hasDate) {
+                $terjualQuery->whereBetween('transaksi_kasir_detail.created_at', [$startDate, $endDate]);
+            } else {
+                $terjualQuery->whereDate('transaksi_kasir_detail.created_at', \Carbon\Carbon::today());
+            }
+
+            $terjualGrouped = $terjualQuery->groupBy('stock_barang.barang_id', 'transaksi_kasir.toko_id')
+                ->get()
+                ->groupBy('barang_id');
+
             // =========================================================
             // 3. FETCH BARANG DENGAN FILTER SEARCH
             // =========================================================
@@ -90,17 +113,19 @@ class PlanOrderController extends Controller
             // =========================================================
             $nowStartOfDay = now()->startOfDay();
 
-            $calculatedCollection = $allBarang->map(function ($item) use ($tokoList, $stockGrouped, $otwGrouped, $lastOrders, $nowStartOfDay) {
+            $calculatedCollection = $allBarang->map(function ($item) use ($tokoList, $stockGrouped, $otwGrouped, $lastOrders, $terjualGrouped, $nowStartOfDay) {
                 $bStock = $stockGrouped->get($item->id, collect())->keyBy('toko_id');
                 $bOtw = $otwGrouped->get($item->id, collect())->keyBy('toko_id');
                 $bLo = $lastOrders->get($item->id, collect())->keyBy('toko_id');
+                $bTerjual = $terjualGrouped->get($item->id, collect())->keyBy('toko_id');
 
                 $grandTotalStock = 0;
 
-                $stokPerToko = $tokoList->mapWithKeys(function ($tk) use ($bStock, $bOtw, $bLo, &$grandTotalStock, $nowStartOfDay) {
+                $stokPerToko = $tokoList->mapWithKeys(function ($tk) use ($bStock, $bOtw, $bLo, $bTerjual, &$grandTotalStock, $nowStartOfDay) {
                     $stock = (int) ($bStock->get($tk->id)->total_stock ?? 0);
                     $otw = (int) ($bOtw->get($tk->id)->total_otw ?? 0);
                     $loRaw = $bLo->get($tk->id)->last_date ?? null;
+                    $terjual = (int) ($bTerjual->get($tk->id)->net_terjual ?? 0);
 
                     $grandTotalStock += $stock;
 
@@ -113,6 +138,7 @@ class PlanOrderController extends Controller
                             'stock' => $stock,
                             'otw' => $otw,
                             'lo' => $lo,
+                            'terjual' => $terjual, // <-- Penambahan data terjual per toko
                         ],
                     ];
                 });
@@ -138,7 +164,6 @@ class PlanOrderController extends Controller
                     $valA = $a['stok_per_toko'][$sortToko][$sortBy] ?? null;
                     $valB = $b['stok_per_toko'][$sortToko][$sortBy] ?? null;
 
-                    // Penanganan khusus NULL (data null selalu ditaruh di paling bawah)
                     if ($valA === null && $valB === null) {
                         $cmp = 0;
                     } elseif ($valA === null) {
@@ -149,11 +174,9 @@ class PlanOrderController extends Controller
                         $cmp = $valA <=> $valB;
                     }
                 } else {
-                    // Default Sort: Grand Total Stock
                     $cmp = $a['grand_total_stock'] <=> $b['grand_total_stock'];
                 }
 
-                // Jika nilainya sama, gunakan ID Barang sebagai Tie-Breaker (Urutan Stabil)
                 if ($cmp === 0) {
                     return $a['id'] <=> $b['id'];
                 }

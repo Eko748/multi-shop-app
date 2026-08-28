@@ -191,8 +191,8 @@
             isUrl: '{{ route('master.toko') }}',
             placeholder: 'Pilih Toko'
         }];
-        let currentSortBy = ''; // 'stock', 'otw', 'lo'
-        let currentSortToko = ''; // 'PST', 'CRB', dll.
+        let currentSortBy = '';
+        let currentSortToko = '';
         let currentOrder = 'desc';
         let defaultLimitPage = 10;
         let defaultSearch = '';
@@ -273,9 +273,9 @@
             } else {
                 let errorMessage = getDataRest?.data?.message || 'Data gagal dimuat';
                 let errorRow = `
-        <tr class="text-dark">
-            <th class="text-center" colspan="100"> ${errorMessage} </th>
-        </tr>`;
+                <tr class="text-dark">
+                    <th class="text-center" colspan="100"> ${errorMessage} </th>
+                </tr>`;
                 $('#listData').html(errorRow);
                 $('#countPage').text("0 - 0");
                 $('#totalPage').text("0");
@@ -291,16 +291,15 @@
             let dynamicHeaders = dynamicKeys.map((key, index) => {
                 let title = tokoMap[key] || key;
                 return `
-            <th class="text-wrap align-top text-center toggle-header" colspan="3" data-key="header-${index}" id="header-${index}" title="${title}" data-toggle="tooltip" data-placement="top">
-                <div class="d-flex align-items-center justify-content-center header-wrapper cursor-pointer">
-                    <span class="fw-bold">${key}</span>
-                    <i class="fa fa-caret-left ml-2"></i>
-                </div>
-            </th>
-        `;
+                    <th class="text-wrap align-top text-center toggle-header" colspan="3" data-key="header-${index}" id="header-${index}" title="${title}" data-toggle="tooltip" data-placement="top">
+                        <div class="d-flex align-items-center justify-content-center header-wrapper cursor-pointer">
+                            <span class="fw-bold">${key}</span>
+                            <i class="fa fa-caret-left ml-2"></i>
+                        </div>
+                    </th>
+                `;
             }).join('');
 
-            // SUBHEADER DENGAN IKON SORTING AKTIF
             let subHeaders = dynamicKeys.map((key, index) => {
                 const getSortIcon = (sortBy) => {
                     if (currentSortToko === key && currentSortBy === sortBy) {
@@ -319,43 +318,43 @@
                     'border border-dark shadow-sm' : '';
 
                 return `
-            <th class="text-wrap align-top text-center sortable-col header-${index}-stock ${activeStock}"
-                data-sort-by="stock" data-sort-toko="${key}" title="Urutkan Stok ${key}"
-                style="background: linear-gradient(to bottom, #a8e6a1, #66ff66); width: 80px; cursor: pointer;">
-                <div class="d-flex align-items-center justify-content-center">
-                    <i class="fa fa-box"></i>
-                    ${getSortIcon('stock')}
-                </div>
-            </th>
-            <th class="text-wrap align-top text-center sortable-col header-${index}-otw ${activeOtw}"
-                data-sort-by="otw" data-sort-toko="${key}" title="Urutkan OTW ${key}"
-                style="background: linear-gradient(to bottom, #fff9a1, #ffff33); width: 80px; cursor: pointer;">
-                <div class="d-flex align-items-center justify-content-center">
-                    <i class="fa fa-truck-fast"></i>
-                    ${getSortIcon('otw')}
-                </div>
-            </th>
-            <th class="text-wrap align-top text-center sortable-col header-${index}-lo ${activeLo}"
-                data-sort-by="lo" data-sort-toko="${key}" title="Urutkan Last Order ${key}"
-                style="background: linear-gradient(to bottom, #a1e9ff, #00ccff); width: 80px; cursor: pointer;">
-                <div class="d-flex align-items-center justify-content-center">
-                    <i class="fa fa-clock"></i>
-                    ${getSortIcon('lo')}
-                </div>
-            </th>
-        `;
+                    <th class="text-wrap align-top text-center sortable-col header-${index}-stock ${activeStock}"
+                        data-sort-by="stock" data-sort-toko="${key}" title="Urutkan Stok ${key}"
+                        style="background: linear-gradient(to bottom, #a8e6a1, #66ff66); width: 20px; cursor: pointer;">
+                        <div class="d-flex align-items-center justify-content-center">
+                            <i class="fa fa-box"></i>
+                            ${getSortIcon('stock')}
+                        </div>
+                    </th>
+                    <th class="text-wrap align-top text-center sortable-col header-${index}-otw ${activeOtw}"
+                        data-sort-by="otw" data-sort-toko="${key}" title="Urutkan OTW ${key}"
+                        style="background: linear-gradient(to bottom, #fff9a1, #ffff33); width: 20px; cursor: pointer;">
+                        <div class="d-flex align-items-center justify-content-center">
+                            <i class="fa fa-truck-fast"></i>
+                            ${getSortIcon('otw')}
+                        </div>
+                    </th>
+                    <th class="text-wrap align-top text-center sortable-col header-${index}-lo ${activeLo}"
+                        data-sort-by="lo" data-sort-toko="${key}" title="Urutkan Last Order ${key}"
+                        style="background: linear-gradient(to bottom, #a1e9ff, #00ccff); width: 20px; cursor: pointer;">
+                        <div class="d-flex align-items-center justify-content-center">
+                            <i class="fa fa-clock"></i>
+                            ${getSortIcon('lo')}
+                        </div>
+                    </th>
+                `;
             }).join('');
 
             let tableHeaders = `
-    <tr class="tb-head">
-        <th class="text-center text-wrap align-top" style="width: 10px;">No</th>
-        <th class="text-wrap align-top" style="width: 200px;">Nama Barang</th>
-        ${dynamicHeaders}
-    </tr>
-    <tr class="tb-subhead">
-        <th colspan="2"></th>
-        ${subHeaders}
-    </tr>`;
+            <tr class="tb-head">
+                <th class="text-center text-wrap align-top" style="width: 10px;">No</th>
+                <th class="text-wrap align-top" style="width: 200px;">Nama Barang</th>
+                ${dynamicHeaders}
+            </tr>
+            <tr class="tb-subhead">
+                <th colspan="2"></th>
+                ${subHeaders}
+            </tr>`;
 
             $('#dynamicHeaders').html(tableHeaders);
 
@@ -365,18 +364,18 @@
                 let stokColumns = dynamicKeys.map((key, i) => {
                     let tokoData = element.stok_per_toko[key] || {};
                     return `
-                <td class="${classCol} text-center header-${i}-stock" style="background-color: #CCFFCC"><b>${tokoData.stock ?? '-'}</b></td>
-                <td class="${classCol} text-center header-${i}-otw" style="background-color: #FFFFCC"><b>${tokoData.otw ?? '-'}</b></td>
-                <td class="${classCol} text-center header-${i}-lo" style="background-color: #99CCFF"><b>${tokoData.lo !== null ? tokoData.lo + ' hr' : '-'}</b></td>
-            `;
+                        <td class="${classCol} text-center header-${i}-stock" style="background-color: #CCFFCC"><b>${tokoData.stock ?? '-'}</b></td>
+                        <td class="${classCol} text-center header-${i}-otw" style="background-color: #FFFFCC"><b>${tokoData.otw ?? '-'}</b></td>
+                        <td class="${classCol} text-center header-${i}-lo" style="background-color: #99CCFF"><b>${tokoData.lo !== null ? tokoData.lo + ' hr' : '-'}</b></td>
+                    `;
                 }).join('');
 
                 getDataTable += `
-        <tr class="text-dark">
-            <td class="${classCol} text-center">${display_from + index}.</td>
-            <td class="${classCol}">${element.nama_barang}</td>
-            ${stokColumns}
-        </tr>`;
+                <tr class="text-dark">
+                    <td class="${classCol} text-center">${display_from + index}.</td>
+                    <td class="${classCol}">${element.nama_barang}</td>
+                    ${stokColumns}
+                </tr>`;
             });
 
             $('#listData').html(getDataTable);

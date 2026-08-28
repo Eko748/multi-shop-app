@@ -47,7 +47,15 @@
             cursor: pointer;
         }
 
-        /* Tambahan untuk menciutkan kolom warna-warni */
+        th:first-child,
+        td:first-child {
+            width: 1% !important;
+            white-space: nowrap !important;
+            text-align: center !important;
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+        }
+
         th.sortable-col,
         td[class*="header-"] {
             width: 1% !important;

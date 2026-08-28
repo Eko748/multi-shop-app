@@ -88,10 +88,10 @@ class NeracaKeuanganService
             ];
         }
 
-        // Jika lebih dari 1 toko, gabungkan dan jumlahkan berdasarkan kode yang sama
+        // Jika lebih dari 1 toko, gabungkan data neraca dan jadikan note string/array yang aman
         return [
             'data' => $this->mergeNeracaStructures($allGeneratedNeraca),
-            'note' => $allNotes,
+            'note' => !empty($allNotes) ? implode(' | ', array_column($allNotes, 'pesan') ?? $allNotes) : null,
         ];
     }
 

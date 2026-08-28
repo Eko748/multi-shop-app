@@ -679,7 +679,7 @@
 
                     <div style="text-align: left; min-width: 0; flex: 1;">
                         <div style="font-weight: 700; color: #0f172a; font-size: 14px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${namaToko}">
-                            ${namaToko} ${labelToko}
+                            ${labelToko} ${namaToko}
                         </div>
                         <div style="font-size: 12px; color: #64748b; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${alamatToko}">
                             ${alamatToko}

@@ -621,7 +621,7 @@
                         label = 'Cabang';
                     }
 
-                    let labelToko = label ? `<sup><span class="badge bg-danger">${label}</span></sup>` : '';
+                    let labelToko = label ? `<sup><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-500 text-white">${label}</span></sup>` : '';
                     let namaToko = toko.nama || toko.nama_toko || 'Toko ' + toko.id;
                     let alamatToko = toko.alamat ? toko.alamat : 'Alamat tidak tersedia';
                     let singkatanToko = toko.singkatan ? toko.singkatan.trim() : (namaToko.charAt(0) || toko

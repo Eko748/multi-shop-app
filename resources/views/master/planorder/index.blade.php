@@ -402,7 +402,7 @@
                 let stokColumns = dynamicKeys.map((key, i) => {
                     let tokoData = element.stok_per_toko[key] || {};
                     return `
-                        <td class="${classCol} text-center header-${i}-stock" style="background-color: #CCFFCC; width: 1px; white-space: nowrap; padding-left: 4px; padding-right: 4px;"><b>${tokoData.stock ?? 0}/<sub>${tokoData.terjual ?? 0}</sub></b></td>
+                        <td class="${classCol} text-center header-${i}-stock" style="background-color: #CCFFCC; width: 1px; white-space: nowrap; padding-left: 4px; padding-right: 4px;"><b>${tokoData.stock ?? 0}/<sub class="text-danger">${tokoData.terjual ?? 0}</sub></b></td>
                         <td class="${classCol} text-center header-${i}-otw" style="background-color: #FFFFCC; width: 1px; white-space: nowrap; padding-left: 4px; padding-right: 4px;"><b>${tokoData.otw ?? '-'}</b></td>
                         <td class="${classCol} text-center header-${i}-lo" style="background-color: #99CCFF; width: 1px; white-space: nowrap; padding-left: 4px; padding-right: 4px;"><b>${tokoData.lo !== null ? tokoData.lo + ' hr' : '-'}</b></td>
                     `;

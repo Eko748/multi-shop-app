@@ -778,7 +778,7 @@ class DashboardController extends Controller
 
             $tokos = $tokosQuery->get();
 
-            // Ambil data KasTransaksi
+            // 1. Ambil data Nominal KasTransaksi (untuk total_transaksi / nominal uang masuk)
             $kasData = KasTransaksi::with('kas')
                 ->where('tipe', 'in')
                 ->where('kategori', 'Pendapatan Umum')
@@ -788,6 +788,17 @@ class DashboardController extends Controller
             $kasPerToko = $kasData->groupBy(function ($item) {
                 return $item->kas->toko_id ?? null;
             });
+
+            // 2. Ambil jumlah transaksi kasir per toko (disamakan dengan getJumlahTransaksi)
+            $jumlahTxKasirPerToko = TransaksiKasir::selectRaw('toko_id, count(*) as total')
+                ->where('total_qty', '>', 0)
+                ->whereBetween('tanggal', [$startDate, $endDate])
+                ->groupBy('toko_id')
+                ->pluck('total', 'toko_id');
+
+            // 3. (Opsional jika ada Penjualan Non Fisik yang perlu dihitung juga per toko)
+            // Jika PNF mencatat berdasarkan user pembuat, kita bisa sesuaikan,
+            // tapi jika fokus utamanya TransaksiKasir, bagian ini bisa disesuaikan.
 
             // Retur Member & Supplier
             $returMember = ReturMemberDetail::join('retur_member', 'retur_member_detail.retur_id', '=', 'retur_member.id')
@@ -819,7 +830,6 @@ class DashboardController extends Controller
             ];
 
             if ($roleId == 1) {
-                // Pisahkan penampung berdasarkan tipe mitra
                 $mitraList = [];
                 $cabangList = [];
 
@@ -827,7 +837,9 @@ class DashboardController extends Controller
                     $tokoId = $toko->id;
                     $transaksiToko = $kasPerToko->get($tokoId, collect());
                     $nominalKas = $transaksiToko->sum('total_nominal');
-                    $jumlahTx = $transaksiToko->count();
+
+                    // Mengambil jumlah transaksi berdasarkan TransaksiKasir yang valid
+                    $jumlahTx = (int) ($jumlahTxKasirPerToko[$tokoId] ?? 0);
 
                     $refund = (float) ($returMember[$tokoId] ?? 0);
                     $keuntungan = (float) ($returSupplierUntung[$tokoId] ?? 0);
@@ -851,8 +863,6 @@ class DashboardController extends Controller
                     $result['total'] += $totalBersih;
                 }
 
-                // Masukkan ke struktur response dengan identifier kelompok jika keduanya ada,
-                // atau gabung/pisahkan secara cerdas agar frontend bisa mendeteksinya.
                 $groupedResponse = [];
                 if (!empty($mitraList)) {
                     $groupedResponse['Mitra'] = $mitraList;
@@ -861,14 +871,16 @@ class DashboardController extends Controller
                     $groupedResponse['Cabang'] = $cabangList;
                 }
 
-                $result['singkatan'] = $groupedResponse; // Berubah jadi object/array asosiatif grup
+                $result['singkatan'] = $groupedResponse;
 
             } else {
                 foreach ($tokos as $toko) {
                     $tokoId = $toko->id;
                     $transaksiToko = $kasPerToko->get($tokoId, collect());
                     $nominalKas = $transaksiToko->sum('total_nominal');
-                    $jumlahTx = $transaksiToko->count();
+
+                    // Mengambil jumlah transaksi berdasarkan TransaksiKasir yang valid
+                    $jumlahTx = (int) ($jumlahTxKasirPerToko[$tokoId] ?? 0);
 
                     $refund = (float) ($returMember[$tokoId] ?? 0);
                     $keuntungan = (float) ($returSupplierUntung[$tokoId] ?? 0);

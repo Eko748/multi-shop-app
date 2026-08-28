@@ -148,7 +148,7 @@
                                     <label>Status</label>
                                     <select id="status" class="form-control form-control-sm">
                                         <option value="hilang">Barang Hilang</option>
-                                        <option value="mati">Barang Mati</option>
+                                        <option value="mati">Barang Mati/Rusak</option>
                                     </select>
                                 </div>
                                 <div class="col-md-6 mb-2">

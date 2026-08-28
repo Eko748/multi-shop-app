@@ -618,18 +618,18 @@
 
                     if (toko.parent_id === null || toko.parent_id === undefined) {
                         label = 'Gudang';
-                        bgColor = '#ffc107'; // Kuning
-                        textColor = '#000000'; // Teks hitam agar kontras
+                        bgColor = '#ffc107';
+                        textColor = '#000000';
                     } else if (toko.mitra) {
                         label = 'Mitra';
-                        bgColor = '#dc3545'; // Merah
+                        bgColor = '#dc3545';
                     } else {
                         label = 'Cabang';
-                        bgColor = '#0d6efd'; // Biru
+                        bgColor = '#0d6efd';
                     }
 
                     let labelToko = label ?
-                        `<sup><span style="background-color: ${bgColor}; color: ${textColor}; padding: 3px 8px; line-height: 1.5; font-size: 70%; font-weight: 700; border-radius: 4px; display: inline-block;">${label}</span></sup>` :
+                        `<sup style="margin-left: 4px;"><span style="background-color: ${bgColor}; color: ${textColor}; padding: 1px 4px; font-size: 9px; font-weight: 600; border-radius: 3px; line-height: 1; display: inline-block;">${label}</span></sup>` :
                         '';
                     let namaToko = toko.nama || toko.nama_toko || 'Toko ' + toko.id;
                     let alamatToko = toko.alamat ? toko.alamat : 'Alamat tidak tersedia';

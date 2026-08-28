@@ -320,7 +320,7 @@
                 return `
                     <th class="text-wrap align-top text-center sortable-col header-${index}-stock ${activeStock}"
                         data-sort-by="stock" data-sort-toko="${key}" title="Urutkan Stok ${key}"
-                        style="background: linear-gradient(to bottom, #a8e6a1, #66ff66); width: 20px; cursor: pointer;">
+                        style="background: linear-gradient(to bottom, #a8e6a1, #66ff66); width: 10px; cursor: pointer;">
                         <div class="d-flex align-items-center justify-content-center">
                             <i class="fa fa-box"></i>
                             ${getSortIcon('stock')}
@@ -328,7 +328,7 @@
                     </th>
                     <th class="text-wrap align-top text-center sortable-col header-${index}-otw ${activeOtw}"
                         data-sort-by="otw" data-sort-toko="${key}" title="Urutkan OTW ${key}"
-                        style="background: linear-gradient(to bottom, #fff9a1, #ffff33); width: 20px; cursor: pointer;">
+                        style="background: linear-gradient(to bottom, #fff9a1, #ffff33); width: 10px; cursor: pointer;">
                         <div class="d-flex align-items-center justify-content-center">
                             <i class="fa fa-truck-fast"></i>
                             ${getSortIcon('otw')}
@@ -336,7 +336,7 @@
                     </th>
                     <th class="text-wrap align-top text-center sortable-col header-${index}-lo ${activeLo}"
                         data-sort-by="lo" data-sort-toko="${key}" title="Urutkan Last Order ${key}"
-                        style="background: linear-gradient(to bottom, #a1e9ff, #00ccff); width: 20px; cursor: pointer;">
+                        style="background: linear-gradient(to bottom, #a1e9ff, #00ccff); width: 10px; cursor: pointer;">
                         <div class="d-flex align-items-center justify-content-center">
                             <i class="fa fa-clock"></i>
                             ${getSortIcon('lo')}

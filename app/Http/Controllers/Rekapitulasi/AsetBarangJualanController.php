@@ -45,7 +45,7 @@ class AsetBarangJualanController extends Controller
             $tokoIds = [];
             $toko = null;
 
-            if (!$isAllToko) {
+            if (! $isAllToko) {
                 $toko = Toko::find($idTokoLogin);
 
                 if (! $toko) {
@@ -72,7 +72,11 @@ class AsetBarangJualanController extends Controller
                     'sumber',
                     'toko',
                 ])
-                ->when(!$isAllToko, function ($query) use ($tokoIds) {
+                ->whereNotNull('toko_id') // Abaikan batch yang toko_id nya null
+                ->whereHas('toko', function ($q) {
+                    $q->whereNull('deleted_at'); // Pastikan toko induknya tidak soft-deleted (jika tabel Toko menggunakan SoftDeletes)
+                })
+                ->when(! $isAllToko, function ($query) use ($tokoIds) {
                     $query->whereIn('toko_id', $tokoIds);
                 })
                 ->whereHas('stockBarang', function ($q) {

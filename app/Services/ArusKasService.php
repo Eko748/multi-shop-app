@@ -196,7 +196,13 @@ class ArusKasService
         // --------------------------------------------------------------------------
         // 5. KALKULASI SALDO AWAL & RESPONSE JSON
         // --------------------------------------------------------------------------
-        $kasList = ! empty($tokoIds) ? Kas::whereIn('toko_id', $tokoIds)->get() : Kas::all();
+        // Perbaikan: Gunakan $tokoIds yang sudah difilter di atas, jangan pakai Kas::all() mentah
+        $kasList = !empty($tokoIds)
+            ? Kas::whereIn('toko_id', $tokoIds)->get()
+            : Kas::whereHas('toko', function($q) {
+                $q->whereNull('deleted_at');
+            })->get();
+
         $kecil_awal = 0;
         $besar_awal = 0;
 

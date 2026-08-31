@@ -92,18 +92,18 @@ class AsetBarangJualanController extends Controller
             $batches = $stockQuery->get();
 
             $combined = $batches->groupBy(function ($item) {
-                return $item->stockBarang->barang->jenis->id.'-'.$item->toko_id;
+                return $item->stockBarang->barang->jenis->id.'-'.($item->toko_id ?? 0);
             })->map(function ($items) {
 
                 $first = $items->first();
                 $jenis = $first->stockBarang->barang->jenis;
 
                 return (object) [
-                    'toko_id' => $first->toko->id,
-                    'nama_toko' => $first->toko->nama,
-                    'wilayah' => $first->toko->wilayah,
-                    'id_jenis_barang' => $jenis->id,
-                    'nama_jenis_barang' => $jenis->nama_jenis_barang,
+                    'toko_id' => $first->toko?->id ?? $first->toko_id,
+                    'nama_toko' => $first->toko?->nama ?? 'Pusat/Lainnya',
+                    'wilayah' => $first->toko?->wilayah ?? '-',
+                    'id_jenis_barang' => $jenis?->id,
+                    'nama_jenis_barang' => $jenis?->nama_jenis_barang ?? 'Tanpa Jenis',
                     'total_qty' => $items->sum('qty_sisa'),
                     'total_harga' => $items->sum(function ($item) {
                         return $item->qty_sisa * ($item->harga_beli ?? 0);

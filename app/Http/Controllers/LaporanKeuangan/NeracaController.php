@@ -4,33 +4,23 @@ namespace App\Http\Controllers\LaporanKeuangan;
 
 use App\Helpers\RupiahGenerate;
 use App\Http\Controllers\Controller;
-use App\Models\DetailPembelianBarang;
-use App\Models\DetailRetur;
-use App\Models\Hutang;
-use App\Models\NeracaPenyesuaian;
-use App\Models\Pemasukan;
-use App\Models\Pengeluaran;
-use App\Models\ReturMemberDetail;
-use App\Models\ReturSupplier;
-use App\Models\ReturSupplierDetail;
-use App\Models\StockBarangBermasalah;
 use App\Models\Toko;
-use App\Services\ArusKasService;
 use App\Services\DompetSaldoService;
 use App\Services\KasService;
 use App\Services\LabaRugiService;
 use App\Services\NeracaKeuanganService;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 
 class NeracaController extends Controller
 {
     private array $menu = [];
+
     protected $labaRugiService;
+
     protected $kasService;
+
     protected $dompetSaldoService;
+
     protected $neracaKeuanganService;
 
     public function __construct(LabaRugiService $labaRugiService, KasService $kasService, DompetSaldoService $dompetSaldoService, NeracaKeuanganService $neracaKeuanganService)
@@ -57,7 +47,7 @@ class NeracaController extends Controller
     {
         try {
             $month = $request->input('month', now()->month);
-            $year  = $request->input('year', now()->year);
+            $year = $request->input('year', now()->year);
             $tokoId = $request->input('toko_id');
 
             if (empty($tokoId)) {
@@ -68,7 +58,7 @@ class NeracaController extends Controller
                 // Inisialisasi struktur note agar sama persis dengan return getStockProblem()
                 $accumulatedNote = [
                     'stock_hilang' => ['qty' => 0, 'total_hpp' => 0],
-                    'stock_mati'   => ['qty' => 0, 'total_hpp' => 0],
+                    'stock_mati' => ['qty' => 0, 'total_hpp' => 0],
                 ];
 
                 foreach ($tokos as $toko) {
@@ -106,7 +96,7 @@ class NeracaController extends Controller
                 'note' => $finalNote,
                 'status_code' => 200,
                 'errors' => false,
-                'message' => 'Berhasil'
+                'message' => 'Berhasil',
             ], 200);
 
         } catch (\Throwable $th) {
@@ -134,12 +124,29 @@ class NeracaController extends Controller
                 $base[$i]['subkategori'][$j]['total'] += $incoming[$i]['subkategori'][$j]['total'] ?? 0;
                 $base[$i]['subkategori'][$j]['format'] = RupiahGenerate::build($base[$i]['subkategori'][$j]['total']);
 
-                // Akumulasi nilai item jika memiliki kode/pos yang sama
+                // Buat map item incoming berdasarkan 'kode' agar akurat walau urutannya beda antar toko
+                $incomingItemsMap = [];
+                if (isset($incoming[$i]['subkategori'][$j]['item'])) {
+                    foreach ($incoming[$i]['subkategori'][$j]['item'] as $incItem) {
+                        if (isset($incItem['kode'])) {
+                            $incomingItemsMap[$incItem['kode']] = $incItem;
+                        }
+                    }
+                }
+
+                // Loop item di base, lalu gabungkan nilainya jika kodenya cocok
                 foreach ($subcat['item'] as $k => $item) {
-                    $incItem = $incoming[$i]['subkategori'][$j]['item'][$k] ?? null;
-                    if ($incItem && isset($item['nilai'])) {
+                    $code = $item['kode'] ?? null;
+                    if ($code && isset($incomingItemsMap[$code])) {
+                        $incItem = $incomingItemsMap[$code];
+
+                        // Jumlahkan nilai angka
                         $base[$i]['subkategori'][$j]['item'][$k]['nilai'] += $incItem['nilai'] ?? 0;
                         $base[$i]['subkategori'][$j]['item'][$k]['format'] = RupiahGenerate::build($base[$i]['subkategori'][$j]['item'][$k]['nilai']);
+
+                        // Jika item tersebut memiliki format penulisan qty di dalam nama (seperti Stok Barang Jualan (X) atau Stok Barang Retur (Y))
+                        // Kita perlu memperbarui teks qty di dalam string 'nama' jika diperlukan,
+                        // atau pastikan service Anda sudah merender ulang string nama berdasarkan total qty yang baru.
                     }
                 }
             }

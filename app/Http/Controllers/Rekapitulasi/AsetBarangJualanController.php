@@ -43,6 +43,7 @@ class AsetBarangJualanController extends Controller
         try {
             $isAllToko = empty($idTokoLogin) || $idTokoLogin === 'all' || $idTokoLogin === 'ALL' || $idTokoLogin == 0;
             $tokoIds = [];
+            $toko = null;
 
             if (!$isAllToko) {
                 $toko = Toko::find($idTokoLogin);
@@ -140,7 +141,7 @@ class AsetBarangJualanController extends Controller
                     'items' => $items->map(function ($item) {
                         return [
                             'toko_id' => $item->toko_id,
-                            'nama_toko' => $item->nama.' ('.$item->wilayah.')',
+                            'nama_toko' => $item->nama_toko.' ('.$item->wilayah.')',
                             'id_jenis_barang' => $item->id_jenis_barang,
                             'nama_jenis_barang' => $item->nama_jenis_barang,
                             'total_qty' => $item->total_qty,
@@ -153,7 +154,7 @@ class AsetBarangJualanController extends Controller
 
             // Tambahan saldo digital
             $namaTokoLabel = $isAllToko ? 'Semua Toko' : ($toko->nama.' ('.$toko->wilayah.')');
-            $tokoIdValue = $isAllToko ? null : $toko->id;
+            $tokoIdValue = $isAllToko ? 'all' : $toko->id;
 
             $finalData->push([
                 'nama_jenis_barang' => 'Saldo Digital',

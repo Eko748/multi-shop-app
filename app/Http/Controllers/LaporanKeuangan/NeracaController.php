@@ -111,9 +111,6 @@ class NeracaController extends Controller
         }
     }
 
-    /**
-     * Helper privat untuk menjumlahkan dua struktur neraca agar format tetap konsisten.
-     */
     private function sumNeracaStructure(array $base, array $incoming): array
     {
         foreach ($base as $i => $category) {
@@ -124,7 +121,7 @@ class NeracaController extends Controller
                 $base[$i]['subkategori'][$j]['total'] += $incoming[$i]['subkategori'][$j]['total'] ?? 0;
                 $base[$i]['subkategori'][$j]['format'] = RupiahGenerate::build($base[$i]['subkategori'][$j]['total']);
 
-                // Buat map item incoming berdasarkan 'kode' agar akurat walau urutannya beda antar toko
+                // Petakan item incoming berdasarkan 'kode'
                 $incomingItemsMap = [];
                 if (isset($incoming[$i]['subkategori'][$j]['item'])) {
                     foreach ($incoming[$i]['subkategori'][$j]['item'] as $incItem) {
@@ -134,19 +131,37 @@ class NeracaController extends Controller
                     }
                 }
 
-                // Loop item di base, lalu gabungkan nilainya jika kodenya cocok
+                // Loop item di base, lalu gabungkan nilai dan format ulang teks qty di dalam kurung
                 foreach ($subcat['item'] as $k => $item) {
                     $code = $item['kode'] ?? null;
                     if ($code && isset($incomingItemsMap[$code])) {
                         $incItem = $incomingItemsMap[$code];
 
-                        // Jumlahkan nilai angka
+                        // 1. Akumulasi nilai nominal rupiah
                         $base[$i]['subkategori'][$j]['item'][$k]['nilai'] += $incItem['nilai'] ?? 0;
                         $base[$i]['subkategori'][$j]['item'][$k]['format'] = RupiahGenerate::build($base[$i]['subkategori'][$j]['item'][$k]['nilai']);
 
-                        // Jika item tersebut memiliki format penulisan qty di dalam nama (seperti Stok Barang Jualan (X) atau Stok Barang Retur (Y))
-                        // Kita perlu memperbarui teks qty di dalam string 'nama' jika diperlukan,
-                        // atau pastikan service Anda sudah merender ulang string nama berdasarkan total qty yang baru.
+                        // 2. Akumulasi angka di dalam kurung (misal: "Stok Barang (10)" atau "Aksesoris (5)")
+                        $baseName = $item['nama'] ?? '';
+                        $incName = $incItem['nama'] ?? '';
+
+                        // Ambil angka di dalam kurung dari base dan incoming menggunakan regex
+                        preg_match('/\(([\d\.]+)\)$/', $baseName, $baseMatch);
+                        preg_match('/\(([\d\.]+)\)$/', $incName, $incMatch);
+
+                        if (!empty($baseMatch) && !empty($incMatch)) {
+                            // Bersihkan titik pemisah ribuan jika ada, lalu jadikan integer
+                            $baseQty = (int) str_replace('.', '', $baseMatch[1]);
+                            $incQty = (int) str_replace('.', '', $incMatch[1]);
+                            $totalQty = $baseQty + $incQty;
+
+                            // Ganti bagian teks di dalam kurung dengan total kuantitas yang baru
+                            $base[$i]['subkategori'][$j]['item'][$k]['nama'] = preg_replace(
+                                '/\([\d\.]+\)$/',
+                                '(' . number_format($totalQty, 0, ',', '.') . ')',
+                                $baseName
+                            );
+                        }
                     }
                 }
             }

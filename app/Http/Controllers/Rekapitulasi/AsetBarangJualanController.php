@@ -37,30 +37,32 @@ class AsetBarangJualanController extends Controller
 
         $startDate = $request->input('startDate');
         $endDate = $request->input('endDate');
-        $idTokoLogin = (int) $request->input('toko_id', 0);
+        $idTokoLogin = $request->input('toko_id');
         $searchTerm = trim(strtolower($request->input('search', '')));
 
         try {
+            $isAllToko = empty($idTokoLogin) || $idTokoLogin === 'all' || $idTokoLogin === 'ALL' || $idTokoLogin == 0;
+            $tokoIds = [];
 
-            $toko = Toko::find($idTokoLogin);
+            if (!$isAllToko) {
+                $toko = Toko::find($idTokoLogin);
 
-            if (! $toko) {
-                return response()->json([
-                    'error' => true,
-                    'message' => 'Toko tidak ditemukan',
-                    'status_code' => 404,
-                ], 404);
-            }
+                if (! $toko) {
+                    return response()->json([
+                        'error' => true,
+                        'message' => 'Toko tidak ditemukan',
+                        'status_code' => 404,
+                    ], 404);
+                }
 
-            if ($toko->parent_id === null) {
-
-                $tokoIds = Toko::where('parent_id', $toko->id)
-                    ->orWhere('id', $toko->id)
-                    ->pluck('id')
-                    ->toArray();
-            } else {
-
-                $tokoIds = [$toko->id];
+                if ($toko->parent_id === null) {
+                    $tokoIds = Toko::where('parent_id', $toko->id)
+                        ->orWhere('id', $toko->id)
+                        ->pluck('id')
+                        ->toArray();
+                } else {
+                    $tokoIds = [$toko->id];
+                }
             }
 
             $stockQuery = StockBarangBatch::query()
@@ -69,7 +71,9 @@ class AsetBarangJualanController extends Controller
                     'sumber',
                     'toko',
                 ])
-                ->whereIn('toko_id', $tokoIds)
+                ->when(!$isAllToko, function ($query) use ($tokoIds) {
+                    $query->whereIn('toko_id', $tokoIds);
+                })
                 ->whereHas('stockBarang', function ($q) {
                     $q->whereNull('deleted_at');
                 })
@@ -112,10 +116,12 @@ class AsetBarangJualanController extends Controller
             $totalQty = $combined->sum('total_qty');
             $totalHarga = $combined->sum('total_harga');
 
-            $hppDompetSaldo = $this->service->sumHPP(null, null, $idTokoLogin);
+            $filterTokoService = $isAllToko ? null : $idTokoLogin;
+
+            $hppDompetSaldo = $this->service->sumHPP(null, null, $filterTokoService);
 
             // SIMPAN NILAI SALDO
-            $dompetSaldoRaw = $this->service->sumSisaSaldo(null, null, $idTokoLogin);
+            $dompetSaldoRaw = $this->service->sumSisaSaldo(null, null, $filterTokoService);
 
             // Validasi tipe data: Jika mengembalikan array pakai nilainya, jika angka/float langsung pakai angkanya
             if (is_array($dompetSaldoRaw)) {
@@ -126,7 +132,7 @@ class AsetBarangJualanController extends Controller
                 $dompetSaldoFormatted = RupiahGenerate::build($dompetSaldoVal);
             }
 
-            $dompetKategori = $this->service2->count($idTokoLogin);
+            $dompetKategori = $this->service2->count($filterTokoService);
 
             $finalData = $grouped->map(function ($items, $namaJenis) {
                 return [
@@ -134,7 +140,7 @@ class AsetBarangJualanController extends Controller
                     'items' => $items->map(function ($item) {
                         return [
                             'toko_id' => $item->toko_id,
-                            'nama_toko' => $item->nama_toko.' ('.$item->wilayah.')',
+                            'nama_toko' => $item->nama.' ('.$item->wilayah.')',
                             'id_jenis_barang' => $item->id_jenis_barang,
                             'nama_jenis_barang' => $item->nama_jenis_barang,
                             'total_qty' => $item->total_qty,
@@ -146,11 +152,14 @@ class AsetBarangJualanController extends Controller
             })->values();
 
             // Tambahan saldo digital
+            $namaTokoLabel = $isAllToko ? 'Semua Toko' : ($toko->nama.' ('.$toko->wilayah.')');
+            $tokoIdValue = $isAllToko ? null : $toko->id;
+
             $finalData->push([
                 'nama_jenis_barang' => 'Saldo Digital',
                 'items' => [[
-                    'toko_id' => $toko->id,
-                    'nama_toko' => $toko->nama.' ('.$toko->wilayah.')',
+                    'toko_id' => $tokoIdValue,
+                    'nama_toko' => $namaTokoLabel,
                     'id_jenis_barang' => 'dompet-saldo',
                     'nama_jenis_barang' => 'Dompet Saldo Digital',
                     'total_qty' => $dompetKategori,

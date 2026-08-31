@@ -114,7 +114,7 @@ class LabaRugiService
         $endDate = \Carbon\Carbon::createFromDate($year, $month, 1)->endOfMonth()->toDateTimeString();
         $endOfDateOnly = \Carbon\Carbon::createFromDate($year, $month, 1)->endOfMonth()->format('Y-m-d');
 
-        // Cek apakah Toko saat ini adalah Child atau Parent, serta ambil Singkatan Toko
+        // Cek apakah Toko saat ini adalah Child, Parent, atau Gabungan (all) yang mengandung Toko Child
         $isChild = false;
         $singkatanToko = '';
 
@@ -124,6 +124,9 @@ class LabaRugiService
                 $isChild = ! empty($tokoObj->parent_id);
                 $singkatanToko = $tokoObj->singkatan ?? '';
             }
+        } else {
+            // Jika 'all', cek apakah ada minimal satu toko di database yang merupakan child (punya parent_id)
+            $isChild = Toko::whereNotNull('parent_id')->where('parent_id', '!=', '')->exists();
         }
 
         // Scope Global Filter Toko untuk KasTransaksi

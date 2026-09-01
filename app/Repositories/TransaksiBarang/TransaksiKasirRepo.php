@@ -20,6 +20,11 @@ class TransaksiKasirRepo
 
     private function applyFilter($query, $filter)
     {
+        // Pastikan data yang sudah dihapus (soft delete) tidak ikut terambil
+        if (in_array(\Illuminate\Database\Eloquent\SoftDeletes::class, class_uses_recursive($this->model))) {
+            $query->whereNull('deleted_at');
+        }
+
         // Filter Search (Nota & Member Name)
         if (! empty($filter->search)) {
             $query->where(function ($q) use ($filter) {
@@ -79,22 +84,24 @@ class TransaksiKasirRepo
             $query->with('toko');
         }
 
-        $query->with('details');
+        // Hanya eager load detail yang belum dihapus (jika menggunakan SoftDeletes pada TransaksiKasirDetail)
+        $query->with(['details' => function ($q) {
+            $q->whereNull('deleted_at');
+        }]);
 
-        // Ambil data transaksi (bisa paginasi atau get biasa)
         $transactions = ! empty($filter->limit)
             ? $query->orderByDesc('id')->paginate($filter->limit)
             : $query->orderByDesc('id')->get();
 
-        // Hitung total keseluruhan berdasarkan query yang sama persis tanpa perlu query ulang dari awal
         $baseQueryForSum = clone $query;
-        // Hapus eager loading agar query sum lebih ringan
         $baseQueryForSum->setEagerLoads([]);
 
         $transactionIds = (clone $baseQueryForSum)->pluck('id');
 
+        // Hitung total qty dari detail yang belum dihapus saja
         $totalQty = DB::table('transaksi_kasir_detail')
             ->whereIn('transaksi_kasir_id', $transactionIds)
+            ->whereNull('deleted_at') // Abaikan yang sudah soft delete
             ->sum('qty');
 
         $totalNominal = (clone $baseQueryForSum)->sum('total_nominal');
@@ -102,7 +109,7 @@ class TransaksiKasirRepo
         return [
             'transactions' => $transactions,
             'total' => [
-                'qty' => 1,
+                'qty' => (int) $totalQty,
                 'nominal' => RupiahGenerate::build($totalNominal),
             ],
         ];

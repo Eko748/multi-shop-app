@@ -7,6 +7,7 @@ use App\Helpers\TextGenerate;
 use App\Models\TransaksiKasir;
 use App\Models\TransaksiKasirDetail;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class TransaksiKasirRepo
 {
@@ -54,11 +55,17 @@ class TransaksiKasirRepo
 
     public function sumNominal($filter)
     {
-        $query = $this->model->newQuery();
+        $query = $this->model->query();
         $this->applyFilter($query, $filter);
 
+        $transactionIds = (clone $query)->pluck('id');
+
+        $totalQty = DB::table('transaksi_kasir_detail')
+            ->whereIn('transaksi_kasir_id', $transactionIds)
+            ->sum('qty');
+
         return [
-            'qty' => $query->sum('total_qty'),
+            'qty' => (int) $totalQty,
             'nominal' => RupiahGenerate::build($query->sum('total_nominal')),
         ];
     }

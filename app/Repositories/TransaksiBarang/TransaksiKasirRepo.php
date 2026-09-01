@@ -102,7 +102,7 @@ class TransaksiKasirRepo
         return [
             'transactions' => $transactions,
             'total' => [
-                'qty' => (int) $totalQty,
+                'qty' => 1,
                 'nominal' => RupiahGenerate::build($totalNominal),
             ],
         ];

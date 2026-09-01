@@ -117,7 +117,9 @@ class StockBarangController extends Controller
             $decoded = json_decode($item->level_harga, true);
             $decoded = is_array($decoded) ? $decoded : [];
 
-            $hppBaruNumeric = (int) $item->hpp_baru;
+            // 1. Ambil batch terbaru untuk mendapatkan hpp_baru dari stock_barang_batch
+            $latestBatch = $item->stockBarangBatch ? $item->stockBarangBatch->sortByDesc('created_at')->first() : null;
+            $hppBaruNumeric = $latestBatch ? (int) $latestBatch->hpp_baru : (int) $item->hpp_baru;
 
             $level_harga = [];
             $warning = false;
@@ -136,7 +138,7 @@ class StockBarangController extends Controller
                 $level_harga[$level_name] = $formatted;
             }
 
-            // 3. Jika tidak ada batch aktif, sum() menghasilkan 0
+            // 2. Jika tidak ada batch aktif, sum() menghasilkan 0
             $totalStockBatch = (int) $item->stockBarangBatch->sum('qty_sisa');
 
             return [
@@ -149,7 +151,7 @@ class StockBarangController extends Controller
                 'nama_toko_group' => $tokoGroup->nama ?? null,
 
                 'hpp_baru' => RupiahGenerate::build($hppBaruNumeric),
-                'real_hpp' => $item->hpp_baru,
+                'real_hpp' => $hppBaruNumeric,
                 'stock' => $totalStockBatch, // Akan bernilai 0 jika batch habis/tidak ada
                 'level_harga' => $level_harga,
                 'warning' => $warning,

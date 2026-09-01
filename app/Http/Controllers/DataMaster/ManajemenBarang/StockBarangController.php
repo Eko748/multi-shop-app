@@ -430,9 +430,9 @@ class StockBarangController extends Controller
                 // stok bermasalah
                 $bermasalah = StockBarangBermasalah::create([
                     'stock_barang_batch_id' => $batch->id,
-                    'status'                 => $reduction['status'],
-                    'qty'                    => $qtyKurangi,
-                    'toko_id'                => $tokoId,
+                    'status' => $reduction['status'],
+                    'qty' => $qtyKurangi,
+                    'toko_id' => $tokoId,
                 ]);
 
                 // Log & ambil jenis_barang_id dari relasi StockBarang -> Barang
@@ -496,18 +496,18 @@ class StockBarangController extends Controller
 
                     // 🔹 LOGIC UNTUK TOKO MITRA (Pencatatan Piutang)
                     $piutang = Piutang::create([
-                        'kas_id'          => $kas->id, // Automated dari query Kas
-                        'toko_id'         => $tokoId,
+                        'kas_id' => $kas->id, // Automated dari query Kas
+                        'toko_id' => $tokoId,
                         'piutang_tipe_id' => $request->piutang_tipe_id ?? 4,
-                        'keterangan'     => 'Pengurangan Stok Barang Mitra',
-                        'nominal'        => $totalHargaBeli,
-                        'sisa'           => $totalHargaBeli,
-                        'status'         => false,
-                        'jangka'         => $request->jangka ?? 'pendek',
-                        'tanggal'        => $fTanggal->toDateString(),
-                        'created_by'     => $userId,
-                        'sumber_type'    => StockBarangBermasalah::class,
-                        'sumber_id'      => $bermasalah->id,
+                        'keterangan' => 'Pengurangan Stok Barang Mitra',
+                        'nominal' => $totalHargaBeli,
+                        'sisa' => $totalHargaBeli,
+                        'status' => false,
+                        'jangka' => $request->jangka ?? 'pendek',
+                        'tanggal' => $fTanggal->toDateString(),
+                        'created_by' => $userId,
+                        'sumber_type' => StockBarangBermasalah::class,
+                        'sumber_id' => $bermasalah->id,
                     ]);
 
                     $nominalFormatted = RupiahGenerate::build($totalHargaBeli);
@@ -523,13 +523,13 @@ class StockBarangController extends Controller
                                 'new' => [
                                     'nominal' => $piutang->nominal,
                                     'tanggal' => $piutang->tanggal,
-                                    'kas'     => $kasLabel,
+                                    'kas' => $kasLabel,
                                 ],
                             ],
                         ],
                         description: "{$this->title[0]} ditambahkan pada {$kasLabel} senilai Rp {$nominalFormatted} (ID {$piutang->id})",
                         userId: $userId,
-                        message: "(Sistem) Piutang otomatis dari pengurangan stok mitra."
+                        message: '(Sistem) Piutang otomatis dari pengurangan stok mitra.'
                     );
 
                     // Neutral IN (tanpa KasService::out)
@@ -703,18 +703,23 @@ class StockBarangController extends Controller
 
     public function getLevelHarga(Request $request)
     {
-        $stockBarang = StockBarang::where('barang_id', $request->barang_id)->first();
+        $stockBarang = StockBarang::with('stockBarangBatch')->where('barang_id', $request->barang_id)->first();
         $stockUtama = $stockBarang->stok ?? 0;
 
         // ================================
-        // HITUNG HPP BARU
+        // AMBIL HPP AWAL & BARU DARI BATCH
         // ================================
+        $batches = $stockBarang ? $stockBarang->stockBarangBatch : collect();
+
+        $latestBatch = $batches->sortByDesc('created_at')->first();
+        $oldestBatch = $batches->sortBy('created_at')->first();
+
+        $hppBaru = $latestBatch ? (float) $latestBatch->hpp_baru : ($stockBarang->hpp_baru ?? 0.00);
+        $hppAwal = $oldestBatch ? (float) $oldestBatch->hpp_baru : $hppBaru;
+
         $detail = PembelianBarangDetail::where('barang_id', $request->barang_id)->get();
         $totalHargaSuccess = $detail->sum('subtotal');
         $totalQtySuccess = $detail->sum('qty');
-        $hppBaru = $totalQtySuccess > 0
-            ? round($totalHargaSuccess / $totalQtySuccess, 2)
-            : 0.00;
 
         // ================================
         // LEVEL HARGA (MURNI ARRAY NUMERIC)
@@ -722,16 +727,12 @@ class StockBarangController extends Controller
         $level_harga = [];
 
         if ($stockBarang && $stockBarang->level_harga) {
-
             $raw = $stockBarang->level_harga;
 
             if (is_array($raw)) {
-                // Sudah array
                 $level_harga = array_values(array_map('intval', $raw));
             } elseif (is_string($raw)) {
-                // Masih JSON string
                 $decoded = json_decode($raw, true);
-
                 if (is_array($decoded)) {
                     $level_harga = array_values(array_map('intval', $decoded));
                 }
@@ -743,70 +744,21 @@ class StockBarangController extends Controller
         // ================================
         $levelHargaMaster = LevelHarga::orderBy('id', 'asc')->get();
 
-        // Mapping harga berdasarkan urutan level
         $hargaMapping = [];
         foreach ($levelHargaMaster as $index => $lv) {
             $hargaMapping[$lv->id] = $level_harga[$index] ?? null;
         }
 
         // ================================
-        // DATA PER TOKO
-        // ================================
-        $tokoList = Toko::all()->sortByDesc(fn ($tk) => $tk->id == $request->toko_id ? 1 : 0);
-
-        // $dataPerToko = $tokoList->map(function ($tk) use ($stockBarang, $levelHargaMaster, $hargaMapping) {
-
-        //     $stock = $tk->id == 1 ? ($stockBarang->stok ?? 0) : 0;
-
-        //     // Decode level harga toko (aman)
-        //     $raw = $tk->level_harga;
-        //     $array = json_decode($raw, true);
-
-        //     if (!is_array($array)) {
-        //         if (is_string($raw) && str_contains($raw, ',')) {
-        //             $array = array_map('intval', explode(',', $raw));
-        //         } elseif (is_numeric($raw)) {
-        //             $array = [(int) $raw];
-        //         } else {
-        //             $array = [];
-        //         }
-        //     }
-
-        //     // Bangun output string
-        //     $output = [];
-
-        //     foreach ($array as $id) {
-
-        //         $namaLevel = $levelHargaMaster
-        //             ->firstWhere('id', $id)
-        //             ->nama_level_harga ?? 'N/A';
-
-        //         $harga = $hargaMapping[$id] ?? null;
-
-        //         if ($harga !== null) {
-        //             $formatted = 'Rp ' . number_format($harga, 0, ',', '.');
-        //             $output[] = "{$namaLevel} ({$formatted})";
-        //         }
-        //     }
-
-        //     return [
-        //         'nama_toko'   => $tk->nama,
-        //         'stock'       => $stock,
-        //         'level_harga' => implode(', ', $output),
-        //     ];
-        // });
-
-        // ================================
         // RESPONSE
         // ================================
         $data = [
             'stock' => $stockUtama,
-            'hpp_awal' => $stockBarang->hpp_baru ?? 0,
-            'hpp_baru' => $stockBarang->hpp_baru ?? 0,
+            'hpp_awal' => $hppAwal,
+            'hpp_baru' => $hppBaru,
             'total_harga_success' => $totalHargaSuccess,
             'total_qty_success' => $totalQtySuccess,
-            'level_harga' => $level_harga, // ✅ PURE ARRAY
-            // 'per_toko'             => $dataPerToko,
+            'level_harga' => $level_harga,
         ];
 
         return $this->success($data, 200, 'Data berhasil diambil!');

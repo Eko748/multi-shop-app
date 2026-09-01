@@ -43,7 +43,7 @@ class TransaksiKasirRepo
         if (! empty($filter->start_date) && ! empty($filter->end_date)) {
             $query->whereBetween('tanggal', [
                 Carbon::parse($filter->start_date)->startOfDay(),
-                Carbon::parse($filter->end_date)->endOfDay()
+                Carbon::parse($filter->end_date)->endOfDay(),
             ]);
         } else {
             $query->whereDate('tanggal', Carbon::today());
@@ -136,7 +136,7 @@ class TransaksiKasirRepo
                 'public_id' => $kasir->public_id,
                 'nota' => $kasir->nota,
                 'tanggal' => $kasir->tanggal->format('d-m-Y H:i:s'),
-                'total_qty' => $kasir->total_qty,
+                'total_qty' => $detailKasir->sum('qty'), // Diubah dari $kasir->total_qty menjadi sum dari detail yang aktif
                 'total_nominal' => RupiahGenerate::build($kasir->total_nominal ?? 0),
                 'total_bayar' => RupiahGenerate::build($kasir->total_bayar ?? 0),
                 'total_diskon' => RupiahGenerate::build($kasir->total_diskon ?? 0),

@@ -37,11 +37,11 @@ class TransaksiKasirService
 
     public function getAll($filter)
     {
-        $query = $this->repository->getAll($filter);
+        $result = $this->repository->getAll($filter);
+        $transactions = $result['transactions'];
 
-        $data = collect(method_exists($query, 'items') ? $query->items() : $query)->map(function ($item) use ($filter) {
+        $data = collect(method_exists($transactions, 'items') ? $transactions->items() : $transactions)->map(function ($item) use ($filter) {
 
-            // Hitung qty langsung dari collection relasi details
             $totalQty = $item->details ? $item->details->sum('qty') : 0;
 
             $res = [
@@ -65,9 +65,9 @@ class TransaksiKasirService
         return [
             'data' => [
                 'item' => $data,
-                'total' => $this->repository->sumNominal($filter),
+                'total' => $result['total'],
             ],
-            'pagination' => $this->setPaginate($query),
+            'pagination' => $this->setPaginate($transactions),
         ];
     }
 

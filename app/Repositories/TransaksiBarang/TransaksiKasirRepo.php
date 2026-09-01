@@ -81,9 +81,31 @@ class TransaksiKasirRepo
 
         $query->with('details');
 
-        return ! empty($filter->limit)
+        // Ambil data transaksi (bisa paginasi atau get biasa)
+        $transactions = ! empty($filter->limit)
             ? $query->orderByDesc('id')->paginate($filter->limit)
             : $query->orderByDesc('id')->get();
+
+        // Hitung total keseluruhan berdasarkan query yang sama persis tanpa perlu query ulang dari awal
+        $baseQueryForSum = clone $query;
+        // Hapus eager loading agar query sum lebih ringan
+        $baseQueryForSum->setEagerLoads([]);
+
+        $transactionIds = (clone $baseQueryForSum)->pluck('id');
+
+        $totalQty = DB::table('transaksi_kasir_detail')
+            ->whereIn('transaksi_kasir_id', $transactionIds)
+            ->sum('qty');
+
+        $totalNominal = (clone $baseQueryForSum)->sum('total_nominal');
+
+        return [
+            'transactions' => $transactions,
+            'total' => [
+                'qty' => (int) $totalQty,
+                'nominal' => RupiahGenerate::build($totalNominal),
+            ],
+        ];
     }
 
     public function getNota($limit = 10, $search = null)

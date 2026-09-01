@@ -42,13 +42,16 @@ class TransaksiKasirService
 
         $data = collect(method_exists($transactions, 'items') ? $transactions->items() : $transactions)->map(function ($item) use ($filter) {
 
-            $totalQty = $item->details ? $item->details->sum('qty') : 0;
+            // Pastikan menjumlahkan murni dari relasi details milik item transaksi ini saja
+            $totalQty = $item->relationLoaded('details') && $item->details
+                ? (int) $item->details->whereNull('deleted_at')->sum('qty')
+                : 0;
 
             $res = [
                 'id' => $item->public_id,
                 'nota' => $item->nota,
                 'member' => $item->member ? $item->member->nama : 'Guest',
-                'qty' => (int) $totalQty,
+                'qty' => $totalQty, // Gunakan hasil sum yang sudah difilter per relasi
                 'nominal' => RupiahGenerate::build($item->total_nominal),
                 'tanggal' => $item->tanggal->format('d-m-Y H:i:s'),
                 'created_at' => $item->created_at ?? null,

@@ -55,7 +55,7 @@ class StockBarangBermasalahController extends Controller
                 $endDate = $request->end_date.' 23:59:59';
                 $query->whereBetween('created_at', [$startDate, $endDate]);
             } else {
-                $query->whereBetween('tanggal', [
+                $query->whereBetween('created_at', [
                     Carbon::now()->startOfMonth(),
                     Carbon::now()->endOfMonth(),
                 ]);

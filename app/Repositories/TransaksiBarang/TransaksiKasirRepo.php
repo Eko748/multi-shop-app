@@ -41,12 +41,12 @@ class TransaksiKasirRepo
 
         // Filter Tanggal
         if (! empty($filter->start_date) && ! empty($filter->end_date)) {
-            $query->whereBetween('created_at', [
+            $query->whereBetween('tanggal', [
                 Carbon::parse($filter->start_date)->startOfDay(),
                 Carbon::parse($filter->end_date)->endOfDay()
             ]);
         } else {
-            $query->whereDate('created_at', Carbon::today());
+            $query->whereDate('tanggal', Carbon::today());
         }
 
         return $query;

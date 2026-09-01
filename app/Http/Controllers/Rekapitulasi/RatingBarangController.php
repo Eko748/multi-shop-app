@@ -67,7 +67,7 @@ class RatingBarangController extends Controller
                 'transaksi_kasir.toko_id',
                 DB::raw('SUM(transaksi_kasir_detail.qty) as total_item'),
                 DB::raw('SUM(transaksi_kasir_detail.qty - COALESCE(retur_member_detail.qty_request,0)) as net_terjual'),
-                DB::raw('MAX(stock_barang_batch.harga_beli) as harga_beli') // Diubah ke harga_beli dari batch
+                DB::raw('MAX(stock_barang_batch.hpp_baru) as hpp_jual') // Diubah mengambil hpp_baru dari stock_barang_batch
             )
                 ->join('transaksi_kasir', 'transaksi_kasir_detail.transaksi_kasir_id', '=', 'transaksi_kasir.id')
                 ->join('stock_barang_batch', 'transaksi_kasir_detail.stock_barang_batch_id', '=', 'stock_barang_batch.id')
@@ -152,13 +152,13 @@ class RatingBarangController extends Controller
                             $totalTerjual += $netTerjual;
                         }
 
-                        if ($item->harga_beli > 0) {
-                            $hppJual = (float) $item->harga_beli;
+                        if ($item->hpp_jual > 0) {
+                            $hppJual = (float) $item->hpp_jual;
                         }
                     }
                 } else {
-                    // Ambil harga_beli maksimum dari batch jika tidak ada transaksi
-                    $hppJual = $barang->stockBarangBatch ? (float) $barang->stockBarangBatch->max('harga_beli') : 0;
+                    // Ambil hpp_baru maksimum dari batch stock_barang_batch jika tidak ada transaksi
+                    $hppJual = $barang->stockBarangBatch ? (float) $barang->stockBarangBatch->max('hpp_baru') : 0;
                 }
 
                 // Jika tidak ada penjualan sama sekali dan tidak sedang mencari sesuatu, skip

@@ -74,7 +74,7 @@ class TransaksiKasirRepo
     {
         $query = $this->model->query();
         $this->applyFilter($query, $filter);
-
+bla vla
         if ($filter->role_id == 1) {
             $query->with('toko');
         }

@@ -176,8 +176,9 @@
         async function getListData(limit = 10, page = 1, ascending = 0, search = '', customFilter = {}) {
             $('#listData').html(loadingData());
 
-            let filterParams = {};
-
+            let filterParams = {
+                ...customFilter
+            };
             let getDataRest = await renderAPI(
                 'GET',
                 '{{ route('sb.bermasalah.get') }}', {

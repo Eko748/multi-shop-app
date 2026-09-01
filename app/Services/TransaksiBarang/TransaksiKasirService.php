@@ -40,7 +40,7 @@ class TransaksiKasirService
         $query = $this->repository->getAll($filter);
 
         $data = collect(method_exists($query, 'items') ? $query->items() : $query)->map(function ($item) use ($filter) {
-            $totalQty = $item->calculated_total_qty ?? ($item->details ? $item->details->sum('qty') : 0);
+            $totalQty = $item->calculated_total_qty ?? 0;
 
             $res = [
                 'id' => $item->public_id,

@@ -142,6 +142,10 @@ class RatingBarangController extends Controller
                 $hppJual = 0;
 
                 if ($matchedData->isNotEmpty()) {
+                    // Ambil batch terbaru berdasarkan tanggal masuk (created_at atau id) dari relasi stockBarangBatch
+                    $latestBatch = $barang->stockBarangBatch ? $barang->stockBarangBatch->sortByDesc('created_at')->first() : null;
+                    $hppJual = $latestBatch ? (float) $latestBatch->hpp_baru : 0;
+
                     foreach ($matchedData as $item) {
                         $tokoId = (int) $item->toko_id;
                         $tokoNama = $tokoMap[$tokoId] ?? null;
@@ -151,14 +155,11 @@ class RatingBarangController extends Controller
                             $dataPerToko[$tokoNama]['terjual'] = $netTerjual;
                             $totalTerjual += $netTerjual;
                         }
-
-                        if ($item->hpp_jual > 0) {
-                            $hppJual = (float) $item->hpp_jual;
-                        }
                     }
                 } else {
-                    // Ambil hpp_baru maksimum dari batch stock_barang_batch jika tidak ada transaksi
-                    $hppJual = $barang->stockBarangBatch ? (float) $barang->stockBarangBatch->max('hpp_baru') : 0;
+                    // Ambil hpp_baru dari batch terbaru jika tidak ada transaksi
+                    $latestBatch = $barang->stockBarangBatch ? $barang->stockBarangBatch->sortByDesc('created_at')->first() : null;
+                    $hppJual = $latestBatch ? (float) $latestBatch->hpp_baru : 0;
                 }
 
                 // Jika tidak ada penjualan sama sekali dan tidak sedang mencari sesuatu, skip

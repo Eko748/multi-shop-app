@@ -65,14 +65,13 @@ class TransaksiKasirRepo
 
     public function getAll($filter)
     {
-        $query = $this->model->newQuery();
+        $query = $this->model->query();
         $this->applyFilter($query, $filter);
 
         if ($filter->role_id == 1) {
             $query->with('toko');
         }
 
-        // Eager load relasi details saja tanpa withSum
         $query->with('details');
 
         return ! empty($filter->limit)

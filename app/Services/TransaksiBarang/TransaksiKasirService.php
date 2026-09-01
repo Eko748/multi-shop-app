@@ -43,8 +43,8 @@ class TransaksiKasirService
         $data = collect(method_exists($transactions, 'items') ? $transactions->items() : $transactions)->map(function ($item) use ($filter) {
 
             // Pastikan menjumlahkan murni dari relasi details milik item transaksi ini saja
-            $totalQty = $item->relationLoaded('details') && $item->details
-                ? (int) $item->details->whereNull('deleted_at')->sum('qty')
+            $totalQty = $item->details
+                ? $item->details->whereNull('deleted_at')->sum('qty') // Ganti atau sesuaikan dengan grouping jika di detail di-group
                 : 0;
 
             $res = [

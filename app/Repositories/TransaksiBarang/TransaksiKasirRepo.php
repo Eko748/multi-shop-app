@@ -57,8 +57,12 @@ class TransaksiKasirRepo
         $query = $this->model->newQuery();
         $this->applyFilter($query, $filter);
 
+        // Hitung total qty murni dari subquery tabel details
+        $totalQty = (clone $query)->join('transaksi_kasir_detail', 'transaksi_kasir.id', '=', 'transaksi_kasir_detail.transaksi_kasir_id')
+            ->sum('transaksi_kasir_detail.qty');
+
         return [
-            'qty' => $query->sum('total_qty'),
+            'qty' => (int) $totalQty,
             'nominal' => RupiahGenerate::build($query->sum('total_nominal')),
         ];
     }

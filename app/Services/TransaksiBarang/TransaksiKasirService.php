@@ -40,11 +40,13 @@ class TransaksiKasirService
         $query = $this->repository->getAll($filter);
 
         $data = collect(method_exists($query, 'items') ? $query->items() : $query)->map(function ($item) use ($filter) {
+            $totalQty = $item->calculated_total_qty ?? ($item->details ? $item->details->sum('qty') : 0);
+
             $res = [
                 'id' => $item->public_id,
                 'nota' => $item->nota,
                 'member' => $item->member ? $item->member->nama : 'Guest',
-                'qty' => $item->total_qty,
+                'qty' => (int) $totalQty, // Qty diambil dari relasi details
                 'nominal' => RupiahGenerate::build($item->total_nominal),
                 'tanggal' => $item->tanggal->format('d-m-Y H:i:s'),
                 'created_at' => $item->created_at ?? null,

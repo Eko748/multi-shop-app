@@ -72,6 +72,8 @@ class TransaksiKasirRepo
             $query->with('toko');
         }
 
+        $query->withSum('details as calculated_total_qty', 'qty');
+
         return ! empty($filter->limit)
             ? $query->orderByDesc('id')->paginate($filter->limit)
             : $query->orderByDesc('id')->get();

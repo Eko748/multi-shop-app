@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="{{ asset('css/button-action.css') }}">
     <link rel="stylesheet" href="{{ asset('css/table.css') }}">
     <link rel="stylesheet" href="{{ asset('css/sweetalert2.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/daterange-picker.css') }}">
     <style>
         @media (max-width: 768px) {
             .modal-dialog {
@@ -43,6 +44,12 @@
         .divider-col {
             border-right: 1px solid #dee2e6;
         }
+
+        #daterange[readonly] {
+            background-color: white !important;
+            cursor: pointer !important;
+            color: inherit !important;
+        }
     </style>
 @endsection
 
@@ -56,6 +63,14 @@
                         <div class="card-header">
                             <div class="row">
                                 <div class="col-sm-12 col-md-3 col-lg-3 col-xl-2 mb-2">
+                                    <button
+                                        class="btn-dynamic btn btn-md btn-outline-secondary d-flex align-items-center justify-content-center"
+                                        type="button" data-toggle="collapse" data-target="#filter-collapse"
+                                        aria-expanded="false" aria-controls="filter-collapse" data-container="body"
+                                        data-toggle="tooltip" data-placement="top" style="flex: 0 0 45px; max-width: 45px;"
+                                        title="Filter Data">
+                                        <i class="fa fa-filter my-1"></i>
+                                    </button>
                                 </div>
                                 <div class="col-sm-12 col-md-9 col-lg-9 col-xl-10 mb-2">
                                     <div class="row justify-content-end">
@@ -73,6 +88,31 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                        <div class="collapse" id="filter-collapse">
+                            <form id="custom-filter" class="p-3">
+                                <div class="d-flex flex-column flex-md-row justify-content-md-end align-items-md-center"
+                                    style="gap: 1rem;">
+                                    <div class="input-group w-25 w-md-auto filter-input">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text">
+                                                <i class="fa fa-calendar"></i>
+                                            </span>
+                                        </div>
+                                        <input class="form-control" type="text" id="daterange" name="daterange"
+                                            placeholder="Pilih rentang tanggal">
+                                    </div>
+                                    <div class="d-flex justify-content-end" style="gap: 1rem;">
+                                        <button class="btn btn-info" id="tb-filter" type="submit">
+                                            <i class="fa fa-magnifying-glass mr-1"></i>Cari
+                                        </button>
+                                        <button type="button" class="btn btn-secondary" id="tb-reset">
+                                            <i class="fa fa-rotate mr-1"></i>Reset
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                            <hr class="m-0">
                         </div>
                         <div class="content">
                             <div class="card-body p-0">
@@ -117,6 +157,9 @@
 @endsection
 
 @section('asset_js')
+    <script src="{{ asset('js/moment.js') }}"></script>
+    <script src="{{ asset('js/daterange-picker.js') }}"></script>
+    <script src="{{ asset('js/daterange-custom.js') }}"></script>
     <script src="{{ asset('js/pagination.js') }}"></script>
 @endsection
 
@@ -223,10 +266,51 @@
             renderPagination();
         }
 
+        async function filterList() {
+            let dateRangePickerList = initializeDateRangePicker();
+
+            document.getElementById('custom-filter').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                let startDate = dateRangePickerList.data('daterangepicker').startDate;
+                let endDate = dateRangePickerList.data('daterangepicker').endDate;
+
+                if (!startDate || !endDate) {
+                    startDate = null;
+                    endDate = null;
+                } else {
+                    startDate = startDate.startOf('day').format('YYYY-MM-DD HH:mm:ss');
+                    endDate = endDate.endOf('day').format('YYYY-MM-DD HH:mm:ss');
+                }
+
+                customFilter = {
+                    'start_date': $("#daterange").val() != '' ? startDate : '',
+                    'end_date': $("#daterange").val() != '' ? endDate : ''
+                };
+
+                defaultSearch = $('.tb-search').val();
+                defaultLimitPage = $("#limitPage").val();
+                currentPage = 1;
+
+                await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
+                    customFilter);
+            });
+
+            document.getElementById('tb-reset').addEventListener('click', async function() {
+                $('#daterange').val('');
+                customFilter = {};
+                defaultSearch = $('.tb-search').val();
+                defaultLimitPage = $("#limitPage").val();
+                currentPage = 1;
+                await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
+                    customFilter);
+            });
+        }
+
         async function initPageLoad() {
             await Promise.all([
                 getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter),
                 searchList(),
+                filterList(),
             ])
         }
     </script>

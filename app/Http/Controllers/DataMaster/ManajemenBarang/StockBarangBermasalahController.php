@@ -7,6 +7,7 @@ use App\Helpers\TextGenerate;
 use App\Http\Controllers\Controller;
 use App\Models\StockBarangBermasalah;
 use App\Traits\ApiResponse;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class StockBarangBermasalahController extends Controller
@@ -53,6 +54,11 @@ class StockBarangBermasalahController extends Controller
                 $startDate = $request->start_date.' 00:00:00';
                 $endDate = $request->end_date.' 23:59:59';
                 $query->whereBetween('created_at', [$startDate, $endDate]);
+            } else {
+                $query->whereBetween('tanggal', [
+                    Carbon::now()->startOfMonth(),
+                    Carbon::now()->endOfMonth(),
+                ]);
             }
 
             $orderDirection = $request->input('ascending', 0) ? 'asc' : 'desc';

@@ -57,12 +57,8 @@ class TransaksiKasirRepo
         $query = $this->model->newQuery();
         $this->applyFilter($query, $filter);
 
-        // Hitung total qty murni dari subquery tabel details
-        $totalQty = (clone $query)->join('transaksi_kasir_detail', 'transaksi_kasir.id', '=', 'transaksi_kasir_detail.transaksi_kasir_id')
-            ->sum('transaksi_kasir_detail.qty');
-
         return [
-            'qty' => (int) $totalQty,
+            'qty' => $query->sum('total_qty'),
             'nominal' => RupiahGenerate::build($query->sum('total_nominal')),
         ];
     }
@@ -76,7 +72,8 @@ class TransaksiKasirRepo
             $query->with('toko');
         }
 
-        $query->withSum('details as calculated_total_qty', 'qty');
+        // Eager load relasi details saja tanpa withSum
+        $query->with('details');
 
         return ! empty($filter->limit)
             ? $query->orderByDesc('id')->paginate($filter->limit)
@@ -140,7 +137,7 @@ class TransaksiKasirRepo
                 'public_id' => $kasir->public_id,
                 'nota' => $kasir->nota,
                 'tanggal' => $kasir->tanggal->format('d-m-Y H:i:s'),
-                'total_qty' => $detailKasir->sum('qty'), // Diubah dari $kasir->total_qty menjadi sum dari detail yang aktif
+                'total_qty' => $kasir->total_qty,
                 'total_nominal' => RupiahGenerate::build($kasir->total_nominal ?? 0),
                 'total_bayar' => RupiahGenerate::build($kasir->total_bayar ?? 0),
                 'total_diskon' => RupiahGenerate::build($kasir->total_diskon ?? 0),

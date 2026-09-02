@@ -326,6 +326,11 @@
             }
         }
 
+        @php
+            $user = auth()->user();
+            $isSuperAdmin = $user->role_id == 1;
+        @endphp
+
         async function renderModalForm(mode = 'add', data = {}) {
             const title = mode === 'edit' ?
                 '<i class="fa fa-edit mr-1"></i>Edit Data Member' :
@@ -333,29 +338,43 @@
 
             $('#modalLabel').html(title);
 
+            // Cek role_id user yang sedang login
+            const isSuperAdmin = {{ $isSuperAdmin ? 'true' : 'false' }};
+            const userTokoId = '{{ $user->toko_id }}';
+
             const formContent = `
                 <div class="row">
                     <div class="col-xl-12">
                         <div class="card-body">
                             <div class="table-responsive">
+
+                                <!-- Kondisi untuk toko_id -->
                                 <div class="form-group">
                                     <label for="toko_id" class="form-control-label">Nama Toko<span style="color: red">*</span></label>
-                                    <select id="toko_id" name="toko_id" class="form-control id-toko select2"></select>
+                                    ${isSuperAdmin ? `
+                                            <select id="toko_id" name="toko_id" class="form-control id-toko select2"></select>
+                                        ` : `
+                                            <input type="hidden" id="toko_id" name="toko_id" value="${userTokoId}">
+                                            <input type="text" class="form-control" value="${data.nama_toko || '{{ $user->toko->nama ?? '' }}'}" disabled>
+                                        `}
                                 </div>
+
                                 <div class="form-group">
                                     <label for="nama" class="form-control-label">Nama Member<span style="color: red">*</span></label>
                                     <input type="text" id="nama" name="nama" placeholder="Contoh : Member 1" class="form-control">
                                 </div>
+
+                                <!-- Sisa kode form lainnya tetap sama... -->
                                 <div class="form-group">
                                     <label for="jenis_barang" class="form-control-label">Jenis Barang</label>
                                     <ul class="list-group list-group-flush">
                                         ${jenisBarangList.map(jb => `
-                                                                                    <li class="list-group-item">
-                                                                                        <h6>${jb.nama_jenis_barang}
-                                                                                            <select name="level_harga[${jb.id}]" id="level_harga_${jb.id}" class="form-control select2"></select>
-                                                                                        </h6>
-                                                                                    </li>
-                                                                                `).join('')}
+                                                <li class="list-group-item">
+                                                    <h6>${jb.nama_jenis_barang}
+                                                        <select name="level_harga[${jb.id}]" id="level_harga_${jb.id}" class="form-control select2"></select>
+                                                    </h6>
+                                                </li>
+                                            `).join('')}
                                     </ul>
                                 </div>
                                 <div class="form-group">
@@ -374,14 +393,19 @@
 
             await $('#form-data').html(formContent);
 
-            const tokoId = mode === 'edit' ? data.toko_id : {{ auth()->user()->toko_id }};
+            // Jika Super Admin,inisialisasi select2 untuk toko_id
+            if (isSuperAdmin) {
+                // Inisialisasi select2 toko Anda di sini jika ada fungsi khusus,
+                // atau biarkan terpanggil otomatis jika tertangani plugin lain.
+            }
 
             jenisBarangList.forEach(jb => {
                 selectOptions.push({
                     id: `#level_harga_${jb.id}`,
                     isUrl: `{{ route('member.getLevelHarga') }}`,
                     isFilter: {
-                        'toko_id': {{ auth()->user()->toko_id }}
+                        'toko_id': isSuperAdmin ? (mode === 'edit' ? data.toko_id : userTokoId) :
+                            userTokoId
                     },
                     placeholder: 'Pilih Level Harga',
                     isModal: '#modal-form',
@@ -391,31 +415,31 @@
             await selectData(selectOptions);
 
             if (mode === 'edit') {
-                if ($('#toko_id option[value="' + data.toko_id + '"]').length === 0) {
-                    const newOption = new Option(data.nama_toko, data.toko_id, true, true);
-                    $('#toko_id').append(newOption).trigger('change');
-                } else {
-                    $('#toko_id').val(data.toko_id).trigger('change');
+                if (isSuperAdmin) {
+                    if ($('#toko_id option[value="' + data.toko_id + '"]').length === 0) {
+                        const newOption = new Option(data.nama_toko, data.toko_id, true, true);
+                        $('#toko_id').append(newOption).trigger('change');
+                    } else {
+                        $('#toko_id').val(data.toko_id).trigger('change');
+                    }
                 }
 
                 $('#nama').val(data.nama);
                 $('#no_hp').val(data.no_hp);
                 $('#alamat').val(data.alamat);
 
-
+                // ... sisa kode edit level dan ID ...
                 if (data.level && Array.isArray(data.level)) {
                     data.level.forEach(item => {
                         const selector = `#level_harga_${item.id_jenis_barang}`;
-
                         if ($(selector).length) {
-                            if ($(selector + ' option[value="' + item.id_level_harga + '"]').length ===
-                                0) {
-                                const newOption = new Option(item.nama_level_harga, item.id_level_harga,
-                                    true,
+                            if ($(selector + ' option[value="' + item.id_level_harga + '"]').length === 0) {
+                                const newOption = new Option(item.nama_level_harga, item.id_level_harga, true,
                                     true);
                                 $(selector).append(newOption).trigger('change');
                             } else {
-                                $(selector).val(item.id).trigger('change');
+                                $(selector).val(item.id_level_harga).trigger(
+                                'change'); // Perbaikan kecil dari item.id ke item.id_level_harga jika diperlukan
                             }
                         }
                     });

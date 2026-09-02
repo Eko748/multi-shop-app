@@ -328,7 +328,7 @@
 
         @php
             $user = auth()->user();
-            $isAllStore = strtolower($user->toko_id) === 'all';
+            $isAllStore = strtolower(trim($user->toko_id)) === 'all';
         @endphp
 
         async function renderModalForm(mode = 'add', data = {}) {
@@ -338,55 +338,53 @@
 
             $('#modalLabel').html(title);
 
-            // Cek apakah user memiliki akses ALL toko atau toko spesifik (integer)
             const isAllStore = {{ $isAllStore ? 'true' : 'false' }};
             const userTokoId = '{{ $user->toko_id }}';
 
             const formContent = `
-                <div class="row">
-                    <div class="col-xl-12">
-                        <div class="card-body">
-                            <div class="table-responsive">
+        <div class="row">
+            <div class="col-xl-12">
+                <div class="card-body">
+                    <div class="table-responsive">
 
-                                <div class="form-group">
-                                    <label for="toko_id" class="form-control-label">Nama Toko<span style="color: red">*</span></label>
-                                    ${isAllStore ?
-                                        `<select id="toko_id" name="toko_id" class="form-control id-toko select2"></select>`
-                                        :
-                                        `<input type="hidden" id="toko_id" name="toko_id" value="${userTokoId}">
-                                        <input type="text" class="form-control" value="{{ $user->toko->nama ?? 'Toko ID: ' . $user->toko_id }}" disabled>`
-                                    }
-                                </div>
+                        <div class="form-group">
+                            <label for="toko_id" class="form-control-label">Nama Toko<span style="color: red">*</span></label>
+                            ${isAllStore
+                                ? `<select id="toko_id" name="toko_id" class="form-control id-toko select2"></select>`
+                                : `<input type="hidden" id="toko_id" name="toko_id" value="${userTokoId}">
+                                       <input type="text" class="form-control" value="{{ $user->toko->nama ?? 'Toko ID: ' . $user->toko_id }}" disabled>`
+                            }
+                        </div>
 
-                                <div class="form-group">
-                                    <label for="nama" class="form-control-label">Nama Member<span style="color: red">*</span></label>
-                                    <input type="text" id="nama" name="nama" placeholder="Contoh : Member 1" class="form-control">
-                                </div>
-                                <div class="form-group">
-                                    <label for="jenis_barang" class="form-control-label">Jenis Barang</label>
-                                    <ul class="list-group list-group-flush">
-                                        ${jenisBarangList.map(jb => `
-                                                <li class="list-group-item">
-                                                    <h6>${jb.nama_jenis_barang}
-                                                        <select name="level_harga[${jb.id}]" id="level_harga_${jb.id}" class="form-control select2"></select>
-                                                    </h6>
-                                                </li>
-                                            `).join('')}
-                                    </ul>
-                                </div>
-                                <div class="form-group">
-                                    <label for="no_hp" class="form-control-label">No HP<span style="color: red">*</span></label>
-                                    <input type="number" id="no_hp" name="no_hp" placeholder="Contoh : 08123456789" class="form-control">
-                                </div>
-                                <div class="form-group">
-                                    <label for="alamat" class="form-control-label">Alamat<span style="color: red">*</span></label>
-                                    <textarea name="alamat" id="alamat" rows="4" placeholder="Contoh : Jl. Nyimas Gandasari No.18 Plered - Cirebon" class="form-control"></textarea>
-                                </div>
-                            </div>
+                        <div class="form-group">
+                            <label for="nama" class="form-control-label">Nama Member<span style="color: red">*</span></label>
+                            <input type="text" id="nama" name="nama" placeholder="Contoh : Member 1" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="jenis_barang" class="form-control-label">Jenis Barang</label>
+                            <ul class="list-group list-group-flush">
+                                ${jenisBarangList.map(jb => `
+                                        <li class="list-group-item">
+                                            <h6>${jb.nama_jenis_barang}
+                                                <select name="level_harga[${jb.id}]" id="level_harga_${jb.id}" class="form-control select2"></select>
+                                            </h6>
+                                        </li>
+                                    `).join('')}
+                            </ul>
+                        </div>
+                        <div class="form-group">
+                            <label for="no_hp" class="form-control-label">No HP<span style="color: red">*</span></label>
+                            <input type="number" id="no_hp" name="no_hp" placeholder="Contoh : 08123456789" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="alamat" class="form-control-label">Alamat<span style="color: red">*</span></label>
+                            <textarea name="alamat" id="alamat" rows="4" placeholder="Contoh : Jl. Nyimas Gandasari No.18 Plered - Cirebon" class="form-control"></textarea>
                         </div>
                     </div>
                 </div>
-            `;
+            </div>
+        </div>
+    `;
 
             await $('#form-data').html(formContent);
 

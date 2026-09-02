@@ -119,12 +119,7 @@
         let defaultSearch = '';
         let customFilter = {};
         let jenisBarangList = @json($jenis_barang);
-        let selectOptions = [{
-            id: '#toko_id',
-            isUrl: '{{ route('master.toko') }}',
-            placeholder: 'Pilih Toko',
-            isModal: '#modal-form',
-        }];
+        let selectOptions = [];
 
         async function getListData(limit = 10, page = 1, ascending = 0, search = '', customFilter = {}) {
             $('#listData').html(loadingData());
@@ -352,7 +347,7 @@
                             ${isAllStore
                                 ? `<select id="toko_id" name="toko_id" class="form-control id-toko select2"></select>`
                                 : `<input type="hidden" id="toko_id" name="toko_id" value="${userTokoId}">
-                                       <input type="text" class="form-control" value="{{ $user->toko->nama ?? 'Toko ID: ' . $user->toko_id }}" disabled>`
+                                           <input type="text" class="form-control" value="{{ $user->toko->nama ?? 'Toko ID: ' . $user->toko_id }}" disabled>`
                             }
                         </div>
 
@@ -364,12 +359,12 @@
                             <label for="jenis_barang" class="form-control-label">Jenis Barang</label>
                             <ul class="list-group list-group-flush">
                                 ${jenisBarangList.map(jb => `
-                                        <li class="list-group-item">
-                                            <h6>${jb.nama_jenis_barang}
-                                                <select name="level_harga[${jb.id}]" id="level_harga_${jb.id}" class="form-control select2"></select>
-                                            </h6>
-                                        </li>
-                                    `).join('')}
+                                            <li class="list-group-item">
+                                                <h6>${jb.nama_jenis_barang}
+                                                    <select name="level_harga[${jb.id}]" id="level_harga_${jb.id}" class="form-control select2"></select>
+                                                </h6>
+                                            </li>
+                                        `).join('')}
                             </ul>
                         </div>
                         <div class="form-group">
@@ -387,6 +382,15 @@
     `;
 
             await $('#form-data').html(formContent);
+
+            if (isAllStore) {
+                selectOptions.push({
+                    id: '#toko_id',
+                    isUrl: '{{ route('master.toko') }}',
+                    placeholder: 'Pilih Toko',
+                    isModal: '#modal-form',
+                });
+            }
 
             jenisBarangList.forEach(jb => {
                 selectOptions.push({

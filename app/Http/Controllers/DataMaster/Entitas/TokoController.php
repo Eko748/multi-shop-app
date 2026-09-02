@@ -359,7 +359,6 @@ class TokoController extends Controller
                 'level_harga'    => 'nullable|array',
                 'kas_detail'     => 'nullable',
                 'kasbon'         => 'nullable',
-                'mitra'          => 'nullable',
             ], [
                 'singkatan.unique' => 'Singkatan sudah digunakan.',
             ]);
@@ -370,7 +369,6 @@ class TokoController extends Controller
                 'nama' => $request->nama,
                 'singkatan' => $request->singkatan,
                 'wilayah' => $request->wilayah,
-                'mitra' => $request->mitra,
                 'alamat' => $request->alamat,
                 'level_harga' => $request->filled('level_harga') ? json_encode($request->level_harga) : $data->level_harga,
                 'pin' => $request->filled('pin') ? $request->pin : $data->pin,

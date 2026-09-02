@@ -350,12 +350,12 @@
 
                                 <div class="form-group">
                                     <label for="toko_id" class="form-control-label">Nama Toko<span style="color: red">*</span></label>
-                                    ${isAllStore ? `
-                                            <select id="toko_id" name="toko_id" class="form-control id-toko select2"></select>
-                                        ` : `
-                                            <input type="hidden" id="toko_id" name="toko_id" value="${userTokoId}">
-                                            <input type="text" class="form-control" value="${data.nama_toko || '{{ $user->toko->nama_toko ?? '' }}'}" disabled>
-                                        `}
+                                    ${isAllStore ?
+                                        `<select id="toko_id" name="toko_id" class="form-control id-toko select2"></select>`
+                                        :
+                                        `<input type="hidden" id="toko_id" name="toko_id" value="${userTokoId}">
+                                        <input type="text" class="form-control" value="{{ $user->toko->nama ?? 'Toko ID: ' . $user->toko_id }}" disabled>`
+                                    }
                                 </div>
 
                                 <div class="form-group">

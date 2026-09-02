@@ -172,7 +172,7 @@ class TransaksiKasirRepo
                 'public_id' => $kasir->public_id,
                 'nota' => $kasir->nota,
                 'tanggal' => $kasir->tanggal->format('d-m-Y H:i:s'),
-                'total_qty' => $kasir->total_qty,
+                'total_qty' => $detailKasir->whereNull('deleted_at')->sum('qty'),
                 'total_nominal' => RupiahGenerate::build($kasir->total_nominal ?? 0),
                 'total_bayar' => RupiahGenerate::build($kasir->total_bayar ?? 0),
                 'total_diskon' => RupiahGenerate::build($kasir->total_diskon ?? 0),

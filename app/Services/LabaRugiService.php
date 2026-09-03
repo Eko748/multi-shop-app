@@ -199,7 +199,6 @@ class LabaRugiService
         $pendapatanLainnya = $lainnya + $pendapatanNonTransaksi;
         $penjualanBersih = $penjualanUmum - $nilaiReturMember;
 
-        // Retur supplier dikeluarkan dari pendapatan (pindahkan ke perhitungan HPP)
         $totalPendapatan = $penjualanBersih + $pendapatanLainnya;
 
         // ============================
@@ -238,13 +237,17 @@ class LabaRugiService
             ->join('retur_supplier', 'retur_supplier.id', '=', 'retur_supplier_detail.retur_supplier_id')
             ->join('pembelian_barang_detail', 'retur_supplier_detail.pembelian_barang_detail_id', '=', 'pembelian_barang_detail.id')
             ->where('retur_supplier_detail.qty_refund', '>', 0)
-            ->whereNull('retur_supplier.deleted_at'); // Pengaman soft delete hanya untuk tabel retur_supplier
+            ->whereNull('retur_supplier.deleted_at');
+
         $applyTokoDirect($hppReturSuplierQuery, 'retur_supplier.toko_id');
-        $applyDateFilterOnly($hppReturSuplierQuery, 'retur_supplier.verify_date');
+        // Pastikan kolom filter tanggal di bawah menggunakan kolom referensi yang aktif (misal: created_at / verify_date / tanggal)
+        $applyDateFilterOnly($hppReturSuplierQuery, 'retur_supplier.created_at');
         $hppReturSuplier = $hppReturSuplierQuery->selectRaw('SUM(retur_supplier_detail.qty_refund * pembelian_barang_detail.harga_beli) as total')->value('total') ?? 0;
 
         $hppPenjualan = $hppTrx - $hppretur + $hppKoreksi;
-        $total_hpp = $hppPenjualan + $hppReturSuplier;
+
+        // Retur supplier berfungsi sebagai pengurang HPP
+        $total_hpp = $hppPenjualan - $hppReturSuplier;
 
         // ============================
         // BEBAN OPERASIONAL
@@ -264,7 +267,6 @@ class LabaRugiService
         $bebanOperasional = [];
         $totalBeban = 0;
 
-        // ABAIKAN ID 11, ID 12 (Bagi Hasil Mitra), DAN ID 13 (Bagi Hasil Pusat)
         $jenisList = PengeluaranTipe::whereNotIn('id', [11, 12, 13])->get();
 
         foreach ($jenisList as $index => $jenis) {
@@ -276,7 +278,6 @@ class LabaRugiService
             $totalBeban += $nilai;
         }
 
-        // --- STOK HILANG & STOK MATI ---
         $stockHilangQuery = StockBarangBermasalah::query()
             ->join('stock_barang_batch as batch', 'batch.id', '=', 'stock_barang_bermasalah.stock_barang_batch_id')
             ->where('stock_barang_bermasalah.status', 'hilang');
@@ -291,7 +292,6 @@ class LabaRugiService
         $applyDateFilter($stockMatiQuery, 'stock_barang_bermasalah.created_at');
         $stockMati = $stockMatiQuery->selectRaw('SUM(stock_barang_bermasalah.qty * batch.harga_beli) as total')->value('total') ?? 0;
 
-        // Tambahkan Selisih Top-up
         $nextNumber = count($jenisList) + 1;
         $bebanOperasional[] = [
             'label' => '3.'.$nextNumber.' Selisih Top-up Saldo Digital',
@@ -299,9 +299,7 @@ class LabaRugiService
         ];
         $totalBeban += $hppSelisihTopup;
 
-        // KONDISI KHUSUS BEBAN OPERASIONAL
         if ($isChild) {
-            // Toko MITRA (Child): Hapus Stok Hilang, urutan Stok Mati naik menggantikannya
             $nextNumber++;
             $bebanOperasional[] = [
                 'label' => '3.'.$nextNumber.' Stok Mati/Rusak',
@@ -309,7 +307,6 @@ class LabaRugiService
             ];
             $totalBeban += $stockMati;
         } else {
-            // Toko BUKAN MITRA (Parent): Sertakan Stok Hilang & Stok Mati
             $nextNumber++;
             $bebanOperasional[] = [
                 'label' => '3.'.$nextNumber.' Stok Hilang',
@@ -334,13 +331,9 @@ class LabaRugiService
         // IV. Bagi Hasil/Deviden
         // ============================
 
-        // 4.1 Bagi Hasil Pusat (Dari Pengeluaran Tipe ID 13)
         $bagiHasilTokoUtama = isset($pengeluaran[13]) ? (int) $pengeluaran[13]->total : 0;
-
-        // 4.2 Bagi Hasil Owner / Mitra (Dari Pengeluaran Tipe ID 12)
         $bagiHasilOwner = isset($pengeluaran[12]) ? (int) $pengeluaran[12]->total : 0;
 
-        // Total Dividen Bagi Hasil (Tanggungan Mitra ditiadakan)
         $totalDividenBagiHasil = $bagiHasilTokoUtama + $bagiHasilOwner;
         $labaOperasional = $totalPendapatan - $total_hpp - $totalBeban;
 
@@ -393,7 +386,6 @@ class LabaRugiService
                 'I. Pendapatan',
                 [
                     ['1.1 Pendapatan Umum', RupiahGenerate::build($penjualanUmum)],
-                    // ['1.2 Pendapatan Retur', RupiahGenerate::build($nilaiReturSuplier)],
                     ['1.2 Pendapatan Lainnya', RupiahGenerate::build($pendapatanLainnya)],
                     ['Total Pendapatan', RupiahGenerate::build($totalPendapatan)],
                 ],
@@ -414,14 +406,12 @@ class LabaRugiService
             ],
         ];
 
-        // KONDISI UNTUK TOKO CHILD (CABANG / MITRA)
         if ($isChild) {
             $labelMitra = '4.2 Bagi Hasil Mitra';
             if (! empty($singkatanToko)) {
                 $labelMitra .= " {$singkatanToko}";
             }
 
-            // Tampilkan Poin IV. Bagi Hasil/Deviden (Tanggungan Mitra sudah dihapus)
             $laporan[] = [
                 'IV. Bagi Hasil/Deviden',
                 [
@@ -431,7 +421,6 @@ class LabaRugiService
                 ],
             ];
 
-            // Laba Rugi ada di Poin V.
             $laporan[] = [
                 'V. Laba Rugi',
                 [
@@ -439,7 +428,6 @@ class LabaRugiService
                 ],
             ];
         } else {
-            // KONDISI UNTUK TOKO PARENT
             $laporan[] = [
                 'IV. Laba Rugi',
                 [

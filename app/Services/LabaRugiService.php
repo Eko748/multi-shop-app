@@ -29,7 +29,7 @@ class LabaRugiService
     public function hitungLabaRugiTahunSebelumnya($year, $tokoId = null)
     {
         return (int) LabaRugiTahunan::where('tahun', '<', $year)
-            ->when(!empty($tokoId) && strtolower((string)$tokoId) !== 'all', function ($query) use ($tokoId) {
+            ->when(! empty($tokoId) && strtolower((string) $tokoId) !== 'all', function ($query) use ($tokoId) {
                 $query->where('toko_id', $tokoId);
             })
             ->sum('laba_bersih');
@@ -43,7 +43,7 @@ class LabaRugiService
         $query = LabaRugi::where('tahun', $year)
             ->where('bulan', '<=', $month)
             // Filter toko_id HANYA JIKA $tokoId tidak kosong dan bukan string 'all'
-            ->when(!empty($tokoId) && strtolower((string)$tokoId) !== 'all', function ($q) use ($tokoId) {
+            ->when(! empty($tokoId) && strtolower((string) $tokoId) !== 'all', function ($q) use ($tokoId) {
                 $q->where('toko_id', $tokoId);
             });
 
@@ -55,7 +55,7 @@ class LabaRugiService
         $isParent = false;
         $parentKasIds = [];
 
-        if (!empty($tokoId) && strtolower((string)$tokoId) !== 'all') {
+        if (! empty($tokoId) && strtolower((string) $tokoId) !== 'all') {
             $toko = Toko::find($tokoId);
 
             // Toko dianggap PARENT jika parent_id-nya null/kosong
@@ -237,10 +237,11 @@ class LabaRugiService
 
         $hppReturSuplierQuery = ReturSupplierDetail::query()
             ->join('retur_supplier', 'retur_supplier.id', '=', 'retur_supplier_detail.retur_supplier_id')
+            ->join('pembelian_barang_detail', 'retur_supplier_detail.pembelian_barang_detail_id', '=', 'pembelian_barang_detail.id')
             ->where('retur_supplier_detail.qty_refund', '>', 0);
         $applyTokoDirect($hppReturSuplierQuery, 'retur_supplier.toko_id');
         $applyDateFilterOnly($hppReturSuplierQuery, 'retur_supplier.verify_date');
-        $hppReturSuplier = $hppReturSuplierQuery->selectRaw('SUM(retur_supplier_detail.qty_refund * retur_supplier_detail.hpp) as total')->value('total') ?? 0;
+        $hppReturSuplier = $hppReturSuplierQuery->selectRaw('SUM(retur_supplier_detail.qty_refund * pembelian_barang_detail.harga_beli) as total')->value('total') ?? 0;
 
         $hppPenjualan = $hppTrx - $hppretur + $hppKoreksi;
         $total_hpp = $hppPenjualan + $hppReturSuplier;

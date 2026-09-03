@@ -10,17 +10,14 @@ class ReturRepository
     /**
      * Mengambil data retur member dan supplier
      *
-     * @param int $month
-     * @param int $year
-     * @param mixed $tokoId ID Toko (jika null/kosong, data dari semua toko akan ditarik)
-     * @return array
+     * @param  mixed  $tokoId  ID Toko (jika null/kosong, data dari semua toko akan ditarik)
      */
     public function getReturData(int $month, int $year, $tokoId = null): array
     {
         $returMemberQuery = ReturMemberDetail::whereYear('created_at', $year)
             ->whereMonth('created_at', '<=', $month)
             // Filter retur member berdasarkan toko HANYA JIKA $tokoId tidak kosong
-            ->when(!empty($tokoId), function ($query) use ($tokoId) {
+            ->when(! empty($tokoId), function ($query) use ($tokoId) {
                 $query->whereHas('retur', function ($q) use ($tokoId) {
                     $q->where('toko_id', $tokoId);
                 });
@@ -33,18 +30,21 @@ class ReturRepository
             ')
             ->first();
 
-        $returSupplierQuery = ReturSupplier::where('status', 'proses')
-            ->whereYear('tanggal', $year)
-            ->whereMonth('tanggal', '<=', $month)
+        $returSupplierQuery = ReturSupplier::query()
+            ->join('retur_supplier_detail', 'retur_supplier.id', '=', 'retur_supplier_detail.retur_supplier_id')
+            ->join('pembelian_barang_detail', 'retur_supplier_detail.pembelian_barang_detail_id', '=', 'pembelian_barang_detail.id')
+            ->where('retur_supplier.status', 'proses')
+            ->whereYear('retur_supplier.tanggal', $year)
+            ->whereMonth('retur_supplier.tanggal', '<=', $month)
             // Filter retur supplier berdasarkan toko HANYA JIKA $tokoId tidak kosong
-            ->when(!empty($tokoId), function ($query) use ($tokoId) {
-                $query->where('toko_id', $tokoId);
+            ->when(! empty($tokoId), function ($query) use ($tokoId) {
+                $query->where('retur_supplier.toko_id', $tokoId);
             });
 
         $returSupplier = $returSupplierQuery
             ->selectRaw('
-                SUM(total_hpp) as total_hpp,
-                SUM(qty) as total_qty
+                SUM(retur_supplier_detail.qty * pembelian_barang_detail.harga_beli) as total_hpp,
+                SUM(retur_supplier_detail.qty) as total_qty
             ')
             ->first();
 

@@ -213,10 +213,10 @@ class LabaRugiService
         $applyDateFilter($hppTrxQuery, 'kas_transaksi.tanggal');
         $hppTrx = $hppTrxQuery->sum('transaksi_kasir_harian.total_harga_beli');
 
-        // $hppKoreksiQuery = PembelianBarangDetailAdjustment::query();
-        // $applyTokoDirect($hppKoreksiQuery, 'toko_id');
-        // $applyDateFilter($hppKoreksiQuery, 'created_at');
-        // $hppKoreksi = $hppKoreksiQuery->sum('nominal_laba_rugi');
+        $hppKoreksiQuery = PembelianBarangDetailAdjustment::query();
+        $applyTokoDirect($hppKoreksiQuery, 'toko_id');
+        $applyDateFilter($hppKoreksiQuery, 'created_at');
+        $hppKoreksi = $hppKoreksiQuery->sum('nominal_laba_rugi');
 
         $hppreturQuery = KasTransaksi::where('kas_transaksi.tipe', 'out')
             ->where('kas_transaksi.sumber_type', ReturMember::class)
@@ -243,7 +243,7 @@ class LabaRugiService
         $applyDateFilterOnly($hppReturSuplierQuery, 'retur_supplier.verify_date');
         $hppReturSuplier = $hppReturSuplierQuery->selectRaw('SUM(retur_supplier_detail.qty_refund * pembelian_barang_detail.harga_beli) as total')->value('total') ?? 0;
 
-        $hppPenjualan = $hppTrx - $hppretur;
+        $hppPenjualan = $hppTrx - $hppretur + $hppKoreksi;
         $total_hpp = $hppPenjualan + $hppReturSuplier;
 
         // ============================

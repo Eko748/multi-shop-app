@@ -176,7 +176,8 @@ class LabaRugiService
             ->where('sumber_type', Pemasukan::class)
             ->where($filterToko)
             ->whereHasMorph('sumber', [Pemasukan::class], function ($q) {
-                $q->whereNotIn('pemasukan_tipe_id', [1, 2]);
+                $q->whereNotIn('pemasukan_tipe_id', [1, 2])
+                  ->whereNull('deleted_at');
             });
         $applyDateFilter($lainnyaQuery, 'tanggal');
         $lainnya = $lainnyaQuery->sum('total_nominal');

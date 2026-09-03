@@ -177,7 +177,7 @@ class LabaRugiService
             ->where($filterToko)
             ->whereHasMorph('sumber', [Pemasukan::class], function ($q) {
                 $q->whereNotIn('pemasukan_tipe_id', [1, 2])
-                  ->whereNull('deleted_at');
+                    ->whereNull('deleted_at');
             });
         $applyDateFilter($lainnyaQuery, 'tanggal');
         $lainnya = $lainnyaQuery->sum('total_nominal');
@@ -237,7 +237,10 @@ class LabaRugiService
         $hppReturSuplierQuery = ReturSupplierDetail::query()
             ->join('retur_supplier', 'retur_supplier.id', '=', 'retur_supplier_detail.retur_supplier_id')
             ->join('pembelian_barang_detail', 'retur_supplier_detail.pembelian_barang_detail_id', '=', 'pembelian_barang_detail.id')
-            ->where('retur_supplier_detail.qty_refund', '>', 0);
+            ->where('retur_supplier_detail.qty_refund', '>', 0)
+            ->whereNull('retur_supplier_detail.deleted_at')
+            ->whereNull('retur_supplier.deleted_at')
+            ->whereNull('pembelian_barang_detail.deleted_at'); // Sesuaikan jika kolom deleted_at ada
         $applyTokoDirect($hppReturSuplierQuery, 'retur_supplier.toko_id');
         $applyDateFilterOnly($hppReturSuplierQuery, 'retur_supplier.verify_date');
         $hppReturSuplier = $hppReturSuplierQuery->selectRaw('SUM(retur_supplier_detail.qty_refund * pembelian_barang_detail.harga_beli) as total')->value('total') ?? 0;

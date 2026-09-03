@@ -34,8 +34,11 @@ class StokRepository
 
     public function getStokPerJenis($tokoId, int $month, int $year)
     {
-        // Jika env APP_NAME adalah GPS, langsung ambil dari tabel rekap bulanan
-        if (config('app.name') === 'GPS') {
+        $now = Carbon::now();
+        $isCurrentMonth = ($now->month === $month && $now->year === $year);
+
+        // Jika env GPS DAN BUKAN bulan ini (artinya bulan lalu / masa lalu), ambil dari rekap bulanan
+        if (config('app.name') === 'GPS' && ! $isCurrentMonth) {
             $query = StockBarangBulanan::query()
                 ->leftJoin('jenis_barang', 'stock_barang_bulanan.jenis_barang_id', '=', 'jenis_barang.id')
                 ->where('stock_barang_bulanan.tahun', $year)
@@ -46,7 +49,7 @@ class StokRepository
                 $query->where('stock_barang_bulanan.toko_id', $tokoId);
             }
 
-            // Jika 'all' atau 0, biasanya data perlu diagregasi ulang per jenis barang dari semua toko
+            // Jika 'all' atau 0, agregasi ulang per jenis barang dari semua toko
             if ($tokoId === 'all' || $tokoId == 0 || $tokoId === null) {
                 $data = $query->select(
                     DB::raw('COALESCE(jenis_barang.id, stock_barang_bulanan.jenis_barang_id) as id_jenis_barang'),
@@ -76,11 +79,8 @@ class StokRepository
         }
 
         // =========================================================================
-        // LOGIKA LAMA (NON-GPS / BACKTRACKING)
+        // LOGIKA BULAN INI ATAU NON-GPS
         // =========================================================================
-        $now = Carbon::now();
-        $isCurrentMonth = ($now->month === $month && $now->year === $year);
-
         if ($isCurrentMonth) {
             $data = StockBarangBatch::query()
                 ->join('stock_barang', 'stock_barang_batch.stock_barang_id', '=', 'stock_barang.id')
@@ -111,7 +111,7 @@ class StokRepository
             })->values();
         }
 
-        // Backtracking lama...
+        // Backtracking lama (untuk non-GPS yang bukan bulan ini)...
         $targetMonthEnd = Carbon::createFromDate($year, $month, 1)->endOfMonth()->format('Y-m-d H:i:s');
         $targetDateEnd = Carbon::createFromDate($year, $month, 1)->endOfMonth()->format('Y-m-d');
 

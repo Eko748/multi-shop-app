@@ -281,7 +281,7 @@ class LabaRugiService
         $stockHilangQuery = StockBarangBermasalah::query()
             ->join('stock_barang_batch as batch', 'batch.id', '=', 'stock_barang_bermasalah.stock_barang_batch_id')
             ->where('stock_barang_bermasalah.status', 'hilang');
-        $applyTokoDirect($stockHilangQuery, 'batch.toko_id');
+        $applyTokoDirect($stockHilangQuery, 'stock_barang_bermasalah.toko_id'); // Ubah ke kolom tabel utamanya
         $applyDateFilter($stockHilangQuery, 'stock_barang_bermasalah.created_at');
         $stockHilang = $stockHilangQuery->selectRaw('SUM(stock_barang_bermasalah.qty * batch.harga_beli) as total')->value('total') ?? 0;
 

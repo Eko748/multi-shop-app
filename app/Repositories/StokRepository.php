@@ -4,6 +4,7 @@ namespace App\Repositories;
 
 use App\Models\StockBarangBatch;
 use App\Models\StockBarangBermasalah; // Sesuaikan namespace model Anda
+use App\Models\StockBarangBulanan;
 use App\Models\TransaksiKasirHarian; // Sesuaikan namespace model Anda
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -33,18 +34,58 @@ class StokRepository
 
     public function getStokPerJenis($tokoId, int $month, int $year)
     {
+        // Jika env APP_NAME adalah GPS, langsung ambil dari tabel rekap bulanan
+        if (config('app.name') === 'GPS') {
+            $query = StockBarangBulanan::query()
+                ->leftJoin('jenis_barang', 'stock_barang_bulanan.jenis_barang_id', '=', 'jenis_barang.id')
+                ->where('stock_barang_bulanan.tahun', $year)
+                ->where('stock_barang_bulanan.bulan', $month);
+
+            // Filter toko jika spesifik (bukan 'all' atau 0/null)
+            if ($tokoId !== null && $tokoId !== 'all' && $tokoId != 0) {
+                $query->where('stock_barang_bulanan.toko_id', $tokoId);
+            }
+
+            // Jika 'all' atau 0, biasanya data perlu diagregasi ulang per jenis barang dari semua toko
+            if ($tokoId === 'all' || $tokoId == 0 || $tokoId === null) {
+                $data = $query->select(
+                    DB::raw('COALESCE(jenis_barang.id, stock_barang_bulanan.jenis_barang_id) as id_jenis_barang'),
+                    DB::raw("CASE WHEN stock_barang_bulanan.jenis_barang_id = 0 THEN 'Aset Lainnya' ELSE jenis_barang.nama_jenis_barang END as nama_jenis_barang"),
+                    DB::raw('SUM(stock_barang_bulanan.qty_sisa) as total_qty'),
+                    DB::raw('SUM(stock_barang_bulanan.nilai_aset) as total_harga')
+                )
+                    ->groupBy('stock_barang_bulanan.jenis_barang_id', 'jenis_barang.id', 'jenis_barang.nama_jenis_barang')
+                    ->get();
+            } else {
+                $data = $query->select(
+                    DB::raw('COALESCE(jenis_barang.id, stock_barang_bulanan.jenis_barang_id) as id_jenis_barang'),
+                    DB::raw("CASE WHEN stock_barang_bulanan.jenis_barang_id = 0 THEN 'Aset Lainnya' ELSE jenis_barang.nama_jenis_barang END as nama_jenis_barang"),
+                    'stock_barang_bulanan.qty_sisa as total_qty',
+                    'stock_barang_bulanan.nilai_aset as total_harga'
+                )->get();
+            }
+
+            return $data->map(function ($item) {
+                return [
+                    'id_jenis_barang' => $item->id_jenis_barang,
+                    'nama_jenis_barang' => $item->nama_jenis_barang ?? 'Aset Lainnya',
+                    'total_qty' => (int) $item->total_qty,
+                    'total_harga' => (float) $item->total_harga,
+                ];
+            })->values();
+        }
+
+        // =========================================================================
+        // LOGIKA LAMA (NON-GPS / BACKTRACKING)
+        // =========================================================================
         $now = Carbon::now();
         $isCurrentMonth = ($now->month === $month && $now->year === $year);
 
-        // =========================================================================
-        // JIKA AKSES BULAN INI (REAL-TIME)
-        // =========================================================================
         if ($isCurrentMonth) {
             $data = StockBarangBatch::query()
                 ->join('stock_barang', 'stock_barang_batch.stock_barang_id', '=', 'stock_barang.id')
                 ->join('barang', 'stock_barang.barang_id', '=', 'barang.id')
                 ->join('jenis_barang', 'barang.jenis_barang_id', '=', 'jenis_barang.id')
-                // Dihapus: stock_barang_batch.deleted_at (karena kolom tidak ada di DB)
                 ->whereNull('stock_barang.deleted_at')
                 ->whereNull('barang.deleted_at')
                 ->whereNull('jenis_barang.deleted_at')
@@ -70,13 +111,10 @@ class StokRepository
             })->values();
         }
 
-        // =========================================================================
-        // JIKA AKSES BULAN LALU (BACKTRACKING)
-        // =========================================================================
+        // Backtracking lama...
         $targetMonthEnd = Carbon::createFromDate($year, $month, 1)->endOfMonth()->format('Y-m-d H:i:s');
         $targetDateEnd = Carbon::createFromDate($year, $month, 1)->endOfMonth()->format('Y-m-d');
 
-        // 1. Ambil TOTAL MASUK
         $batches = StockBarangBatch::query()
             ->join('stock_barang', 'stock_barang_batch.stock_barang_id', '=', 'stock_barang.id')
             ->join('barang', 'stock_barang.barang_id', '=', 'barang.id')
@@ -98,7 +136,6 @@ class StokRepository
             ->get()
             ->keyBy('id_jenis_barang');
 
-        // 2. Ambil TOTAL TERJUAL
         $sales = TransaksiKasirHarian::query()
             ->select(
                 'jenis_barang_id',
@@ -114,7 +151,6 @@ class StokRepository
             ->get()
             ->keyBy('jenis_barang_id');
 
-        // 3. Ambil TOTAL BERMASALAH
         $problems = StockBarangBermasalah::query()
             ->join('stock_barang_batch', 'stock_barang_bermasalah.stock_barang_batch_id', '=', 'stock_barang_batch.id')
             ->join('stock_barang', 'stock_barang_batch.stock_barang_id', '=', 'stock_barang.id')
@@ -134,7 +170,6 @@ class StokRepository
             ->get()
             ->keyBy('jenis_barang_id');
 
-        // 3.b (TAMBAHAN KHUSUS): TOTAL BARANG DIKIRIM KELUAR (AGAR TIDAK STUCK DI PENJUAL/PARENT)
         $transferOut = DB::table('pengiriman_barang_detail')
             ->join('pengiriman_barang', 'pengiriman_barang_detail.pengiriman_barang_id', '=', 'pengiriman_barang.id')
             ->join('stock_barang_batch', 'pengiriman_barang_detail.stock_barang_batch_id', '=', 'stock_barang_batch.id')
@@ -153,7 +188,6 @@ class StokRepository
             ->get()
             ->keyBy('jenis_barang_id');
 
-        // 4. Gabungkan hasil kalkulasi
         return $batches->map(function ($batch) use ($sales, $problems, $transferOut) {
             $sale = $sales->get($batch->id_jenis_barang);
             $problem = $problems->get($batch->id_jenis_barang);
@@ -165,11 +199,9 @@ class StokRepository
             $qtyBermasalah = $problem ? (float) $problem->total_qty_bermasalah : 0;
             $hargaBermasalah = $problem ? (float) $problem->total_harga_bermasalah : 0;
 
-            // Pengurangan barang dikirim
             $qtyOut = $tfOut ? (float) $tfOut->total_qty_out : 0;
             $hargaOut = $tfOut ? (float) $tfOut->total_harga_out : 0;
 
-            // RUMUS: Masuk Batch - Terjual - Bermasalah - Dikirim Keluar
             $sisaQty = (float) $batch->total_qty_masuk - $qtyTerjual - $qtyBermasalah - $qtyOut;
             $sisaHarga = (float) $batch->total_harga_masuk - $hargaTerjual - $hargaBermasalah - $hargaOut;
 

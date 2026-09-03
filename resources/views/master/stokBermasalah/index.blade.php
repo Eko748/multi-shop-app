@@ -63,14 +63,28 @@
                         <div class="card-header">
                             <div class="row">
                                 <div class="col-sm-12 col-md-3 col-lg-3 col-xl-2 mb-2">
-                                    <button
-                                        class="btn-dynamic btn btn-md btn-outline-secondary d-flex align-items-center justify-content-center"
-                                        type="button" data-toggle="collapse" data-target="#filter-collapse"
-                                        aria-expanded="false" aria-controls="filter-collapse" data-container="body"
-                                        data-toggle="tooltip" data-placement="top" style="flex: 0 0 45px; max-width: 45px;"
-                                        title="Filter Data">
-                                        <i class="fa fa-filter my-1"></i>
-                                    </button>
+                                    <div class="d-flex align-items-center mb-2" style="gap: 0.5rem">
+                                        <!-- Card Total Data di Sebelah Kiri -->
+                                        <div class="card border-secondary shadow-none px-3 py-1 d-flex flex-row align-items-center justify-content-center"
+                                            style="height: 38px; background-color: #f8f9fa;">
+                                            <span class="text-muted small mr-2">Total Qty: <strong id="summary-total-qty"
+                                                    class="text-dark">0</strong></span>
+                                            <span class="text-muted small">| Total: <strong id="summary-total-harga"
+                                                    class="text-dark">Rp 0</strong></span>
+                                        </div>
+
+                                        <!-- Button Filter di Sebelah Kanan -->
+                                        <div class="col-sm-12 col-md-3 col-lg-3 col-xl-2 mb-0 p-0">
+                                            <button
+                                                class="btn-dynamic btn btn-md btn-outline-secondary d-flex align-items-center justify-content-center w-100"
+                                                type="button" data-toggle="collapse" data-target="#filter-collapse"
+                                                aria-expanded="false" aria-controls="filter-collapse" data-container="body"
+                                                data-toggle="tooltip" data-placement="top" style="height: 38px;"
+                                                title="Filter Data">
+                                                <i class="fa fa-filter my-1"></i>
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="col-sm-12 col-md-9 col-lg-9 col-xl-10 mb-2">
                                     <div class="row justify-content-end">

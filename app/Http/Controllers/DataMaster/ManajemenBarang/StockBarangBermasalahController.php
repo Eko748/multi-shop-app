@@ -9,6 +9,7 @@ use App\Models\StockBarangBermasalah;
 use App\Traits\ApiResponse;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class StockBarangBermasalahController extends Controller
 {
@@ -61,6 +62,35 @@ class StockBarangBermasalahController extends Controller
                 ]);
             }
 
+            // Hitung sum/total keseluruhan berdasarkan filter yang aktif
+            $sumQuery = StockBarangBermasalah::query()
+                ->join('stock_barang_batch', 'stock_barang_bermasalah.stock_barang_batch_id', '=', 'stock_barang_batch.id')
+                ->join('stock_barang', 'stock_barang_batch.stock_barang_id', '=', 'stock_barang.id')
+                ->join('barang', 'stock_barang.barang_id', '=', 'barang.id');
+
+            if ($tokoId && $tokoId !== 'all' && $tokoId != 0) {
+                $sumQuery->where('stock_barang_batch.toko_id', $tokoId);
+            }
+
+            if (! empty($request->search)) {
+                $searchTerm = trim(strtolower($request->search));
+                $sumQuery->whereRaw('LOWER(barang.nama) LIKE ?', ["%{$searchTerm}%"]);
+            }
+
+            if ($request->filled('start_date') && $request->filled('end_date')) {
+                $startDate = $request->start_date.' 00:00:00';
+                $endDate = $request->end_date.' 23:59:59';
+                $sumQuery->whereBetween('stock_barang_bermasalah.created_at', [$startDate, $endDate]);
+            } else {
+                $sumQuery->whereBetween('stock_barang_bermasalah.created_at', [
+                    Carbon::now()->startOfMonth(),
+                    Carbon::now()->endOfMonth(),
+                ]);
+            }
+
+            $sumTotalHarga = $sumQuery->sum(DB::raw('stock_barang_bermasalah.qty * stock_barang_batch.harga_beli'));
+            $sumTotalQty = $sumQuery->sum('stock_barang_bermasalah.qty');
+
             $orderDirection = $request->input('ascending', 0) ? 'asc' : 'desc';
             $data = $query->orderBy('created_at', $orderDirection)->paginate($limit);
 
@@ -75,7 +105,7 @@ class StockBarangBermasalahController extends Controller
             $mappedData = collect($data->items())->map(function ($item) {
                 $batch = $item->batch;
                 $barang = $batch?->stockBarang?->barang;
-                $total = (int) ($item->qty ?? 0) * $batch?->harga_beli ?? 0;
+                $total = (int) ($item->qty ?? 0) * ($batch?->harga_beli ?? 0);
 
                 return [
                     'id' => $item->id,
@@ -84,7 +114,7 @@ class StockBarangBermasalahController extends Controller
                     'tanggal_masuk' => $batch?->created_at ? $batch->created_at->format('d-m-Y H:i:s') : '-',
                     'harga_beli' => RupiahGenerate::build($batch?->harga_beli ?? 0),
                     'qty' => (int) ($item->qty ?? 0),
-                    'total' => RupiahGenerate::build($total ?? 0),
+                    'total' => RupiahGenerate::build($total),
                     'status' => ($item->status === 'mati') ? 'Mati/Rusak' : ($item->status ?? '-'),
                     'created_at' => $item->created_at ? $item->created_at->format('d-m-Y H:i:s') : '-',
                 ];
@@ -94,6 +124,11 @@ class StockBarangBermasalahController extends Controller
                 'status_code' => 200,
                 'errors' => false,
                 'message' => 'Sukses',
+                'summary' => [
+                    'total_qty' => (int) $sumTotalQty,
+                    'total_harga' => RupiahGenerate::build($sumTotalHarga ?? 0),
+                    'total_harga_raw' => (float) ($sumTotalHarga ?? 0),
+                ],
                 'data' => $mappedData,
                 'pagination' => [
                     'total' => $data->total(),

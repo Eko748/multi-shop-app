@@ -61,11 +61,11 @@
                 <div class="col-xl-12">
                     <div class="card">
                         <div class="card-header">
-                            <div class="row">
-                                <div class="col-sm-12 col-md-3 col-lg-3 col-xl-2 mb-2">
-                                    <div class="d-flex align-items-center mb-2" style="gap: 0.5rem">
-                                        <!-- Card Total Data di Sebelah Kiri -->
-                                        <div class="card border-secondary shadow-none px-3 py-1 d-flex flex-row align-items-center justify-content-center"
+                            <div class="row align-items-center">
+                                <div class="col-sm-12 col-md-8 col-lg-8 col-xl-8 mb-2">
+                                    <div class="d-flex align-items-center" style="gap: 0.5rem;">
+                                        <!-- Card Total Data -->
+                                        <div class="card border-secondary shadow-none px-3 d-flex flex-row align-items-center justify-content-center mb-0"
                                             style="height: 38px; background-color: #f8f9fa;">
                                             <span class="text-muted small mr-2">Total Qty: <strong id="summary-total-qty"
                                                     class="text-dark">0</strong></span>
@@ -73,31 +73,33 @@
                                                     class="text-dark">Rp 0</strong></span>
                                         </div>
 
-                                        <!-- Button Filter di Sebelah Kanan -->
-                                        <div class="col-sm-12 col-md-3 col-lg-3 col-xl-2 mb-0 p-0">
-                                            <button
-                                                class="btn-dynamic btn btn-md btn-outline-secondary d-flex align-items-center justify-content-center w-100"
-                                                type="button" data-toggle="collapse" data-target="#filter-collapse"
-                                                aria-expanded="false" aria-controls="filter-collapse" data-container="body"
-                                                data-toggle="tooltip" data-placement="top" style="height: 38px;"
-                                                title="Filter Data">
-                                                <i class="fa fa-filter my-1"></i>
-                                            </button>
-                                        </div>
+                                        <!-- Button Filter -->
+                                        <button
+                                            class="btn-dynamic btn btn-md btn-outline-secondary d-flex align-items-center justify-content-center mb-0"
+                                            type="button" data-toggle="collapse" data-target="#filter-collapse"
+                                            aria-expanded="false" aria-controls="filter-collapse" data-container="body"
+                                            data-toggle="tooltip" data-placement="top"
+                                            style="height: 38px; width: 45px; flex-shrink: 0;" title="Filter Data">
+                                            <i class="fa fa-filter my-1"></i>
+                                        </button>
                                     </div>
                                 </div>
-                                <div class="col-sm-12 col-md-9 col-lg-9 col-xl-10 mb-2">
+
+                                <!-- Kolom Kanan: Limit Page & Search Bar -->
+                                <div class="col-sm-12 col-md-4 col-lg-4 col-xl-4 mb-2">
                                     <div class="row justify-content-end">
-                                        <div class="col-4 col-sm-4 col-md-2 col-lg-2">
-                                            <select name="limitPage" id="limitPage" class="form-control mr-2 mb-2 mb-lg-0">
+                                        <div class="col-4 col-sm-4 col-md-4 col-lg-4">
+                                            <select name="limitPage" id="limitPage" class="form-control mr-2 mb-2 mb-lg-0"
+                                                style="height: 38px;">
                                                 <option value="10">10</option>
                                                 <option value="20">20</option>
                                                 <option value="30">30</option>
                                             </select>
                                         </div>
-                                        <div class="col-8 col-sm-8 col-md-4 col-lg-4 justify-content-end">
+                                        <div class="col-8 col-sm-8 col-md-8 col-lg-8">
                                             <input id="tb-search" class="tb-search form-control mb-2 mb-lg-0" type="search"
-                                                name="search" placeholder="Cari Data" aria-label="search">
+                                                name="search" placeholder="Cari Data" aria-label="search"
+                                                style="height: 38px;">
                                         </div>
                                     </div>
                                 </div>
@@ -211,16 +213,26 @@
             });
 
             if (getDataRest && getDataRest.status == 200 && Array.isArray(getDataRest.data.data)) {
+                // Update card summary
+                if (getDataRest.data.summary) {
+                    $('#summary-total-qty').text(getDataRest.data.summary.total_qty.toLocaleString('id-ID'));
+                    $('#summary-total-harga').text(getDataRest.data.summary.total_harga);
+                }
+
                 let handleDataArray = await Promise.all(
                     getDataRest.data.data.map(async item => await handleData(item))
                 );
                 await setListData(handleDataArray, getDataRest.data.pagination);
             } else {
+                // Reset summary jika data kosong/error
+                $('#summary-total-qty').text('0');
+                $('#summary-total-harga').text('Rp 0');
+
                 errorMessage = getDataRest?.data?.message;
                 let errorRow = `
-                            <tr class="text-dark">
-                                <th class="text-center" colspan="${$('.tb-head th').length}"> ${errorMessage} </th>
-                            </tr>`;
+        <tr class="text-dark">
+            <th class="text-center" colspan="${$('.tb-head th').length}"> ${errorMessage} </th>
+        </tr>`;
                 $('#listData').html(errorRow);
                 $('#countPage').text("0 - 0");
                 $('#totalPage').text("0");

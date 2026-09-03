@@ -187,21 +187,19 @@ class LabaRugiService
         $applyDateFilter($nilaiReturMemberQuery, 'tanggal');
         $nilaiReturMember = $nilaiReturMemberQuery->sum('total_nominal');
 
-        $nilaiReturSuplierQuery = KasTransaksi::where('tipe', 'in')
-            ->where('sumber_type', ReturSupplierDetail::class)
-            ->where($filterToko);
-        $applyDateFilter($nilaiReturSuplierQuery, 'tanggal');
-        $nilaiReturSuplier = $nilaiReturSuplierQuery->sum('total_nominal');
-
-        $pendapatanNonTransaksiQuery = DompetSaldo::where($filterToko);
+        // Perbaikan performa query non-transaksi langsung di database
+        $pendapatanNonTransaksiQuery = DompetSaldo::where($filterToko)
+            ->whereColumn('harga_beli', '<', 'saldo');
         $applyDateFilter($pendapatanNonTransaksiQuery, 'created_at');
-        $pendapatanNonTransaksi = $pendapatanNonTransaksiQuery->get()
-            ->filter(fn ($row) => $row->harga_beli < $row->saldo)
-            ->sum(fn ($row) => $row->saldo - $row->harga_beli);
+        $pendapatanNonTransaksi = $pendapatanNonTransaksiQuery
+            ->selectRaw('SUM(saldo - harga_beli) as total')
+            ->value('total') ?? 0;
 
         $pendapatanLainnya = $lainnya + $pendapatanNonTransaksi;
-        $penjualanUmum -= $nilaiReturMember;
-        $totalPendapatan = $penjualanUmum + $pendapatanLainnya + $nilaiReturSuplier;
+        $penjualanBersih = $penjualanUmum - $nilaiReturMember;
+
+        // Retur supplier dikeluarkan dari pendapatan (pindahkan ke perhitungan HPP)
+        $totalPendapatan = $penjualanBersih + $pendapatanLainnya;
 
         // ============================
         // HPP
@@ -360,7 +358,6 @@ class LabaRugiService
             (int) $hppReturSuplier,
             (int) $totalPendapatan,
             (int) $hppPenjualan,
-            (int) $nilaiReturSuplier,
             (int) $total_hpp,
             $bebanOperasional,
             (int) $bagiHasilTokoUtama,
@@ -379,7 +376,6 @@ class LabaRugiService
         $hppReturSuplier,
         $totalPendapatan,
         $hppPenjualan,
-        $nilaiReturSuplier,
         $total_hpp,
         $bebanOperasional,
         $bagiHasilTokoUtama,
@@ -395,8 +391,8 @@ class LabaRugiService
                 'I. Pendapatan',
                 [
                     ['1.1 Pendapatan Umum', RupiahGenerate::build($penjualanUmum)],
-                    ['1.2 Pendapatan Retur', RupiahGenerate::build($nilaiReturSuplier)],
-                    ['1.3 Pendapatan Lainnya', RupiahGenerate::build($pendapatanLainnya)],
+                    // ['1.2 Pendapatan Retur', RupiahGenerate::build($nilaiReturSuplier)],
+                    ['1.2 Pendapatan Lainnya', RupiahGenerate::build($pendapatanLainnya)],
                     ['Total Pendapatan', RupiahGenerate::build($totalPendapatan)],
                 ],
             ],

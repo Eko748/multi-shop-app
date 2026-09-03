@@ -238,8 +238,7 @@ class LabaRugiService
             ->join('retur_supplier', 'retur_supplier.id', '=', 'retur_supplier_detail.retur_supplier_id')
             ->join('pembelian_barang_detail', 'retur_supplier_detail.pembelian_barang_detail_id', '=', 'pembelian_barang_detail.id')
             ->where('retur_supplier_detail.qty_refund', '>', 0)
-            ->whereNull('retur_supplier.deleted_at')
-            ->whereNull('pembelian_barang_detail.deleted_at'); // Sesuaikan jika kolom deleted_at ada
+            ->whereNull('retur_supplier.deleted_at'); // Pengaman soft delete hanya untuk tabel retur_supplier
         $applyTokoDirect($hppReturSuplierQuery, 'retur_supplier.toko_id');
         $applyDateFilterOnly($hppReturSuplierQuery, 'retur_supplier.verify_date');
         $hppReturSuplier = $hppReturSuplierQuery->selectRaw('SUM(retur_supplier_detail.qty_refund * pembelian_barang_detail.harga_beli) as total')->value('total') ?? 0;

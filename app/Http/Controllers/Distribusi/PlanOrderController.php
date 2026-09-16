@@ -76,7 +76,6 @@ class PlanOrderController extends Controller
                 ->get()
                 ->groupBy('barang_id');
 
-            // Query Terjual (Diadaptasi dari getRatingBarang dengan filter rentang tanggal / default hari ini)
             $terjualQuery = TransaksiKasirDetail::selectRaw('stock_barang.barang_id, transaksi_kasir.toko_id, SUM(transaksi_kasir_detail.qty - COALESCE(retur_member_detail.qty_request,0)) as net_terjual')
                 ->join('transaksi_kasir', 'transaksi_kasir.id', '=', 'transaksi_kasir_detail.transaksi_kasir_id')
                 ->join('stock_barang_batch', 'stock_barang_batch.id', '=', 'transaksi_kasir_detail.stock_barang_batch_id')
@@ -120,17 +119,25 @@ class PlanOrderController extends Controller
                 $bTerjual = $terjualGrouped->get($item->id, collect())->keyBy('toko_id');
 
                 $grandTotalStock = 0;
+                $allOtw = 0;
+                $allTerjual = 0;
+                $allLoList = [];
 
-                $stokPerToko = $tokoList->mapWithKeys(function ($tk) use ($bStock, $bOtw, $bLo, $bTerjual, &$grandTotalStock, $nowStartOfDay) {
+                $stokPerToko = $tokoList->mapWithKeys(function ($tk) use ($bStock, $bOtw, $bLo, $bTerjual, &$grandTotalStock, &$allOtw, &$allTerjual, &$allLoList, $nowStartOfDay) {
                     $stock = (int) ($bStock->get($tk->id)->total_stock ?? 0);
                     $otw = (int) ($bOtw->get($tk->id)->total_otw ?? 0);
                     $loRaw = $bLo->get($tk->id)->last_date ?? null;
                     $terjual = (int) ($bTerjual->get($tk->id)->net_terjual ?? 0);
 
                     $grandTotalStock += $stock;
+                    $allOtw += $otw;
+                    $allTerjual += $terjual;
 
                     // Hitung selisih hari Last Order
                     $lo = $loRaw ? (int) abs($nowStartOfDay->diffInDays(\Carbon\Carbon::parse($loRaw)->startOfDay())) : null;
+                    if ($lo !== null) {
+                        $allLoList[] = $lo;
+                    }
 
                     return [
                         $tk->singkatan => [
@@ -138,24 +145,38 @@ class PlanOrderController extends Controller
                             'stock' => $stock,
                             'otw' => $otw,
                             'lo' => $lo,
-                            'terjual' => $terjual, // <-- Penambahan data terjual per toko
+                            'terjual' => $terjual,
                         ],
                     ];
                 });
+
+                // Ambil selisih hari terkecil (paling baru ada transaksi di antara semua toko)
+                $allLo = ! empty($allLoList) ? min($allLoList) : null;
+
+                // Gabungkan ALL di paling depan
+                $stokPerTokoCombined = collect([
+                    'ALL' => [
+                        'toko_id' => null,
+                        'stock' => $grandTotalStock,
+                        'otw' => $allOtw,
+                        'lo' => $allLo,
+                        'terjual' => $allTerjual,
+                    ],
+                ])->merge($stokPerToko);
 
                 return [
                     'id' => $item->id,
                     'nama_barang' => TextGenerate::smartTail($item->nama),
                     'grand_total_stock' => $grandTotalStock,
-                    'stok_per_toko' => $stokPerToko,
+                    'stok_per_toko' => $stokPerTokoCombined,
                 ];
             });
 
             // =========================================================
             // 5. STABLE SORTING LOGIC
             // =========================================================
-            $sortBy = $request->input('sort_by');   // 'stock', 'otw', 'lo'
-            $sortToko = $request->input('sort_toko'); // 'PST', 'CRB', dll.
+            $sortBy = $request->input('sort_by');   // 'stock', 'otw', 'lo', 'terjual'
+            $sortToko = $request->input('sort_toko'); // 'ALL', 'PST', 'CRB', dll.
 
             $isDesc = ($orderDirection === 'desc');
 

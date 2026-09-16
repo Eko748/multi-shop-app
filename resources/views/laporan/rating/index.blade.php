@@ -254,14 +254,14 @@
                 <th class="${classCol} text-center" rowspan="${isMultiToko ? 2 : 1}">NO</th>
                 <th class="${classCol}" rowspan="${isMultiToko ? 2 : 1}">NAMA BARANG</th>`;
 
-                    if (isSingleToko) {
-                        tableHead += `<th class="${classCol} text-center" rowspan="1">Jumlah Item Terjual</th>`;
-                    } else if (isMultiToko) {
-                        tableHead +=
-                            `<th class="${classCol} text-center" colspan="${tokoList.length}">Jumlah Item Terjual Per Toko</th>`;
-                    }
+            if (isSingleToko) {
+                tableHead += `<th class="${classCol} text-center" rowspan="1">Jumlah Item Terjual</th>`;
+            } else if (isMultiToko) {
+                tableHead +=
+                    `<th class="${classCol} text-center" colspan="${tokoList.length}">Jumlah Item Terjual Per Toko</th>`;
+            }
 
-                    tableHead += `
+            tableHead += `
                 <th class="${classCol} text-center" rowspan="${isMultiToko ? 2 : 1}">Stok</th>
                 <th class="${classCol} text-center" rowspan="${isMultiToko ? 2 : 1}">HPP</th>
                 <th class="${classCol} text-center" rowspan="${isMultiToko ? 2 : 1}">Action</th>
@@ -373,7 +373,7 @@
             renderPlanTable();
         });
 
-        $(document).on('input', '.qty-input', function() {
+        $(document).on('change', '.qty-input', function() {
             const index = $(this).data('index');
             const qty = parseInt($(this).val()) || 0;
             planList[index].qty = qty;

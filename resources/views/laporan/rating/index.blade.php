@@ -109,6 +109,10 @@
                         <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                             <span><i class="fa fa-cart-plus mr-2"></i>Plan Order</span>
                             <div>
+                                <!-- Tombol Bulk Delete (Sembunyi secara default) -->
+                                <button id="btn-delete-selected" class="btn btn-danger btn-sm mr-1 d-none">
+                                    <i class="fa fa-trash"></i> Hapus Terpilih (<span id="selected-count">0</span>)
+                                </button>
                                 <button id="btn-download-pdf" class="btn btn-light btn-sm text-danger mr-1">
                                     <i class="fa fa-file-pdf"></i> Download
                                 </button>
@@ -124,6 +128,10 @@
                             <table class="table table-bordered mb-0" id="planTable">
                                 <thead class="thead-light">
                                     <tr>
+                                        <!-- Checkbox Check All -->
+                                        <th style="width: 40px;" class="text-center">
+                                            <input type="checkbox" id="checkAllPlan">
+                                        </th>
                                         <th style="width: 50px;">No</th>
                                         <th>Nama Barang</th>
                                         <th>Qty</th>
@@ -134,12 +142,14 @@
                                 </thead>
                                 <tbody id="planList">
                                     <tr>
-                                        <td colspan="6" class="text-center text-muted">Belum ada item</td>
+                                        <!-- Update colspan jadi 7 -->
+                                        <td colspan="7" class="text-center text-muted">Belum ada item</td>
                                     </tr>
                                 </tbody>
                                 <tfoot class="bg-light">
                                     <tr>
-                                        <th colspan="4" class="text-right">Total</th>
+                                        <!-- Update colspan jadi 5 -->
+                                        <th colspan="5" class="text-right">Total</th>
                                         <th id="grandTotal" class="text-right">Rp 0</th>
                                         <th></th>
                                     </tr>
@@ -324,42 +334,73 @@
             const tbody = $('#planList');
             tbody.empty();
 
+            // Reset status checkAll dan tombol bulk delete
+            $('#checkAllPlan').prop('checked', false);
+            updateBulkDeleteButton();
+
             if (planList.length === 0) {
-                tbody.html(`<tr><td colspan="5" class="text-center text-muted">Belum ada item</td></tr>`);
+                tbody.html(`<tr><td colspan="7" class="text-center text-muted">Belum ada item</td></tr>`);
                 $('#grandTotal').text('Rp 0');
+                $('#checkAllPlan').prop('disabled', true);
                 return;
             }
+
+            $('#checkAllPlan').prop('disabled', false);
 
             let totalAll = 0;
             planList.forEach((item, i) => {
                 const total = item.hpp * item.qty;
                 totalAll += total;
 
+                const isChecked = item.selected ? 'checked' : '';
+
                 tbody.append(`
-                    <tr>
-                        <td class="text-center">${i + 1}</td>
-                        <td style="white-space: normal; word-wrap: break-word; max-width: 200px;">${item.nama}</td>
-                        <td><input type="number" min="1" class="form-control form-control-sm qty-input"
-                            data-index="${i}" value="${item.qty}"></td>
-                        <td class="text-right">${formatRupiah(item.hpp)}</td>
-                        <td class="text-right total-hpp" id="total-${i}">${formatRupiah(total)}</td>
-                        <td class="text-center">
-                            <button class="btn btn-sm btn-danger btn-remove" data-index="${i}">
-                                <i class="fa fa-trash"></i>
-                            </button>
-                        </td>
-                    </tr>
-                `);
+            <tr>
+                <td class="text-center">
+                    <input type="checkbox" class="plan-item-checkbox" data-index="${i}" ${isChecked}>
+                </td>
+                <td class="text-center">${i + 1}</td>
+                <td style="white-space: normal; word-wrap: break-word; max-width: 200px;">${item.nama}</td>
+                <td><input type="number" min="1" class="form-control form-control-sm qty-input"
+                    data-index="${i}" value="${item.qty}"></td>
+                <td class="text-right">${formatRupiah(item.hpp)}</td>
+                <td class="text-right total-hpp" id="total-${i}">${formatRupiah(total)}</td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-danger btn-remove" data-index="${i}">
+                        <i class="fa fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `);
             });
 
             $('#grandTotal').text(formatRupiah(totalAll));
         }
 
+        // Fungsi untuk memperbarui tampilan tombol Bulk Delete
+        function updateBulkDeleteButton() {
+            const selectedCount = planList.filter(item => item.selected).length;
+
+            if (selectedCount > 0) {
+                $('#selected-count').text(selectedCount);
+                $('#btn-delete-selected').removeClass('d-none');
+            } else {
+                $('#btn-delete-selected').addClass('d-none');
+            }
+
+            // Update status Check All jika semua item tercentang
+            if (planList.length > 0 && selectedCount === planList.length) {
+                $('#checkAllPlan').prop('checked', true);
+            } else {
+                $('#checkAllPlan').prop('checked', false);
+            }
+        }
+
+        // Handler Tambah Plan Item
         $(document).on('click', '.btn-add-plan', function() {
             const nama = $(this).data('nama');
             const hpp = parseFloat($(this).data('hpp'));
 
-            // Cek apakah sudah ada
             const existing = planList.findIndex(p => p.nama === nama);
             if (existing !== -1) {
                 planList[existing].qty += 1;
@@ -367,12 +408,14 @@
                 planList.push({
                     nama,
                     qty: 1,
-                    hpp
+                    hpp,
+                    selected: false
                 });
             }
             renderPlanTable();
         });
 
+        // Handler Ubah Qty
         $(document).on('change', '.qty-input', function() {
             const index = $(this).data('index');
             const qty = parseInt($(this).val()) || 0;
@@ -380,9 +423,34 @@
             renderPlanTable();
         });
 
+        // Handler Hapus Single Item
         $(document).on('click', '.btn-remove', function() {
             const index = $(this).data('index');
             planList.splice(index, 1);
+            renderPlanTable();
+        });
+
+        // --- LOGIKA BULK DELETE (TANPA ALERT) ---
+
+        // 1. Check All Checkbox
+        $(document).on('change', '#checkAllPlan', function() {
+            const isChecked = $(this).is(':checked');
+            planList.forEach(item => item.selected = isChecked);
+            $('.plan-item-checkbox').prop('checked', isChecked);
+            updateBulkDeleteButton();
+        });
+
+        // 2. Individual Item Checkbox
+        $(document).on('change', '.plan-item-checkbox', function() {
+            const index = $(this).data('index');
+            planList[index].selected = $(this).is(':checked');
+            updateBulkDeleteButton();
+        });
+
+        // 3. Eksekusi Hapus Langsung Tanpa Confirm/Alert
+        $(document).on('click', '#btn-delete-selected', function() {
+            // Menyaring dan menyimpan item yang TIDAK dicentang
+            planList = planList.filter(item => !item.selected);
             renderPlanTable();
         });
 

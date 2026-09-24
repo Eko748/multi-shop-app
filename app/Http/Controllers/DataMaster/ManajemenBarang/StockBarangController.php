@@ -20,6 +20,7 @@ use App\Models\StockBarangBatch;
 use App\Models\StockBarangBermasalah;
 use App\Models\Toko;
 use App\Services\KasService;
+use App\Services\StockBulananService;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -175,7 +176,7 @@ class StockBarangController extends Controller
         ], 200);
     }
 
-    public function refreshStock(Request $request)
+    public function refreshStock(Request $request, StockBulananService $stockBulananService)
     {
         try {
             $validated = $request->validate([
@@ -194,13 +195,20 @@ class StockBarangController extends Controller
             }
 
             DB::beginTransaction();
-            $stok = StockBarang::lockForUpdate()->find($request->id);
+
+            $stok = StockBarang::with('barang')->lockForUpdate()->find($request->id);
             if (! $stok) {
                 return $this->error(404, 'Data stok tidak ditemukan.');
             }
 
+            $jenisBarangId = $stok->barang->jenis_barang_id ?? null;
+            if (! $jenisBarangId) {
+                throw new \Exception('Jenis barang tidak ditemukan pada data stok ini.');
+            }
+
             $oldStock = $stok->stok;
             $totalHargaBeli = 0; // 🔑 total kerugian HPP
+            $fTanggal = now();
 
             // Ambil semua batch
             $batches = StockBarangBatch::where('stock_barang_id', $stok->id)
@@ -212,8 +220,10 @@ class StockBarangController extends Controller
                     continue;
                 }
 
-                // hitung HPP batch
-                $batchHargaBeli = $batch->qty_sisa * ($batch->harga_beli ?? 0);
+                $qtyDikosongkan = $batch->qty_sisa;
+
+                // hitung HPP batch & nilai aset
+                $batchHargaBeli = $qtyDikosongkan * ($batch->harga_beli ?? 0);
                 $totalHargaBeli += $batchHargaBeli;
 
                 // Catat stok bermasalah PER BATCH
@@ -221,8 +231,17 @@ class StockBarangController extends Controller
                     'stock_barang_batch_id' => $batch->id,
                     'status' => 'mati',
                     'toko_id' => $validated['toko_id'],
-                    'qty' => $batch->qty_sisa,
+                    'qty' => $qtyDikosongkan,
                 ]);
+
+                // 🔴 INTEGRASI STOCK BULANAN SERVICE (STOK KELUAR / OUT)
+                $stockBulananService->tambahStokKeluar(
+                    tokoId: $validated['toko_id'],
+                    jenisBarangId: $jenisBarangId,
+                    qty: $qtyDikosongkan,
+                    nilaiAset: $batchHargaBeli,
+                    tanggal: $fTanggal->toDateString()
+                );
 
                 // Kosongkan batch
                 $batch->qty_sisa = 0;
@@ -235,12 +254,10 @@ class StockBarangController extends Controller
 
             // 🔥 Update laba rugi (OUT)
             if ($totalHargaBeli > 0) {
-                $tanggal = now();
-
                 KasService::updateLabaRugi(
                     tokoId: $request->toko_id,
-                    tahun: $tanggal->year,
-                    bulan: $tanggal->month,
+                    tahun: $fTanggal->year,
+                    bulan: $fTanggal->month,
                     tipe: 'out',
                     nominal: $totalHargaBeli
                 );
@@ -373,7 +390,7 @@ class StockBarangController extends Controller
         }
     }
 
-    public function updateStock(Request $request)
+    public function updateStock(Request $request, StockBulananService $stockBulananService)
     {
         $request->validate([
             'toko_id' => 'required|integer|exists:toko,id',
@@ -399,6 +416,7 @@ class StockBarangController extends Controller
             $stokPengurangan = []; // per stock_barang_id
             $totalHargaBeli = 0;   // total beban HPP
             $jenisBarangId = null; // Variabel penampung jenis_barang_id
+            $fTanggal = now();
 
             foreach ($request->reductions as $reduction) {
 
@@ -415,9 +433,10 @@ class StockBarangController extends Controller
                 }
 
                 $qtyOld = $batch->qty_sisa;
+                $nilaiAsetBatch = $batch->harga_beli * $qtyKurangi;
 
                 // HITUNG TOTAL HPP
-                $totalHargaBeli += ($batch->harga_beli * $qtyKurangi);
+                $totalHargaBeli += $nilaiAsetBatch;
 
                 // kurangi batch
                 $batch->qty_sisa -= $qtyKurangi;
@@ -439,6 +458,17 @@ class StockBarangController extends Controller
                 $stok = StockBarang::with('barang')->find($batch->stock_barang_id);
                 if ($stok && $stok->barang) {
                     $jenisBarangId = $stok->barang->jenis_barang_id;
+                }
+
+                // 🔴 INTEGRASI STOCK BULANAN SERVICE (STOK KELUAR / OUT)
+                if ($jenisBarangId) {
+                    $stockBulananService->tambahStokKeluar(
+                        tokoId: $tokoId,
+                        jenisBarangId: $jenisBarangId,
+                        qty: $qtyKurangi,
+                        nilaiAset: $nilaiAsetBatch,
+                        tanggal: $fTanggal->toDateString()
+                    );
                 }
 
                 $namaBarang = $stok?->barang?->nama_barang ?? '-';
@@ -482,7 +512,6 @@ class StockBarangController extends Controller
             | LABA RUGI / PIUTANG MITRA
             ============================ */
             if ($totalHargaBeli > 0) {
-                $fTanggal = now();
 
                 if ($isMitra) {
                     // 🔍 CARI MODEL KAS SESUAI toko_id & jenis_barang_id
@@ -496,7 +525,7 @@ class StockBarangController extends Controller
 
                     // 🔹 LOGIC UNTUK TOKO MITRA (Pencatatan Piutang)
                     $piutang = Piutang::create([
-                        'kas_id' => $kas->id, // Automated dari query Kas
+                        'kas_id' => $kas->id,
                         'toko_id' => $tokoId,
                         'piutang_tipe_id' => $request->piutang_tipe_id ?? 4,
                         'keterangan' => 'Pengurangan Stok Barang Mitra',
@@ -507,7 +536,7 @@ class StockBarangController extends Controller
                         'tanggal' => $fTanggal->toDateString(),
                         'created_by' => $userId,
                         'sumber_type' => StockBarangBermasalah::class,
-                        'sumber_id' => $bermasalah->id,
+                        'sumber_id' => $bermasalah->id ?? null,
                     ]);
 
                     $nominalFormatted = RupiahGenerate::build($totalHargaBeli);
@@ -532,7 +561,7 @@ class StockBarangController extends Controller
                         message: '(Sistem) Piutang otomatis dari pengurangan stok mitra.'
                     );
 
-                    // Neutral IN (tanpa KasService::out)
+                    // Neutral IN
                     KasService::neutralIN(
                         toko_id: $tokoId,
                         jenis_barang_id: $jenisBarangId,

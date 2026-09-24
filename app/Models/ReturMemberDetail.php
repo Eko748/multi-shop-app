@@ -10,7 +10,6 @@ class ReturMemberDetail extends Model
 
     protected $guarded = [];
 
-
     /**
      * Relasi ke retur_member (header).
      */
@@ -37,9 +36,8 @@ class ReturMemberDetail extends Model
 
     public function batch()
     {
-        return $this->hasMany(ReturMemberDetailBatch::class);
+        return $this->hasMany(ReturMemberDetailBatch::class, 'retur_member_detail_id');
     }
-
 
     /**
      * Relasi ke stok detail melalui tabel pivot retur_member_detail_stok.

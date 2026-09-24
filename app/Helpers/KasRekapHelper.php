@@ -10,6 +10,7 @@ use App\Models\KasTransaksi;
 use App\Models\LabaRugi;
 use App\Models\LabaRugiTahunan;
 use App\Models\TransaksiKasir;
+use App\Models\TransaksiKasirDetail;
 use App\Models\TransaksiKasirHarian;
 use App\Services\KasService;
 use Carbon\Carbon;
@@ -154,5 +155,92 @@ class KasRekapHelper
             laba: true,
             beban: $rekap->total_hpp // ⬅️ FIX INTI
         );
+    }
+
+    public static function syncKasDeleteFromKasir(
+        int $toko_id,
+        int $jenis_barang_id,
+        int $kas_id,
+        string $tanggalSekarang,
+        float $nominalHapus,
+        float $bebanHapus,
+        TransaksiKasirDetail $sumberDetail,
+        string $notaHeader
+    ): void {
+        $kas = Kas::find($kas_id);
+        if (! $kas) {
+            throw new \Exception("Kas tidak ditemukan.");
+        }
+
+        $today    = Carbon::parse($tanggalSekarang);
+        $tahunNow = $today->year;
+        $bulanNow = $today->month;
+
+        $jenisNama = $jenis_barang_id == 0
+            ? 'Dompet Digital'
+            : (JenisBarang::find($jenis_barang_id)?->nama_jenis_barang ?? '-');
+
+        // 1. Buat Record Kas OUT khusus penghapusan/retur di HARI INI
+        KasTransaksi::create([
+            'kas_id'         => $kas->id,
+            'kode_transaksi' => 'KS-OUT-' . time() . rand(100, 999),
+            'tipe'           => 'out',
+            'total_nominal'  => $nominalHapus,
+            'kategori'       => 'Hapus Transaksi Kasir',
+            'keterangan'     => "{$notaHeader} ({$jenisNama})",
+            'item'           => 'kecil',
+            'tanggal'        => $tanggalSekarang,
+            'sumber_type'    => TransaksiKasirDetail::class,
+            'sumber_id'      => $sumberDetail->id,
+        ]);
+
+        // 2. Potong Saldo Kas Riil saat ini (Bisa bernilai minus jika kas 0)
+        $kas->saldo -= $nominalHapus;
+        $kas->save();
+
+        // 3. Update History Saldo Akhir BULAN INI
+        $historyNow = KasSaldoHistory::where([
+            'kas_id' => $kas->id,
+            'tahun'  => $tahunNow,
+            'bulan'  => $bulanNow,
+        ])->first();
+
+        if (! $historyNow) {
+            $lastHistory = KasSaldoHistory::where('kas_id', $kas->id)
+                ->orderByDesc('tahun')
+                ->orderByDesc('bulan')
+                ->first();
+
+            $saldoAwal = $lastHistory ? $lastHistory->saldo_akhir : 0;
+
+            $historyNow = KasSaldoHistory::create([
+                'kas_id'      => $kas->id,
+                'tahun'       => $tahunNow,
+                'bulan'       => $bulanNow,
+                'saldo_awal'  => $saldoAwal,
+                'saldo_akhir' => $kas->saldo,
+            ]);
+        } else {
+            $historyNow->saldo_akhir = $kas->saldo;
+            $historyNow->save();
+        }
+
+        // 4. Update Laba Rugi Bulanan & Tahunan BULAN INI
+        $labaRugi = LabaRugi::firstOrCreate([
+            'toko_id' => $toko_id,
+            'tahun'   => $tahunNow,
+            'bulan'   => $bulanNow,
+        ]);
+        $labaRugi->decrement('pendapatan', $nominalHapus);
+        $labaRugi->decrement('beban', $bebanHapus);
+        $labaRugi->update(['laba_bersih' => $labaRugi->pendapatan - $labaRugi->beban]);
+
+        $labaRugiTahunan = LabaRugiTahunan::firstOrCreate([
+            'toko_id' => $toko_id,
+            'tahun'   => $tahunNow,
+        ]);
+        $labaRugiTahunan->decrement('pendapatan', $nominalHapus);
+        $labaRugiTahunan->decrement('beban', $bebanHapus);
+        $labaRugiTahunan->update(['laba_bersih' => $labaRugiTahunan->pendapatan - $labaRugiTahunan->beban]);
     }
 }

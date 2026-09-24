@@ -164,7 +164,7 @@ class ReturMemberController extends Controller
     {
         try {
             $validated = $request->validate([
-                'id' => 'required|exists:retur,id',
+                'id' => 'required|exists:retur_member,id',
                 'deleted_by' => 'required|exists:users,id',
             ]);
 

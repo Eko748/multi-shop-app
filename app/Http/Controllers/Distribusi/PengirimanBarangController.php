@@ -18,6 +18,7 @@ use App\Models\StockBarangBermasalah;
 use App\Models\Toko;
 use App\Services\Distribusi\PengirimanBarangService;
 use App\Services\KasService;
+use App\Services\StockBulananService;
 use App\Traits\ApiResponse;
 use App\Traits\HasFilter;
 use Exception;
@@ -76,7 +77,7 @@ class PengirimanBarangController extends Controller
                 ");
 
             // PERBAIKAN: Hanya filter toko jika toko_id ADA, tidak kosong, dan BUKAN 'all' / '1' (Super Admin / Pusat)
-            if (!empty($id_toko) && $id_toko !== 'all' && $id_toko != 1) {
+            if (! empty($id_toko) && $id_toko !== 'all' && $id_toko != 1) {
                 $query->where(function ($q) use ($id_toko) {
                     $q->where('toko_asal_id', $id_toko)
                         ->orWhere(function ($r) use ($id_toko) {
@@ -370,7 +371,7 @@ class PengirimanBarangController extends Controller
         ]);
     }
 
-    public function post(Request $request)
+    public function post(Request $request, StockBulananService $stockBulananService)
     {
         $request->validate([
             'pengiriman_barang_id' => 'nullable|integer',
@@ -390,14 +391,47 @@ class PengirimanBarangController extends Controller
         DB::beginTransaction();
 
         try {
+            $tanggalSend = $request->send_at;
 
             // ===============================
-            // 🔥 MODE UPDATE
+            // 🔥 MODE UPDATE (ROLLBACK STOK LAMA)
             // ===============================
             if ($request->pengiriman_barang_id) {
 
                 $pengiriman = PengirimanBarang::lockForUpdate()
                     ->findOrFail($request->pengiriman_barang_id);
+
+                // Ambil detail lama untuk restore stok & rekap
+                $oldDetails = PengirimanBarangDetail::where('pengiriman_barang_id', $pengiriman->id)->get();
+
+                foreach ($oldDetails as $old) {
+                    $oldBatch = StockBarangBatch::lockForUpdate()->find($old->stock_barang_batch_id);
+                    if ($oldBatch) {
+                        // Restore stok batch & master stok
+                        $oldBatch->qty_sisa += $old->qty_send;
+                        $oldBatch->save();
+
+                        $oldStock = $oldBatch->stockBarang;
+                        if ($oldStock) {
+                            $oldStock->stok += $old->qty_send;
+                            $oldStock->save();
+
+                            // 🟢 ROLLBACK STOK KELUAR BULANAN (Toko Asal)
+                            $jenisId = $oldStock->barang->jenis_barang_id ?? null;
+                            if ($jenisId) {
+                                $nilaiAsetOld = $old->qty_send * $oldBatch->harga_beli; // Sesuaikan field harga
+
+                                $stockBulananService->rollbackStokKeluar(
+                                    $pengiriman->toko_asal_id,
+                                    $jenisId,
+                                    $old->qty_send,
+                                    $nilaiAsetOld,
+                                    $tanggalSend
+                                );
+                            }
+                        }
+                    }
+                }
 
                 // Update header
                 $pengiriman->update([
@@ -411,23 +445,13 @@ class PengirimanBarangController extends Controller
                     'status' => 'progress',
                 ]);
 
-                // 🔴 Pastikan temporary sudah kosong
-                PengirimanBarangDetailTemp::where(
-                    'pengiriman_barang_id',
-                    $pengiriman->id
-                )->lockForUpdate()->delete();
-
-                // 🔥 Hapus detail lama (karena akan dibuat ulang)
-                PengirimanBarangDetail::where(
-                    'pengiriman_barang_id',
-                    $pengiriman->id
-                )->delete();
+                PengirimanBarangDetailTemp::where('pengiriman_barang_id', $pengiriman->id)->lockForUpdate()->delete();
+                PengirimanBarangDetail::where('pengiriman_barang_id', $pengiriman->id)->delete();
             }
             // ===============================
             // 🔥 MODE CREATE
             // ===============================
             else {
-
                 $pengiriman = PengirimanBarang::create([
                     'toko_asal_id' => $request->toko_asal_id,
                     'toko_tujuan_id' => $request->toko_tujuan_id,
@@ -441,9 +465,8 @@ class PengirimanBarangController extends Controller
             }
 
             // ===============================
-            // 🔥 PROCESS DETAIL
+            // 🔥 PROCESS DETAIL BARU
             // ===============================
-
             foreach ($request->details as $row) {
 
                 $batchOrigin = StockBarangBatch::lockForUpdate()
@@ -475,6 +498,22 @@ class PengirimanBarangController extends Controller
                 $stockOrigin->stok -= $row['qty_send'];
                 $stockOrigin->save();
 
+                // 🔴 TAMBAH STOK KELUAR BULANAN (Toko Asal)
+                $jenisId = $stockOrigin->barang->jenis_barang_id ?? null;
+                if (! $jenisId) {
+                    throw new \Exception('Jenis barang tidak ditemukan');
+                }
+
+                $nilaiAsetNew = $row['qty_send'] * $batchOrigin->harga_beli; // Sesuaikan field harga
+
+                $stockBulananService->tambahStokKeluar(
+                    $request->toko_asal_id,
+                    $jenisId,
+                    $row['qty_send'],
+                    $nilaiAsetNew,
+                    $tanggalSend
+                );
+
                 PengirimanBarangDetail::create([
                     'pengiriman_barang_id' => $pengiriman->id,
                     'barang_id' => $row['barang_id'],
@@ -488,7 +527,6 @@ class PengirimanBarangController extends Controller
 
             return $this->success($pengiriman, 200, 'Data berhasil disimpan');
         } catch (\Exception $e) {
-
             DB::rollBack();
 
             return $this->error(500, $e->getMessage());
@@ -635,13 +673,14 @@ class PengirimanBarangController extends Controller
         ]);
     }
 
-public function verify(Request $request)
+    public function verify(Request $request, StockBulananService $stockBulananService)
     {
         $request->validate([
             'details' => 'required|array',
             'details.*.id' => 'required|integer',
             'details.*.qty_verified' => 'required|integer|min:0',
             'details.*.qty_problem' => 'required|integer|min:0',
+            'verified_by' => 'required|integer',
         ]);
 
         DB::beginTransaction();
@@ -678,7 +717,7 @@ public function verify(Request $request)
                 throw new \Exception('Data toko_group_id pada transaksi pengiriman ini kosong');
             }
 
-            // Load data toko asal & tujuan untuk mendapatkan 'singkatan'
+            // Load data toko asal & tujuan
             $tokoAsal = Toko::find($pb->toko_asal_id);
             $tokoTujuan = Toko::find($pb->toko_tujuan_id);
 
@@ -687,7 +726,7 @@ public function verify(Request $request)
             }
 
             $hutangGrouped = [];
-            $kasMampuGrouped = []; // Penampung untuk akumulasi kas per jenisBarangId
+            $kasMampuGrouped = [];
             $waktuVerifikasi = now();
 
             foreach ($request->details as $row) {
@@ -701,9 +740,19 @@ public function verify(Request $request)
                 }
 
                 $qtyVerified = $row['qty_verified'];
+                $qtyProblem = $row['qty_problem'];
+
                 $detail->qty_verified = $qtyVerified;
                 $detail->save();
 
+                $jenisBarangId = $detail->barang->jenis_barang_id ?? null;
+                if (! $jenisBarangId) {
+                    throw new \Exception("Jenis barang tidak ditemukan untuk detail ID {$detail->id}");
+                }
+
+                // =======================================================
+                // 1. JIKA ADA BARANG YANG DITERIMA / DIVERIFIKASI
+                // =======================================================
                 if ($qtyVerified > 0) {
                     $batchOrigin = StockBarangBatch::where('id', $detail->stock_barang_batch_id)
                         ->lockForUpdate()
@@ -743,7 +792,7 @@ public function verify(Request $request)
                     $stockDestination->stok = $totalStokBaru;
                     $stockDestination->save();
 
-                    $batchNew = StockBarangBatch::create([
+                    StockBarangBatch::create([
                         'stock_barang_id' => $stockDestination->id,
                         'parent_id' => $batchOrigin->id,
                         'supplier_id' => $batchOrigin->supplier_id,
@@ -757,8 +806,18 @@ public function verify(Request $request)
                         'sumber_id' => $detail->id,
                     ]);
 
+                    // 🟢 TAMBAH STOK MASUK (IN) PADA STOCK BULANAN TOKO TUJUAN
+                    $nilaiAsetVerified = $qtyVerified * $hargaBeliMurni;
+                    $stockBulananService->tambahStokMasuk(
+                        $pb->toko_tujuan_id,
+                        $jenisBarangId,
+                        $qtyVerified,
+                        $nilaiAsetVerified,
+                        $waktuVerifikasi->toDateString()
+                    );
+
+                    // Kalkulasi Keuangan Kas / Hutang
                     $totalBiaya = $qtyVerified * $hargaBeliMurni;
-                    $jenisBarangId = $detail->barang->jenis_barang_id;
                     $tipeKas = $request->tipe_kas ?? 'kecil';
 
                     $kas = Kas::where('toko_id', $pb->toko_tujuan_id)
@@ -771,19 +830,12 @@ public function verify(Request $request)
                     $kasMampu = min($saldoKas, $totalBiaya);
                     $sisaHutang = $totalBiaya - $kasMampu;
 
-                    // Akumulasi Kas Mampu per jenis_barang_id
                     if ($kasMampu > 0) {
-                        if (! isset($kasMampuGrouped[$jenisBarangId])) {
-                            $kasMampuGrouped[$jenisBarangId] = 0;
-                        }
-                        $kasMampuGrouped[$jenisBarangId] += $kasMampu;
+                        $kasMampuGrouped[$jenisBarangId] = ($kasMampuGrouped[$jenisBarangId] ?? 0) + $kasMampu;
                     }
 
                     if ($sisaHutang > 0) {
-                        if (! isset($hutangGrouped[$jenisBarangId])) {
-                            $hutangGrouped[$jenisBarangId] = 0;
-                        }
-                        $hutangGrouped[$jenisBarangId] += $sisaHutang;
+                        $hutangGrouped[$jenisBarangId] = ($hutangGrouped[$jenisBarangId] ?? 0) + $sisaHutang;
                     }
 
                     if (method_exists($this, 'recalcHPPGlobal')) {
@@ -791,25 +843,26 @@ public function verify(Request $request)
                     }
                 }
 
-                if ($row['qty_problem'] > 0) {
+                // =======================================================
+                // 2. JIKA ADA BARANG BERMASALAH (HILANG / RUSAK)
+                // =======================================================
+                if ($qtyProblem > 0) {
                     StockBarangBermasalah::create([
                         'stock_barang_batch_id' => $detail->stock_barang_batch_id,
                         'status' => 'hilang',
-                        'qty' => $row['qty_problem'],
+                        'qty' => $qtyProblem,
                     ]);
                 }
-            } // <-- Akhir dari loop barang foreach
+            }
 
             // =======================================================
-            // EKSEKUSI KAS GABUNGAN (DI LUAR LOOP BARANG)
+            // EKSEKUSI KAS GABUNGAN
             // =======================================================
             $tipeKas = $request->tipe_kas ?? 'kecil';
             foreach ($kasMampuGrouped as $jenisBarangId => $totalKasMampu) {
-                // Ambil data JenisBarang untuk mendapatkan nama jenisnya (misal: Sparepart, Aksesoris, dll)
                 $jb = JenisBarang::find($jenisBarangId);
                 $namaJenisBarang = $jb ? $jb->nama_jenis_barang : 'Umum';
 
-                // Keterangan dinamis sesuai request Anda
                 KasService::out(
                     toko_id: $pb->toko_tujuan_id,
                     jenis_barang_id: $jenisBarangId,
@@ -817,7 +870,7 @@ public function verify(Request $request)
                     total_nominal: $totalKasMampu,
                     item: 'kecil',
                     kategori: 'Pengiriman Barang',
-                    keterangan: "{$namaJenisBarang} dari Toko {$tokoAsal->singkatan}", // Untuk toko tujuan
+                    keterangan: "{$namaJenisBarang} dari Toko {$tokoAsal->singkatan}",
                     sumber: $pb,
                     tanggal: $waktuVerifikasi,
                     laba: false
@@ -830,7 +883,7 @@ public function verify(Request $request)
                     total_nominal: $totalKasMampu,
                     item: 'kecil',
                     kategori: 'Pengiriman Barang',
-                    keterangan: "{$namaJenisBarang} ke Toko {$tokoTujuan->singkatan}", // Untuk toko asal
+                    keterangan: "{$namaJenisBarang} ke Toko {$tokoTujuan->singkatan}",
                     sumber: $pb,
                     tanggal: $waktuVerifikasi,
                     laba: false
@@ -914,6 +967,7 @@ public function verify(Request $request)
             return $this->success(null, 201, 'Verifikasi Pengiriman Barang Berhasil');
         } catch (\Exception $e) {
             DB::rollBack();
+
             return $this->error(500, $e->getMessage());
         }
     }

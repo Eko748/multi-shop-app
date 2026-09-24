@@ -56,4 +56,9 @@ class StokBarangDetailRepository
             ->orderBy('created_at', 'asc')
             ->get();
     }
+
+    public function find($id)
+    {
+        return $this->model->find($id);
+    }
 }

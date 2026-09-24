@@ -4,33 +4,36 @@ namespace App\Http\Controllers\TransaksiBarang;
 
 use App\Helpers\AssetGenerate;
 use App\Helpers\FormatHarga;
+use App\Helpers\HppGenerate;
 use App\Helpers\KasJenisBarangGenerate;
 use App\Helpers\LogAktivitasGenerate;
+use App\Helpers\PinCheck;
 use App\Helpers\RupiahGenerate;
-use App\Helpers\{TextGenerate, PinCheck, HppGenerate};
+use App\Helpers\TextGenerate;
 use App\Http\Controllers\Controller;
 use App\Imports\PembelianBarangImport;
 use App\Models\Barang;
-use App\Models\PembelianBarangDetail;
-use App\Models\PembelianBarangDetailTemp;
 use App\Models\Hutang;
 use App\Models\Kas;
 use App\Models\LabaRugi;
 use App\Models\LabaRugiTahunan;
 use App\Models\LevelHarga;
 use App\Models\PembelianBarang;
+use App\Models\PembelianBarangDetail;
 use App\Models\PembelianBarangDetailAdjustment;
+use App\Models\PembelianBarangDetailTemp;
 use App\Models\StockBarang;
 use App\Models\StockBarangBatch;
 use App\Models\Supplier;
 use App\Services\KasService;
 use App\Services\TransaksiBarang\PembelianBarangService;
-use App\Traits\{ApiResponse, HasFilter};
+use App\Traits\ApiResponse;
+use App\Traits\HasFilter;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\Validators\ValidationException as ExcelValidationException;
@@ -40,6 +43,7 @@ class PembelianBarangController extends Controller
     use ApiResponse, HasFilter;
 
     private array $menu = [];
+
     protected $service;
 
     public function __construct(PembelianBarangService $service)
@@ -47,7 +51,7 @@ class PembelianBarangController extends Controller
         $this->menu;
         $this->title = [
             'Data Pembelian Barang',
-            'Detail Data'
+            'Detail Data',
         ];
         $this->service = $service;
     }
@@ -56,6 +60,7 @@ class PembelianBarangController extends Controller
     {
         $menu = [$this->title[0], $this->label[1]];
         $LevelHarga = LevelHarga::all();
+
         return view('transaksi.pembelianbarang.index', compact('menu', 'LevelHarga'));
     }
 
@@ -75,7 +80,7 @@ class PembelianBarangController extends Controller
             return $this->success($data['data'], 200, 'Berhasil', $data['pagination']);
         } catch (Exception $e) {
             return $this->error(500, "Gagal mengambil data {$this->title[0]}", [
-                'exception' => $e->getMessage()
+                'exception' => $e->getMessage(),
             ]);
         }
     }
@@ -96,7 +101,7 @@ class PembelianBarangController extends Controller
             return $this->success($data, 200, 'Berhasil');
         } catch (Exception $e) {
             return $this->error(500, "Gagal mengambil data {$this->title[0]}", [
-                'exception' => $e->getMessage()
+                'exception' => $e->getMessage(),
             ]);
         }
     }
@@ -105,9 +110,9 @@ class PembelianBarangController extends Controller
     {
         $request->validate([
             'id_supplier' => 'required|exists:supplier,id',
-            'tgl_nota'    => 'required|date',
-            'no_nota'     => 'required|string',
-            'tipe'        => 'required|in:cash,hutang',
+            'tgl_nota' => 'required|date',
+            'no_nota' => 'required|string',
+            'tipe' => 'required|in:cash,hutang',
         ], [
             'no_nota.unique' => 'Nomor Nota sudah digunakan!',
             'tipe.in' => 'Tipe hanya boleh berisi cash atau hutang.',
@@ -127,27 +132,27 @@ class PembelianBarangController extends Controller
             // simpan data pembelian
             $pembelian = PembelianBarang::create([
                 'id_supplier' => $request->id_supplier,
-                'id_users'    => $user->id,
-                'no_nota'     => $request->no_nota,
-                'tgl_nota'    => $tglNota,
-                'tipe'        => $request->tipe,
+                'id_users' => $user->id,
+                'no_nota' => $request->no_nota,
+                'tgl_nota' => $tglNota,
+                'tipe' => $request->tipe,
             ]);
 
             DB::commit();
 
             return response()->json([
-                'status'         => 'success',
-                'no_nota'        => $pembelian->no_nota,
-                'nama_supplier'  => $pembelian->supplier->nama_supplier ?? '-',
-                'tgl_nota'       => Carbon::parse($pembelian->tgl_nota)->format('Y-m-d H:i:s'),
-                'id_pembelian'   => $pembelian->id,
-                'tipe'           => $pembelian->tipe,
+                'status' => 'success',
+                'no_nota' => $pembelian->no_nota,
+                'nama_supplier' => $pembelian->supplier->nama_supplier ?? '-',
+                'tgl_nota' => Carbon::parse($pembelian->tgl_nota)->format('Y-m-d H:i:s'),
+                'id_pembelian' => $pembelian->id,
+                'tipe' => $pembelian->tipe,
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
 
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => $e->getMessage(),
             ], 500);
         }
@@ -164,7 +169,7 @@ class PembelianBarangController extends Controller
     {
         $id = $request->input('pembelian_barang_id');
 
-        if (!$id) {
+        if (! $id) {
             return response()->json([
                 'status' => 'error',
                 'errors' => true,
@@ -173,12 +178,12 @@ class PembelianBarangController extends Controller
             ], 400);
         }
 
-        $limit = ($request->has('limit') && $request->limit <= 300) ? (int)$request->limit : 50;
+        $limit = ($request->has('limit') && $request->limit <= 300) ? (int) $request->limit : 50;
         $searchTerm = strtolower(trim($request->input('search', '')));
 
         $pembelian = PembelianBarang::with('supplier:id,nama')->find($id);
 
-        if (!$pembelian) {
+        if (! $pembelian) {
             return response()->json([
                 'status' => 'error',
                 'errors' => true,
@@ -189,11 +194,11 @@ class PembelianBarangController extends Controller
 
         $detailQuery = PembelianBarangDetail::with([
             'barang:id,nama,qrcode',
-            'stockBarangBatch:id,qty_masuk,qty_sisa'
+            'stockBarangBatch:id,qty_masuk,qty_sisa',
         ])
             ->where('pembelian_barang_id', $id);
 
-        if (!empty($searchTerm)) {
+        if (! empty($searchTerm)) {
             $detailQuery->whereHas('barang', function ($q) use ($searchTerm) {
                 $q->whereRaw('LOWER(nama) LIKE ?', ["%{$searchTerm}%"]);
             });
@@ -205,7 +210,8 @@ class PembelianBarangController extends Controller
         $detailItems = $paginated->items();
 
         $mappedDetails = collect($detailItems)->map(function ($item) {
-            $img     = AssetGenerate::build("qrcodes/barang/{$item->barang->qrcode}.png");
+            $img = AssetGenerate::build("qrcodes/barang/{$item->barang->qrcode}.png");
+
             return [
                 'id' => $item->id,
                 'qrcode' => $item->barang->qrcode,
@@ -249,8 +255,8 @@ class PembelianBarangController extends Controller
         $id = $request->id;
 
         $rules = [
-            'toko_group_id'  => 'required|integer|exists:toko_group,id',
-            'toko_id'  => 'required|integer|exists:toko,id',
+            'toko_group_id' => 'required|integer|exists:toko_group,id',
+            'toko_id' => 'required|integer|exists:toko,id',
             'created_by' => 'required|integer',
             'id' => 'required|integer',
             'nota' => 'required|string',
@@ -269,12 +275,16 @@ class PembelianBarangController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Data tidak lengkap, pastikan semua input diisi.',
-                'errors'  => $validator->errors(),
+                'errors' => $validator->errors(),
             ], 422);
         }
 
         try {
             DB::beginTransaction();
+
+            // Instantiate StockBulananService
+            $stockBulananService = app(\App\Services\StockBulananService::class);
+
             $pembelian = PembelianBarang::findOrFail($id);
             $totalItem = 0;
             $totalNilai = 0;
@@ -287,7 +297,7 @@ class PembelianBarangController extends Controller
                 $levelHargaFromFront = $item['level_harga'] ?? [];
 
                 $stockBarang = StockBarang::firstOrNew([
-                    'barang_id'     => $id_barang,
+                    'barang_id' => $id_barang,
                     'toko_group_id' => $request->toko_group_id,
                 ]);
 
@@ -337,7 +347,7 @@ class PembelianBarangController extends Controller
 
                 $batch = StockBarangBatch::create([
                     'toko_id' => $request->toko_id,
-                    // 'qrcode' => QrGenerator::generate('QR-PB-')['value'],
+                    // 'qrcode'       => QrGenerator::generate('QR-PB-')['value'],
                     'stock_barang_id' => $stockBarang->id,
                     'qty_masuk' => $qty,
                     'qty_sisa' => $qty,
@@ -366,6 +376,21 @@ class PembelianBarangController extends Controller
                 $batch->sumber_id = $detail->id;
                 $batch->save();
 
+                // =========================================================================
+                // PENERAPAN STOCK BULANAN SERVICE (STOK MASUK / IN)
+                // =========================================================================
+                // Ambil jenis_barang_id dari relasi barang
+                $barang = \App\Models\Barang::find($id_barang);
+                if ($barang && $barang->jenis_barang_id) {
+                    $stockBulananService->tambahStokMasuk(
+                        tokoId: $request->toko_id,
+                        jenisBarangId: $barang->jenis_barang_id,
+                        qty: $qty,
+                        nilaiAset: $qty * $harga_barang,
+                        tanggal: $request->tanggal
+                    );
+                }
+
                 $totalItem += $detail->qty;
                 $totalNilai += $detail->subtotal;
 
@@ -376,9 +401,10 @@ class PembelianBarangController extends Controller
 
             if ($totalNilai > (float) $limitTotal->saldo && $pembelian->tipe == 'cash') {
                 DB::rollBack();
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Total nilai pembelian melebihi sumber dana yang dipilih.'
+                    'message' => 'Total nilai pembelian melebihi sumber dana yang dipilih.',
                 ], 422);
             }
 
@@ -415,7 +441,7 @@ class PembelianBarangController extends Controller
                     ? $firstDetail->barang->jenis_barang_id
                     : null;
 
-                $hutang  = Hutang::create([
+                $hutang = Hutang::create([
                     'kas_id' => $pembelian->kas_id,
                     'toko_id' => $request->toko_id,
                     'hutang_tipe_id' => 1,
@@ -430,7 +456,7 @@ class PembelianBarangController extends Controller
                     'created_by' => $request->created_by,
                 ]);
 
-                $kas    = KasJenisBarangGenerate::labelForKas($hutang);
+                $kas = KasJenisBarangGenerate::labelForKas($hutang);
 
                 $description = "Hutang ditambahkan pada {$kas} senilai Rp {$nominal} (ID {$hutang->id})";
 
@@ -446,7 +472,7 @@ class PembelianBarangController extends Controller
                                 'tanggal' => $hutang->tanggal,
                                 'kas' => $kas,
                             ],
-                        ]
+                        ],
                     ],
                     description: $description,
                     userId: $request->created_by,
@@ -466,19 +492,6 @@ class PembelianBarangController extends Controller
                     sumber: $hutang,
                     tanggal: $hutang->tanggal,
                 );
-
-                // KasService::in(
-                //     toko_id: $hutang->toko_id,
-                //     jenis_barang_id: $kasJenisBarang,
-                //     tipe_kas: 'kecil',
-                //     total_nominal: $hutang->nominal,
-                //     item: 'kecil',
-                //     kategori: 'Hutang',
-                //     keterangan: $hutang->hutangTipe->tipe ?? 'Hutang Lainnya',
-                //     sumber: $hutang,
-                //     tanggal: $hutang->tanggal,
-                //     laba: false
-                // );
             }
 
             $pembelian->save();
@@ -490,8 +503,10 @@ class PembelianBarangController extends Controller
 
             return $this->success(null, 201, "Pembelian Barang Nota {$pembelian->nota} disimpan.");
         } catch (\Exception $e) {
+            DB::rollBack();
+
             return $this->error(500, "Gagal mengambil data {$this->title[0]}", [
-                'exception' => $e->getMessage()
+                'exception' => $e->getMessage(),
             ]);
         }
     }
@@ -721,28 +736,31 @@ class PembelianBarangController extends Controller
 
         DB::beginTransaction();
         try {
+            // Instantiate Service
+            $stockBulananService = app(\App\Services\StockBulananService::class);
+
             $detail = PembelianBarangDetail::with([
                 'pembelianBarang',
-                'stockBarangBatch.stockBarang'
+                'stockBarangBatch.stockBarang.barang',
             ])->lockForUpdate()->findOrFail($request->id);
 
-            $pembelian    = $detail->pembelianBarang;
-            $editedBatch  = $detail->stockBarangBatch;
-            $stockBarang  = $editedBatch->stockBarang;
+            $pembelian = $detail->pembelianBarang;
+            $editedBatch = $detail->stockBarangBatch;
+            $stockBarang = $editedBatch->stockBarang;
 
-            $oldQty       = $detail->qty;
-            $oldHarga     = $detail->harga_beli;
-            $oldSubtotal  = $oldQty * $oldHarga;
+            $oldQty = $detail->qty;
+            $oldHarga = $detail->harga_beli;
+            $oldSubtotal = $oldQty * $oldHarga;
 
-            $newQty       = $request->qty;
-            $newHarga     = $request->harga_barang;
-            $newSubtotal  = $newQty * $newHarga;
+            $newQty = $request->qty;
+            $newHarga = $request->harga_barang;
+            $newSubtotal = $newQty * $newHarga;
 
-            $deltaQty     = $newQty - $oldQty;
-            $deltaNilai   = $newSubtotal - $oldSubtotal;
+            $deltaQty = $newQty - $oldQty;
+            $deltaNilai = $newSubtotal - $oldSubtotal;
 
             $qtyKeluar = $editedBatch->qty_masuk - $editedBatch->qty_sisa;
-            $qtySisa   = $editedBatch->qty_sisa;
+            $qtySisa = $editedBatch->qty_sisa;
 
             if ($newQty < $qtyKeluar) {
                 throw new \Exception(
@@ -756,19 +774,18 @@ class PembelianBarangController extends Controller
              * =====================================================
              */
             $selisihHarga = $newHarga - $oldHarga;
-
             $nominalLabaRugi = $qtyKeluar * $selisihHarga;
-            $nominalStok     = $qtySisa * $selisihHarga;
+            $nominalStok = $qtySisa * $selisihHarga;
 
             if (
                 $oldQty != $newQty ||
                 $oldHarga != $newHarga
             ) {
                 PembelianBarangDetailAdjustment::create([
-                    'toko_id'   => $pembelian->toko_id,
-                    'pembelian_barang_id'        => $pembelian->id,
+                    'toko_id' => $pembelian->toko_id,
+                    'pembelian_barang_id' => $pembelian->id,
                     'pembelian_barang_detail_id' => $detail->id,
-                    'stock_barang_batch_id'      => $editedBatch->id,
+                    'stock_barang_batch_id' => $editedBatch->id,
 
                     'old_qty' => $oldQty,
                     'new_qty' => $newQty,
@@ -779,89 +796,81 @@ class PembelianBarangController extends Controller
                     'selisih_harga' => $selisihHarga,
 
                     'nominal_laba_rugi' => $nominalLabaRugi,
-                    'nominal_stok'      => $nominalStok,
+                    'nominal_stok' => $nominalStok,
 
                     'created_by' => $request->user_id,
                 ]);
             }
+
             if ($qtyKeluar > 0) {
 
                 $selisihHarga = $newHarga - $oldHarga;
-
-                // hanya qty yang sudah keluar
                 $labaNominal = abs($qtyKeluar * $selisihHarga);
 
-                if ($qtyKeluar > 0) {
+                $tokoId = $pembelian->toko_id;
+                $tahunNow = Carbon::parse($pembelian->tanggal)->year;
+                $bulanNow = Carbon::parse($pembelian->tanggal)->month;
 
-                    $tokoId   = $pembelian->toko_id;
-                    $tahunNow = Carbon::parse($pembelian->tanggal)->year;
-                    $bulanNow = Carbon::parse($pembelian->tanggal)->month;
+                /**
+                 * harga beli naik = out (beban bertambah)
+                 * harga beli turun = in (beban berkurang / laba naik)
+                 */
+                $tipe = $selisihHarga > 0 ? ['out'] : ['in'];
 
-                    /**
-                     * harga beli naik = out (beban bertambah)
-                     * harga beli turun = in (beban berkurang / laba naik)
-                     */
-                    $tipe = $selisihHarga > 0 ? ['out'] : ['in'];
+                /* ============================
+                | LABA RUGI BULANAN
+                ==============================*/
+                $labaRugi = LabaRugi::firstOrCreate(
+                    [
+                        'toko_id' => $tokoId,
+                        'tahun' => $tahunNow,
+                        'bulan' => $bulanNow,
+                    ],
+                    [
+                        'pendapatan' => 0,
+                        'beban' => 0,
+                        'laba_bersih' => 0,
+                    ]
+                );
 
-                    /* ============================
-                    | LABA RUGI BULANAN
-                    ==============================*/
-                    $labaRugi = LabaRugi::firstOrCreate(
-                        [
-                            'toko_id' => $tokoId,
-                            'tahun'   => $tahunNow,
-                            'bulan'   => $bulanNow,
-                        ],
-                        [
-                            'pendapatan'  => 0,
-                            'beban'       => 0,
-                            'laba_bersih' => 0,
-                        ]
-                    );
-
-                    if ($tipe[0] === 'in') {
-                        $labaRugi->pendapatan += $labaNominal;
-                    } elseif ($tipe[0] === 'out') {
-                        $labaRugi->beban += $labaNominal;
-                    }
-
-                    $labaRugi->laba_bersih =
-                        $labaRugi->pendapatan - $labaRugi->beban;
-
-                    $labaRugi->save();
-
-                    /* ============================
-                    | LABA RUGI TAHUNAN
-                    ==============================*/
-                    $labaRugiTahunan = LabaRugiTahunan::firstOrCreate(
-                        [
-                            'toko_id' => $tokoId,
-                            'tahun'   => $tahunNow,
-                        ],
-                        [
-                            'pendapatan'  => 0,
-                            'beban'       => 0,
-                            'laba_bersih' => 0,
-                        ]
-                    );
-
-                    if ($tipe[0] === 'in') {
-                        $labaRugiTahunan->pendapatan += $labaNominal;
-                    } elseif ($tipe[0] === 'out') {
-                        $labaRugiTahunan->beban += $labaNominal;
-                    }
-
-                    $labaRugiTahunan->laba_bersih =
-                        $labaRugiTahunan->pendapatan - $labaRugiTahunan->beban;
-
-                    $labaRugiTahunan->save();
+                if ($tipe[0] === 'in') {
+                    $labaRugi->pendapatan += $labaNominal;
+                } elseif ($tipe[0] === 'out') {
+                    $labaRugi->beban += $labaNominal;
                 }
+
+                $labaRugi->laba_bersih = $labaRugi->pendapatan - $labaRugi->beban;
+                $labaRugi->save();
+
+                /* ============================
+                | LABA RUGI TAHUNAN
+                ==============================*/
+                $labaRugiTahunan = LabaRugiTahunan::firstOrCreate(
+                    [
+                        'toko_id' => $tokoId,
+                        'tahun' => $tahunNow,
+                    ],
+                    [
+                        'pendapatan' => 0,
+                        'beban' => 0,
+                        'laba_bersih' => 0,
+                    ]
+                );
+
+                if ($tipe[0] === 'in') {
+                    $labaRugiTahunan->pendapatan += $labaNominal;
+                } elseif ($tipe[0] === 'out') {
+                    $labaRugiTahunan->beban += $labaNominal;
+                }
+
+                $labaRugiTahunan->laba_bersih = $labaRugiTahunan->pendapatan - $labaRugiTahunan->beban;
+                $labaRugiTahunan->save();
             }
 
             $detail->update([
-                'qty'         => $newQty,
-                'harga_beli'  => $newHarga,
-                'subtotal'    => $newSubtotal,
+                'qty' => $newQty,
+                'harga_beli' => $newHarga,
+                'subtotal' => $newSubtotal,
             ]);
 
             $batches = StockBarangBatch::where('stock_barang_id', $stockBarang->id)
@@ -871,15 +880,14 @@ class PembelianBarangController extends Controller
                 ->get();
 
             $hppStockLama = $stockBarang->hpp_baru;
-
             $prevHpp = null;
 
             foreach ($batches as $batch) {
 
                 // kalau ini batch yang diedit
                 if ($batch->id === $editedBatch->id) {
-                    $batch->qty_masuk  = $newQty;
-                    $batch->qty_sisa   = $newQty - $qtyKeluar;
+                    $batch->qty_masuk = $newQty;
+                    $batch->qty_sisa = $newQty - $qtyKeluar;
                     $batch->harga_beli = $newHarga;
                 }
 
@@ -904,15 +912,41 @@ class PembelianBarangController extends Controller
             }
 
             $stockBarang->update([
-                'stok'       => $stockBarang->stok + $deltaQty,
-                'hpp_awal'   => $hppStockLama,        // SEBELUM DIUBAH
-                'hpp_baru'   => $prevHpp,              // HPP AKHIR BATCH TERAKHIR
+                'stok' => $stockBarang->stok + $deltaQty,
+                'hpp_awal' => $hppStockLama, // SEBELUM DIUBAH
+                'hpp_baru' => $prevHpp,      // HPP AKHIR BATCH TERAKHIR
             ]);
 
             $pembelian->update([
-                'qty'   => $pembelian->qty + $deltaQty,
+                'qty' => $pembelian->qty + $deltaQty,
                 'total' => $pembelian->total + $deltaNilai,
             ]);
+
+            // =========================================================================
+            // PENERAPAN STOCK BULANAN SERVICE (ADJUSTMENT STOK PEMBELIAN)
+            // =========================================================================
+            $jenisBarangId = $stockBarang->barang->jenis_barang_id ?? null;
+            if ($jenisBarangId && ($deltaQty != 0 || $deltaNilai != 0)) {
+                if ($deltaQty >= 0) {
+                    // Jika ada penambahan Qty / Nilai Aset Pembelian
+                    $stockBulananService->tambahStokMasuk(
+                        tokoId: $pembelian->toko_id,
+                        jenisBarangId: $jenisBarangId,
+                        qty: $deltaQty,
+                        nilaiAset: $deltaNilai,
+                        tanggal: $pembelian->tanggal
+                    );
+                } else {
+                    // Jika Qty / Nilai Aset Pembelian berkurang
+                    $stockBulananService->kurangiStokKeluar(
+                        tokoId: $pembelian->toko_id,
+                        jenisBarangId: $jenisBarangId,
+                        qty: abs($deltaQty),
+                        nilaiAset: abs($deltaNilai),
+                        tanggal: $pembelian->tanggal
+                    );
+                }
+            }
 
             HppGenerate::recalcHpp($stockBarang->id);
 
@@ -930,27 +964,27 @@ class PembelianBarangController extends Controller
                     ->lockForUpdate()
                     ->first();
 
-                if (!$hutang) {
-                    throw new \Exception("Data hutang tidak ditemukan");
+                if (! $hutang) {
+                    throw new \Exception('Data hutang tidak ditemukan');
                 }
 
                 $totalDibayar = $hutang->nominal - $hutang->sisa;
 
                 if ($totalDibayar > 0) {
-                    throw new \Exception("Tidak bisa edit pembelian karena hutang sudah pernah dibayar");
+                    throw new \Exception('Tidak bisa edit pembelian karena hutang sudah pernah dibayar');
                 }
 
                 $oldNominal = $hutang->nominal;
                 $newNominal = $oldNominal + $deltaNilai;
 
                 if ($newNominal < 0) {
-                    throw new \Exception("Nominal hutang tidak valid");
+                    throw new \Exception('Nominal hutang tidak valid');
                 }
 
                 // Update hutang
                 $hutang->update([
                     'nominal' => $newNominal,
-                    'sisa'    => $hutang->sisa + $deltaNilai
+                    'sisa' => $hutang->sisa + $deltaNilai,
                 ]);
 
                 // Ambil jenis barang
@@ -1033,7 +1067,7 @@ class PembelianBarangController extends Controller
                             'new' => [
                                 'nominal' => $newNominal,
                             ],
-                        ]
+                        ],
                     ],
                     description: "Update nominal hutang dari {$oldNominal} menjadi {$newNominal}",
                     userId: $request->user_id,
@@ -1042,11 +1076,13 @@ class PembelianBarangController extends Controller
             }
 
             DB::commit();
+
             return $this->success(null, 200, 'Detail pembelian berhasil diperbarui');
         } catch (\Throwable $e) {
             DB::rollBack();
+
             return $this->error(500, 'Gagal update detail pembelian', [
-                'exception' => $e->getMessage()
+                'exception' => $e->getMessage(),
             ]);
         }
     }
@@ -1054,33 +1090,36 @@ class PembelianBarangController extends Controller
     public function deleteDetail(Request $request)
     {
         $request->validate([
-            'id'         => 'required|integer|exists:pembelian_barang_detail,id',
+            'id' => 'required|integer|exists:pembelian_barang_detail,id',
             'deleted_by' => 'required|integer|exists:users,id',
-            'pin'        => 'required',
-            'toko_id'    => 'required|integer|exists:toko,id',
-            'message'    => 'required|string',
+            'pin' => 'required',
+            'toko_id' => 'required|integer|exists:toko,id',
+            'message' => 'required|string',
         ]);
 
         $pinCheck = PinCheck::validate($request->toko_id, $request->pin);
 
-        if (!$pinCheck['status']) {
+        if (! $pinCheck['status']) {
             return $this->error(403, $pinCheck['message']);
         }
 
         DB::beginTransaction();
 
         try {
+            // Instantiate Service
+            $stockBulananService = app(\App\Services\StockBulananService::class);
+
             $detail = PembelianBarangDetail::with([
                 'pembelianBarang',
                 'stockBarangBatch.stockBarang',
-                'barang'
+                'barang',
             ])->lockForUpdate()->findOrFail($request->id);
 
-            $pembelian   = $detail->pembelianBarang;
-            $batch       = $detail->stockBarangBatch;
+            $pembelian = $detail->pembelianBarang;
+            $batch = $detail->stockBarangBatch;
             $stockBarang = $batch->stockBarang;
 
-            $qty   = $detail->qty;
+            $qty = $detail->qty;
             $nilai = $detail->subtotal;
 
             // 🔒 VALIDASI: tidak boleh jika sudah ada barang keluar
@@ -1102,15 +1141,15 @@ class PembelianBarangController extends Controller
                     ->lockForUpdate()
                     ->first();
 
-                if (!$hutang) {
-                    throw new \Exception("Data hutang tidak ditemukan");
+                if (! $hutang) {
+                    throw new \Exception('Data hutang tidak ditemukan');
                 }
 
                 $totalDibayar = $hutang->nominal - $hutang->sisa;
 
                 if ($totalDibayar > 0) {
                     throw new \Exception(
-                        "Tidak bisa hapus karena hutang sudah pernah dibayar"
+                        'Tidak bisa hapus karena hutang sudah pernah dibayar'
                     );
                 }
 
@@ -1118,12 +1157,12 @@ class PembelianBarangController extends Controller
                 $newNominal = $oldNominal - $nilai;
 
                 if ($newNominal < 0) {
-                    throw new \Exception("Nominal hutang tidak valid");
+                    throw new \Exception('Nominal hutang tidak valid');
                 }
 
                 $hutang->update([
                     'nominal' => $newNominal,
-                    'sisa'    => $hutang->sisa - $nilai
+                    'sisa' => $hutang->sisa - $nilai,
                 ]);
 
                 $kasJenisBarang = $detail->barang
@@ -1164,9 +1203,9 @@ class PembelianBarangController extends Controller
                         'changes' => [
                             'old' => ['nominal' => $oldNominal],
                             'new' => ['nominal' => $newNominal],
-                        ]
+                        ],
                     ],
-                    description: "Pengurangan hutang karena hapus item pembelian",
+                    description: 'Pengurangan hutang karena hapus item pembelian',
                     userId: $request->deleted_by,
                     message: $request->message
                 );
@@ -1185,6 +1224,20 @@ class PembelianBarangController extends Controller
                 );
             }
 
+            // =========================================================================
+            // PENERAPAN STOCK BULANAN SERVICE (PENGURANGAN STOK MASUK / PEMBELIAN)
+            // =========================================================================
+            $jenisBarangId = $detail->barang->jenis_barang_id ?? null;
+            if ($jenisBarangId) {
+                $stockBulananService->kurangiStokKeluar(
+                    tokoId: $pembelian->toko_id,
+                    jenisBarangId: $jenisBarangId,
+                    qty: $qty,
+                    nilaiAset: $nilai,
+                    tanggal: $pembelian->tanggal
+                );
+            }
+
             // =========================
             // 🔥 DELETE BATCH DULU
             // =========================
@@ -1196,7 +1249,7 @@ class PembelianBarangController extends Controller
             // 🔥 UPDATE PEMBELIAN
             // =========================
             $pembelian->update([
-                'qty'   => $pembelian->qty - $qty,
+                'qty' => $pembelian->qty - $qty,
                 'total' => $pembelian->total - $nilai,
             ]);
 
@@ -1222,7 +1275,7 @@ class PembelianBarangController extends Controller
             DB::rollBack();
 
             return $this->error(500, $e->getMessage(), [
-                'exception' => $e->getMessage()
+                'exception' => $e->getMessage(),
             ]);
         }
     }
@@ -1232,24 +1285,24 @@ class PembelianBarangController extends Controller
         try {
             $request->validate([
                 'id_pembelian' => 'nullable|exists:pembelian_barang,id',
-                'id_barang'    => 'required|exists:barang,id',
+                'id_barang' => 'required|exists:barang,id',
                 'toko_id' => 'required|integer|exists:toko,id',
 
-                'qty'          => 'required|numeric|min:1',
+                'qty' => 'required|numeric|min:1',
                 'harga_barang' => 'required|numeric|min:1',
 
-                'level_harga'   => 'nullable|array',
+                'level_harga' => 'nullable|array',
                 'level_harga.*' => 'numeric|min:0',
 
                 'hpp_awal' => 'required|numeric|min:0',
                 'hpp_baru' => 'required|numeric|min:0',
 
                 'toko_group_id' => 'required_without:id_pembelian',
-                'supplier_id'     => 'required_without:id_pembelian|exists:supplier,id',
-                'kas_id'          => 'required_without:id_pembelian|exists:kas,id',
-                'nota'            => 'required_without:id_pembelian|string|max:255',
-                'tanggal'         => 'required_without:id_pembelian|date',
-                'tipe'            => 'required_without:id_pembelian|string|max:50',
+                'supplier_id' => 'required_without:id_pembelian|exists:supplier,id',
+                'kas_id' => 'required_without:id_pembelian|exists:kas,id',
+                'nota' => 'required_without:id_pembelian|string|max:255',
+                'tanggal' => 'required_without:id_pembelian|date',
+                'tipe' => 'required_without:id_pembelian|string|max:50',
             ]);
 
             $idPembelian = $request->id_pembelian;
@@ -1257,14 +1310,14 @@ class PembelianBarangController extends Controller
 
             if ($idPembelian === null) {
                 $pembelian = PembelianBarang::create([
-                    'toko_id'       => $request->toko_id,
+                    'toko_id' => $request->toko_id,
                     'toko_group_id' => $request->toko_group_id,
-                    'supplier_id'   => $request->supplier_id,
-                    'kas_id'        => $request->kas_id,
-                    'nota'          => $request->nota,
-                    'tanggal'       => $request->tanggal,
-                    'tipe'          => $request->tipe,
-                    'created_by'    => $request->created_by,
+                    'supplier_id' => $request->supplier_id,
+                    'kas_id' => $request->kas_id,
+                    'nota' => $request->nota,
+                    'tanggal' => $request->tanggal,
+                    'tipe' => $request->tipe,
+                    'created_by' => $request->created_by,
                 ]);
 
                 $idPembelian = $pembelian->id;
@@ -1272,34 +1325,34 @@ class PembelianBarangController extends Controller
 
             StockBarang::updateOrCreate(
                 [
-                    'barang_id'     => $request->id_barang,
+                    'barang_id' => $request->id_barang,
                     'toko_group_id' => $request->toko_group_id,
                 ],
                 [
                     'level_harga' => json_encode($levelHarga), // ✅ FIX
-                    'hpp_awal'    => (float) $request->hpp_awal,
-                    'hpp_baru'    => (float) $request->hpp_baru,
+                    'hpp_awal' => (float) $request->hpp_awal,
+                    'hpp_baru' => (float) $request->hpp_baru,
                 ]
             );
 
             $tempDetail = PembelianBarangDetailTemp::create([
                 'pembelian_barang_id' => $idPembelian,
-                'barang_id'           => $request->id_barang,
-                'qty'                 => $request->qty,
-                'harga_beli'          => $request->harga_barang,
-                'subtotal'            => $request->qty * $request->harga_barang,
-                'level_harga'         => json_encode($levelHarga), // ✅ FIX
+                'barang_id' => $request->id_barang,
+                'qty' => $request->qty,
+                'harga_beli' => $request->harga_barang,
+                'subtotal' => $request->qty * $request->harga_barang,
+                'level_harga' => json_encode($levelHarga), // ✅ FIX
             ]);
 
             return response()->json([
                 'status' => 'success',
-                'data'   => $tempDetail
+                'data' => $tempDetail,
             ]);
         } catch (\Throwable $e) {
             return response()->json([
                 'status' => 'error',
-                'line'   => $e->getLine(),
-                'msg'    => $e->getMessage(),
+                'line' => $e->getLine(),
+                'msg' => $e->getMessage(),
             ], 500);
         }
     }
@@ -1309,7 +1362,7 @@ class PembelianBarangController extends Controller
         try {
             $request->validate([
                 'id_pembelian' => 'required|exists:pembelian_barang_detail_temp,pembelian_barang_id',
-                'id_barang'    => 'required|exists:pembelian_barang_detail_temp,barang_id',
+                'id_barang' => 'required|exists:pembelian_barang_detail_temp,barang_id',
                 'toko_group_id' => 'required|exists:toko_group,id',
                 'toko_id' => 'required|integer|exists:toko,id',
             ]);
@@ -1321,10 +1374,10 @@ class PembelianBarangController extends Controller
                 ->where('barang_id', $request->id_barang)
                 ->first();
 
-            if (!$temp) {
+            if (! $temp) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Data tidak ditemukan'
+                    'message' => 'Data tidak ditemukan',
                 ], 404);
             }
 
@@ -1370,16 +1423,16 @@ class PembelianBarangController extends Controller
             DB::commit();
 
             return response()->json([
-                'status'  => 'success',
-                'message' => 'Data berhasil di-undo'
+                'status' => 'success',
+                'message' => 'Data berhasil di-undo',
             ]);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
                 'status' => 'error',
-                'line'   => $e->getLine(),
-                'msg'    => $e->getMessage(),
+                'line' => $e->getLine(),
+                'msg' => $e->getMessage(),
             ], 500);
         }
     }
@@ -1387,15 +1440,15 @@ class PembelianBarangController extends Controller
     public function import(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:xlsx,xls'
+            'file' => 'required|file|mimes:xlsx,xls',
         ]);
 
         try {
-            $import = new PembelianBarangImport();
+            $import = new PembelianBarangImport;
             Excel::import($import, $request->file('file'));
 
             // Cek jika ada error dari dalam import
-            if (!empty($import->getErrors())) {
+            if (! empty($import->getErrors())) {
                 return back()->with('warning', $import->getErrors());
             }
 
@@ -1418,7 +1471,7 @@ class PembelianBarangController extends Controller
             return back()->with('error', $messages);
         } catch (\Exception $e) {
             // Tangani exception umum
-            return back()->with('error', 'Terjadi kesalahan saat mengimpor data: ' . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan saat mengimpor data: '.$e->getMessage());
         }
     }
 
@@ -1426,20 +1479,23 @@ class PembelianBarangController extends Controller
     {
         try {
             $validated = $request->validate([
-                'id'         => 'required|integer|exists:pembelian_barang,id',
+                'id' => 'required|integer|exists:pembelian_barang,id',
                 'deleted_by' => 'required|integer|exists:users,id',
-                'pin'        => 'required',
-                'toko_id'    => 'required|integer|exists:toko,id',
-                'message'    => 'required|string',
+                'pin' => 'required',
+                'toko_id' => 'required|integer|exists:toko,id',
+                'message' => 'required|string',
             ]);
 
             // ✅ VALIDASI PIN
             $pinCheck = PinCheck::validate($validated['toko_id'], $validated['pin']);
-            if (!$pinCheck['status']) {
+            if (! $pinCheck['status']) {
                 return $this->error(403, $pinCheck['message']);
             }
 
             DB::beginTransaction();
+
+            // Instantiate Service
+            $stockBulananService = app(\App\Services\StockBulananService::class);
 
             // 🔥 Ambil pembelian saja dulu
             $pembelian = PembelianBarang::lockForUpdate()->findOrFail($validated['id']);
@@ -1463,7 +1519,7 @@ class PembelianBarangController extends Controller
                     if ($stockBarang) {
                         $stockBarang->update([
                             'hpp_awal' => 0,
-                            'hpp_baru' => 0
+                            'hpp_baru' => 0,
                         ]);
                     }
 
@@ -1473,7 +1529,8 @@ class PembelianBarangController extends Controller
                 $pembelian->delete();
 
                 DB::commit();
-                return $this->success(null, 200, "Draft pembelian berhasil dihapus");
+
+                return $this->success(null, 200, 'Draft pembelian berhasil dihapus');
             }
 
             /**
@@ -1482,7 +1539,8 @@ class PembelianBarangController extends Controller
              * supaya detail yg sudah dihapus via deleteDetail
              * tidak ikut terbaca lagi
              */
-            $details = PembelianBarangDetail::where('pembelian_barang_id', $pembelian->id)
+            $details = PembelianBarangDetail::with('barang')
+                ->where('pembelian_barang_id', $pembelian->id)
                 ->lockForUpdate()
                 ->get();
 
@@ -1498,7 +1556,27 @@ class PembelianBarangController extends Controller
 
                     return $this->error(
                         400,
-                        "Tidak bisa hapus pembelian. Ada stok yang sudah terjual."
+                        'Tidak bisa hapus pembelian. Ada stok yang sudah terjual.'
+                    );
+                }
+            }
+
+            // =========================================================================
+            // 🟢 PENERAPAN STOCK BULANAN SERVICE (PENGURANGAN REKAP PEMBELIAN/STOK MASUK)
+            // =========================================================================
+            $grouped = $details->groupBy(fn ($d) => $d->barang->jenis_barang_id ?? null);
+
+            foreach ($grouped as $jenisId => $rows) {
+                if ($jenisId) {
+                    $totalQty = $rows->sum('qty');
+                    $totalNilai = $rows->sum('subtotal');
+
+                    $stockBulananService->kurangiStokKeluar(
+                        tokoId: $pembelian->toko_id,
+                        jenisBarangId: $jenisId,
+                        qty: $totalQty,
+                        nilaiAset: $totalNilai,
+                        tanggal: $pembelian->tanggal
                     );
                 }
             }
@@ -1562,14 +1640,14 @@ class PembelianBarangController extends Controller
             return $this->success(
                 null,
                 200,
-                "Pembelian berhasil dihapus & stok dikembalikan"
+                'Pembelian berhasil dihapus & stok dikembalikan'
             );
         } catch (\Throwable $e) {
 
             DB::rollBack();
 
             return $this->error(500, 'Gagal menghapus data', [
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
         }
     }

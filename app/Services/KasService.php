@@ -926,6 +926,103 @@ class KasService
     //     });
     // }
 
+    /**
+     * Khusus untuk membatalkan pengeluaran kas akibat Retur Member (Hapus Retur)
+     * Membalikkan transaksi tipe 'out' dari retur agar Kas & Saldo BERTAMBAH KEMBALI.
+     */
+    public static function deleteRetur($sumberId, $sumberType, $tanggal = null, $laba = false)
+    {
+        return DB::transaction(function () use ($sumberId, $sumberType, $tanggal, $laba) {
+
+            // Ambil semua transaksi kas pengeluaran yang pernah dibuat oleh Retur ini
+            $trxList = KasTransaksi::where('sumber_type', $sumberType)
+                ->where('sumber_id', $sumberId)
+                ->lockForUpdate()
+                ->get();
+
+            if ($trxList->isEmpty()) {
+                return true;
+            }
+
+            foreach ($trxList as $trx) {
+                $nominal = (float) $trx->total_nominal;
+
+                $tanggalRef = $tanggal ? Carbon::parse($tanggal) : Carbon::parse($trx->tanggal);
+                $year       = $tanggalRef->year;
+                $month      = $tanggalRef->month;
+
+                $kas    = Kas::lockForUpdate()->find($trx->kas_id);
+                $tokoId = $kas?->toko_id;
+
+                if ($kas) {
+                    // Karena asal transaksinya adalah RETUR (Pengeluaran Kas / 'out'),
+                    // saat retur dihapus, Kas WAJIB BERTAMBAH KEMBALI (+ $nominal).
+                    $kas->saldo += $nominal;
+                    $kas->save();
+
+                    // Update History Saldo Bulan Berjalan
+                    $history = KasSaldoHistory::firstOrCreate(
+                        [
+                            'kas_id' => $kas->id,
+                            'tahun'  => $year,
+                            'bulan'  => $month,
+                        ],
+                        [
+                            'saldo_awal'  => 0,
+                            'saldo_akhir' => 0,
+                        ]
+                    );
+
+                    $history->saldo_akhir += $nominal;
+                    $history->save();
+
+                    // Update berantai ke bulan-bulan berikutnya
+                    $nextHistories = KasSaldoHistory::where('kas_id', $kas->id)
+                        ->where(function ($q) use ($year, $month) {
+                            $q->where('tahun', '>', $year)
+                              ->orWhere(function ($q2) use ($year, $month) {
+                                  $q2->where('tahun', $year)
+                                     ->where('bulan', '>', $month);
+                              });
+                        })
+                        ->orderBy('tahun', 'asc')
+                        ->orderBy('bulan', 'asc')
+                        ->get();
+
+                    $previousSaldoAkhir = $history->saldo_akhir;
+
+                    foreach ($nextHistories as $nextHistory) {
+                        $nextHistory->saldo_awal  = $previousSaldoAkhir;
+                        $nextHistory->saldo_akhir += $nominal;
+                        $nextHistory->save();
+
+                        $previousSaldoAkhir = $nextHistory->saldo_akhir;
+                    }
+                }
+
+                // Rollback Laba Rugi jika parameter laba diaktifkan
+                if ($laba && $tokoId) {
+                    $lr = LabaRugi::where([
+                        'toko_id' => $tokoId,
+                        'tahun'   => $year,
+                        'bulan'   => $month,
+                    ])->first();
+
+                    if ($lr) {
+                        $lr->beban       = max(0, $lr->beban - $nominal);
+                        $lr->laba_bersih = $lr->pendapatan - $lr->beban;
+                        $lr->save();
+                    }
+                }
+
+                // Hapus record transaksi kas pengeluaran retur ini
+                $trx->delete();
+            }
+
+            return true;
+        });
+    }
+
     public static function delete($kasId, $id, $sumber, $tanggal, $laba = true, $saldo = true)
     {
         return DB::transaction(function () use (

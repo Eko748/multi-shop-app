@@ -84,6 +84,18 @@
             </button>
         `;
 
+        const delete_button = `
+            <button onClick="deleteData('${encodeURIComponent(JSON.stringify(data))}')"
+                class="action_button btn btn-outline-secondary btn-md"
+                title="Delete retur ${data.tanggal}"
+                data-id="${data?.id}" data-container="body" data-toggle="tooltip" data-placement="top">
+                <span class="text-dark">Hapus</span>
+                <div class="icon text-danger">
+                    <i class="mb-1 fa fa-trash"></i>
+                </div>
+            </button>
+        `;
+
         let infoText = 'Dibuat oleh:';
         let infoUser = `${data.created_by || '-'}`;
         let infoTime = `${data.tanggal || '-'}`;
@@ -118,6 +130,7 @@
             keterangan: data?.keterangan ?? '-',
             tanggal: infoTime ?? '-',
             detail_button,
+            delete_button,
             info: `
             <div>
                 <small class="text-muted">${infoText}</small>
@@ -135,64 +148,65 @@
         let tdClass = 'text-wrap align-top';
 
         let getDataTable = `
-    <div class="col-12">
-        <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light">
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover m-0">
-                        <thead class="glossy-thead">
-                            <tr>
-                                <th scope="col" class="${tdClass} text-center" style="width:5%">No</th>
-                                <th scope="col" class="${tdClass}" style="width:10%">Tanggal</th>
-                                <th scope="col" class="${tdClass}" style="width:10%">Informasi</th>
-                                <th scope="col" class="${tdClass}" style="width:10%">Status</th>
-                                <th scope="col" class="${tdClass}" style="width:5%">Toko</th>
-                                <th scope="col" class="${tdClass}" style="width:10%">Member</th>
-                                <th scope="col" class="${tdClass}" style="width:10%">Keterangan Qty</th>
-                                <th scope="col" class="${tdClass} text-right" style="width:15%">Total Hpp</th>
-                                <th scope="col" class="${tdClass} text-right" style="width:15%">Total Refund</th>
-                                <th scope="col" class="${tdClass} text-center" style="width:10%">Aksi</th>
-                            </tr>
-                        </thead>
-                        <thead>
-                            <tr>
-                                <th colspan="7"></th>
-                                <th colspan="1" class="${tdClass} text-right"><span class="badge badge-primary">${total.hpp.format || 0}</span></th>
-                                <th colspan="1" class="${tdClass} text-right"><span class="badge badge-primary">${total.refund.format || 0}</span></th>
-                                <th colspan="1"></th>
-                            </tr>
-                        </thead>
-                        <tbody>`;
+        <div class="col-12">
+            <div class="card shadow-sm border-0 m-0 rounded glossy-card bg-light">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover m-0">
+                            <thead class="glossy-thead">
+                                <tr>
+                                    <th scope="col" class="${tdClass} text-center" style="width:5%">No</th>
+                                    <th scope="col" class="${tdClass}" style="width:10%">Tanggal</th>
+                                    <th scope="col" class="${tdClass}" style="width:10%">Informasi</th>
+                                    <th scope="col" class="${tdClass}" style="width:10%">Status</th>
+                                    <th scope="col" class="${tdClass}" style="width:5%">Toko</th>
+                                    <th scope="col" class="${tdClass}" style="width:10%">Member</th>
+                                    <th scope="col" class="${tdClass}" style="width:10%">Keterangan Qty</th>
+                                    <th scope="col" class="${tdClass} text-right" style="width:15%">Total Hpp</th>
+                                    <th scope="col" class="${tdClass} text-right" style="width:15%">Total Refund</th>
+                                    <th scope="col" class="${tdClass} text-center" style="width:10%">Aksi</th>
+                                </tr>
+                            </thead>
+                            <thead>
+                                <tr>
+                                    <th colspan="7"></th>
+                                    <th colspan="1" class="${tdClass} text-right"><span class="badge badge-primary">${total.hpp.format || 0}</span></th>
+                                    <th colspan="1" class="${tdClass} text-right"><span class="badge badge-primary">${total.refund.format || 0}</span></th>
+                                    <th colspan="1"></th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
 
         dataList.forEach((element, index) => {
             const number = display_from + index;
             getDataTable += `
-            <tr class="glossy-tr">
-                <td class="${tdClass} text-center">${number}</td>
-                <td class="${tdClass}">${element.tanggal}</td>
-                <td class="${tdClass}">${element.info}</td>
-                <td class="${tdClass}">${element.status}</td>
-                <td class="${tdClass}">${element.toko}</td>
-                <td class="${tdClass}">${element.member}</td>
-                <td class="${tdClass}">${element.keterangan}</td>
-                <td class="${tdClass} text-right">${element.total_hpp_barang}</td>
-                <td class="${tdClass} text-right">${element.total_refund}</td>
-                <td class="${tdClass}">
-                    <div class="d-flex justify-content-center flex-column flex-sm-row align-items-center align-items-sm-start mx-3" style="gap: 0.5rem;">
-                        ${element.detail_button || ''}
-                    </div>
-                </td>
-            </tr>
-        `;
+                <tr class="glossy-tr">
+                    <td class="${tdClass} text-center">${number}</td>
+                    <td class="${tdClass}">${element.tanggal}</td>
+                    <td class="${tdClass}">${element.info}</td>
+                    <td class="${tdClass}">${element.status}</td>
+                    <td class="${tdClass}">${element.toko}</td>
+                    <td class="${tdClass}">${element.member}</td>
+                    <td class="${tdClass}">${element.keterangan}</td>
+                    <td class="${tdClass} text-right">${element.total_hpp_barang}</td>
+                    <td class="${tdClass} text-right">${element.total_refund}</td>
+                    <td class="${tdClass}">
+                        <div class="d-flex justify-content-center flex-column flex-sm-row align-items-center align-items-sm-start mx-3" style="gap: 0.5rem;">
+                            ${element.detail_button || ''}
+                            ${element.delete_button || ''}
+                        </div>
+                    </td>
+                </tr>
+            `;
         });
 
         getDataTable += `
-                        </tbody>
-                    </table>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>`;
+        </div>`;
 
         $('#listData').html(getDataTable);
         $('#totalPage').text(pagination.total);
@@ -373,12 +387,23 @@
                 }
             ).then(res => res).catch(err => err.response);
 
-            if (postDataRest.status == 200) {
+            if (postDataRest && postDataRest.status == 200) {
                 setTimeout(function() {
                     getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
                         customFilter);
                 }, 500);
                 notificationAlert('success', 'Pemberitahuan', postDataRest.data.message);
+            } else {
+                // 🔴 HANDLE ERROR DI SINI
+                let errorMessage = "Terjadi kesalahan pada sistem.";
+
+                if (postDataRest && postDataRest.data) {
+                    // Ambil pesan error jika dikirim dari backend
+                    errorMessage = postDataRest.data.errors || postDataRest.data.message ||
+                    errorMessage;
+                }
+
+                notificationAlert('error', 'Gagal', errorMessage);
             }
         }).catch(swal.noop);
     }

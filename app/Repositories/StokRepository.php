@@ -38,7 +38,7 @@ class StokRepository
         $isCurrentMonth = ($now->month === $month && $now->year === $year);
 
         // Jika env GPS DAN BUKAN bulan ini (artinya bulan lalu / masa lalu), ambil dari rekap bulanan
-        if (config('app.name') === 'GPS' && ! $isCurrentMonth) {
+        if (!$isCurrentMonth) {
             $query = StockBarangBulanan::query()
                 ->leftJoin('jenis_barang', 'stock_barang_bulanan.jenis_barang_id', '=', 'jenis_barang.id')
                 ->where('stock_barang_bulanan.tahun', $year)

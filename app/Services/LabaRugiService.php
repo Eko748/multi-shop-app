@@ -348,7 +348,7 @@ class LabaRugiService
         }
 
         return $this->getDetailLaporan(
-            (int) $penjualanUmum,
+            (int) $penjualanBersih,
             (int) $pendapatanLainnya,
             (int) $hppReturSuplier,
             (int) $totalPendapatan,
@@ -366,7 +366,7 @@ class LabaRugiService
     }
 
     protected function getDetailLaporan(
-        $penjualanUmum,
+        $penjualanBersih,
         $pendapatanLainnya,
         $hppReturSuplier,
         $totalPendapatan,
@@ -385,7 +385,7 @@ class LabaRugiService
             [
                 'I. Pendapatan',
                 [
-                    ['1.1 Pendapatan Umum', RupiahGenerate::build($penjualanUmum)],
+                    ['1.1 Pendapatan Umum', RupiahGenerate::build($penjualanBersih)],
                     ['1.2 Pendapatan Lainnya', RupiahGenerate::build($pendapatanLainnya)],
                     ['Total Pendapatan', RupiahGenerate::build($totalPendapatan)],
                 ],

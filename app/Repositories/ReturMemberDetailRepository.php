@@ -13,6 +13,11 @@ class ReturMemberDetailRepository
         $this->model = $model;
     }
 
+    public function getModel()
+    {
+        return $this->model;
+    }
+
     public function getById($id)
     {
         return $this->model->where('id', $id)->get();

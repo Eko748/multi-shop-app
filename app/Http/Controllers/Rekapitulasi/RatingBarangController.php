@@ -67,7 +67,7 @@ class RatingBarangController extends Controller
                 'transaksi_kasir.toko_id',
                 DB::raw('SUM(transaksi_kasir_detail.qty) as total_item'),
                 DB::raw('SUM(transaksi_kasir_detail.qty - COALESCE(retur_member_detail.qty_request,0)) as net_terjual'),
-                DB::raw('MAX(stock_barang_batch.hpp_baru) as hpp_jual') // Diubah mengambil hpp_baru dari stock_barang_batch
+                DB::raw('MAX(stock_barang_batch.hpp_baru) as hpp_jual')
             )
                 ->join('transaksi_kasir', 'transaksi_kasir_detail.transaksi_kasir_id', '=', 'transaksi_kasir.id')
                 ->join('stock_barang_batch', 'transaksi_kasir_detail.stock_barang_batch_id', '=', 'stock_barang_batch.id')
@@ -142,7 +142,6 @@ class RatingBarangController extends Controller
                 $hppJual = 0;
 
                 if ($matchedData->isNotEmpty()) {
-                    // Ambil batch terbaru berdasarkan tanggal masuk (created_at atau id) dari relasi stockBarangBatch
                     $latestBatch = $barang->stockBarangBatch ? $barang->stockBarangBatch->sortByDesc('created_at')->first() : null;
                     $hppJual = $latestBatch ? (float) $latestBatch->hpp_baru : 0;
 
@@ -157,7 +156,6 @@ class RatingBarangController extends Controller
                         }
                     }
                 } else {
-                    // Ambil hpp_baru dari batch terbaru jika tidak ada transaksi
                     $latestBatch = $barang->stockBarangBatch ? $barang->stockBarangBatch->sortByDesc('created_at')->first() : null;
                     $hppJual = $latestBatch ? (float) $latestBatch->hpp_baru : 0;
                 }
@@ -167,6 +165,7 @@ class RatingBarangController extends Controller
                     continue;
                 }
 
+                $dataPerToko['barang_id'] = $barangId; // Disimpan untuk digunakan di output JSON
                 $dataPerToko['stock_now'] = (int) $stockNow;
                 $dataPerToko['hpp_jual'] = $hppJual;
 
@@ -177,7 +176,7 @@ class RatingBarangController extends Controller
             $sorted = collect($grouped)
                 ->mapWithKeys(function ($dataPerToko, $barang) {
                     $totalTerjual = collect($dataPerToko)->filter(function ($value, $key) {
-                        return $key !== 'stock_now' && $key !== 'hpp_jual';
+                        return $key !== 'stock_now' && $key !== 'hpp_jual' && $key !== 'barang_id';
                     })->sum(function ($val) {
                         return $val['terjual'] ?? 0;
                     });
@@ -196,13 +195,15 @@ class RatingBarangController extends Controller
 
             $finalData = [];
             foreach ($paginated as $barang => $dataPerToko) {
+                $barangId = $dataPerToko['barang_id'] ?? null;
                 $stockNow = $dataPerToko['stock_now'] ?? 0;
                 $hppJual = $dataPerToko['hpp_jual'] ?? 0;
-                unset($dataPerToko['stock_now'], $dataPerToko['hpp_jual']);
+                unset($dataPerToko['barang_id'], $dataPerToko['stock_now'], $dataPerToko['hpp_jual']);
 
                 if ($tokoCount === 1) {
                     $firstData = array_values($dataPerToko)[0] ?? ['terjual' => 0];
                     $finalData[$barang] = [
+                        'barang_id' => $barangId,
                         'Jumlah Item Terjual' => $firstData['terjual'],
                         'HPP Jual' => $hppJual,
                         'Stok Sekarang' => $stockNow,
@@ -213,6 +214,7 @@ class RatingBarangController extends Controller
                         $formattedPerToko[$tokoNama] = $values['terjual'];
                     }
                     $finalData[$barang] = [
+                        'barang_id' => $barangId,
                         'Jumlah Item Terjual Per Toko' => $formattedPerToko,
                         'HPP Jual' => $hppJual,
                         'Stok Sekarang' => $stockNow,

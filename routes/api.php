@@ -377,6 +377,12 @@ Route::get('/get-rating-barang', [RatingBarangController::class, 'getRatingBaran
 
 Route::get('/neraca', [NeracaController::class, 'getNeraca'])->name('master.getNeraca');
 
+Route::prefix('plan-order')->as('planorder.')->group(function () {
+    Route::get('/', [PlanOrderController::class, 'get'])->name('get');
+    Route::post('/post', [PlanOrderController::class, 'post'])->name('post');
+    Route::delete('/delete', [PlanOrderController::class, 'delete'])->name('delete');
+});
+
 Route::prefix('master')->as('master.')->group(function () {
     Route::get('levelUser', [MasterController::class, 'getLevelUser'])->name('levelUser');
     Route::get('toko', [MasterController::class, 'getToko'])->name('toko');

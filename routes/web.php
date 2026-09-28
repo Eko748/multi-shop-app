@@ -10,8 +10,8 @@ use App\Http\Controllers\DataMaster\Log\LogAktivitasController;
 use App\Http\Controllers\DataMaster\ManajemenBarang\BarangController;
 use App\Http\Controllers\DataMaster\ManajemenBarang\BrandController;
 use App\Http\Controllers\DataMaster\ManajemenBarang\JenisBarangController;
-use App\Http\Controllers\DataMaster\ManajemenBarang\StockBarangController;
 use App\Http\Controllers\DataMaster\ManajemenBarang\StockBarangBermasalahController;
+use App\Http\Controllers\DataMaster\ManajemenBarang\StockBarangController;
 use App\Http\Controllers\DataMaster\Pengaturan\LevelHargaController;
 use App\Http\Controllers\DataMaster\Pengaturan\PermissionController;
 use App\Http\Controllers\DataMaster\Pengaturan\PromoController;
@@ -119,6 +119,7 @@ Route::middleware(['auth', 'ensure.toko'])->group(function () {
         Route::get('laporan-pembelian', [LaporanPembelianBarangController::class, 'index'])->name('laporan.pembelian.index')->middleware('permission:GET /laporan-pembelian');
         Route::get('laporan-pengiriman', [LaporanPengirimanBarangController::class, 'index'])->name('laporan.pengiriman.index')->middleware('permission:GET /laporan-pengiriman');
         Route::get('rating-barang', [RatingBarangController::class, 'index'])->name('laporan.rating.index')->middleware('permission:GET /rating-barang');
+        Route::get('plan-order', [PlanOrderController::class, 'indexPlanOrder'])->name('laporan.planorder.index')->middleware('permission:GET /rating-barang');
         Route::get('rating-member', [RatingMemberController::class, 'index'])->name('laporan.ratingmember.index')->middleware('permission:GET /rating-member');
         Route::get('aset-barang-jualan', [AsetBarangJualanController::class, 'index'])->name('laporan.asetbarang.index')->middleware('permission:GET /aset-barang-jualan');
         Route::get('aset-barang-retur', [AsetBarangReturController::class, 'index'])->name('laporan.asetbarangreture.index')->middleware('permission:GET /aset-barang-retur');

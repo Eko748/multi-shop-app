@@ -92,4 +92,9 @@ class Toko extends Model
     {
         return $this->hasMany(Kas::class);
     }
+
+    public function planOrders()
+    {
+        return $this->hasMany(PlanOrder::class, 'toko_id');
+    }
 }

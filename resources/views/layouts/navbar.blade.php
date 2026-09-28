@@ -216,6 +216,8 @@
                             @if (hasMenu(24))
                                 <li><a class="dropdown-item" href="{{ route('laporan.rating.index') }}"><i
                                             class="fa fa-star"></i> Rating Barang</a></li>
+                                <li><a class="dropdown-item" href="{{ route('laporan.planorder.index') }}"><i
+                                            class="fa fa-book"></i> Riwayat Plan Order</a></li>
                             @endif
                             @if (hasMenu(25))
                                 <li><a class="dropdown-item" href="{{ route('laporan.ratingmember.index') }}"><i

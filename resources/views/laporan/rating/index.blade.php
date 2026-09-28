@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="{{ asset('css/button-action.css') }}">
     <link rel="stylesheet" href="{{ asset('css/table.css') }}">
     <link rel="stylesheet" href="{{ asset('css/daterange-picker.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/sweetalert2.css') }}">
     <style>
         #daterange[readonly] {
             background-color: white !important;
@@ -109,7 +110,6 @@
                         <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                             <span><i class="fa fa-cart-plus mr-2"></i>Plan Order</span>
                             <div>
-                                <!-- Tombol Bulk Delete (Sembunyi secara default) -->
                                 <button id="btn-delete-selected" class="btn btn-danger btn-sm mr-1 d-none">
                                     <i class="fa fa-trash"></i> Hapus Terpilih (<span id="selected-count">0</span>)
                                 </button>
@@ -119,8 +119,9 @@
                                 <button id="btn-print-pdf" class="btn btn-light btn-sm text-primary mr-1">
                                     <i class="fa fa-print"></i> Print
                                 </button>
-                                <button id="btn-save-plan" class="btn btn-light btn-sm text-success d-none">
-                                    <i class="fa fa-save"></i> Save
+                                <!-- Tombol Save diaktifkan (hapus d-none) -->
+                                <button id="btn-save-plan" class="btn btn-light btn-sm text-success">
+                                    <i class="fa fa-save"></i> Save Plan
                                 </button>
                             </div>
                         </div>
@@ -128,7 +129,6 @@
                             <table class="table table-bordered mb-0" id="planTable">
                                 <thead class="thead-light">
                                     <tr>
-                                        <!-- Checkbox Check All -->
                                         <th style="width: 40px;" class="text-center">
                                             <input type="checkbox" id="checkAllPlan">
                                         </th>
@@ -142,13 +142,11 @@
                                 </thead>
                                 <tbody id="planList">
                                     <tr>
-                                        <!-- Update colspan jadi 7 -->
                                         <td colspan="7" class="text-center text-muted">Belum ada item</td>
                                     </tr>
                                 </tbody>
                                 <tfoot class="bg-light">
                                     <tr>
-                                        <!-- Update colspan jadi 5 -->
                                         <th colspan="5" class="text-right">Total</th>
                                         <th id="grandTotal" class="text-right">Rp 0</th>
                                         <th></th>
@@ -261,8 +259,8 @@
             }
 
             tableHead += `<tr class="tb-head text-dark">
-                <th class="${classCol} text-center" rowspan="${isMultiToko ? 2 : 1}">NO</th>
-                <th class="${classCol}" rowspan="${isMultiToko ? 2 : 1}">NAMA BARANG</th>`;
+        <th class="${classCol} text-center" rowspan="${isMultiToko ? 2 : 1}">NO</th>
+        <th class="${classCol}" rowspan="${isMultiToko ? 2 : 1}">NAMA BARANG</th>`;
 
             if (isSingleToko) {
                 tableHead += `<th class="${classCol} text-center" rowspan="1">Jumlah Item Terjual</th>`;
@@ -272,10 +270,10 @@
             }
 
             tableHead += `
-                <th class="${classCol} text-center" rowspan="${isMultiToko ? 2 : 1}">Stok</th>
-                <th class="${classCol} text-center" rowspan="${isMultiToko ? 2 : 1}">HPP</th>
-                <th class="${classCol} text-center" rowspan="${isMultiToko ? 2 : 1}">Action</th>
-            </tr>`;
+        <th class="${classCol} text-center" rowspan="${isMultiToko ? 2 : 1}">Stok</th>
+        <th class="${classCol} text-center" rowspan="${isMultiToko ? 2 : 1}">HPP</th>
+        <th class="${classCol} text-center" rowspan="${isMultiToko ? 2 : 1}">Action</th>
+    </tr>`;
 
             if (isMultiToko) {
                 subHeader += `<tr class="tb-subhead text-dark">`;
@@ -288,6 +286,9 @@
             $('#tableHeader').html(tableHead + subHeader);
 
             dataListArray.forEach(([namaBarang, tokoData]) => {
+                // Ambil barang_id langsung dari tokoData
+                const barangId = tokoData['barang_id'] ?? 0;
+
                 let row = `<tr class="text-dark">
             <td class="${classCol} text-center">${rowIndex++}</td>
             <td class="${classCol}">${namaBarang}</td>`;
@@ -309,13 +310,14 @@
 
                 const hppJual = tokoData['HPP Jual'] ?? 0;
                 row += `<td class="${classCol} text-center">${formatRupiah(hppJual)}</td>
-                        <td class="${classCol} text-center">
-                            <button class="btn btn-sm btn-outline-primary btn-add-plan"
-                                data-nama="${namaBarang}"
-                                data-hpp="${hppJual}">
-                                <i class="fa fa-plus"></i> Tambah
-                            </button>
-                        </td>`;
+            <td class="${classCol} text-center">
+                <button class="btn btn-sm btn-outline-primary btn-add-plan"
+                    data-barang-id="${barangId}"
+                    data-nama="${namaBarang}"
+                    data-hpp="${hppJual}">
+                    <i class="fa fa-plus"></i> Tambah
+                </button>
+            </td>`;
 
                 row += `</tr>`;
                 getDataTable += row;
@@ -329,6 +331,73 @@
         }
 
         let planList = [];
+
+        // 1. Handler Tambah Item ke Plan (Pastikan menyimpan barang_id)
+        $(document).on('click', '.btn-add-plan', function() {
+            const barang_id = $(this).data('barang-id'); // Ambil barang_id
+            const nama = $(this).data('nama');
+            const hpp = parseFloat($(this).data('hpp'));
+
+            const existing = planList.findIndex(p => p.barang_id === barang_id);
+            if (existing !== -1) {
+                planList[existing].qty += 1;
+            } else {
+                planList.push({
+                    barang_id: barang_id,
+                    nama: nama,
+                    qty: 1,
+                    hpp: hpp,
+                    selected: false
+                });
+            }
+            renderPlanTable();
+        });
+
+        // 2. Event Handler Simpan Plan Order via AJAX
+        $(document).on('click', '#btn-save-plan', function() {
+            if (planList.length === 0) {
+                notificationAlert("success", "Perhatian",
+                    "Plan Order masih kosong! Silakan tambahkan item terlebih dahulu.");
+                return;
+            }
+
+            // Format array item yang akan dikirim ke backend
+            const itemsPayload = planList.map(item => ({
+                barang_id: item.barang_id,
+                qty: item.qty,
+                hpp: item.hpp,
+                total_hpp: item.hpp * item.qty
+            }));
+
+            const $btn = $(this);
+            $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Menyimpan...');
+
+            $.ajax({
+                url: '{{ route('planorder.post') }}', // Sesuaikan URL endpoint API/Route Laravel kamu
+                type: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') // CSRF Token Laravel
+                },
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    toko_id: {{ auth()->user()->toko_id }},
+                    items: itemsPayload
+                }),
+                success: function(response) {
+                    notificationAlert("success", "Berhasil", "Plan Order berhasil disimpan!");
+                    planList = [];
+                    renderPlanTable();
+                },
+                error: function(xhr) {
+                    const res = xhr.responseJSON;
+                    notificationAlert("error", "Perhatian", res && res.message ? res.message :
+                        'Gagal menyimpan Plan Order!');
+                },
+                complete: function() {
+                    $btn.prop('disabled', false).html('<i class="fa fa-save"></i> Save Plan');
+                }
+            });
+        });
 
         function renderPlanTable() {
             const tbody = $('#planList');
@@ -397,18 +466,21 @@
         }
 
         // Handler Tambah Plan Item
-        $(document).on('click', '.btn-add-plan', function() {
+        // Tambahkan .off('click') sebelum .on('click')
+        $(document).off('click', '.btn-add-plan').on('click', '.btn-add-plan', function() {
+            const barang_id = $(this).data('barang-id');
             const nama = $(this).data('nama');
             const hpp = parseFloat($(this).data('hpp'));
 
-            const existing = planList.findIndex(p => p.nama === nama);
+            const existing = planList.findIndex(p => p.barang_id === barang_id);
             if (existing !== -1) {
                 planList[existing].qty += 1;
             } else {
                 planList.push({
-                    nama,
+                    barang_id: barang_id,
+                    nama: nama,
                     qty: 1,
-                    hpp,
+                    hpp: hpp,
                     selected: false
                 });
             }
@@ -456,12 +528,10 @@
 
         $('#btn-save-plan').on('click', async function() {
             if (planList.length === 0) {
-                alert('Belum ada item yang ditambahkan.');
+                notificationAlert("warning", "Perhatian", "Belum ada item yang ditambahkan.");
                 return;
             }
-            // TODO: kirim ke API (contoh simulasi)
-            console.log('Simpan plan:', planList);
-            alert('Plan order berhasil disimpan!');
+            notificationAlert("success", "Berhasil", "Plan order berhasil disimpan!");
         });
 
         // ====== Fungsi utilitas tanggal sekarang ======
@@ -481,7 +551,7 @@
         // ====== PRINT PDF (pop-up window seperti sebelumnya) ======
         $('#btn-print-pdf').on('click', function() {
             if (planList.length === 0) {
-                alert('Belum ada data untuk dicetak.');
+                notificationAlert("warning", "Perhatian", "Belum ada data untuk dicetak.");
                 return;
             }
 

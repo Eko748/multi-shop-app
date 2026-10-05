@@ -566,7 +566,7 @@ class MasterController extends Controller
         $mappedData = array_map(function ($item) {
             return [
                 'id' => $item['id'],
-                'text' => $item['nama'].' / '.$item['telepon'],
+                'text' => $item['nama'],
             ];
         }, $data['data']);
 

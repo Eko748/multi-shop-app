@@ -114,18 +114,19 @@ class LabaRugiService
         $endDate = \Carbon\Carbon::createFromDate($year, $month, 1)->endOfMonth()->toDateTimeString();
         $endOfDateOnly = \Carbon\Carbon::createFromDate($year, $month, 1)->endOfMonth()->format('Y-m-d');
 
-        // Cek apakah Toko saat ini adalah Child, Parent, atau Gabungan (all) yang mengandung Toko Child
+        // Cek status Toko (Child, Parent, Mitra, Singkatan)
         $isChild = false;
+        $isMitra = false;
         $singkatanToko = '';
 
         if ($tokoId !== 'all' && $tokoId !== null && $tokoId != 0) {
             $tokoObj = Toko::find($tokoId);
             if ($tokoObj) {
                 $isChild = ! empty($tokoObj->parent_id);
+                $isMitra = (bool) $tokoObj->mitra; // 👈 Cek apakah statusnya toko mitra
                 $singkatanToko = $tokoObj->singkatan ?? '';
             }
         } else {
-            // Jika 'all', cek apakah ada minimal satu toko di database yang merupakan child (punya parent_id)
             $isChild = Toko::whereNotNull('parent_id')->where('parent_id', '!=', '')->exists();
         }
 
@@ -299,7 +300,8 @@ class LabaRugiService
         ];
         $totalBeban += $hppSelisihTopup;
 
-        if ($isChild) {
+        if ($isMitra) {
+            // 🔹 Toko Mitra: HANYA ada Stok Mati/Rusak (Gambar 2)
             $nextNumber++;
             $bebanOperasional[] = [
                 'label' => '3.'.$nextNumber.' Stok Mati/Rusak',
@@ -307,6 +309,7 @@ class LabaRugiService
             ];
             $totalBeban += $stockMati;
         } else {
+            // 🔹 Parent & Child Bukan Mitra: Ada Stok Hilang & Stok Mati/Rusak (Gambar 1)
             $nextNumber++;
             $bebanOperasional[] = [
                 'label' => '3.'.$nextNumber.' Stok Hilang',
@@ -328,7 +331,7 @@ class LabaRugiService
         ];
 
         // ============================
-        // IV. Bagi Hasil/Deviden
+        // IV. Bagi Hasil/Dividen
         // ============================
 
         $bagiHasilTokoUtama = isset($pengeluaran[13]) ? (int) $pengeluaran[13]->total : 0;
@@ -337,10 +340,12 @@ class LabaRugiService
         $totalDividenBagiHasil = $bagiHasilTokoUtama + $bagiHasilOwner;
         $labaOperasional = $totalPendapatan - $total_hpp - $totalBeban;
 
-        if ($isChild) {
+        if ($isMitra) {
+            // Toko Mitra: Dikurangi Bagi Hasil
             $total_labarugi = $labaOperasional - $totalDividenBagiHasil;
         } else {
-            $total_labarugi = $labaOperasional + $totalDividenBagiHasil;
+            // Non-Mitra (Parent / Child Cabang Utama): Tidak memakai skema Bagi Hasil di Laporan
+            $total_labarugi = $labaOperasional;
         }
 
         if ($isNeraca) {
@@ -361,7 +366,7 @@ class LabaRugiService
             (int) $total_labarugi,
             (int) $pendapatanNonTransaksi,
             $singkatanToko,
-            $isChild
+            $isMitra // 👈 Passing $isMitra ke helper
         );
     }
 
@@ -379,7 +384,7 @@ class LabaRugiService
         $total_labarugi,
         $pendapatanNonTransaksi,
         $singkatanToko = '',
-        $isChild = false
+        $isMitra = false // 👈 Ubah parameter di sini
     ) {
         $laporan = [
             [
@@ -406,14 +411,15 @@ class LabaRugiService
             ],
         ];
 
-        if ($isChild) {
+        if ($isMitra) {
+            // 🔹 Gambar 2: Tampilkan IV. Bagi Hasil/Dividen & V. Laba Rugi
             $labelMitra = '4.2 Bagi Hasil Mitra';
             if (! empty($singkatanToko)) {
                 $labelMitra .= " {$singkatanToko}";
             }
 
             $laporan[] = [
-                'IV. Bagi Hasil/Deviden',
+                'IV. Bagi Hasil/Dividen',
                 [
                     ['4.1 Bagi Hasil Pusat', RupiahGenerate::build($bagiHasilTokoUtama)],
                     [$labelMitra, RupiahGenerate::build($bagiHasilOwner)],
@@ -428,6 +434,7 @@ class LabaRugiService
                 ],
             ];
         } else {
+            // 🔹 Gambar 1: Langsung ke IV. Laba Rugi (Tanpa Bagi Hasil)
             $laporan[] = [
                 'IV. Laba Rugi',
                 [

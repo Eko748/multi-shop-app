@@ -106,13 +106,26 @@ class MasterController extends Controller
 
         $query = PengeluaranTipe::query();
 
+        // Variabel penanda kondisi toko
+        $isMitra = false;
+        $isChildNonMitra = false;
+
         // Cek jika ada request toko_id dan pastikan bukan 'all' atau 0
         if ($request->filled('toko_id') && $request->toko_id !== 'all' && $request->toko_id != 0) {
             $toko = Toko::find($request->toko_id);
 
-            // Jika toko ditemukan dan BUKAN mitra, sembunyikan ID 12 dan 13
-            if ($toko && ! $toko->mitra) {
-                $query->whereNotIn('id', [12, 13]);
+            if ($toko) {
+                if ($toko->mitra) {
+                    $isMitra = true;
+                } else {
+                    // Jika BUKAN mitra, sembunyikan ID 12 dan 13   
+                    $query->whereNotIn('id', [12, 13]);
+
+                    // Cek jika toko adalah Child Bukan Mitra (memiliki parent_id)
+                    if (! empty($toko->parent_id)) {
+                        $isChildNonMitra = true;
+                    }
+                }
             }
         }
 
@@ -136,6 +149,18 @@ class MasterController extends Controller
             });
         }
 
+        // ==========================================
+        // COSTUM ORDERING (Sesuai Role Toko)
+        // ==========================================
+        if ($isMitra) {
+            // Prioritaskan ID 12 dan 13 di paling atas
+            $query->orderByRaw('CASE WHEN id IN (12, 13) THEN 0 ELSE 1 END');
+        } elseif ($isChildNonMitra) {
+            // Prioritaskan ID 14 di paling atas
+            $query->orderByRaw('CASE WHEN id = 14 THEN 0 ELSE 1 END');
+        }
+
+        // Order sekunder berdasarkan ID standar
         $query->orderBy('id', $meta['orderBy']);
 
         $data = $query->paginate($meta['limit']);

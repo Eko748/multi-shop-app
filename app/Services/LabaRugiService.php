@@ -331,20 +331,24 @@ class LabaRugiService
         ];
 
         // ============================
-        // IV. Bagi Hasil/Dividen
+        // IV. Bagi Hasil / Dividen / Laba Dibagikan
         // ============================
 
         $bagiHasilTokoUtama = isset($pengeluaran[13]) ? (int) $pengeluaran[13]->total : 0;
         $bagiHasilOwner = isset($pengeluaran[12]) ? (int) $pengeluaran[12]->total : 0;
+        $labaDibagikanOwner = isset($pengeluaran[14]) ? (int) $pengeluaran[14]->total : 0; // 👈 Ambil ID 14
 
         $totalDividenBagiHasil = $bagiHasilTokoUtama + $bagiHasilOwner;
         $labaOperasional = $totalPendapatan - $total_hpp - $totalBeban;
 
         if ($isMitra) {
-            // Toko Mitra: Dikurangi Bagi Hasil
+            // Toko Mitra: Dikurangi Bagi Hasil Mitra/Pusat
             $total_labarugi = $labaOperasional - $totalDividenBagiHasil;
+        } elseif ($isChild) {
+            // Toko Child Non-Mitra: Dikurangi Laba Dibagikan Owner
+            $total_labarugi = $labaOperasional - $labaDibagikanOwner;
         } else {
-            // Non-Mitra (Parent / Child Cabang Utama): Tidak memakai skema Bagi Hasil di Laporan
+            // Toko Parent: Laba Operasional murni
             $total_labarugi = $labaOperasional;
         }
 
@@ -362,11 +366,13 @@ class LabaRugiService
             $bebanOperasional,
             (int) $bagiHasilTokoUtama,
             (int) $bagiHasilOwner,
+            (int) $labaDibagikanOwner, // 👈 Passing $labaDibagikanOwner
             (int) $totalDividenBagiHasil,
             (int) $total_labarugi,
             (int) $pendapatanNonTransaksi,
             $singkatanToko,
-            $isMitra // 👈 Passing $isMitra ke helper
+            $isMitra,
+            $isChild // 👈 Passing $isChild
         );
     }
 
@@ -380,11 +386,13 @@ class LabaRugiService
         $bebanOperasional,
         $bagiHasilTokoUtama,
         $bagiHasilOwner,
+        $labaDibagikanOwner, // 👈 Tambahkan parameter ini
         $totalDividenBagiHasil,
         $total_labarugi,
         $pendapatanNonTransaksi,
         $singkatanToko = '',
-        $isMitra = false // 👈 Ubah parameter di sini
+        $isMitra = false,
+        $isChild = false // 👈 Tambahkan parameter ini
     ) {
         $laporan = [
             [
@@ -412,7 +420,7 @@ class LabaRugiService
         ];
 
         if ($isMitra) {
-            // 🔹 Gambar 2: Tampilkan IV. Bagi Hasil/Dividen & V. Laba Rugi
+            // 🔹 1. TOKO MITRA (Gambar 2)
             $labelMitra = '4.2 Bagi Hasil Mitra';
             if (! empty($singkatanToko)) {
                 $labelMitra .= " {$singkatanToko}";
@@ -433,8 +441,24 @@ class LabaRugiService
                     ['Laba Rugi Ditahan', RupiahGenerate::build($total_labarugi)],
                 ],
             ];
+        } elseif ($isChild) {
+            // 🔹 2. TOKO CHILD NON-MITRA (Cabang Internal)
+            $laporan[] = [
+                'IV. Laba Dibagikan',
+                [
+                    ['4.1 Laba Dibagikan Owner', RupiahGenerate::build($labaDibagikanOwner)],
+                    ['Total Laba Dibagikan', RupiahGenerate::build($labaDibagikanOwner)],
+                ],
+            ];
+
+            $laporan[] = [
+                'V. Laba Rugi',
+                [
+                    ['Laba Rugi Ditahan', RupiahGenerate::build($total_labarugi)],
+                ],
+            ];
         } else {
-            // 🔹 Gambar 1: Langsung ke IV. Laba Rugi (Tanpa Bagi Hasil)
+            // 🔹 3. TOKO PARENT / PUSAT (Gambar 1)
             $laporan[] = [
                 'IV. Laba Rugi',
                 [

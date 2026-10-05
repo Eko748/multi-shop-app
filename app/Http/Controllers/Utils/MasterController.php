@@ -118,12 +118,16 @@ class MasterController extends Controller
                 if ($toko->mitra) {
                     $isMitra = true;
                 } else {
-                    // Jika BUKAN mitra, sembunyikan ID 12 dan 13   
+                    // Jika BUKAN mitra, sembunyikan ID 12 dan 13
                     $query->whereNotIn('id', [12, 13]);
 
-                    // Cek jika toko adalah Child Bukan Mitra (memiliki parent_id)
+                    // Cek peran toko (Parent vs Child)
                     if (! empty($toko->parent_id)) {
+                        // Toko Child Non-Mitra: Aktifkan penanda
                         $isChildNonMitra = true;
+                    } else {
+                        // Toko Parent: Sembunyikan ID 14 (Laba Dibagikan Owner)
+                        $query->where('id', '!=', 14);
                     }
                 }
             }
@@ -150,7 +154,7 @@ class MasterController extends Controller
         }
 
         // ==========================================
-        // COSTUM ORDERING (Sesuai Role Toko)
+        // CUSTOM ORDERING (Sesuai Role Toko)
         // ==========================================
         if ($isMitra) {
             // Prioritaskan ID 12 dan 13 di paling atas

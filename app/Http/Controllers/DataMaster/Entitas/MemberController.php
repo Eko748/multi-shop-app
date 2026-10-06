@@ -3,22 +3,22 @@
 namespace App\Http\Controllers\DataMaster\Entitas;
 
 use App\Http\Controllers\Controller;
-use App\Helpers\ActivityLogger;
 use App\Imports\MemberImport;
 use App\Models\JenisBarang;
 use App\Models\LevelHarga;
 use App\Models\Member;
 use App\Models\Toko;
 use App\Traits\ApiResponse;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
-use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
 use Throwable;
 
 class MemberController extends Controller
 {
     use ApiResponse;
+
     private array $menu = [];
 
     public function __construct()
@@ -31,98 +31,126 @@ class MemberController extends Controller
 
     public function getmember(Request $request)
     {
-        $meta['orderBy'] = $request->ascending ? 'asc' : 'desc';
-        $meta['limit'] = $request->has('limit') && $request->limit <= 30 ? $request->limit : 30;
+        $orderBy = $request->ascending ? 'asc' : 'desc';
+        $limit = $request->has('limit') && is_numeric($request->limit) && $request->limit <= 30
+            ? (int) $request->limit
+            : 30;
 
         $query = Member::query();
 
-        $query->with(['toko', 'levelHarga'])->orderBy('id', $meta['orderBy']);
+        $query->with(['toko', 'levelHarga'])->orderBy('id', $orderBy);
 
-        if ($request->has('toko_id')) {
+        // Filter Toko
+        if ($request->filled('toko_id')) {
             $idToko = $request->input('toko_id');
             if ($idToko != 1) {
                 $query->where('toko_id', $idToko);
             }
         }
 
-        if (!empty($request['search'])) {
-            $searchTerm = trim(strtolower($request['search']));
+        // Filter Search (Aman dari SQL Error & Case Insensitive)
+        if ($request->filled('search')) {
+            $searchTerm = '%'.trim(mb_strtolower($request->input('search'))).'%';
 
-            $query->where(function ($query) use ($searchTerm) {
-                $query->orWhereRaw("LOWER(nama) LIKE ?", ["%$searchTerm%"]);
-                $query->orWhereRaw("LOWER(no_hp) LIKE ?", ["%$searchTerm%"]);
-                $query->orWhereRaw("LOWER(alamat) LIKE ?", ["%$searchTerm%"]);
-
-                $query->orWhereHas('toko', function ($subquery) use ($searchTerm) {
-                    $subquery->whereRaw("LOWER(toko) LIKE ?", ["%$searchTerm%"]);
-                });
+            $query->where(function ($q) use ($searchTerm) {
+                $q->whereRaw('LOWER(nama) LIKE ?', [$searchTerm])
+                    ->orWhereRaw('LOWER(no_hp) LIKE ?', [$searchTerm])
+                    ->orWhereRaw('LOWER(alamat) LIKE ?', [$searchTerm])
+                    ->orWhereHas('toko', function ($subquery) use ($searchTerm) {
+                        // Menggunakan nama kolom 'nama' (atau ganti sesuai kolom nama di tabel toko)
+                        $subquery->whereRaw('LOWER(nama) LIKE ?', [$searchTerm]);
+                    });
             });
         }
 
-        $data = $query->paginate($meta['limit']);
+        $paginatedData = $query->paginate($limit);
 
-        $paginationMeta = [
-            'total' => $data->total(),
-            'per_page' => $data->perPage(),
-            'current_page' => $data->currentPage(),
-            'total_pages' => $data->lastPage()
-        ];
-
-        $data = [
-            'data' => $data->items(),
-            'meta' => $paginationMeta
-        ];
-
-        if (empty($data['data'])) {
+        if ($paginatedData->isEmpty()) {
             return response()->json([
                 'status_code' => 400,
                 'errors' => true,
-                'message' => 'Tidak ada data'
+                'message' => 'Tidak ada data',
+                'data' => [],
             ], 400);
         }
 
-        $mappedData = collect($data['data'])->map(function ($item) {
+        // Pre-fetch JenisBarang & LevelHarga untuk menghindari N+1 Query Issue saat mapping
+        $jenisBarangIds = [];
+        $levelHargaIds = [];
 
+        foreach ($paginatedData->items() as $item) {
+            if (! empty($item->level_info)) {
+                $infoArray = is_string($item->level_info)
+                    ? json_decode($item->level_info, true)
+                    : $item->level_info;
+
+                if (is_array($infoArray)) {
+                    foreach ($infoArray as $info) {
+                        if (preg_match('/(\d+)\s*:\s*(\d+)/', $info, $matches)) {
+                            $jenisBarangIds[] = (int) $matches[1];
+                            $levelHargaIds[] = (int) $matches[2];
+                        }
+                    }
+                }
+            }
+        }
+
+        $jenisBarangList = JenisBarang::whereIn('id', array_unique($jenisBarangIds))->get()->keyBy('id');
+        $levelHargaList = LevelHarga::whereIn('id', array_unique($levelHargaIds))->get()->keyBy('id');
+
+        // Mapping Output Data
+        $mappedData = collect($paginatedData->items())->map(function ($item) use ($jenisBarangList, $levelHargaList) {
             $selectedLevels = [];
 
-            if (!empty($item->level_info)) {
-                foreach (json_decode($item->level_info, true) as $info) {
-                    preg_match('/(\d+) : (\d+)/', $info, $matches);
+            if (! empty($item->level_info)) {
+                $infoArray = is_string($item->level_info)
+                    ? json_decode($item->level_info, true)
+                    : $item->level_info;
 
-                    if (!empty($matches)) {
-                        $jenisBarang = JenisBarang::find($matches[1]);
-                        $levelHarga  = LevelHarga::find($matches[2]);
+                if (is_array($infoArray)) {
+                    foreach ($infoArray as $info) {
+                        if (preg_match('/(\d+)\s*:\s*(\d+)/', $info, $matches)) {
+                            $jbId = (int) $matches[1];
+                            $lhId = (int) $matches[2];
 
-                        if ($jenisBarang && $levelHarga) {
-                            $selectedLevels[] = [
-                                'id_jenis_barang'   => $jenisBarang->id,
-                                'nama_jenis_barang' => $jenisBarang->nama_jenis_barang,
-                                'id_level_harga'    => $levelHarga->id,
-                                'nama_level_harga'  => $levelHarga->nama_level_harga,
-                            ];
+                            $jenisBarang = $jenisBarangList->get($jbId);
+                            $levelHarga = $levelHargaList->get($lhId);
+
+                            if ($jenisBarang && $levelHarga) {
+                                $selectedLevels[] = [
+                                    'id_jenis_barang' => $jenisBarang->id,
+                                    'nama_jenis_barang' => $jenisBarang->nama_jenis_barang,
+                                    'id_level_harga' => $levelHarga->id,
+                                    'nama_level_harga' => $levelHarga->nama_level_harga,
+                                ];
+                            }
                         }
                     }
                 }
             }
 
             return [
-                'id'          => $item->id,
+                'id' => $item->id,
                 'nama' => $item->nama,
-                'toko_id'     => $item->toko->id ?? null,
-                'nama_toko'   => $item->toko->nama ?? null,
-                'level'       => $selectedLevels,
-                'no_hp'       => $item->no_hp,
-                'alamat'      => $item->alamat,
+                'toko_id' => $item->toko->id ?? null,
+                'nama_toko' => $item->toko->nama ?? null,
+                'level' => $selectedLevels,
+                'no_hp' => $item->no_hp,
+                'alamat' => $item->alamat,
             ];
         });
 
-
         return response()->json([
-            'data' => $mappedData,
             'status_code' => 200,
             'errors' => false,
             'message' => 'Sukses',
-            'pagination' => $data['meta']
+            'data' => $mappedData,
+            'pagination' => [
+                'total' => $paginatedData->total(),
+                'per_page' => $paginatedData->perPage(),
+                'current_page' => $paginatedData->currentPage(),
+                'total_pages' => $paginatedData->lastPage(),
+            ],
         ], 200);
     }
 
@@ -180,7 +208,7 @@ class MemberController extends Controller
             $levelInfo = [];
 
             foreach ($level_harga as $jenis_barang_id => $level_harga_id) {
-                if (!empty($level_harga_id)) {
+                if (! empty($level_harga_id)) {
                     $levelInfo[] = "{$jenis_barang_id} : {$level_harga_id}";
                 }
             }
@@ -211,9 +239,11 @@ class MemberController extends Controller
             );
 
             DB::commit();
+
             return $this->success($data, 201, 'Data berhasil ditambahkan');
         } catch (Throwable $th) {
             DB::rollBack();
+
             return $this->error(500, 'Internal Server Error', $th->getMessage());
         }
     }
@@ -238,9 +268,9 @@ class MemberController extends Controller
             $level_harga = $request->input('level_harga', []);
             $levelInfo = [];
 
-            if (!empty($level_harga)) {
+            if (! empty($level_harga)) {
                 foreach ($level_harga as $jenis_barang_id => $level_harga_id) {
-                    if (!empty($level_harga_id)) {
+                    if (! empty($level_harga_id)) {
                         $levelInfo[] = "{$jenis_barang_id} : {$level_harga_id}";
                     }
                 }
@@ -257,7 +287,7 @@ class MemberController extends Controller
             $changedData = [];
             foreach ($updateData as $key => $value) {
                 $oldValue = $originalData[$key] ?? null;
-                if ((string)$oldValue !== (string)$value) {
+                if ((string) $oldValue !== (string) $value) {
                     $changedData['old'][$key] = $oldValue;
                     $changedData['new'][$key] = $value;
                 }
@@ -265,11 +295,11 @@ class MemberController extends Controller
 
             $updated = $member->update($updateData);
 
-            if (!$updated) {
+            if (! $updated) {
                 throw new \Exception('Gagal memperbarui data member');
             }
 
-            if (!empty($changedData)) {
+            if (! empty($changedData)) {
                 $this->saveLogAktivitas(
                     logName: $this->title[0],
                     subjectType: 'App\Models\Member',
@@ -283,9 +313,11 @@ class MemberController extends Controller
             }
 
             DB::commit();
+
             return $this->success($updateData, 201, 'Data berhasil diperbarui');
         } catch (\Exception $e) {
             DB::rollBack();
+
             return $this->error(500, 'Internal Server Error', $e->getMessage());
         }
     }
@@ -320,6 +352,7 @@ class MemberController extends Controller
             return $this->success(null, 200, 'Data berhasil dihapus');
         } catch (\Exception $e) {
             DB::rollBack();
+
             return $this->error(500, 'Internal Server Error', $e->getMessage());
         }
     }
@@ -327,7 +360,7 @@ class MemberController extends Controller
     public function import(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:xlsx,xls'
+            'file' => 'required|file|mimes:xlsx,xls',
         ]);
 
         Excel::import(new MemberImport, $request->file('file'));

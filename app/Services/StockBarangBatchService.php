@@ -6,6 +6,7 @@ use App\Helpers\AssetGenerate;
 use App\Helpers\RupiahGenerate;
 use App\Helpers\TextGenerate;
 use App\Models\Member;
+use App\Models\Toko;
 use App\Repositories\StockBarangBatchRepository;
 use App\Traits\PaginateResponse;
 
@@ -158,9 +159,35 @@ class StockBarangBatchService
         // GUEST
         // =========================
         if ($filter->member_id === 'guest' || empty($filter->member_id)) {
-            $priceOptions = $hargaList;
-        } else {
+            // Ambil data toko berdasarkan toko_id di filter
+            $toko = Toko::find($filter->toko_id);
 
+            $allowedLevels = [];
+            if ($toko && ! empty($toko->level_harga)) {
+                $rawTokoLevel = is_string($toko->level_harga)
+                    ? json_decode($toko->level_harga, true)
+                    : $toko->level_harga;
+
+                if (is_array($rawTokoLevel)) {
+                    $allowedLevels = array_map('intval', $rawTokoLevel);
+                }
+            }
+
+            if (! empty($allowedLevels)) {
+                foreach ($allowedLevels as $level) {
+                    $index = $level - 1; // Konversi level (1-based) ke array index (0-based)
+                    if (isset($hargaList[$index])) {
+                        $priceOptions[] = $hargaList[$index];
+                    }
+                }
+            } else {
+                // Fallback jika level_harga toko kosong/tidak di-set
+                $priceOptions = $hargaList;
+            }
+        } else {
+            // =========================
+            // MEMBER
+            // =========================
             $member = Member::find($filter->member_id);
             if (! $member) {
                 return ['data' => null];
@@ -204,7 +231,7 @@ class StockBarangBatchService
             ? AssetGenerate::build("qrcodes/barang/{$qrcode}.png")
             : '';
         $nama = TextGenerate::short($item->stockBarang->barang->nama);
-        $stok = $totalQty ?? 0; // 🔥 pakai hasil SUM
+        $stok = $totalQty ?? 0;
         $tanggal = $item->created_at?->format('d-m-Y H:i:s') ?? '-';
 
         return [

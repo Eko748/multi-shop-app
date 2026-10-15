@@ -309,15 +309,23 @@
         async function handleData(data) {
             let elementData = encodeURIComponent(JSON.stringify(data));
 
-            // 1. Cek apakah tanggal data berada di bulan dan tahun yang sama dengan sekarang
-            let isCurrentMonth = false;
-            if (data?.tanggal) {
-                let itemDate = new Date(data.tanggal);
-                let now = new Date();
+            // Helper untuk cek apakah tanggal DD-MM-YYYY HH:mm:ss berada di bulan dan tahun berjalan
+            const isSameMonthAndYear = (dateString) => {
+                if (!dateString) return false;
 
-                isCurrentMonth = itemDate.getMonth() === now.getMonth() &&
-                    itemDate.getFullYear() === now.getFullYear();
-            }
+                const datePart = dateString.split(' ')[0];
+                const parts = datePart.split(/[-/]/);
+
+                if (parts.length < 3) return false;
+
+                const month = parseInt(parts[1], 10) - 1; // Month index JS (0-11)
+                const year = parseInt(parts[2], 10);
+
+                const now = new Date();
+                return month === now.getMonth() && year === now.getFullYear();
+            };
+
+            let isCurrentMonth = isSameMonthAndYear(data?.tanggal);
 
             let action_buttons = '';
 
@@ -331,11 +339,11 @@
             </div>
         </a>`;
 
-            // 2. Tambahkan kondisi `isCurrentMonth` pada pengondisian
-            if (data.toko_id == {{ auth()->user()->toko_id }} && isCurrentMonth) {
+            // Tombol hapus hanya muncul jika toko_id sesuai DAN tanggal merupakan bulan ini
+            if (data.toko_id == {{ auth()->user()->toko_id }} && isCurrentMonth && delete_button) {
                 action_buttons = `
         <div class="d-flex justify-content-end">
-            <div class="hovering p-1">${delete_button}</div>
+            ${delete_button ? `<div class="hovering p-1">${delete_button}</div>` : ''}
         </div>`;
             } else {
                 action_buttons = `

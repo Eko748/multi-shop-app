@@ -338,15 +338,26 @@
             let elementData = encodeURIComponent(JSON.stringify(data));
             let action_buttons = '';
 
-            // Cek apakah tanggal data berada di bulan dan tahun berjalan
-            let isCurrentMonth = false;
-            if (data?.tanggal) {
-                let itemDate = new Date(data.tanggal);
-                let now = new Date();
+            // Function helper untuk parse format "DD-MM-YYYY HH:mm:ss" atau "DD/MM/YYYY"
+            const isSameMonthAndYear = (dateString) => {
+                if (!dateString) return false;
 
-                isCurrentMonth = itemDate.getMonth() === now.getMonth() &&
-                    itemDate.getFullYear() === now.getFullYear();
-            }
+                // Ambil bagian tanggal saja sebelum spasi (mengabaikan jam)
+                const datePart = dateString.split(' ')[0];
+                // Split berdasarkan '-' atau '/'
+                const parts = datePart.split(/[-/]/);
+
+                if (parts.length < 3) return false;
+
+                const day = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10) - 1; // Month di JS index-nya 0-11
+                const year = parseInt(parts[2], 10);
+
+                const now = new Date();
+                return month === now.getMonth() && year === now.getFullYear();
+            };
+
+            let isCurrentMonth = isSameMonthAndYear(data?.tanggal);
 
             // Tombol delete hanya dibuat jika tanggal merupakan bulan dan tahun berjalan
             let delete_button = isCurrentMonth ? `

@@ -395,19 +395,27 @@
         async function handleData(data) {
             let elementData = encodeURIComponent(JSON.stringify(data));
 
-            // Cek apakah tanggal data berada di bulan dan tahun berjalan
-            let isCurrentMonth = false;
-            if (data?.tanggal) {
-                let itemDate = new Date(data.tanggal);
-                let now = new Date();
+            // Helper untuk cek apakah tanggal (DD-MM-YYYY HH:mm:ss) berada di bulan dan tahun berjalan
+            const isSameMonthAndYear = (dateString) => {
+                if (!dateString) return false;
 
-                isCurrentMonth = itemDate.getMonth() === now.getMonth() &&
-                    itemDate.getFullYear() === now.getFullYear();
-            }
+                const datePart = dateString.split(' ')[0];
+                const parts = datePart.split(/[-/]/);
+
+                if (parts.length < 3) return false;
+
+                const month = parseInt(parts[1], 10) - 1; // Month index JS (0-11)
+                const year = parseInt(parts[2], 10);
+
+                const now = new Date();
+                return month === now.getMonth() && year === now.getFullYear();
+            };
+
+            let isCurrentMonth = isSameMonthAndYear(data?.tanggal);
 
             let action_buttons = '';
 
-            // Tambahkan kondisi isCurrentMonth pada ternary delete_button
+            // Tombol delete disembunyikan jika bukan bulan ini
             let delete_button = (data.action && data.tipe != 'Pembelian Barang' && isCurrentMonth) ? `
         <a class="p-1 btn delete-data action_button"
             data-container="body" data-toggle="tooltip" data-placement="top"

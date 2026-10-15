@@ -338,33 +338,44 @@
             let elementData = encodeURIComponent(JSON.stringify(data));
             let action_buttons = '';
 
-            let delete_button = `
-                <a class="p-1 btn delete-data action_button"
-                    data-container="body" data-toggle="tooltip" data-placement="top"
-                    title="Hapus ${title}" data="${elementData}">
-                    <span class="text-dark">Hapus</span>
-                    <div class="icon text-danger">
-                        <i class="fa fa-trash"></i>
-                    </div>
-                </a>`;
+            // Cek apakah tanggal data berada di bulan dan tahun berjalan
+            let isCurrentMonth = false;
+            if (data?.tanggal) {
+                let itemDate = new Date(data.tanggal);
+                let now = new Date();
+
+                isCurrentMonth = itemDate.getMonth() === now.getMonth() &&
+                    itemDate.getFullYear() === now.getFullYear();
+            }
+
+            // Tombol delete hanya dibuat jika tanggal merupakan bulan dan tahun berjalan
+            let delete_button = isCurrentMonth ? `
+        <a class="p-1 btn delete-data action_button"
+            data-container="body" data-toggle="tooltip" data-placement="top"
+            title="Hapus ${title}" data="${elementData}">
+            <span class="text-dark">Hapus</span>
+            <div class="icon text-danger">
+                <i class="fa fa-trash"></i>
+            </div>
+        </a>` : '';
 
             if (delete_button) {
                 action_buttons = `
-                <div class="d-flex justify-content-center">
-                    ${delete_button ? `<div class="hovering p-1">${delete_button}</div>` : ''}
-                </div>`;
+        <div class="d-flex justify-content-center">
+            <div class="hovering p-1">${delete_button}</div>
+        </div>`;
             } else {
                 action_buttons = `
-                <div class="d-flex justify-content-center">
-                    <span class="badge badge-secondary">Tidak Ada Aksi</span>
-                </div>`;
+        <div class="d-flex justify-content-center">
+            <span class="badge badge-secondary">Tidak Ada Aksi</span>
+        </div>`;
             }
 
             const badge = (type, color, name) => `
-                <span class="custom-badge badge badge-${color}">
-                    <i class="fa fa-info-circle"></i> ${name ?? '-'}
-                </span>
-            `;
+        <span class="custom-badge badge badge-${color}">
+            <i class="fa fa-info-circle"></i> ${name ?? '-'}
+        </span>
+    `;
 
             let kasOUT = badge('out', data.attr_out, data.nama_toko_pengirim);
             let kasIN = badge('in', data.attr_in, data.nama_toko_penerima);

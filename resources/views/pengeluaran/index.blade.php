@@ -322,28 +322,39 @@
         async function handleData(data) {
             let elementData = encodeURIComponent(JSON.stringify(data));
 
+            // Cek apakah tanggal data berada di bulan dan tahun yang sama dengan bulan berjalan
+            let isCurrentMonth = false;
+            if (data?.tanggal) {
+                let itemDate = new Date(data.tanggal);
+                let now = new Date();
+
+                isCurrentMonth = itemDate.getMonth() === now.getMonth() &&
+                    itemDate.getFullYear() === now.getFullYear();
+            }
+
             let action_buttons = '';
 
             let delete_button = `
-                <a class="p-1 btn delete-data action_button"
-                    data-container="body" data-toggle="tooltip" data-placement="top"
-                    title="Hapus ${title}" data="${elementData}">
-                    <span class="text-dark">Hapus</span>
-                    <div class="icon text-danger">
-                        <i class="fa fa-trash"></i>
-                    </div>
-                </a>`;
+        <a class="p-1 btn delete-data action_button"
+            data-container="body" data-toggle="tooltip" data-placement="top"
+            title="Hapus ${title}" data="${elementData}">
+            <span class="text-dark">Hapus</span>
+            <div class="icon text-danger">
+                <i class="fa fa-trash"></i>
+            </div>
+        </a>`;
 
-            if (data.toko_id == {{ auth()->user()->toko_id }} && delete_button) {
+            // Tambahkan kondisi `isCurrentMonth` agar tombol hapus hanya muncul di bulan/tahun berjalan
+            if (data.toko_id == {{ auth()->user()->toko_id }} && isCurrentMonth) {
                 action_buttons = `
-                <div class="d-flex justify-content-end">
-                    ${delete_button ? `<div class="hovering p-1">${delete_button}</div>` : ''}
-                </div>`;
+        <div class="d-flex justify-content-end">
+            <div class="hovering p-1">${delete_button}</div>
+        </div>`;
             } else {
                 action_buttons = `
-                <div class="d-flex justify-content-end">
-                    <span class="badge badge-secondary mr-1">Tidak Ada Aksi</span>
-                </div>`;
+        <div class="d-flex justify-content-end">
+            <span class="badge badge-secondary mr-1">Tidak Ada Aksi</span>
+        </div>`;
             }
 
             let kas =

@@ -391,49 +391,60 @@
         async function handleData(data) {
             let elementData = encodeURIComponent(JSON.stringify(data));
 
+            // Cek apakah data berasal dari bulan dan tahun berjalan
+            let isCurrentMonth = false;
+            if (data?.tanggal) {
+                let itemDate = new Date(data.tanggal);
+                let now = new Date();
+
+                isCurrentMonth = itemDate.getMonth() === now.getMonth() &&
+                    itemDate.getFullYear() === now.getFullYear();
+            }
+
             let action_buttons = '';
 
-            let delete_button = (data.action) ? `
-                <a class="p-1 btn delete-data action_button"
-                    data-container="body" data-toggle="tooltip" data-placement="top"
-                    title="Hapus ${title}" data="${elementData}">
-                    <span class="text-dark">Hapus</span>
-                    <div class="icon text-danger">
-                        <i class="fa fa-trash"></i>
-                    </div>
-                </a>` : '';
+            // Tombol delete hanya dirender jika data.action true DAN tanggal merupakan bulan ini
+            let delete_button = (data.action && isCurrentMonth) ? `
+        <a class="p-1 btn delete-data action_button"
+            data-container="body" data-toggle="tooltip" data-placement="top"
+            title="Hapus ${title}" data="${elementData}">
+            <span class="text-dark">Hapus</span>
+            <div class="icon text-danger">
+                <i class="fa fa-trash"></i>
+            </div>
+        </a>` : '';
 
             let detail_button = `
-                <a class="p-1 btn detail-data action_button"
-                    data-container="body" data-toggle="tooltip" data-placement="top"
-                    title="Detail ${title}" data="${elementData}">
-                    <span class="text-dark">Detail</span>
-                    <div class="icon text-info">
-                        <i class="fa fa-book"></i>
-                    </div>
-                </a>`;
+        <a class="p-1 btn detail-data action_button"
+            data-container="body" data-toggle="tooltip" data-placement="top"
+            title="Detail ${title}" data="${elementData}">
+            <span class="text-dark">Detail</span>
+            <div class="icon text-info">
+                <i class="fa fa-book"></i>
+            </div>
+        </a>`;
 
             let edit_button = (data.action) ? `
-                <a class="p-1 btn edit-data action_button"
-                    title="Edit ${title}" data="${elementData}">
-                    <span class="text-dark">Bayar</span>
-                    <div class="icon text-warning">
-                        <i class="fa fa-edit"></i>
-                    </div>
-                </a>` : '';
+        <a class="p-1 btn edit-data action_button"
+            title="Edit ${title}" data="${elementData}">
+            <span class="text-dark">Bayar</span>
+            <div class="icon text-warning">
+                <i class="fa fa-edit"></i>
+            </div>
+        </a>` : '';
 
             if (delete_button || edit_button || detail_button) {
                 action_buttons = `
-                <div class="d-flex justify-content-end">
-                    ${edit_button ? `<div class="hovering p-1">${edit_button}</div>` : ''}
-                    ${detail_button ? `<div class="hovering p-1">${detail_button}</div>` : ''}
-                    ${delete_button ? `<div class="hovering p-1">${delete_button}</div>` : ''}
-                </div>`;
+        <div class="d-flex justify-content-end">
+            ${edit_button ? `<div class="hovering p-1">${edit_button}</div>` : ''}
+            ${detail_button ? `<div class="hovering p-1">${detail_button}</div>` : ''}
+            ${delete_button ? `<div class="hovering p-1">${delete_button}</div>` : ''}
+        </div>`;
             } else {
                 action_buttons = `
-                <div class="d-flex justify-content-center">
-                    <span class="badge badge-secondary mr-1">Tidak Ada Aksi</span>
-                </div>`;
+        <div class="d-flex justify-content-center">
+            <span class="badge badge-secondary mr-1">Tidak Ada Aksi</span>
+        </div>`;
             }
 
             let status =

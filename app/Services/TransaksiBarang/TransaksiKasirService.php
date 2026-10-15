@@ -343,7 +343,7 @@ class TransaksiKasirService
                 $total_nominal = $rows->sum('subtotal');
                 $total_harga_beli = $rows->sum(fn ($d) => $d->qty * $d->harga_beli);
 
-                $keteranganVoid = "Pembatalan/Hapus Transaksi Kasir Nota (Public ID: {$header->public_id})";
+                $keteranganVoid = "Pembatalan/Hapus Transaksi Kasir Nota: {$header->nota}";
 
                 // Buat record Pengeluaran baru (Tipe ID 15)
                 $pengeluaran = Pengeluaran::create([
@@ -469,7 +469,7 @@ class TransaksiKasirService
              * 3. BUAT DATA PENGELUARAN (PENGELUARAN_TIPE_ID = 15) & VOID KAS SAMA SEPERTI METHOD POST
              */
             $deletedBy = $data['deleted_by'] ?? null;
-            $keteranganVoid = "Pembatalan/Hapus Item Detail Transaksi (Detail ID: {$detail->id})";
+            $keteranganVoid = "Pembatalan/Hapus Item Detail Transaksi Nota: {$header->nota}";
 
             $pengeluaran = Pengeluaran::create([
                 'kas_id' => $kas->id,

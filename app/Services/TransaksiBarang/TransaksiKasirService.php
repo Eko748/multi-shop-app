@@ -326,7 +326,7 @@ class TransaksiKasirService
             });
 
             /**
-             * 2. BUAT PENGELUARAN (PENGELUARAN_TIPE_ID = 15) & VOID KAS PER JENIS BARANG
+             * 2. BUAT PENGELUARAN (PENGELUARAN_TIPE_ID = 15) & PENGEMBALIAN BARANG KAS PER JENIS BARANG
              */
             foreach ($grouped as $jenisId => $rows) {
 
@@ -357,20 +357,18 @@ class TransaksiKasirService
                     'created_by' => $deletedBy,
                 ]);
 
-                $laba = ($pengeluaran->pengeluaran_tipe_id != 11);
-
-                // Eksekusi KasService::out
-                KasService::out(
-                    toko_id: $tokoId,
-                    jenis_barang_id: $kas->jenis_barang_id,
-                    tipe_kas: $kas->tipe_kas,
-                    total_nominal: $total_nominal,
+                // Eksekusi KasService::pengembalianBarang
+                KasService::pengembalianBarang(
+                    tokoId: $tokoId,
+                    jenisBarangId: $jenisId,
+                    tipeKas: $kas->tipe_kas,
+                    totalHargaJual: $total_nominal,
+                    totalHargaBeli: $total_harga_beli,
                     item: $kas->tipe_kas,
-                    kategori: $this->title[0] ?? 'Pengeluaran',
+                    kategori: 'Pengeluaran Lainnya',
                     keterangan: $pengeluaran->pengeluaranTipe->tipe ?? $keteranganVoid,
                     sumber: $pengeluaran,
-                    tanggal: $todayStr,
-                    laba: $laba
+                    tanggal: $todayStr
                 );
 
                 // Tambahkan Stok Masuk / Mengembalikan Aset di Bulan Ini
@@ -465,16 +463,13 @@ class TransaksiKasirService
             $sisaDetailCount = TransaksiKasirDetail::where('transaksi_kasir_id', $header->id)->count();
             $isLastItem = ($sisaDetailCount <= 1);
 
-            /**
-             * 3. BUAT DATA PENGELUARAN (PENGELUARAN_TIPE_ID = 15) & VOID KAS SAMA SEPERTI METHOD POST
-             */
             $deletedBy = $data['deleted_by'] ?? null;
             $keteranganVoid = "Pembatalan/Hapus Item Detail Transaksi Nota: {$header->nota}";
 
             $pengeluaran = Pengeluaran::create([
                 'kas_id' => $kas->id,
                 'toko_id' => $tokoId,
-                'pengeluaran_tipe_id' => 15, // Tipe ID 15 untuk pembatalan/delete detail
+                'pengeluaran_tipe_id' => 15,
                 'keterangan' => $keteranganVoid,
                 'nominal' => $nominalTrx,
                 'tanggal' => $todayStr,
@@ -482,21 +477,19 @@ class TransaksiKasirService
                 'created_by' => $deletedBy,
             ]);
 
-            // Cek status laba (mengikuti pola method post)
             $laba = ($pengeluaran->pengeluaran_tipe_id != 11);
 
-            // Eksekusi KasService::out
-            KasService::out(
-                toko_id: $tokoId,
-                jenis_barang_id: $kas->jenis_barang_id,
-                tipe_kas: $kas->tipe_kas,
-                total_nominal: $nominalTrx,
+            KasService::pengembalianBarang(
+                tokoId: $tokoId,
+                jenisBarangId: $jenisId,
+                tipeKas: $kas->tipe_kas,
+                totalHargaJual: $nominalTrx,
+                totalHargaBeli: $hargaBeliTrx,
                 item: $kas->tipe_kas,
-                kategori: $this->title[0] ?? 'Pengeluaran',
-                keterangan: $pengeluaran->pengeluaranTipe->tipe ?? $keteranganVoid,
+                kategori: 'Pengeluaran Lainnya',
+                keterangan: $keteranganVoid,
                 sumber: $pengeluaran,
-                tanggal: $todayStr,
-                laba: $laba
+                tanggal: $todayStr
             );
 
             // Update pencatatan stock bulanan

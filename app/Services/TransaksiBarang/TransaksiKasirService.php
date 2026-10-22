@@ -305,7 +305,7 @@ class TransaksiKasirService
             $tokoId = $header->toko_id;
             $deletedBy = $data['deleted_by'] ?? null;
 
-            // TANGGAL SEKARANG (Eksekusi Hapus)
+            // Tanggal Eksekusi Pembatalan
             $now = Carbon::now();
             $todayStr = $now->toDateTimeString();
 
@@ -326,7 +326,7 @@ class TransaksiKasirService
             });
 
             /**
-             * 2. BUAT PENGELUARAN (PENGELUARAN_TIPE_ID = 15) & PENGEMBALIAN BARANG KAS PER JENIS BARANG
+             * 2. REVERSAL KAS & REKAP TANPA BUAT RECORD PENGELUARAN
              */
             foreach ($grouped as $jenisId => $rows) {
 
@@ -343,32 +343,15 @@ class TransaksiKasirService
                 $total_nominal = $rows->sum('subtotal');
                 $total_harga_beli = $rows->sum(fn ($d) => $d->qty * $d->harga_beli);
 
-                $keteranganVoid = "Pembatalan/Hapus Transaksi Kasir Nota: {$header->nota}";
-
-                // Buat record Pengeluaran baru (Tipe ID 15)
-                $pengeluaran = Pengeluaran::create([
-                    'kas_id' => $kas->id,
-                    'toko_id' => $tokoId,
-                    'pengeluaran_tipe_id' => 15, // Tipe ID 15 untuk pembatalan/delete transaksi
-                    'keterangan' => $keteranganVoid,
-                    'nominal' => $total_nominal,
-                    'tanggal' => $todayStr,
-                    'aset' => null,
-                    'created_by' => $deletedBy,
-                ]);
-
-                // Eksekusi KasService::pengembalianBarang
-                KasService::pengembalianBarang(
-                    tokoId: $tokoId,
-                    jenisBarangId: $jenisId,
-                    tipeKas: $kas->tipe_kas,
-                    totalHargaJual: $total_nominal,
-                    totalHargaBeli: $total_harga_beli,
-                    item: $kas->tipe_kas,
-                    kategori: 'Pengeluaran Lainnya',
-                    keterangan: $pengeluaran->pengeluaranTipe->tipe ?? $keteranganVoid,
-                    sumber: $pengeluaran,
-                    tanggal: $todayStr
+                // Synchronize Reversal Kas dengan Kategori "Pembatalan Transaksi"
+                KasRekapHelper::syncKasFromKasirDelete(
+                    toko_id: $tokoId,
+                    jenis_barang_id: $jenisId,
+                    kas_id: $kas->id,
+                    tanggal: $todayStr,
+                    totalJual: $total_nominal,
+                    totalBeli: $total_harga_beli,
+                    header: $header
                 );
 
                 // Tambahkan Stok Masuk / Mengembalikan Aset di Bulan Ini
@@ -464,32 +447,19 @@ class TransaksiKasirService
             $isLastItem = ($sisaDetailCount <= 1);
 
             $deletedBy = $data['deleted_by'] ?? null;
-            $keteranganVoid = "Pembatalan/Hapus Item Detail Transaksi Nota: {$header->nota}";
 
-            $pengeluaran = Pengeluaran::create([
-                'kas_id' => $kas->id,
-                'toko_id' => $tokoId,
-                'pengeluaran_tipe_id' => 15,
-                'keterangan' => $keteranganVoid,
-                'nominal' => $nominalTrx,
-                'tanggal' => $todayStr,
-                'aset' => null,
-                'created_by' => $deletedBy,
-            ]);
-
-            $laba = ($pengeluaran->pengeluaran_tipe_id != 11);
-
-            KasService::pengembalianBarang(
-                tokoId: $tokoId,
-                jenisBarangId: $jenisId,
-                tipeKas: $kas->tipe_kas,
-                totalHargaJual: $nominalTrx,
-                totalHargaBeli: $hargaBeliTrx,
-                item: $kas->tipe_kas,
-                kategori: 'Pengeluaran Lainnya',
-                keterangan: $keteranganVoid,
-                sumber: $pengeluaran,
-                tanggal: $todayStr
+            /**
+             * 3. REVERSAL KAS DENGAN KATEGORI "PEMBATALAN TRANSAKSI"
+             * Menggantikan Pengeluaran::create dan KasService::pengembalianBarang
+             */
+            KasRekapHelper::syncKasFromKasirDelete(
+                toko_id: $tokoId,
+                jenis_barang_id: $jenisId,
+                kas_id: $kas->id,
+                tanggal: $todayStr,
+                totalJual: $nominalTrx,
+                totalBeli: $hargaBeliTrx,
+                header: $header
             );
 
             // Update pencatatan stock bulanan
@@ -527,16 +497,17 @@ class TransaksiKasirService
 
                 return [
                     'status' => true,
-                    'message' => 'Item detail dihapus dan pengeluaran void berhasil dicatat. Seluruh transaksi otomatis dihapus.',
+                    'message' => 'Item detail dihapus dan pembatalan transaksi berhasil dicatat. Seluruh transaksi otomatis dihapus.',
                 ];
             } else {
                 $header->total_nominal = max(0, $header->total_nominal - $nominalTrx);
                 $header->total_bayar = max(0, $header->total_bayar - $nominalTrx);
+                $header->total_qty = max(0, $header->total_qty - $qtyTrx);
                 $header->save();
 
                 return [
                     'status' => true,
-                    'message' => 'Item detail dihapus dan pengeluaran void berhasil dicatat. Nominal nota belanja diperbarui.',
+                    'message' => 'Item detail dihapus dan pembatalan transaksi berhasil dicatat. Nominal nota belanja diperbarui.',
                 ];
             }
         });

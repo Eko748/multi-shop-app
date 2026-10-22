@@ -123,7 +123,7 @@ class LabaRugiService
             $tokoObj = Toko::find($tokoId);
             if ($tokoObj) {
                 $isChild = ! empty($tokoObj->parent_id);
-                $isMitra = (bool) $tokoObj->mitra; // 👈 Cek apakah statusnya toko mitra
+                $isMitra = (bool) $tokoObj->mitra;
                 $singkatanToko = $tokoObj->singkatan ?? '';
             }
         } else {
@@ -189,7 +189,13 @@ class LabaRugiService
         $applyDateFilter($nilaiReturMemberQuery, 'tanggal');
         $nilaiReturMember = $nilaiReturMemberQuery->sum('total_nominal');
 
-        // Perbaikan performa query non-transaksi langsung di database
+        // 1.3 Pembatalan Transaksi (Harga Jual)
+        $pembatalanTrxQuery = KasTransaksi::where('tipe', 'out')
+            ->where('kategori', 'Pembatalan Transaksi')
+            ->where($filterToko);
+        $applyDateFilter($pembatalanTrxQuery, 'tanggal');
+        $pembatalanTrx = $pembatalanTrxQuery->sum('total_nominal');
+
         $pendapatanNonTransaksiQuery = DompetSaldo::where($filterToko)
             ->whereColumn('harga_beli', '<', 'saldo');
         $applyDateFilter($pendapatanNonTransaksiQuery, 'created_at');
@@ -198,7 +204,9 @@ class LabaRugiService
             ->value('total') ?? 0;
 
         $pendapatanLainnya = $lainnya + $pendapatanNonTransaksi;
-        $penjualanBersih = $penjualanUmum - $nilaiReturMember;
+
+        // Penjualan bersih dikurangi retur member dan pembatalan transaksi
+        $penjualanBersih = $penjualanUmum - $nilaiReturMember - $pembatalanTrx;
 
         $totalPendapatan = $penjualanBersih + $pendapatanLainnya;
 
@@ -227,6 +235,12 @@ class LabaRugiService
         $applyDateFilter($hppreturQuery, 'kas_transaksi.tanggal');
         $hppretur = $hppreturQuery->sum('retur_member_detail.total_hpp');
 
+        // 2.3 HPP Pembatalan Transaksi (Harga Beli)
+        $hppPembatalanTrxQuery = KasTransaksi::where('kategori', 'HPP Pembatalan Transaksi')
+            ->where($filterToko);
+        $applyDateFilter($hppPembatalanTrxQuery, 'tanggal');
+        $hppPembatalanTrx = $hppPembatalanTrxQuery->sum('total_nominal');
+
         $hppSelisihTopupQuery = KasTransaksi::where('tipe', 'out')
             ->where('sumber_type', DompetSaldo::class)
             ->where('keterangan', 'Selisih Top-up')
@@ -241,15 +255,13 @@ class LabaRugiService
             ->whereNull('retur_supplier.deleted_at');
 
         $applyTokoDirect($hppReturSuplierQuery, 'retur_supplier.toko_id');
-        // Pastikan kolom filter tanggal di bawah menggunakan kolom referensi yang aktif (misal: created_at / verify_date / tanggal)
         $applyDateFilterOnly($hppReturSuplierQuery, 'retur_supplier.created_at');
         $hppReturSuplier = $hppReturSuplierQuery->selectRaw('SUM(retur_supplier_detail.qty_refund * pembelian_barang_detail.harga_beli) as total')->value('total') ?? 0;
 
+        // HPP Penjualan dikurangi pengembalian HPP dari pembatalan transaksi
         $hppPenjualan = $hppTrx - $hppretur + $hppKoreksi;
-
         // Retur supplier berfungsi sebagai pengurang HPP
-        $total_hpp = $hppPenjualan - $hppReturSuplier;
-
+        $total_hpp = $hppPenjualan - $hppPembatalanTrx - $hppReturSuplier;
         // ============================
         // BEBAN OPERASIONAL
         // ============================
@@ -282,7 +294,7 @@ class LabaRugiService
         $stockHilangQuery = StockBarangBermasalah::query()
             ->join('stock_barang_batch as batch', 'batch.id', '=', 'stock_barang_bermasalah.stock_barang_batch_id')
             ->where('stock_barang_bermasalah.status', 'hilang');
-        $applyTokoDirect($stockHilangQuery, 'stock_barang_bermasalah.toko_id'); // Ubah ke kolom tabel utamanya
+        $applyTokoDirect($stockHilangQuery, 'stock_barang_bermasalah.toko_id');
         $applyDateFilter($stockHilangQuery, 'stock_barang_bermasalah.created_at');
         $stockHilang = $stockHilangQuery->selectRaw('SUM(stock_barang_bermasalah.qty * batch.harga_beli) as total')->value('total') ?? 0;
 
@@ -301,7 +313,6 @@ class LabaRugiService
         $totalBeban += $hppSelisihTopup;
 
         if ($isMitra) {
-            // 🔹 Toko Mitra: HANYA ada Stok Mati/Rusak (Gambar 2)
             $nextNumber++;
             $bebanOperasional[] = [
                 'label' => '3.'.$nextNumber.' Stok Mati/Rusak',
@@ -309,7 +320,6 @@ class LabaRugiService
             ];
             $totalBeban += $stockMati;
         } else {
-            // 🔹 Parent & Child Bukan Mitra: Ada Stok Hilang & Stok Mati/Rusak (Gambar 1)
             $nextNumber++;
             $bebanOperasional[] = [
                 'label' => '3.'.$nextNumber.' Stok Hilang',
@@ -336,19 +346,16 @@ class LabaRugiService
 
         $bagiHasilTokoUtama = isset($pengeluaran[13]) ? (int) $pengeluaran[13]->total : 0;
         $bagiHasilOwner = isset($pengeluaran[12]) ? (int) $pengeluaran[12]->total : 0;
-        $labaDibagikanOwner = isset($pengeluaran[14]) ? (int) $pengeluaran[14]->total : 0; // 👈 Ambil ID 14
+        $labaDibagikanOwner = isset($pengeluaran[14]) ? (int) $pengeluaran[14]->total : 0;
 
         $totalDividenBagiHasil = $bagiHasilTokoUtama + $bagiHasilOwner;
         $labaOperasional = $totalPendapatan - $total_hpp - $totalBeban;
 
         if ($isMitra) {
-            // Toko Mitra: Dikurangi Bagi Hasil Mitra/Pusat
             $total_labarugi = $labaOperasional - $totalDividenBagiHasil;
         } elseif ($isChild) {
-            // Toko Child Non-Mitra: Dikurangi Laba Dibagikan Owner
             $total_labarugi = $labaOperasional - $labaDibagikanOwner;
         } else {
-            // Toko Parent: Laba Operasional murni
             $total_labarugi = $labaOperasional;
         }
 
@@ -357,49 +364,54 @@ class LabaRugiService
         }
 
         return $this->getDetailLaporan(
-            (int) $penjualanBersih,
+            (int) $penjualanUmum,
             (int) $pendapatanLainnya,
+            (int) $pembatalanTrx,
             (int) $hppReturSuplier,
             (int) $totalPendapatan,
             (int) $hppPenjualan,
+            (int) $hppPembatalanTrx,
             (int) $total_hpp,
             $bebanOperasional,
             (int) $bagiHasilTokoUtama,
             (int) $bagiHasilOwner,
-            (int) $labaDibagikanOwner, // 👈 Passing $labaDibagikanOwner
+            (int) $labaDibagikanOwner,
             (int) $totalDividenBagiHasil,
             (int) $total_labarugi,
             (int) $pendapatanNonTransaksi,
             $singkatanToko,
             $isMitra,
-            $isChild // 👈 Passing $isChild
+            $isChild
         );
     }
 
     protected function getDetailLaporan(
-        $penjualanBersih,
+        $penjualanUmum,
         $pendapatanLainnya,
+        $pembatalanTrx,
         $hppReturSuplier,
         $totalPendapatan,
         $hppPenjualan,
+        $hppPembatalanTrx,
         $total_hpp,
         $bebanOperasional,
         $bagiHasilTokoUtama,
         $bagiHasilOwner,
-        $labaDibagikanOwner, // 👈 Tambahkan parameter ini
+        $labaDibagikanOwner,
         $totalDividenBagiHasil,
         $total_labarugi,
         $pendapatanNonTransaksi,
         $singkatanToko = '',
         $isMitra = false,
-        $isChild = false // 👈 Tambahkan parameter ini
+        $isChild = false
     ) {
         $laporan = [
             [
                 'I. Pendapatan',
                 [
-                    ['1.1 Pendapatan Umum', RupiahGenerate::build($penjualanBersih)],
+                    ['1.1 Pendapatan Umum', RupiahGenerate::build($penjualanUmum)],
                     ['1.2 Pendapatan Lainnya', RupiahGenerate::build($pendapatanLainnya)],
+                    ['1.3 Pembatalan Transaksi', RupiahGenerate::build(-abs($pembatalanTrx))],
                     ['Total Pendapatan', RupiahGenerate::build($totalPendapatan)],
                 ],
             ],
@@ -408,6 +420,7 @@ class LabaRugiService
                 [
                     ['2.1 HPP Pendapatan Umum', RupiahGenerate::build($hppPenjualan)],
                     ['2.2 HPP Pendapatan Retur', RupiahGenerate::build($hppReturSuplier)],
+                    ['2.3 HPP Pembatalan Transaksi', RupiahGenerate::build(-abs($hppPembatalanTrx))],
                     ['Total HPP', RupiahGenerate::build($total_hpp)],
                 ],
             ],
@@ -420,7 +433,6 @@ class LabaRugiService
         ];
 
         if ($isMitra) {
-            // 🔹 1. TOKO MITRA (Gambar 2)
             $labelMitra = '4.2 Bagi Hasil Mitra';
             if (! empty($singkatanToko)) {
                 $labelMitra .= " {$singkatanToko}";
@@ -442,7 +454,6 @@ class LabaRugiService
                 ],
             ];
         } elseif ($isChild) {
-            // 🔹 2. TOKO CHILD NON-MITRA (Cabang Internal)
             $laporan[] = [
                 'IV. Laba Dibagikan',
                 [
@@ -458,7 +469,6 @@ class LabaRugiService
                 ],
             ];
         } else {
-            // 🔹 3. TOKO PARENT / PUSAT (Gambar 1)
             $laporan[] = [
                 'IV. Laba Rugi',
                 [

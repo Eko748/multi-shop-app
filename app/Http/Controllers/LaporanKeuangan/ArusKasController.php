@@ -48,31 +48,31 @@ class ArusKasController extends Controller
             // 🔥 Jika data kosong
             if (empty($data)) {
                 return response()->json([
-                    'data'           => [],
-                    'data_total'     => $dataTotal,
+                    'data' => [],
+                    'data_total' => $dataTotal,
                     'has_more_pages' => false,
-                    'total_rows'     => 0,
-                    'status_code'    => 200,
-                    'errors'         => false,
-                    'message'        => 'Data Bulan ini Belum ada',
+                    'total_rows' => 0,
+                    'status_code' => 200,
+                    'errors' => false,
+                    'message' => 'Data Bulan ini Belum ada',
                 ], 200);
             }
 
             return response()->json([
-                'data'           => $data,
-                'data_total'     => $dataTotal,
+                'data' => $data,
+                'data_total' => $dataTotal,
                 'has_more_pages' => $hasMorePages,
-                'total_rows'     => $totalRows,
-                'status_code'    => 200,
-                'errors'         => false,
-                'message'        => 'Berhasil',
+                'total_rows' => $totalRows,
+                'status_code' => 200,
+                'errors' => false,
+                'message' => 'Berhasil',
             ], 200);
         } catch (\Throwable $th) {
             return response()->json([
-                'status'       => 'error',
-                'message'      => 'Data Gagal Dimuat',
+                'status' => 'error',
+                'message' => 'Data Gagal Dimuat',
                 'message_back' => $th->getMessage(),
-                'status_code'  => 500,
+                'status_code' => 500,
             ], 500);
         }
     }
@@ -83,15 +83,14 @@ class ArusKasController extends Controller
             $meta['orderBy'] = $request->input('ascending', 0) ? 'asc' : 'desc';
             $meta['limit'] = $request->has('limit') && $request->limit <= 30 ? (int) $request->limit : 30;
 
-            // Ambil data DISTINCT pada kolom kategori
             $query = KasTransaksi::query()
                 ->with('kas')
                 ->select('kategori')
                 ->whereNotNull('kategori')
                 ->where('kategori', '!=', '')
+                ->where('kategori', '!=', 'HPP Pembatalan Transaksi')
                 ->distinct();
 
-            // Filter Toko jika diperlukan
             if ($request->filled('toko_id') && $request->toko_id !== 'all') {
                 $query->whereHas('kas', function ($q) use ($request) {
                     $q->where('toko_id', $request->toko_id);
@@ -103,7 +102,6 @@ class ArusKasController extends Controller
                 $searchTerm = trim(strtolower($request->search));
                 $query->whereRaw('LOWER(kategori) LIKE ?', ["%{$searchTerm}%"]);
             }
-
             $query->orderBy('kategori', $meta['orderBy']);
 
             // Menggunakan pagination

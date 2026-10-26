@@ -72,8 +72,8 @@ class ArusKasService
         $query = KasTransaksi::with(['kas.toko'])
             ->whereBetween('tanggal', [$startDate, $endDate])
             ->where('total_nominal', '>', 0)
-    // EXCLUDE KATEGORI HPP PEMBATALAN TRANSAKSI
-            ->where('kategori', '!=', 'HPP Pembatalan Transaksi');
+            ->where('kategori', '!=', 'HPP Pembatalan Transaksi')
+            ->where('kategori', '!=', 'HPP Pembatalan Transaksi Bulan Lalu');
 
         if (! empty($tokoIds)) {
             $query->whereHas('kas', function ($q) use ($tokoIds) {

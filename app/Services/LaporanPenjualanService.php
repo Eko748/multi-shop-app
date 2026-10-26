@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\KasTransaksi;
 use App\Models\PembelianBarangDetailAdjustment;
 use App\Models\Pengeluaran;
+use App\Models\ReturMember;
 use App\Models\Toko;
 use App\Models\TransaksiKasirDetail;
 use App\Repositories\LaporanPenjualanRepository;
@@ -24,8 +25,6 @@ class LaporanPenjualanService
     {
         $start = Carbon::parse($startDate)->startOfDay()->toDateTimeString();
         $end = Carbon::parse($endDate)->endOfDay()->toDateTimeString();
-
-        $toko = Toko::find($idToko);
 
         // Filter Toko Helper
         $applyTokoFilter = function ($query, $column = 'transaksi_kasir.toko_id') use ($idToko) {
@@ -70,7 +69,73 @@ class LaporanPenjualanService
 
         $data = $query->get();
 
-        // 2. Query Pengeluaran Tipe 15 (Directly cuts Pendapatan Umum)
+        // 2. Query Retur Member Omzet per Toko & Jenis Barang
+        $returMemberQuery = KasTransaksi::select(
+            'kas.toko_id',
+            'kas.jenis_barang_id',
+            DB::raw('SUM(kas_transaksi.total_nominal) as total')
+        )
+            ->join('kas', 'kas.id', '=', 'kas_transaksi.kas_id')
+            ->whereBetween('kas_transaksi.tanggal', [$start, $end])
+            ->where('kas_transaksi.tipe', 'out')
+            ->where('kas_transaksi.sumber_type', ReturMember::class);
+        $applyTokoFilter($returMemberQuery, 'kas.toko_id');
+        $returMemberMap = $returMemberQuery
+            ->groupBy('kas.toko_id', 'kas.jenis_barang_id')
+            ->get()
+            ->keyBy(fn ($i) => $i->toko_id.'_'.($i->jenis_barang_id ?? 0));
+
+        // 3. Query Retur Member HPP per Toko & Jenis Barang (Persis Laba Rugi)
+        $hppReturQuery = KasTransaksi::select(
+            'kas.toko_id',
+            'kas.jenis_barang_id',
+            DB::raw('SUM(retur_member_detail.total_hpp) as total_hpp_retur')
+        )
+            ->join('kas', 'kas.id', '=', 'kas_transaksi.kas_id')
+            ->join('retur_member', 'retur_member.id', '=', 'kas_transaksi.sumber_id')
+            ->join('retur_member_detail', 'retur_member_detail.retur_id', '=', 'retur_member.id')
+            ->whereBetween('kas_transaksi.tanggal', [$start, $end])
+            ->where('kas_transaksi.tipe', 'out')
+            ->where('kas_transaksi.sumber_type', ReturMember::class)
+            ->where('retur_member_detail.qty_refund', '>', 0);
+        $applyTokoFilter($hppReturQuery, 'kas.toko_id');
+        $hppReturMap = $hppReturQuery
+            ->groupBy('kas.toko_id', 'kas.jenis_barang_id')
+            ->get()
+            ->keyBy(fn ($i) => $i->toko_id.'_'.($i->jenis_barang_id ?? 0));
+
+        // 4. Query Pembatalan Transaksi Bulan Ini (Void Omzet)
+        $pembatalanQuery = KasTransaksi::select(
+            'kas.toko_id',
+            'kas.jenis_barang_id',
+            DB::raw('SUM(kas_transaksi.total_nominal) as total_void')
+        )
+            ->join('kas', 'kas.id', '=', 'kas_transaksi.kas_id')
+            ->whereBetween('kas_transaksi.tanggal', [$start, $end])
+            ->where('kas_transaksi.tipe', 'out')
+            ->where('kas_transaksi.kategori', 'Pembatalan Transaksi');
+        $applyTokoFilter($pembatalanQuery, 'kas.toko_id');
+        $pembatalanMap = $pembatalanQuery
+            ->groupBy('kas.toko_id', 'kas.jenis_barang_id')
+            ->get()
+            ->keyBy(fn ($i) => $i->toko_id.'_'.($i->jenis_barang_id ?? 0));
+
+        // 5. Query HPP Pembatalan Transaksi Bulan Ini (Void HPP)
+        $hppPembatalanQuery = KasTransaksi::select(
+            'kas.toko_id',
+            'kas.jenis_barang_id',
+            DB::raw('SUM(kas_transaksi.total_nominal) as total_hpp_void')
+        )
+            ->join('kas', 'kas.id', '=', 'kas_transaksi.kas_id')
+            ->whereBetween('kas_transaksi.tanggal', [$start, $end])
+            ->where('kas_transaksi.kategori', 'HPP Pembatalan Transaksi');
+        $applyTokoFilter($hppPembatalanQuery, 'kas.toko_id');
+        $hppPembatalanMap = $hppPembatalanQuery
+            ->groupBy('kas.toko_id', 'kas.jenis_barang_id')
+            ->get()
+            ->keyBy(fn ($i) => $i->toko_id.'_'.($i->jenis_barang_id ?? 0));
+
+        // 6. Query Pengeluaran Tipe ID 15 (Memotong Omzet)
         $pengeluaran15Query = KasTransaksi::select(
             'kas.toko_id',
             'kas.jenis_barang_id',
@@ -88,38 +153,7 @@ class LaporanPenjualanService
             ->get()
             ->keyBy(fn ($i) => $i->toko_id.'_'.($i->jenis_barang_id ?? 0));
 
-        // 3. Query Pembatalan Transaksi Bulan Ini (Void) per Toko & Jenis Barang
-        $pembatalanQuery = KasTransaksi::select(
-            'kas.toko_id',
-            'kas.jenis_barang_id',
-            DB::raw('SUM(kas_transaksi.total_nominal) as total_void')
-        )
-            ->join('kas', 'kas.id', '=', 'kas_transaksi.kas_id')
-            ->whereBetween('kas_transaksi.tanggal', [$start, $end])
-            ->where('kas_transaksi.tipe', 'out')
-            ->where('kas_transaksi.kategori', 'Pembatalan Transaksi');
-        $applyTokoFilter($pembatalanQuery, 'kas.toko_id');
-        $pembatalanMap = $pembatalanQuery
-            ->groupBy('kas.toko_id', 'kas.jenis_barang_id')
-            ->get()
-            ->keyBy(fn ($i) => $i->toko_id.'_'.($i->jenis_barang_id ?? 0));
-
-        // 4. Query HPP Pembatalan Transaksi Bulan Ini
-        $hppPembatalanQuery = KasTransaksi::select(
-            'kas.toko_id',
-            'kas.jenis_barang_id',
-            DB::raw('SUM(kas_transaksi.total_nominal) as total_hpp_void')
-        )
-            ->join('kas', 'kas.id', '=', 'kas_transaksi.kas_id')
-            ->whereBetween('kas_transaksi.tanggal', [$start, $end])
-            ->where('kas_transaksi.kategori', 'HPP Pembatalan Transaksi');
-        $applyTokoFilter($hppPembatalanQuery, 'kas.toko_id');
-        $hppPembatalanMap = $hppPembatalanQuery
-            ->groupBy('kas.toko_id', 'kas.jenis_barang_id')
-            ->get()
-            ->keyBy(fn ($i) => $i->toko_id.'_'.($i->jenis_barang_id ?? 0));
-
-        // 5. Query HPP Koreksi Adjustment per Toko
+        // 7. Query HPP Koreksi Adjustment per Toko
         $hppKoreksiQuery = PembelianBarangDetailAdjustment::query();
         if ($idToko && $idToko !== 'all' && $idToko != 0) {
             $hppKoreksiQuery->where('toko_id', $idToko);
@@ -143,13 +177,15 @@ class LaporanPenjualanService
             $jenisId = $row->id_jenis_barang ?? 0;
             $key = $row->toko_id.'_'.$jenisId;
 
+            $returOmzet = $returMemberMap[$key]->total ?? 0;
+            $returHpp = $hppReturMap[$key]->total_hpp_retur ?? 0;
+            $voidOmzet = $pembatalanMap[$key]->total_void ?? 0;
+            $voidHpp = $hppPembatalanMap[$key]->total_hpp_void ?? 0;
             $potongan15 = $pengeluaran15Map[$key]->total ?? 0;
-            $voidVal = $pembatalanMap[$key]->total_void ?? 0;
-            $hppVoidVal = $hppPembatalanMap[$key]->total_hpp_void ?? 0;
 
-            // Formula Net Sales & Net HPP per barang (sama dengan Laba Rugi 1.1 & 2.1)
-            $nilaiTrx = $row->nilai_trx_raw - $voidVal - $potongan15;
-            $hpp = $row->nilai_hpp_raw - $hppVoidVal;
+            // Formula Net Sales & Net HPP per barang (Persis 1.1 dan 2.1 Laba Rugi)
+            $nilaiTrx = $row->nilai_trx_raw - $returOmzet - $voidOmzet - $potongan15;
+            $hpp = $row->nilai_hpp_raw - $returHpp - $voidHpp;
             $laba = $nilaiTrx - $hpp;
 
             if (! isset($listToko[$row->toko_id])) {
@@ -175,21 +211,21 @@ class LaporanPenjualanService
             $member['hpp'] += $row->member_hpp;
 
             $nonMember['jumlah'] += $row->non_member_trx;
-            $nonMember['nilai'] += ($row->non_member_nilai - $voidVal - $potongan15);
-            $nonMember['hpp'] += ($row->non_member_hpp - $hppVoidVal);
+            $nonMember['nilai'] += ($row->non_member_nilai - $returOmzet - $voidOmzet - $potongan15);
+            $nonMember['hpp'] += ($row->non_member_hpp - $returHpp - $voidHpp);
 
             $total['jml_trx'] += $row->jml_trx;
             $total['nilai_trx'] += $nilaiTrx;
             $total['nilai_hpp'] += $hpp;
         }
 
-        // Tambahkan HPP Koreksi ke total HPP Penjualan (sesuai Laba Rugi)
+        // Tambahkan HPP Koreksi ke total HPP Penjualan (sesuai Laba Rugi 2.1)
         $total['nilai_hpp'] += $hppKoreksi;
 
         $member['laba'] = $member['nilai'] - $member['hpp'];
         $nonMember['laba'] = $nonMember['nilai'] - $nonMember['hpp'];
 
-        // 6. Penjualan Non Fisik (Dompet Digital)
+        // 8. Penjualan Non Fisik (Dompet Digital)
         $pnf = $this->repository->getPenjualanNonFisik($startDate, $endDate, $idToko);
         $pnfGrouped = [];
 
@@ -247,12 +283,9 @@ class LaporanPenjualanService
             $total['nilai_hpp'] += $pnfData['nilai_hpp'];
         }
 
-        // 7. BIAYA RETUR & SUB LABA
-        $biayaRetur = $this->repository->getBiayaRetur($startDate, $endDate, $idToko);
-        $total['biaya_retur'] = $biayaRetur;
-
-        // Sub Laba = Total Penjualan - Total HPP - Biaya Retur
-        $total['sub_laba'] = $total['nilai_trx'] - $total['nilai_hpp'] - $biayaRetur;
+        // Biaya retur di-set 0 karena sudah dipotong secara net di tiap jenis barang
+        $total['biaya_retur'] = 0;
+        $total['sub_laba'] = $total['nilai_trx'] - $total['nilai_hpp'];
 
         $laporanPenjualanPeriode = $startDate && $endDate
             ? Carbon::parse($startDate)->format('d-m-Y').' s/d '.Carbon::parse($endDate)->format('d-m-Y')

@@ -25,17 +25,19 @@ class LaporanPenjualanService
         $start = Carbon::parse($startDate)->startOfDay()->toDateTimeString();
         $end = Carbon::parse($endDate)->endOfDay()->toDateTimeString();
 
-        // 1. Query Pendapatan Umum per Toko & Jenis Barang (Persis Laba Rugi 1.1)
+        // 1. Query Utama dari KasTransaksi & TransaksiKasirHarian (Mengambil Nilai Omzet, HPP, JML TRX, & JML QTY)
         $queryOmzet = KasTransaksi::select(
             'kas.toko_id',
             'toko.nama as nama_toko',
             'kas.jenis_barang_id as id_jenis_barang',
             DB::raw("COALESCE(jenis_barang.nama_jenis_barang, 'Dompet Digital') as nama_jenis_barang"),
-            DB::raw("COUNT(DISTINCT CASE WHEN kas_transaksi.sumber_type = 'App\\\\Models\\\\TransaksiKasirHarian' THEN kas_transaksi.sumber_id END) as jml_trx"),
+            DB::raw('SUM(transaksi_kasir_harian.total_transaksi) as jml_trx'),
+            DB::raw('SUM(transaksi_kasir_harian.total_qty) as item_qty'),
             DB::raw('SUM(kas_transaksi.total_nominal) as omzet_raw')
         )
             ->join('kas', 'kas.id', '=', 'kas_transaksi.kas_id')
             ->join('toko', 'toko.id', '=', 'kas.toko_id')
+            ->join('transaksi_kasir_harian', 'transaksi_kasir_harian.id', '=', 'kas_transaksi.sumber_id')
             ->leftJoin('jenis_barang', 'jenis_barang.id', '=', 'kas.jenis_barang_id')
             ->whereBetween('kas_transaksi.tanggal', [$start, $end])
             ->where('kas_transaksi.tipe', 'in')
@@ -52,7 +54,7 @@ class LaporanPenjualanService
             'jenis_barang.nama_jenis_barang'
         )->get();
 
-        // 2. Query Pengurang Omzet (Retur Member, Pembatalan Bulan Ini, Pengeluaran 15)
+        // 2. Query Pengurang Omzet (Retur Member, Pembatalan Transaksi Bulan Ini, Pengeluaran Tipe 15)
         $queryPengurangOmzet = KasTransaksi::select(
             'kas.toko_id',
             'kas.jenis_barang_id',
@@ -170,7 +172,7 @@ class LaporanPenjualanService
                 'id_jenis_barang' => $jenisId,
                 'nama' => $row->nama_jenis_barang,
                 'jml_trx' => (int) $row->jml_trx,
-                'item_qty' => 0,
+                'item_qty' => (float) $row->item_qty, // Mengambil total_qty dari transaksi_kasir_harian
                 'nilai_trx' => (float) $nilaiTrx,
                 'nilai_hpp' => (float) $hpp,
                 'laba' => (float) $laba,
@@ -185,10 +187,68 @@ class LaporanPenjualanService
             $total['nilai_hpp'] += $hpp;
         }
 
-        // Tambahkan HPP Koreksi ke Total HPP (Sama persis dengan Laba Rugi 2.1)
+        // Tambahkan HPP Koreksi ke Total HPP (Persis Laba Rugi 2.1)
         $total['nilai_hpp'] += $hppKoreksi;
 
         $nonMember['laba'] = $nonMember['nilai'] - $nonMember['hpp'];
+
+        // 6. Penjualan Non Fisik (Dompet Digital)
+        $pnf = $this->repository->getPenjualanNonFisik($startDate, $endDate, $idToko);
+        $pnfGrouped = [];
+
+        foreach ($pnf as $row) {
+            $tokoId = $row->createdBy->toko_id ?? 0;
+            $namaToko = $row->createdBy->toko->nama ?? 'Unknown';
+
+            if (! isset($pnfGrouped[$tokoId])) {
+                $pnfGrouped[$tokoId] = [
+                    'toko_id' => $tokoId,
+                    'nama_toko' => $namaToko,
+                    'jml_trx' => 0,
+                    'item_qty' => 0,
+                    'nilai_trx' => 0,
+                    'nilai_hpp' => 0,
+                    'laba' => 0,
+                ];
+            }
+
+            $pnfGrouped[$tokoId]['jml_trx'] += 1;
+            $pnfGrouped[$tokoId]['item_qty'] += $row->detail_sum_qty ?? 0;
+            $pnfGrouped[$tokoId]['nilai_trx'] += $row->total_harga_jual ?? 0;
+            $pnfGrouped[$tokoId]['nilai_hpp'] += $row->total_hpp ?? 0;
+            $pnfGrouped[$tokoId]['laba'] += ($row->total_harga_jual - $row->total_hpp) ?? 0;
+        }
+
+        foreach ($pnfGrouped as $pnfData) {
+            $laba = $pnfData['nilai_trx'] - $pnfData['nilai_hpp'];
+
+            if (! isset($listToko[$pnfData['toko_id']])) {
+                $listToko[$pnfData['toko_id']] = [
+                    'toko_id' => $pnfData['toko_id'],
+                    'nama_toko' => $pnfData['nama_toko'],
+                    'type_barang' => [],
+                ];
+            }
+
+            $listToko[$pnfData['toko_id']]['type_barang'][] = [
+                'id_jenis_barang' => 0,
+                'nama' => 'Dompet Digital',
+                'jml_trx' => $pnfData['jml_trx'],
+                'item_qty' => $pnfData['item_qty'],
+                'nilai_trx' => $pnfData['nilai_trx'],
+                'nilai_hpp' => $pnfData['nilai_hpp'],
+                'laba' => $laba,
+            ];
+
+            $nonMember['jumlah'] += $pnfData['jml_trx'];
+            $nonMember['nilai'] += $pnfData['nilai_trx'];
+            $nonMember['hpp'] += $pnfData['nilai_hpp'];
+            $nonMember['laba'] += $pnfData['laba'];
+
+            $total['jml_trx'] += $pnfData['jml_trx'];
+            $total['nilai_trx'] += $pnfData['nilai_trx'];
+            $total['nilai_hpp'] += $pnfData['nilai_hpp'];
+        }
 
         $total['biaya_retur'] = 0;
         $total['sub_laba'] = $total['nilai_trx'] - $total['nilai_hpp'];

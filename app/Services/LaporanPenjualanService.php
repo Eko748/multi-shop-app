@@ -177,15 +177,12 @@ class LaporanPenjualanService
             $jenisId = $row->id_jenis_barang ?? 0;
             $key = $row->toko_id.'_'.$jenisId;
 
-            $returOmzet = $returMemberMap[$key]->total ?? 0;
-            $returHpp = $hppReturMap[$key]->total_hpp_retur ?? 0;
             $voidOmzet = $pembatalanMap[$key]->total_void ?? 0;
             $voidHpp = $hppPembatalanMap[$key]->total_hpp_void ?? 0;
-            $potongan15 = $pengeluaran15Map[$key]->total ?? 0;
 
-            // Formula Net Sales & Net HPP per barang (Persis 1.1 dan 2.1 Laba Rugi)
-            $nilaiTrx = $row->nilai_trx_raw - $returOmzet - $voidOmzet - $potongan15;
-            $hpp = $row->nilai_hpp_raw - $returHpp - $voidHpp;
+            // NILAI TRX & HPP murni dari transaksi kasir fisik dikurangi pembatalan (void) bulan berjalan
+            $nilaiTrx = $row->nilai_trx_raw - $voidOmzet;
+            $hpp = $row->nilai_hpp_raw - $voidHpp;
             $laba = $nilaiTrx - $hpp;
 
             if (! isset($listToko[$row->toko_id])) {
@@ -211,8 +208,8 @@ class LaporanPenjualanService
             $member['hpp'] += $row->member_hpp;
 
             $nonMember['jumlah'] += $row->non_member_trx;
-            $nonMember['nilai'] += ($row->non_member_nilai - $returOmzet - $voidOmzet - $potongan15);
-            $nonMember['hpp'] += ($row->non_member_hpp - $returHpp - $voidHpp);
+            $nonMember['nilai'] += ($row->non_member_nilai - $voidOmzet);
+            $nonMember['hpp'] += ($row->non_member_hpp - $voidHpp);
 
             $total['jml_trx'] += $row->jml_trx;
             $total['nilai_trx'] += $nilaiTrx;

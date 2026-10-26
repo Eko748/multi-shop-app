@@ -52,7 +52,7 @@ class ArusKasService
         }
 
         // --------------------------------------------------------------------------
-        // PERBAIKAN: FILTER TOKO (toko_selected / toko_id / Tampil Semua)
+        // FILTER TOKO
         // --------------------------------------------------------------------------
         $tokoIds = [];
 
@@ -67,13 +67,11 @@ class ArusKasService
         }
 
         // --------------------------------------------------------------------------
-        // 2. BASE QUERY & FILTERING
+        // 2. BASE QUERY & FILTERING (JANGAN exclude HPP Pembatalan agar saldo sinkron)
         // --------------------------------------------------------------------------
         $query = KasTransaksi::with(['kas.toko'])
             ->whereBetween('tanggal', [$startDate, $endDate])
-            ->where('total_nominal', '>', 0)
-            ->where('kategori', '!=', 'HPP Pembatalan Transaksi')
-            ->where('kategori', '!=', 'HPP Pembatalan Transaksi Bulan Lalu');
+            ->where('total_nominal', '>', 0);
 
         if (! empty($tokoIds)) {
             $query->whereHas('kas', function ($q) use ($tokoIds) {
@@ -84,8 +82,7 @@ class ArusKasService
         // FILTER KATEGORI
         if ($request->filled('kategori')) {
             $kategori = is_array($request->kategori) ? $request->kategori : [$request->kategori];
-            // Filter dan buang HPP Pembatalan Transaksi dari input request jika ada
-            $kategori = array_filter($kategori, fn ($v) => ! is_null($v) && $v !== '' && $v !== 'HPP Pembatalan Transaksi');
+            $kategori = array_filter($kategori, fn ($v) => ! is_null($v) && $v !== '');
 
             if (! empty($kategori)) {
                 $query->whereIn('kategori', $kategori);
@@ -107,7 +104,7 @@ class ArusKasService
         }
 
         // --------------------------------------------------------------------------
-        // 3. HITUNG TOTAL KESELURUHAN DATA RINGKASAN
+        // 3. HITUNG TOTAL KESELURUHAN DATA RINGKASAN (Berdasarkan kas.tipe_kas)
         // --------------------------------------------------------------------------
         $totals = [
             'kas_kecil_in' => 0, 'kas_kecil_out' => 0,
@@ -116,36 +113,35 @@ class ArusKasService
             'hutang_in' => 0, 'hutang_out' => 0,
         ];
 
-        $jenisMap = [
-            'kecil' => 'kas_kecil', 'kas kecil' => 'kas_kecil', 'kas_kecil' => 'kas_kecil',
-            'besar' => 'kas_besar', 'kas besar' => 'kas_besar', 'kas_besar' => 'kas_besar',
-            'piutang' => 'piutang',   'hutang' => 'hutang',
-        ];
-
-        (clone $query)->get()->each(function ($item) use (&$totals, $jenisMap) {
+        (clone $query)->get()->each(function ($item) use (&$totals) {
             $nilai = (float) $item->total_nominal;
-            $tipe = strtolower(trim($item->tipe));
-            $rawItem = strtolower(trim($item->item ?? $item->keterangan ?? ''));
-            $jenis = $jenisMap[$rawItem] ?? $rawItem;
-            $key = "{$jenis}_{$tipe}";
+            $tipe = strtolower(trim($item->tipe)); // 'in' atau 'out'
+            $tipeKas = $item->kas?->tipe_kas ?? 'kecil'; // Murni mengambil relasi tipe kas
 
-            if (array_key_exists($key, $totals)) {
-                $totals[$key] += $nilai;
+            if (in_array($tipeKas, ['kecil', 'besar'])) {
+                $key = "kas_{$tipeKas}_{$tipe}";
+                if (array_key_exists($key, $totals)) {
+                    $totals[$key] += $nilai;
+                }
+            } else {
+                // Untuk piutang & hutang jika ada tipe kas khusus
+                $key = "{$tipeKas}_{$tipe}";
+                if (array_key_exists($key, $totals)) {
+                    $totals[$key] += $nilai;
+                }
             }
         });
 
         // --------------------------------------------------------------------------
-        // 4. LOGIKA FETCH DATA (BYPASS TANGGAL VS OFFSET-SKIP)
+        // 4. FETCH DATA
         // --------------------------------------------------------------------------
         $totalRows = (clone $query)->count();
 
         if ($hasDateFilter) {
-            // Jika ada filter dari-sampai tanggal: Bypass paginasi (ambil semua)
             $rawResult = $query->orderBy($sortColumn, $orderDirection)->orderBy('id', 'desc')->get();
             $hasMorePages = false;
             $currentPage = 1;
         } else {
-            // Jika normal: Gunakan Skip & Take (Dinamis Offset)
             $skip = (int) ($request->skip ?? 0);
             $limit = (int) ($request->limit ?? 30);
 
@@ -160,11 +156,10 @@ class ArusKasService
         }
 
         // Mapping Row Data
-        $data = collect($rawResult)->map(function ($item) use ($jenisMap) {
+        $data = collect($rawResult)->map(function ($item) {
             $nilai = (float) $item->total_nominal;
             $tipe = strtolower(trim($item->tipe));
-            $rawItem = strtolower(trim($item->item ?? $item->keterangan ?? ''));
-            $jenis = $jenisMap[$rawItem] ?? $rawItem;
+            $tipeKas = $item->kas?->tipe_kas ?? 'kecil';
 
             $rowTotals = [
                 'kas_kecil_in' => 0, 'kas_kecil_out' => 0,
@@ -173,7 +168,7 @@ class ArusKasService
                 'hutang_in' => 0, 'hutang_out' => 0,
             ];
 
-            $key = "{$jenis}_{$tipe}";
+            $key = in_array($tipeKas, ['kecil', 'besar']) ? "kas_{$tipeKas}_{$tipe}" : "{$tipeKas}_{$tipe}";
             if (array_key_exists($key, $rowTotals)) {
                 $rowTotals[$key] = $nilai;
             }
@@ -197,9 +192,8 @@ class ArusKasService
         });
 
         // --------------------------------------------------------------------------
-        // 5. KALKULASI SALDO AWAL & RESPONSE JSON
+        // 5. KALKULASI SALDO AWAL & RESPONSE
         // --------------------------------------------------------------------------
-        // Perbaikan: Gunakan $tokoIds yang sudah difilter di atas, jangan pakai Kas::all() mentah
         $kasList = ! empty($tokoIds)
             ? Kas::whereIn('toko_id', $tokoIds)->get()
             : Kas::whereHas('toko', function ($q) {

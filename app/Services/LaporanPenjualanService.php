@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
-use App\Models\DompetSaldo;
 use App\Models\KasTransaksi;
 use App\Models\Pengeluaran;
+use App\Models\ReturMember;
 use App\Models\Toko;
-use App\Models\TransaksiKasirHarian;
+use App\Models\TransaksiKasirDetail;
 use App\Repositories\LaporanPenjualanRepository;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -25,43 +25,56 @@ class LaporanPenjualanService
         $start = Carbon::parse($startDate)->startOfDay()->toDateTimeString();
         $end = Carbon::parse($endDate)->endOfDay()->toDateTimeString();
 
-        // 1. Query KasTransaksi untuk Penjualan Fisik & Non-Fisik per Toko dan Jenis Barang (dari kas.jenis_barang_id)
-        $query = KasTransaksi::select(
-            'kas.toko_id',
-            'toko.nama as nama_toko',
-            'kas.jenis_barang_id as id_jenis_barang',
-            DB::raw("COALESCE(jenis_barang.nama_jenis_barang, 'Dompet Digital') as nama_jenis_barang"),
-            DB::raw("COUNT(DISTINCT CASE WHEN kas_transaksi.sumber_type = 'App\\\\Models\\\\TransaksiKasirHarian' THEN kas_transaksi.sumber_id END) as jml_trx"),
-            DB::raw("SUM(CASE WHEN kas_transaksi.tipe = 'in' THEN kas_transaksi.total_nominal ELSE 0 END) as nilai_trx_raw")
-        )
-            ->join('kas', 'kas.id', '=', 'kas_transaksi.kas_id')
-            ->join('toko', 'toko.id', '=', 'kas.toko_id')
-            ->leftJoin('jenis_barang', 'jenis_barang.id', '=', 'kas.jenis_barang_id')
-            ->whereBetween('kas_transaksi.tanggal', [$start, $end])
-            ->where('kas_transaksi.tipe', 'in')
-            ->whereIn('kas_transaksi.sumber_type', [
-                TransaksiKasirHarian::class,
-                DompetSaldo::class,
-            ]);
+        $toko = Toko::find($idToko);
 
-        if ($idToko && $idToko !== 'all' && $idToko != 0) {
-            $query->where('kas.toko_id', $idToko);
-        }
+        // Filter Toko Helper
+        $applyTokoFilter = function ($query, $column = 'transaksi_kasir.toko_id') use ($idToko) {
+            if ($idToko && $idToko !== 'all' && $idToko != 0) {
+                $query->where($column, $idToko);
+            }
+        };
+
+        // 1. Query Gurgurtaa Fisik Granular (TransaksiKasirDetail)
+        $query = TransaksiKasirDetail::select(
+            'transaksi_kasir.toko_id',
+            'toko.nama as nama_toko',
+            'barang.jenis_barang_id as id_jenis_barang',
+            'jenis_barang.nama_jenis_barang',
+            DB::raw('COUNT(DISTINCT transaksi_kasir.id) as jml_trx'),
+            DB::raw('SUM(transaksi_kasir_detail.qty) as item_qty'),
+            DB::raw('SUM(transaksi_kasir_detail.subtotal) as nilai_trx_raw'),
+            DB::raw('SUM(transaksi_kasir_detail.qty * stock_barang_batch.harga_beli) as nilai_hpp_raw'),
+            DB::raw('SUM(CASE WHEN transaksi_kasir.member_id IS NOT NULL THEN transaksi_kasir_detail.subtotal ELSE 0 END) as member_nilai'),
+            DB::raw('SUM(CASE WHEN transaksi_kasir.member_id IS NULL THEN transaksi_kasir_detail.subtotal ELSE 0 END) as non_member_nilai'),
+            DB::raw('SUM(CASE WHEN transaksi_kasir.member_id IS NOT NULL THEN transaksi_kasir_detail.qty * stock_barang_batch.harga_beli ELSE 0 END) as member_hpp'),
+            DB::raw('SUM(CASE WHEN transaksi_kasir.member_id IS NULL THEN transaksi_kasir_detail.qty * stock_barang_batch.harga_beli ELSE 0 END) as non_member_hpp'),
+            DB::raw('COUNT(DISTINCT CASE WHEN transaksi_kasir.member_id IS NOT NULL THEN transaksi_kasir.id END) as member_trx'),
+            DB::raw('COUNT(DISTINCT CASE WHEN transaksi_kasir.member_id IS NULL THEN transaksi_kasir.id END) as non_member_trx')
+        )
+            ->join('transaksi_kasir', 'transaksi_kasir.id', '=', 'transaksi_kasir_detail.transaksi_kasir_id')
+            ->join('toko', 'toko.id', '=', 'transaksi_kasir.toko_id')
+            ->join('stock_barang_batch', 'stock_barang_batch.id', '=', 'transaksi_kasir_detail.stock_barang_batch_id')
+            ->join('stock_barang', 'stock_barang.id', '=', 'stock_barang_batch.stock_barang_id')
+            ->join('barang', 'barang.id', '=', 'stock_barang.barang_id')
+            ->join('jenis_barang', 'jenis_barang.id', '=', 'barang.jenis_barang_id')
+            ->whereBetween('transaksi_kasir.tanggal', [$start, $end]);
+
+        $applyTokoFilter($query, 'transaksi_kasir.toko_id');
 
         $query->groupBy(
-            'kas.toko_id',
+            'transaksi_kasir.toko_id',
             'toko.nama',
-            'kas.jenis_barang_id',
+            'barang.jenis_barang_id',
             'jenis_barang.nama_jenis_barang'
         );
 
         $data = $query->get();
 
-        // 2. Query Pengeluaran Tipe 15 (Memotong Penjualan Umum langsung)
-        $pengeluaranTipe15Query = KasTransaksi::select(
+        // 2. Query Pengeluaran Tipe 15 (Directly cuts Pendapatan Umum in Laba Rugi)
+        $pengeluaran15Query = KasTransaksi::select(
             'kas.toko_id',
             'kas.jenis_barang_id',
-            DB::raw('SUM(kas_transaksi.total_nominal) as total_potongan')
+            DB::raw('SUM(kas_transaksi.total_nominal) as total')
         )
             ->join('kas', 'kas.id', '=', 'kas_transaksi.kas_id')
             ->whereBetween('kas_transaksi.tanggal', [$start, $end])
@@ -69,38 +82,59 @@ class LaporanPenjualanService
             ->whereHasMorph('sumber', [Pengeluaran::class], function ($q) {
                 $q->where('pengeluaran_tipe_id', 15)->whereNull('deleted_at');
             });
-
-        if ($idToko && $idToko !== 'all' && $idToko != 0) {
-            $pengeluaranTipe15Query->where('kas.toko_id', $idToko);
-        }
-
-        $pengeluaran15Grouped = $pengeluaranTipe15Query
+        $applyTokoFilter($pengeluaran15Query, 'kas.toko_id');
+        $pengeluaran15Map = $pengeluaran15Query
             ->groupBy('kas.toko_id', 'kas.jenis_barang_id')
             ->get()
-            ->keyBy(fn ($item) => $item->toko_id.'_'.($item->jenis_barang_id ?? 0));
+            ->keyBy(fn ($i) => $i->toko_id.'_'.($i->jenis_barang_id ?? 0));
 
-        // 3. Query HPP Penjualan dari relasi TransaksiKasirHarian
-        $hppQuery = KasTransaksi::select(
+        // 3. Query Retur Member per Toko & Jenis Barang
+        $returMemberQuery = KasTransaksi::select(
             'kas.toko_id',
             'kas.jenis_barang_id',
-            DB::raw('SUM(transaksi_kasir_harian.total_harga_beli) as total_hpp')
+            DB::raw('SUM(kas_transaksi.total_nominal) as total_retur')
         )
             ->join('kas', 'kas.id', '=', 'kas_transaksi.kas_id')
-            ->join('transaksi_kasir_harian', 'kas_transaksi.sumber_id', '=', 'transaksi_kasir_harian.id')
             ->whereBetween('kas_transaksi.tanggal', [$start, $end])
-            ->where('kas_transaksi.tipe', 'in')
-            ->where('kas_transaksi.sumber_type', TransaksiKasirHarian::class);
-
-        if ($idToko && $idToko !== 'all' && $idToko != 0) {
-            $hppQuery->where('kas.toko_id', $idToko);
-        }
-
-        $hppGrouped = $hppQuery
+            ->where('kas_transaksi.tipe', 'out')
+            ->where('kas_transaksi.sumber_type', ReturMember::class);
+        $applyTokoFilter($returMemberQuery, 'kas.toko_id');
+        $returMemberMap = $returMemberQuery
             ->groupBy('kas.toko_id', 'kas.jenis_barang_id')
             ->get()
-            ->keyBy(fn ($item) => $item->toko_id.'_'.($item->jenis_barang_id ?? 0));
+            ->keyBy(fn ($i) => $i->toko_id.'_'.($i->jenis_barang_id ?? 0));
 
-        // 4. Inisialisasi Data Output & Summary
+        // 4. Query Pembatalan Transaksi Bulan Ini (Void) per Toko & Jenis Barang
+        $pembatalanQuery = KasTransaksi::select(
+            'kas.toko_id',
+            'kas.jenis_barang_id',
+            DB::raw('SUM(kas_transaksi.total_nominal) as total_void')
+        )
+            ->join('kas', 'kas.id', '=', 'kas_transaksi.kas_id')
+            ->whereBetween('kas_transaksi.tanggal', [$start, $end])
+            ->where('kas_transaksi.tipe', 'out')
+            ->where('kas_transaksi.kategori', 'Pembatalan Transaksi');
+        $applyTokoFilter($pembatalanQuery, 'kas.toko_id');
+        $pembatalanMap = $pembatalanQuery
+            ->groupBy('kas.toko_id', 'kas.jenis_barang_id')
+            ->get()
+            ->keyBy(fn ($i) => $i->toko_id.'_'.($i->jenis_barang_id ?? 0));
+
+        // 5. Query HPP Pembatalan Transaksi Bulan Ini
+        $hppPembatalanQuery = KasTransaksi::select(
+            'kas.toko_id',
+            'kas.jenis_barang_id',
+            DB::raw('SUM(kas_transaksi.total_nominal) as total_hpp_void')
+        )
+            ->join('kas', 'kas.id', '=', 'kas_transaksi.kas_id')
+            ->whereBetween('kas_transaksi.tanggal', [$start, $end])
+            ->where('kas_transaksi.kategori', 'HPP Pembatalan Transaksi');
+        $applyTokoFilter($hppPembatalanQuery, 'kas.toko_id');
+        $hppPembatalanMap = $hppPembatalanQuery
+            ->groupBy('kas.toko_id', 'kas.jenis_barang_id')
+            ->get()
+            ->keyBy(fn ($i) => $i->toko_id.'_'.($i->jenis_barang_id ?? 0));
+
         $listToko = [];
         $member = ['jumlah' => 0, 'nilai' => 0, 'hpp' => 0, 'laba' => 0];
         $nonMember = ['jumlah' => 0, 'nilai' => 0, 'hpp' => 0, 'laba' => 0];
@@ -117,12 +151,14 @@ class LaporanPenjualanService
             $jenisId = $row->id_jenis_barang ?? 0;
             $key = $row->toko_id.'_'.$jenisId;
 
-            // Potong nilai_trx dengan Pengeluaran Tipe ID 15 jika ada
-            $potongan15 = $pengeluaran15Grouped[$key]->total_potongan ?? 0;
-            $nilaiTrx = max(0, $row->nilai_trx_raw - $potongan15);
+            $potongan15 = $pengeluaran15Map[$key]->total ?? 0;
+            $returVal = $returMemberMap[$key]->total_retur ?? 0;
+            $voidVal = $pembatalanMap[$key]->total_void ?? 0;
+            $hppVoidVal = $hppPembatalanMap[$key]->total_hpp_void ?? 0;
 
-            // Ambill HPP dari rekap TransaksiKasirHarian
-            $hpp = $hppGrouped[$key]->total_hpp ?? 0;
+            // Formula Net Sales & Net HPP agar sinkron persis dengan 1.1 Pendapatan Umum Laba Rugi
+            $nilaiTrx = $row->nilai_trx_raw - $returVal - $voidVal - $potongan15;
+            $hpp = $row->nilai_hpp_raw - $hppVoidVal;
             $laba = $nilaiTrx - $hpp;
 
             if (! isset($listToko[$row->toko_id])) {
@@ -137,15 +173,19 @@ class LaporanPenjualanService
                 'id_jenis_barang' => $jenisId,
                 'nama' => $row->nama_jenis_barang,
                 'jml_trx' => (int) $row->jml_trx,
-                'item_qty' => 0,
+                'item_qty' => (float) $row->item_qty,
                 'nilai_trx' => (float) $nilaiTrx,
                 'nilai_hpp' => (float) $hpp,
                 'laba' => (float) $laba,
             ];
 
-            $nonMember['jumlah'] += $row->jml_trx;
-            $nonMember['nilai'] += $nilaiTrx;
-            $nonMember['hpp'] += $hpp;
+            $member['jumlah'] += $row->member_trx;
+            $member['nilai'] += $row->member_nilai;
+            $member['hpp'] += $row->member_hpp;
+
+            $nonMember['jumlah'] += $row->non_member_trx;
+            $nonMember['nilai'] += ($row->non_member_nilai - $returVal - $voidVal - $potongan15);
+            $nonMember['hpp'] += ($row->non_member_hpp - $hppVoidVal);
 
             $total['jml_trx'] += $row->jml_trx;
             $total['nilai_trx'] += $nilaiTrx;
@@ -155,7 +195,65 @@ class LaporanPenjualanService
         $member['laba'] = $member['nilai'] - $member['hpp'];
         $nonMember['laba'] = $nonMember['nilai'] - $nonMember['hpp'];
 
-        // 5. BIAYA RETUR
+        // 6. Penjualan Non Fisik (Dompet Digital)
+        $pnf = $this->repository->getPenjualanNonFisik($startDate, $endDate, $idToko);
+        $pnfGrouped = [];
+
+        foreach ($pnf as $row) {
+            $tokoId = $row->createdBy->toko_id ?? 0;
+            $namaToko = $row->createdBy->toko->nama ?? 'Unknown';
+
+            if (! isset($pnfGrouped[$tokoId])) {
+                $pnfGrouped[$tokoId] = [
+                    'toko_id' => $tokoId,
+                    'nama_toko' => $namaToko,
+                    'jml_trx' => 0,
+                    'item_qty' => 0,
+                    'nilai_trx' => 0,
+                    'nilai_hpp' => 0,
+                    'laba' => 0,
+                ];
+            }
+
+            $pnfGrouped[$tokoId]['jml_trx'] += 1;
+            $pnfGrouped[$tokoId]['item_qty'] += $row->detail_sum_qty ?? 0;
+            $pnfGrouped[$tokoId]['nilai_trx'] += $row->total_harga_jual ?? 0;
+            $pnfGrouped[$tokoId]['nilai_hpp'] += $row->total_hpp ?? 0;
+            $pnfGrouped[$tokoId]['laba'] += ($row->total_harga_jual - $row->total_hpp) ?? 0;
+        }
+
+        foreach ($pnfGrouped as $pnfData) {
+            $laba = $pnfData['nilai_trx'] - $pnfData['nilai_hpp'];
+
+            if (! isset($listToko[$pnfData['toko_id']])) {
+                $listToko[$pnfData['toko_id']] = [
+                    'toko_id' => $pnfData['toko_id'],
+                    'nama_toko' => $pnfData['nama_toko'],
+                    'type_barang' => [],
+                ];
+            }
+
+            $listToko[$pnfData['toko_id']]['type_barang'][] = [
+                'id_jenis_barang' => 0,
+                'nama' => 'Dompet Digital',
+                'jml_trx' => $pnfData['jml_trx'],
+                'item_qty' => $pnfData['item_qty'],
+                'nilai_trx' => $pnfData['nilai_trx'],
+                'nilai_hpp' => $pnfData['nilai_hpp'],
+                'laba' => $laba,
+            ];
+
+            $nonMember['jumlah'] += $pnfData['jml_trx'];
+            $nonMember['nilai'] += $pnfData['nilai_trx'];
+            $nonMember['hpp'] += $pnfData['nilai_hpp'];
+            $nonMember['laba'] += $pnfData['laba'];
+
+            $total['jml_trx'] += $pnfData['jml_trx'];
+            $total['nilai_trx'] += $pnfData['nilai_trx'];
+            $total['nilai_hpp'] += $pnfData['nilai_hpp'];
+        }
+
+        // 7. BIAYA RETUR (Sama seperti Laba Rugi)
         $biayaRetur = $this->repository->getBiayaRetur($startDate, $endDate, $idToko);
         $total['biaya_retur'] = $biayaRetur;
 
@@ -167,19 +265,15 @@ class LaporanPenjualanService
 
         return [
             'laporan_penjualan_periode' => $laporanPenjualanPeriode,
-
             'periode' => [
                 'tanggal_awal' => $startDate,
                 'tanggal_akhir' => $endDate,
             ],
-
             'list_toko' => array_values($listToko),
-
             'detail_laporan' => [
                 'transaksi_member' => $member,
                 'transaksi_non_member' => $nonMember,
             ],
-
             'total' => $total,
         ];
     }

@@ -203,6 +203,17 @@ class LabaRugiService
         $applyDateFilter($pembatalanTrxBulanLaluQuery, 'tanggal');
         $pembatalanTrxBulanLalu = $pembatalanTrxBulanLaluQuery->sum('total_nominal');
 
+        // Pengeluaran Tipe ID 15 (Memotong Pendapatan Umum langsung, tidak tampil di Beban)
+        $pengeluaranTipe15Query = KasTransaksi::where('tipe', 'out')
+            ->where('sumber_type', Pengeluaran::class)
+            ->where($filterToko)
+            ->whereHasMorph('sumber', [Pengeluaran::class], function ($q) {
+                $q->where('pengeluaran_tipe_id', 15)
+                    ->whereNull('deleted_at');
+            });
+        $applyDateFilter($pengeluaranTipe15Query, 'tanggal');
+        $pengeluaranTipe15 = $pengeluaranTipe15Query->sum('total_nominal');
+
         $pendapatanNonTransaksiQuery = DompetSaldo::where($filterToko)
             ->whereColumn('harga_beli', '<', 'saldo');
         $applyDateFilter($pendapatanNonTransaksiQuery, 'created_at');
@@ -212,8 +223,8 @@ class LabaRugiService
 
         $pendapatanLainnya = $lainnya + $pendapatanNonTransaksi;
 
-        // Pendapatan Umum Bersih (setelah dipotong retur member dan pembatalan bulan ini)
-        $penjualanUmum = $penjualanUmumRaw - $nilaiReturMember - $pembatalanTrx;
+        // Pendapatan Umum Bersih (dikurangi retur member, pembatalan bulan ini, DAN pengeluaran tipe ID 15)
+        $penjualanUmum = $penjualanUmumRaw - $nilaiReturMember - $pembatalanTrx - $pengeluaranTipe15;
 
         // Total pendapatan akhir termasuk pengurangan Pembatalan Transaksi Bulan Lalu
         $totalPendapatan = $penjualanUmum + $pendapatanLainnya - $pembatalanTrxBulanLalu;
@@ -296,7 +307,8 @@ class LabaRugiService
         $bebanOperasional = [];
         $totalBeban = 0;
 
-        $jenisList = PengeluaranTipe::whereNotIn('id', [11, 12, 13])->get();
+        // Exclude pengeluaran_tipe_id: 11, 12, 13, 15
+        $jenisList = PengeluaranTipe::whereNotIn('id', [11, 12, 13, 15])->get();
 
         foreach ($jenisList as $index => $jenis) {
             $nilai = isset($pengeluaran[$jenis->id]) ? (int) $pengeluaran[$jenis->id]->total : 0;
@@ -382,11 +394,11 @@ class LabaRugiService
         return $this->getDetailLaporan(
             (int) $penjualanUmum,
             (int) $pendapatanLainnya,
-            (int) $pembatalanTrxBulanLalu, // Parameter dikirim dari pembatalan bulan lalu
+            (int) $pembatalanTrxBulanLalu,
             (int) $hppReturSuplier,
             (int) $totalPendapatan,
             (int) $hppPenjualan,
-            (int) $hppPembatalanTrxBulanLalu, // Parameter dikirim dari pembatalan HPP bulan lalu
+            (int) $hppPembatalanTrxBulanLalu,
             (int) $total_hpp,
             $bebanOperasional,
             (int) $bagiHasilTokoUtama,

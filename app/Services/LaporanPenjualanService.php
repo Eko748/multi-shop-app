@@ -2,9 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\KasTransaksi;
-use App\Models\PembelianBarangDetailAdjustment;
-use App\Models\Pengeluaran;
 use App\Models\TransaksiKasirDetail;
 use App\Repositories\LaporanPenjualanRepository;
 use Carbon\Carbon;
@@ -63,36 +60,6 @@ class LaporanPenjualanService
 
         $data = $query->get();
 
-        // 2. Query Pengeluaran Tipe ID 15 (Directly cuts Pendapatan Umum)
-        $pengeluaran15Query = KasTransaksi::select(
-            'kas.toko_id',
-            'kas.jenis_barang_id',
-            DB::raw('SUM(kas_transaksi.total_nominal) as total')
-        )
-            ->join('kas', 'kas.id', '=', 'kas_transaksi.kas_id')
-            ->whereBetween('kas_transaksi.tanggal', [$start, $end])
-            ->where('kas_transaksi.tipe', 'out')
-            ->whereHasMorph('sumber', [Pengeluaran::class], function ($q) {
-                $q->where('pengeluaran_tipe_id', 15)->whereNull('deleted_at');
-            });
-
-        if ($idToko && $idToko !== 'all' && $idToko != 0) {
-            $pengeluaran15Query->where('kas.toko_id', $idToko);
-        }
-
-        $pengeluaran15Map = $pengeluaran15Query
-            ->groupBy('kas.toko_id', 'kas.jenis_barang_id')
-            ->get()
-            ->keyBy(fn ($i) => $i->toko_id.'_'.($i->jenis_barang_id ?? 0));
-
-        // 3. Query HPP Koreksi Adjustment
-        $hppKoreksiQuery = PembelianBarangDetailAdjustment::query();
-        if ($idToko && $idToko !== 'all' && $idToko != 0) {
-            $hppKoreksiQuery->where('toko_id', $idToko);
-        }
-        $hppKoreksiQuery->whereBetween('created_at', [$start, $end]);
-        $hppKoreksi = $hppKoreksiQuery->sum('nominal_laba_rugi');
-
         $listToko = [];
         $member = ['jumlah' => 0, 'nilai' => 0, 'hpp' => 0, 'laba' => 0];
         $nonMember = ['jumlah' => 0, 'nilai' => 0, 'hpp' => 0, 'laba' => 0];
@@ -107,12 +74,8 @@ class LaporanPenjualanService
 
         foreach ($data as $row) {
             $jenisId = $row->id_jenis_barang ?? 0;
-            $key = $row->toko_id.'_'.$jenisId;
 
-            $potongan15 = $pengeluaran15Map[$key]->total ?? 0;
-
-            // NILAI TRX dipotong Pengeluaran Tipe 15 agar seimbang dengan 1.1 Laba Rugi
-            $nilaiTrx = $row->nilai_trx - $potongan15;
+            $nilaiTrx = $row->nilai_trx;
             $hpp = $row->nilai_hpp;
             $laba = $nilaiTrx - $hpp;
 
@@ -139,7 +102,7 @@ class LaporanPenjualanService
             $member['hpp'] += $row->member_hpp;
 
             $nonMember['jumlah'] += $row->non_member_trx;
-            $nonMember['nilai'] += ($row->non_member_nilai - $potongan15);
+            $nonMember['nilai'] += $row->non_member_nilai;
             $nonMember['hpp'] += $row->non_member_hpp;
 
             $total['jml_trx'] += $row->jml_trx;
@@ -147,13 +110,10 @@ class LaporanPenjualanService
             $total['nilai_hpp'] += $hpp;
         }
 
-        // Tambahkan HPP Koreksi ke total HPP Penjualan
-        $total['nilai_hpp'] += $hppKoreksi;
-
         $member['laba'] = $member['nilai'] - $member['hpp'];
         $nonMember['laba'] = $nonMember['nilai'] - $nonMember['hpp'];
 
-        // 4. Penjualan Non Fisik (Dompet Digital)
+        // 2. Penjualan Non Fisik (Dompet Digital)
         $pnf = $this->repository->getPenjualanNonFisik($startDate, $endDate, $idToko);
         $pnfGrouped = [];
 

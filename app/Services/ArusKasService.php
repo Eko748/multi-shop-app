@@ -67,11 +67,12 @@ class ArusKasService
         }
 
         // --------------------------------------------------------------------------
-        // 2. BASE QUERY & FILTERING (JANGAN exclude HPP Pembatalan agar saldo sinkron)
+        // 2. BASE QUERY & FILTERING (HPP BENAR-BENAR DI-EXCLUDE)
         // --------------------------------------------------------------------------
         $query = KasTransaksi::with(['kas.toko'])
             ->whereBetween('tanggal', [$startDate, $endDate])
-            ->where('total_nominal', '>', 0);
+            ->where('total_nominal', '>', 0)
+            ->where('kategori', 'NOT LIKE', 'HPP%'); // Membuang seluruh pencatatan HPP
 
         if (! empty($tokoIds)) {
             $query->whereHas('kas', function ($q) use ($tokoIds) {
@@ -82,7 +83,7 @@ class ArusKasService
         // FILTER KATEGORI
         if ($request->filled('kategori')) {
             $kategori = is_array($request->kategori) ? $request->kategori : [$request->kategori];
-            $kategori = array_filter($kategori, fn ($v) => ! is_null($v) && $v !== '');
+            $kategori = array_filter($kategori, fn ($v) => ! is_null($v) && $v !== '' && strpos($v, 'HPP') === false);
 
             if (! empty($kategori)) {
                 $query->whereIn('kategori', $kategori);
@@ -104,7 +105,7 @@ class ArusKasService
         }
 
         // --------------------------------------------------------------------------
-        // 3. HITUNG TOTAL KESELURUHAN DATA RINGKASAN (Berdasarkan kas.tipe_kas)
+        // 3. HITUNG TOTAL KESELURUHAN DATA RINGKASAN
         // --------------------------------------------------------------------------
         $totals = [
             'kas_kecil_in' => 0, 'kas_kecil_out' => 0,
@@ -115,8 +116,8 @@ class ArusKasService
 
         (clone $query)->get()->each(function ($item) use (&$totals) {
             $nilai = (float) $item->total_nominal;
-            $tipe = strtolower(trim($item->tipe)); // 'in' atau 'out'
-            $tipeKas = $item->kas?->tipe_kas ?? 'kecil'; // Murni mengambil relasi tipe kas
+            $tipe = strtolower(trim($item->tipe));
+            $tipeKas = $item->kas?->tipe_kas ?? 'kecil';
 
             if (in_array($tipeKas, ['kecil', 'besar'])) {
                 $key = "kas_{$tipeKas}_{$tipe}";
@@ -124,7 +125,6 @@ class ArusKasService
                     $totals[$key] += $nilai;
                 }
             } else {
-                // Untuk piutang & hutang jika ada tipe kas khusus
                 $key = "{$tipeKas}_{$tipe}";
                 if (array_key_exists($key, $totals)) {
                     $totals[$key] += $nilai;

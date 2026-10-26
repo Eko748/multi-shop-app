@@ -127,9 +127,25 @@ class KasRekapHelper
             throw new \Exception('Kas tidak ditemukan.');
         }
 
+        // Tanggal Eksekusi Void / Pembatalan saat ini
         $today = Carbon::parse($tanggal);
         $tahunNow = $today->year;
         $bulanNow = $today->month;
+
+        // Tanggal Transaksi Asal (Header)
+        $tanggalTrx = Carbon::parse($header->created_at ?? $header->tanggal);
+
+        // Cek apakah transaksi berasal dari bulan/tahun yang lalu dibanding tanggal pembatalan
+        $isBulanLalu = $tanggalTrx->format('Y-m') < $today->format('Y-m');
+
+        // Tentukan Kategori Kas & HPP berdasarkan tanggal transaksi
+        $kategoriVoid = $isBulanLalu
+            ? 'Pembatalan Transaksi Bulan Lalu'
+            : 'Pembatalan Transaksi';
+
+        $kategoriHppVoid = $isBulanLalu
+            ? 'HPP Pembatalan Transaksi Bulan Lalu'
+            : 'HPP Pembatalan Transaksi';
 
         $jenisNama = $jenis_barang_id == 0
             ? 'Dompet Digital'
@@ -145,7 +161,7 @@ class KasRekapHelper
             'tipe' => 'out',
             'kode_transaksi' => 'KS-VOID-'.time().rand(100, 999),
             'total_nominal' => $totalJual,
-            'kategori' => 'Pembatalan Transaksi',
+            'kategori' => $kategoriVoid, // Dynamic Kategori
             'keterangan' => "{$header->nota} ({$jenisNama})",
             'item' => $kas->tipe_kas,
             'tanggal' => $tanggal,
@@ -159,10 +175,10 @@ class KasRekapHelper
                 'kas_id' => $kas->id,
                 'sumber_type' => get_class($header),
                 'sumber_id' => $header->id,
-                'tipe' => 'in', // atau 'neutral' tergantung struktur DB Anda untuk HPP
+                'tipe' => 'in',
                 'kode_transaksi' => 'KS-HPPVOID-'.time().rand(100, 999),
                 'total_nominal' => $totalBeli,
-                'kategori' => 'HPP Pembatalan Transaksi',
+                'kategori' => $kategoriHppVoid, // Dynamic Kategori HPP
                 'keterangan' => "{$header->nota} ({$jenisNama})",
                 'item' => $kas->tipe_kas,
                 'tanggal' => $tanggal,
@@ -172,7 +188,6 @@ class KasRekapHelper
         // =========================================================================
         // 3. UPDATE SALDO KAS DAN LAPORAN LABA RUGI
         // =========================================================================
-        // Realisasi Kas fisik yang keluar hanya sebesar Penjualan (Nominal yang dikembalikan ke pembeli)
         $kas->saldo -= $totalJual;
         $kas->save();
 
@@ -203,7 +218,7 @@ class KasRekapHelper
             $historyNow->save();
         }
 
-        // Adjust Laba Rugi Bulanan
+        // Adjust Laba Rugi Bulanan (TETAP dicatat di periode berjalan/saat eksekusi void)
         $labaRugi = LabaRugi::firstOrCreate([
             'toko_id' => $toko_id,
             'tahun' => $tahunNow,

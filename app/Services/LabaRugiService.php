@@ -167,11 +167,11 @@ class LabaRugiService
         // PENDAPATAN
         // ============================
 
-        $penjualanUmumQuery = KasTransaksi::where('tipe', 'in')
+        $penjualanUmumRawQuery = KasTransaksi::where('tipe', 'in')
             ->where('sumber_type', TransaksiKasirHarian::class)
             ->where($filterToko);
-        $applyDateFilter($penjualanUmumQuery, 'tanggal');
-        $penjualanUmum = $penjualanUmumQuery->sum('total_nominal');
+        $applyDateFilter($penjualanUmumRawQuery, 'tanggal');
+        $penjualanUmumRaw = $penjualanUmumRawQuery->sum('total_nominal');
 
         $lainnyaQuery = KasTransaksi::where('tipe', 'in')
             ->where('sumber_type', Pemasukan::class)
@@ -189,12 +189,19 @@ class LabaRugiService
         $applyDateFilter($nilaiReturMemberQuery, 'tanggal');
         $nilaiReturMember = $nilaiReturMemberQuery->sum('total_nominal');
 
-        // 1.3 Pembatalan Transaksi (Harga Jual)
+        // 1.3 Pembatalan Transaksi Bulan Ini (Langsung memotong Pendapatan Umum)
         $pembatalanTrxQuery = KasTransaksi::where('tipe', 'out')
             ->where('kategori', 'Pembatalan Transaksi')
             ->where($filterToko);
         $applyDateFilter($pembatalanTrxQuery, 'tanggal');
         $pembatalanTrx = $pembatalanTrxQuery->sum('total_nominal');
+
+        // 1.4 Pembatalan Transaksi Bulan Lalu (Ditampilkan di laporan 1.3)
+        $pembatalanTrxBulanLaluQuery = KasTransaksi::where('tipe', 'out')
+            ->where('kategori', 'Pembatalan Transaksi Bulan Lalu')
+            ->where($filterToko);
+        $applyDateFilter($pembatalanTrxBulanLaluQuery, 'tanggal');
+        $pembatalanTrxBulanLalu = $pembatalanTrxBulanLaluQuery->sum('total_nominal');
 
         $pendapatanNonTransaksiQuery = DompetSaldo::where($filterToko)
             ->whereColumn('harga_beli', '<', 'saldo');
@@ -205,21 +212,22 @@ class LabaRugiService
 
         $pendapatanLainnya = $lainnya + $pendapatanNonTransaksi;
 
-        // Penjualan bersih dikurangi retur member dan pembatalan transaksi
-        $penjualanBersih = $penjualanUmum - $nilaiReturMember - $pembatalanTrx;
+        // Pendapatan Umum Bersih (setelah dipotong retur member dan pembatalan bulan ini)
+        $penjualanUmum = $penjualanUmumRaw - $nilaiReturMember - $pembatalanTrx;
 
-        $totalPendapatan = $penjualanBersih + $pendapatanLainnya;
+        // Total pendapatan akhir termasuk pengurangan Pembatalan Transaksi Bulan Lalu
+        $totalPendapatan = $penjualanUmum + $pendapatanLainnya - $pembatalanTrxBulanLalu;
 
         // ============================
         // HPP
         // ============================
 
-        $hppTrxQuery = KasTransaksi::where('kas_transaksi.tipe', 'in')
+        $hppTrxRawQuery = KasTransaksi::where('kas_transaksi.tipe', 'in')
             ->where('kas_transaksi.sumber_type', TransaksiKasirHarian::class)
             ->where($filterToko)
             ->join('transaksi_kasir_harian', 'kas_transaksi.sumber_id', '=', 'transaksi_kasir_harian.id');
-        $applyDateFilter($hppTrxQuery, 'kas_transaksi.tanggal');
-        $hppTrx = $hppTrxQuery->sum('transaksi_kasir_harian.total_harga_beli');
+        $applyDateFilter($hppTrxRawQuery, 'kas_transaksi.tanggal');
+        $hppTrxRaw = $hppTrxRawQuery->sum('transaksi_kasir_harian.total_harga_beli');
 
         $hppKoreksiQuery = PembelianBarangDetailAdjustment::query();
         $applyTokoDirect($hppKoreksiQuery, 'toko_id');
@@ -235,11 +243,17 @@ class LabaRugiService
         $applyDateFilter($hppreturQuery, 'kas_transaksi.tanggal');
         $hppretur = $hppreturQuery->sum('retur_member_detail.total_hpp');
 
-        // 2.3 HPP Pembatalan Transaksi (Harga Beli)
+        // HPP Pembatalan Transaksi Bulan Ini (Langsung memotong HPP Pendapatan Umum)
         $hppPembatalanTrxQuery = KasTransaksi::where('kategori', 'HPP Pembatalan Transaksi')
             ->where($filterToko);
         $applyDateFilter($hppPembatalanTrxQuery, 'tanggal');
         $hppPembatalanTrx = $hppPembatalanTrxQuery->sum('total_nominal');
+
+        // HPP Pembatalan Transaksi Bulan Lalu (Ditampilkan di laporan 2.3)
+        $hppPembatalanTrxBulanLaluQuery = KasTransaksi::where('kategori', 'HPP Pembatalan Transaksi Bulan Lalu')
+            ->where($filterToko);
+        $applyDateFilter($hppPembatalanTrxBulanLaluQuery, 'tanggal');
+        $hppPembatalanTrxBulanLalu = $hppPembatalanTrxBulanLaluQuery->sum('total_nominal');
 
         $hppSelisihTopupQuery = KasTransaksi::where('tipe', 'out')
             ->where('sumber_type', DompetSaldo::class)
@@ -258,10 +272,12 @@ class LabaRugiService
         $applyDateFilterOnly($hppReturSuplierQuery, 'retur_supplier.created_at');
         $hppReturSuplier = $hppReturSuplierQuery->selectRaw('SUM(retur_supplier_detail.qty_refund * pembelian_barang_detail.harga_beli) as total')->value('total') ?? 0;
 
-        // HPP Penjualan dikurangi pengembalian HPP dari pembatalan transaksi
-        $hppPenjualan = $hppTrx - $hppretur + $hppKoreksi;
-        // Retur supplier berfungsi sebagai pengurang HPP
-        $total_hpp = $hppPenjualan - $hppPembatalanTrx - $hppReturSuplier;
+        // HPP Penjualan Bersih (setelah dipotong HPP pembatalan bulan ini)
+        $hppPenjualan = $hppTrxRaw - $hppretur + $hppKoreksi - $hppPembatalanTrx;
+
+        // Total HPP akhir termasuk pengurangan HPP Pembatalan Transaksi Bulan Lalu & Retur Supplier
+        $total_hpp = $hppPenjualan - $hppPembatalanTrxBulanLalu - $hppReturSuplier;
+
         // ============================
         // BEBAN OPERASIONAL
         // ============================
@@ -366,11 +382,11 @@ class LabaRugiService
         return $this->getDetailLaporan(
             (int) $penjualanUmum,
             (int) $pendapatanLainnya,
-            (int) $pembatalanTrx,
+            (int) $pembatalanTrxBulanLalu, // Parameter dikirim dari pembatalan bulan lalu
             (int) $hppReturSuplier,
             (int) $totalPendapatan,
             (int) $hppPenjualan,
-            (int) $hppPembatalanTrx,
+            (int) $hppPembatalanTrxBulanLalu, // Parameter dikirim dari pembatalan HPP bulan lalu
             (int) $total_hpp,
             $bebanOperasional,
             (int) $bagiHasilTokoUtama,
@@ -388,11 +404,11 @@ class LabaRugiService
     protected function getDetailLaporan(
         $penjualanUmum,
         $pendapatanLainnya,
-        $pembatalanTrx,
+        $pembatalanTrxBulanLalu,
         $hppReturSuplier,
         $totalPendapatan,
         $hppPenjualan,
-        $hppPembatalanTrx,
+        $hppPembatalanTrxBulanLalu,
         $total_hpp,
         $bebanOperasional,
         $bagiHasilTokoUtama,
@@ -411,7 +427,7 @@ class LabaRugiService
                 [
                     ['1.1 Pendapatan Umum', RupiahGenerate::build($penjualanUmum)],
                     ['1.2 Pendapatan Lainnya', RupiahGenerate::build($pendapatanLainnya)],
-                    ['1.3 Pembatalan Transaksi', RupiahGenerate::build(-abs($pembatalanTrx))],
+                    ['1.3 Pembatalan Transaksi Bulan Lalu', RupiahGenerate::build(-abs($pembatalanTrxBulanLalu))],
                     ['Total Pendapatan', RupiahGenerate::build($totalPendapatan)],
                 ],
             ],
@@ -420,7 +436,7 @@ class LabaRugiService
                 [
                     ['2.1 HPP Pendapatan Umum', RupiahGenerate::build($hppPenjualan)],
                     ['2.2 HPP Pendapatan Retur', RupiahGenerate::build($hppReturSuplier)],
-                    ['2.3 HPP Pembatalan Transaksi', RupiahGenerate::build(-abs($hppPembatalanTrx))],
+                    ['2.3 HPP Pembatalan Transaksi Bulan Lalu', RupiahGenerate::build(-abs($hppPembatalanTrxBulanLalu))],
                     ['Total HPP', RupiahGenerate::build($total_hpp)],
                 ],
             ],

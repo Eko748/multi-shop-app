@@ -66,7 +66,7 @@ class ArusKasService
             $tokoIds = array_filter($selected, fn ($val) => ! empty($val) && strtolower((string) $val) !== 'all');
         }
 
-        // --------------------------------------------------------------------------
+// --------------------------------------------------------------------------
         // 2. BASE QUERY & FILTERING (HPP BENAR-BENAR DI-EXCLUDE)
         // --------------------------------------------------------------------------
         $baseQuery = KasTransaksi::with(['kas.toko'])
@@ -89,13 +89,13 @@ class ArusKasService
             }
         }
 
-        // Query khusus untuk Ringkasan Total (Tanpa Filter Search)
+        // 🔥 KELONING QUERY KHUSUS UNTUK RINGKASAN HEADER (TANPA FILTER SEARCH)
         $summaryQuery = clone $baseQuery;
 
-        // Query utama untuk Baris Data (Menggunakan Filter Search)
+        // QUERY UNTUK LIST TABLE (MENGGUNAKAN FILTER SEARCH)
         $query = clone $baseQuery;
 
-        // FILTER SEARCH (Hanya diterapkan pada list baris data)
+        // FILTER SEARCH (Hanya diaplikasikan ke list tabel bawah)
         if ($request->filled('search') && trim($request->search) !== '') {
             $searchTerm = trim(strtolower($request->search));
 
@@ -110,7 +110,7 @@ class ArusKasService
         }
 
         // --------------------------------------------------------------------------
-        // 3. HITUNG TOTAL KESELURUHAN DATA RINGKASAN (Gunakan $summaryQuery)
+        // 3. HITUNG TOTAL KESELURUHAN DATA RINGKASAN (Menggunakan $summaryQuery)
         // --------------------------------------------------------------------------
         $totals = [
             'kas_kecil_in' => 0, 'kas_kecil_out' => 0,
@@ -119,7 +119,7 @@ class ArusKasService
             'hutang_in' => 0, 'hutang_out' => 0,
         ];
 
-        // Gunakan $summaryQuery agar total saldo tidak ikut terpotong saat search
+        // Gunakan $summaryQuery agar angka header TIDAK BERUBAH saat dipencarian
         $summaryQuery->get()->each(function ($item) use (&$totals) {
             $nilai = (float) $item->total_nominal;
             $tipe = strtolower(trim($item->tipe));

@@ -21,7 +21,7 @@ class LaporanPenjualanService
         $this->repository = $repository;
     }
 
-public function generateReport($startDate, $endDate, $idToko = null)
+    public function generateReport($startDate, $endDate, $idToko = null)
     {
         $start = Carbon::parse($startDate)->startOfDay()->toDateTimeString();
         $end = Carbon::parse($endDate)->endOfDay()->toDateTimeString();
@@ -147,21 +147,23 @@ public function generateReport($startDate, $endDate, $idToko = null)
         }
 
         $totalJmlTrxMember = (int) $queryMember->count();
-        $totalNilaiMember  = (float) $queryMember->sum('total_nominal'); // atau total_bayar
-        $totalHppMember    = (float) ($queryMember->sum('total_hpp') ?? 0);
+        $totalNilaiMember = (float) $queryMember->sum('total_nominal');
+
+        // PERBAIKAN: Karena total_hpp tidak ada di tabel transaksi_kasir, set default 0
+        $totalHppMember = 0;
 
         $member = [
             'jumlah' => $totalJmlTrxMember,
-            'nilai'  => $totalNilaiMember,
-            'hpp'    => $totalHppMember,
-            'laba'   => $totalNilaiMember - $totalHppMember,
+            'nilai' => $totalNilaiMember,
+            'hpp' => $totalHppMember,
+            'laba' => $totalNilaiMember - $totalHppMember,
         ];
 
         // --- 7. REKAP DATA OMZET BERDASARKAN TOKO ---
         $listToko = [];
         $totalOmzetSistem = 0;
-        $totalHppSistem   = 0;
-        $totalTrxSistem   = 0;
+        $totalHppSistem = 0;
+        $totalTrxSistem = 0;
 
         $total = [
             'jml_trx' => 0,
@@ -201,11 +203,11 @@ public function generateReport($startDate, $endDate, $idToko = null)
                 'laba' => (float) $laba,
             ];
 
-            $totalTrxSistem   += $row->jml_trx;
+            $totalTrxSistem += $row->jml_trx;
             $totalOmzetSistem += $nilaiTrx;
-            $totalHppSistem   += $hpp;
+            $totalHppSistem += $hpp;
 
-            $total['jml_trx']   += $row->jml_trx;
+            $total['jml_trx'] += $row->jml_trx;
             $total['nilai_trx'] += $nilaiTrx;
             $total['nilai_hpp'] += $hpp;
         }
@@ -274,9 +276,9 @@ public function generateReport($startDate, $endDate, $idToko = null)
                 ];
             }
 
-            $totalTrxSistem   += $pnfData['jml_trx'];
+            $totalTrxSistem += $pnfData['jml_trx'];
             $totalOmzetSistem += $pnfData['nilai_trx'];
-            $totalHppSistem   += $pnfData['nilai_hpp'];
+            $totalHppSistem += $pnfData['nilai_hpp'];
 
             $total['jml_trx'] += $pnfData['jml_trx'];
             $total['nilai_trx'] += $pnfData['nilai_trx'];
@@ -286,9 +288,9 @@ public function generateReport($startDate, $endDate, $idToko = null)
         // --- 9. HITUNG TRANSAKSI NON-MEMBER (TOTAL - MEMBER) ---
         $nonMember = [
             'jumlah' => max(0, $totalTrxSistem - $member['jumlah']),
-            'nilai'  => max(0, $totalOmzetSistem - $member['nilai']),
-            'hpp'    => max(0, $totalHppSistem - $member['hpp']),
-            'laba'   => max(0, ($totalOmzetSistem - $member['nilai']) - ($totalHppSistem - $member['hpp'])),
+            'nilai' => max(0, $totalOmzetSistem - $member['nilai']),
+            'hpp' => max(0, $totalHppSistem - $member['hpp']),
+            'laba' => max(0, ($totalOmzetSistem - $member['nilai']) - ($totalHppSistem - $member['hpp'])),
         ];
 
         // Final HPP Koreksi Adjustment

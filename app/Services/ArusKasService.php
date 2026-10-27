@@ -14,7 +14,6 @@ use Illuminate\Http\Request;
 class ArusKasService
 {
     protected $repoPenjualanNF;
-
     protected $repoDompetSaldo;
 
     public function __construct(PenjualanNonFisikRepository $repoPenjualanNF, DompetSaldoRepository $repoDompetSaldo)
@@ -66,8 +65,8 @@ class ArusKasService
             $tokoIds = array_filter($selected, fn ($val) => ! empty($val) && strtolower((string) $val) !== 'all');
         }
 
-// --------------------------------------------------------------------------
-        // 2. BASE QUERY & FILTERING (HPP BENAR-BENAR DI-EXCLUDE)
+        // --------------------------------------------------------------------------
+        // 2. BASE QUERY & PEMISAHAN QUERY (PENTING BIAR SALDO TIDAK BERUBAH)
         // --------------------------------------------------------------------------
         $baseQuery = KasTransaksi::with(['kas.toko'])
             ->whereBetween('tanggal', [$startDate, $endDate])
@@ -89,10 +88,10 @@ class ArusKasService
             }
         }
 
-        // 🔥 KELONING QUERY KHUSUS UNTUK RINGKASAN HEADER (TANPA FILTER SEARCH)
+        // 🔥 KELONING 1: Untuk Ringkasan Header Saldo (MURNI TANPA FILTER SEARCH)
         $summaryQuery = clone $baseQuery;
 
-        // QUERY UNTUK LIST TABLE (MENGGUNAKAN FILTER SEARCH)
+        // 🔥 KELONING 2: Untuk List Data Tabel (MEMAKAI FILTER SEARCH)
         $query = clone $baseQuery;
 
         // FILTER SEARCH (Hanya diaplikasikan ke list tabel bawah)
@@ -110,7 +109,7 @@ class ArusKasService
         }
 
         // --------------------------------------------------------------------------
-        // 3. HITUNG TOTAL KESELURUHAN DATA RINGKASAN (Menggunakan $summaryQuery)
+        // 3. HITUNG TOTAL SALDO HEADER (MEMAKAI $summaryQuery)
         // --------------------------------------------------------------------------
         $totals = [
             'kas_kecil_in' => 0, 'kas_kecil_out' => 0,
@@ -119,7 +118,7 @@ class ArusKasService
             'hutang_in' => 0, 'hutang_out' => 0,
         ];
 
-        // Gunakan $summaryQuery agar angka header TIDAK BERUBAH saat dipencarian
+        // Gunakan $summaryQuery agar total saldo header TIDAK TERDAMPARKAN SEARCH
         $summaryQuery->get()->each(function ($item) use (&$totals) {
             $nilai = (float) $item->total_nominal;
             $tipe = strtolower(trim($item->tipe));
@@ -138,26 +137,8 @@ class ArusKasService
             }
         });
 
-        (clone $query)->get()->each(function ($item) use (&$totals) {
-            $nilai = (float) $item->total_nominal;
-            $tipe = strtolower(trim($item->tipe));
-            $tipeKas = $item->kas?->tipe_kas ?? 'kecil';
-
-            if (in_array($tipeKas, ['kecil', 'besar'])) {
-                $key = "kas_{$tipeKas}_{$tipe}";
-                if (array_key_exists($key, $totals)) {
-                    $totals[$key] += $nilai;
-                }
-            } else {
-                $key = "{$tipeKas}_{$tipe}";
-                if (array_key_exists($key, $totals)) {
-                    $totals[$key] += $nilai;
-                }
-            }
-        });
-
         // --------------------------------------------------------------------------
-        // 4. FETCH DATA
+        // 4. FETCH DATA LIST TABEL & PAGINATION (MEMAKAI $query)
         // --------------------------------------------------------------------------
         $totalRows = (clone $query)->count();
 
@@ -266,13 +247,13 @@ class ArusKasService
             ],
         ];
 
-        return response()->json([
+        return [
             'data' => $data,
             'data_total' => $data_total,
             'current_page' => $currentPage,
             'has_more_pages' => $hasMorePages,
             'total_rows' => $totalRows,
-        ]);
+        ];
     }
 
     private function getSaldoAwal($kas, $year, $month)
@@ -305,84 +286,14 @@ class ArusKasService
             : $kas->saldo_awal;
     }
 
-    protected function getAccessibleTokoIds($tokoId = null)
-    {
-        // Jika tokoId kosong atau 'all', ambil SELURUH ID toko aktif yang belum dihapus (withoutTrashed)
-        if (empty($tokoId) || strtolower((string) $tokoId) === 'all') {
-            return Toko::whereNull('deleted_at')->pluck('id')->toArray();
-        }
-
-        $toko = Toko::whereNull('deleted_at')->find($tokoId);
-
-        if (! $toko) {
-            return [];
-        }
-
-        $parentId = $toko->parent_id ?? $toko->id;
-
-        // Ambil parent dan seluruh cabang/child yang aktif
-        return Toko::whereNull('deleted_at')
-            ->where(function ($query) use ($parentId) {
-                $query->where('id', $parentId)
-                    ->orWhere('parent_id', $parentId);
-            })
-            ->pluck('id')
-            ->toArray();
-    }
-
     private function formatAngka($value)
     {
         $value = $value ?? 0;
 
-        // tanpa desimal
         if (floor($value) == $value) {
             return number_format($value, 0, ',', '.');
         }
 
-        // ada desimal
         return number_format($value, 2, ',', '.');
-    }
-
-    protected function calculateBulanLalu($year, $month)
-    {
-        // Hitung bulan dan tahun sebelumnya
-        $prevMonth = $month - 1;
-        $prevYear = $year;
-
-        if ($month == 1) {
-            $prevMonth = 12;
-            $prevYear = $year;
-        }
-
-        // Buat request baru untuk data bulan sebelumnya
-        $newRequest = new Request([
-            'year' => $prevYear,
-            'month' => $prevMonth,
-            'page' => 1,
-            'limit' => 10,
-            'ascending' => 0,
-            'search' => '',
-        ]);
-
-        // Ambil data bulan sebelumnya
-        $dataBulanSebelumnyaResponse = $this->getArusKasData($newRequest);
-
-        // Pastikan respons adalah JSON dan ubah menjadi array
-        if ($dataBulanSebelumnyaResponse instanceof \Illuminate\Http\JsonResponse) {
-            $dataBulanSebelumnya = $dataBulanSebelumnyaResponse->getData(true); // Konversi ke array
-        } else {
-            $dataBulanSebelumnya = $dataBulanSebelumnyaResponse; // Jika sudah array
-        }
-
-        // Hitung saldo awal
-        $KB_saldoAwal = $dataBulanSebelumnya['data_total']['kas_besar']['saldo_akhir'] ?? 0;
-
-        $data = [
-            'kas_besar' => [
-                'saldo_awal' => $KB_saldoAwal,
-            ],
-        ];
-
-        return $data;
     }
 }

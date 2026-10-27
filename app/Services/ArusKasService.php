@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Kas;
 use App\Models\KasSaldoHistory;
 use App\Models\KasTransaksi;
+use App\Models\Pengeluaran;
 use App\Models\Toko;
 use App\Repositories\DompetSaldoRepository;
 use App\Repositories\PenjualanNonFisikRepository;
@@ -14,6 +15,7 @@ use Illuminate\Http\Request;
 class ArusKasService
 {
     protected $repoPenjualanNF;
+
     protected $repoDompetSaldo;
 
     public function __construct(PenjualanNonFisikRepository $repoPenjualanNF, DompetSaldoRepository $repoDompetSaldo)
@@ -66,7 +68,7 @@ class ArusKasService
         }
 
         // --------------------------------------------------------------------------
-        // 2. BASE QUERY & PEMISAHAN QUERY (PENTING BIAR SALDO TIDAK BERUBAH)
+        // 2. BASE QUERY & PEMISAHAN QUERY
         // --------------------------------------------------------------------------
         $baseQuery = KasTransaksi::with(['kas.toko'])
             ->whereBetween('tanggal', [$startDate, $endDate])
@@ -88,10 +90,10 @@ class ArusKasService
             }
         }
 
-        // 🔥 KELONING 1: Untuk Ringkasan Header Saldo (MURNI TANPA FILTER SEARCH)
+        // KELONING 1: Untuk Ringkasan Header Saldo (MURNI TANPA FILTER SEARCH)
         $summaryQuery = clone $baseQuery;
 
-        // 🔥 KELONING 2: Untuk List Data Tabel (MEMAKAI FILTER SEARCH)
+        // KELONING 2: Untuk List Data Tabel (MEMAKAI FILTER SEARCH)
         $query = clone $baseQuery;
 
         // FILTER SEARCH (Hanya diaplikasikan ke list tabel bawah)
@@ -118,7 +120,6 @@ class ArusKasService
             'hutang_in' => 0, 'hutang_out' => 0,
         ];
 
-        // Gunakan $summaryQuery agar total saldo header TIDAK TERDAMPARKAN SEARCH
         $summaryQuery->get()->each(function ($item) use (&$totals) {
             $nilai = (float) $item->total_nominal;
             $tipe = strtolower(trim($item->tipe));
@@ -136,6 +137,25 @@ class ArusKasService
                 }
             }
         });
+
+        $pengeluaranTipe15Query = KasTransaksi::where('tipe', 'out')
+            ->where('sumber_type', Pengeluaran::class)
+            ->whereBetween('tanggal', [$startDate, $endDate])
+            ->whereHasMorph('sumber', [Pengeluaran::class], function ($q) {
+                $q->where('pengeluaran_tipe_id', 15)
+                    ->whereNull('deleted_at');
+            });
+
+        if (! empty($tokoIds)) {
+            $pengeluaranTipe15Query->whereHas('kas', function ($q) use ($tokoIds) {
+                $q->whereIn('toko_id', $tokoIds);
+            });
+        }
+
+        $pengeluaranTipe15 = (float) $pengeluaranTipe15Query->sum('total_nominal');
+
+        // Kurangkan Pengeluaran Tipe 15 langsung ke kas_kecil_in
+        $totals['kas_kecil_in'] = max(0, $totals['kas_kecil_in'] - $pengeluaranTipe15);
 
         // --------------------------------------------------------------------------
         // 4. FETCH DATA LIST TABEL & PAGINATION (MEMAKAI $query)

@@ -6,6 +6,7 @@ use App\Models\Kas;
 use App\Models\KasSaldoHistory;
 use App\Models\KasTransaksi;
 use App\Models\Pengeluaran;
+use App\Models\ReturMember;
 use App\Models\Toko;
 use App\Repositories\DompetSaldoRepository;
 use App\Repositories\PenjualanNonFisikRepository;
@@ -138,6 +139,11 @@ class ArusKasService
             }
         });
 
+        // ============================
+        // PENGURANG KAS KECIL IN (SAMA PERSIS DENGAN LABA RUGI)
+        // ============================
+
+        // 1. Pengeluaran Tipe 15
         $pengeluaranTipe15Query = KasTransaksi::where('tipe', 'out')
             ->where('sumber_type', Pengeluaran::class)
             ->whereBetween('tanggal', [$startDate, $endDate])
@@ -145,17 +151,43 @@ class ArusKasService
                 $q->where('pengeluaran_tipe_id', 15)
                     ->whereNull('deleted_at');
             });
-
         if (! empty($tokoIds)) {
-            $pengeluaranTipe15Query->whereHas('kas', function ($q) use ($tokoIds) {
-                $q->whereIn('toko_id', $tokoIds);
-            });
+            $pengeluaranTipe15Query->whereHas('kas', fn ($q) => $q->whereIn('toko_id', $tokoIds));
         }
-
         $pengeluaranTipe15 = (float) $pengeluaranTipe15Query->sum('total_nominal');
 
-        // Kurangkan Pengeluaran Tipe 15 langsung ke kas_kecil_in
-        $totals['kas_kecil_in'] = max(0, $totals['kas_kecil_in'] - $pengeluaranTipe15);
+        // 2. Retur Member
+        $returMemberQuery = KasTransaksi::where('tipe', 'out')
+            ->where('sumber_type', ReturMember::class)
+            ->whereBetween('tanggal', [$startDate, $endDate]);
+        if (! empty($tokoIds)) {
+            $returMemberQuery->whereHas('kas', fn ($q) => $q->whereIn('toko_id', $tokoIds));
+        }
+        $nilaiReturMember = (float) $returMemberQuery->sum('total_nominal');
+
+        // 3. Pembatalan Transaksi Bulan Ini
+        $pembatalanTrxQuery = KasTransaksi::where('tipe', 'out')
+            ->where('kategori', 'Pembatalan Transaksi')
+            ->whereBetween('tanggal', [$startDate, $endDate]);
+        if (! empty($tokoIds)) {
+            $pembatalanTrxQuery->whereHas('kas', fn ($q) => $q->whereIn('toko_id', $tokoIds));
+        }
+        $pembatalanTrx = (float) $pembatalanTrxQuery->sum('total_nominal');
+
+        // 4. Pembatalan Transaksi Bulan Lalu
+        $pembatalanTrxBulanLaluQuery = KasTransaksi::where('tipe', 'out')
+            ->where('kategori', 'Pembatalan Transaksi Bulan Lalu')
+            ->whereBetween('tanggal', [$startDate, $endDate]);
+        if (! empty($tokoIds)) {
+            $pembatalanTrxBulanLaluQuery->whereHas('kas', fn ($q) => $q->whereIn('toko_id', $tokoIds));
+        }
+        $pembatalanTrxBulanLalu = (float) $pembatalanTrxBulanLaluQuery->sum('total_nominal');
+
+        // Total seluruh pengurang omzet/pendapatan
+        $totalPengurangKasKecilIn = $pengeluaranTipe15 + $nilaiReturMember + $pembatalanTrx + $pembatalanTrxBulanLalu;
+
+        // Kurangkan ke Kas Kecil In
+        $totals['kas_kecil_in'] = max(0, $totals['kas_kecil_in'] - $totalPengurangKasKecilIn);
 
         // --------------------------------------------------------------------------
         // 4. FETCH DATA LIST TABEL & PAGINATION (MEMAKAI $query)

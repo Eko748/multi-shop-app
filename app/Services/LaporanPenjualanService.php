@@ -178,16 +178,25 @@ class LaporanPenjualanService
                 'laba' => (float) $laba,
             ];
 
-            $nonMember['jumlah'] += $row->jml_trx;
-            $nonMember['nilai'] += $nilaiTrx;
-            $nonMember['hpp'] += $hpp;
+            // --- PERBAIKAN PISAH MEMBER & NON-MEMBER ---
+            // Sesuaikan pengecekan $row->is_member atau !empty($row->member_id) sesuai struktur tabel Anda
+            if (! empty($row->member_id)) {
+                $member['jumlah'] += $row->jml_trx;
+                $member['nilai'] += $nilaiTrx;
+                $member['hpp'] += $hpp;
+            } else {
+                $nonMember['jumlah'] += $row->jml_trx;
+                $nonMember['nilai'] += $nilaiTrx;
+                $nonMember['hpp'] += $hpp;
+            }
 
             $total['jml_trx'] += $row->jml_trx;
             $total['nilai_trx'] += $nilaiTrx;
             $total['nilai_hpp'] += $hpp;
         }
 
-        $total['nilai_hpp'] += $hppKoreksi;
+        // Hitung laba masing-masing setelah loop selesai
+        $member['laba'] = $member['nilai'] - $member['hpp'];
         $nonMember['laba'] = $nonMember['nilai'] - $nonMember['hpp'];
 
         // 6. Penjualan Non Fisik (Dompet Digital) - FIXED DUPLICATE

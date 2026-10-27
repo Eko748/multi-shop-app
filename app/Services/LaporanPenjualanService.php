@@ -25,7 +25,7 @@ class LaporanPenjualanService
         $start = Carbon::parse($startDate)->startOfDay()->toDateTimeString();
         $end = Carbon::parse($endDate)->endOfDay()->toDateTimeString();
 
-        // 1. Query Utama dari KasTransaksi & TransaksiKasirHarian (Mengambil Nilai Omzet, HPP, JML TRX, & JML QTY)
+        // 1. Query Utama dari KasTransaksi & TransaksiKasirHarian
         $queryOmzet = KasTransaksi::select(
             'kas.toko_id',
             'toko.nama as nama_toko',
@@ -54,7 +54,7 @@ class LaporanPenjualanService
             'jenis_barang.nama_jenis_barang'
         )->get();
 
-        // 2. Query Pengurang Omzet (Retur Member, Pembatalan Transaksi Bulan Ini, Pengeluaran Tipe 15)
+        // 2. Query Pengurang Omzet
         $queryPengurangOmzet = KasTransaksi::select(
             'kas.toko_id',
             'kas.jenis_barang_id',
@@ -101,14 +101,14 @@ class LaporanPenjualanService
             ->get()
             ->keyBy(fn ($i) => $i->toko_id.'_'.($i->jenis_barang_id ?? 0));
 
-        // 4. Query Pengurang HPP (HPP Retur Member & HPP Pembatalan Transaksi)
+        // 4. Query Pengurang HPP
         $queryPengurangHpp = KasTransaksi::select(
             'kas.toko_id',
             'kas.jenis_barang_id',
             DB::raw('SUM(CASE
-            WHEN kas_transaksi.sumber_type = "App\\\\Models\\\\ReturMember" THEN retur_member_detail.total_hpp
-            WHEN kas_transaksi.kategori = "HPP Pembatalan Transaksi" THEN kas_transaksi.total_nominal
-            ELSE 0 END) as total_pengurang_hpp')
+        WHEN kas_transaksi.sumber_type = "App\\\\Models\\\\ReturMember" THEN retur_member_detail.total_hpp
+        WHEN kas_transaksi.kategori = "HPP Pembatalan Transaksi" THEN kas_transaksi.total_nominal
+        ELSE 0 END) as total_pengurang_hpp')
         )
             ->join('kas', 'kas.id', '=', 'kas_transaksi.kas_id')
             ->leftJoin('retur_member', 'retur_member.id', '=', 'kas_transaksi.sumber_id')
@@ -172,7 +172,7 @@ class LaporanPenjualanService
                 'id_jenis_barang' => $jenisId,
                 'nama' => $row->nama_jenis_barang,
                 'jml_trx' => (int) $row->jml_trx,
-                'item_qty' => (float) $row->item_qty, // Mengambil total_qty dari transaksi_kasir_harian
+                'item_qty' => (float) $row->item_qty,
                 'nilai_trx' => (float) $nilaiTrx,
                 'nilai_hpp' => (float) $hpp,
                 'laba' => (float) $laba,
@@ -187,12 +187,10 @@ class LaporanPenjualanService
             $total['nilai_hpp'] += $hpp;
         }
 
-        // Tambahkan HPP Koreksi ke Total HPP (Persis Laba Rugi 2.1)
         $total['nilai_hpp'] += $hppKoreksi;
-
         $nonMember['laba'] = $nonMember['nilai'] - $nonMember['hpp'];
 
-        // 6. Penjualan Non Fisik (Dompet Digital)
+        // 6. Penjualan Non Fisik (Dompet Digital) - FIXED DUPLICATE
         $pnf = $this->repository->getPenjualanNonFisik($startDate, $endDate, $idToko);
         $pnfGrouped = [];
 
@@ -230,15 +228,34 @@ class LaporanPenjualanService
                 ];
             }
 
-            $listToko[$pnfData['toko_id']]['type_barang'][] = [
-                'id_jenis_barang' => 0,
-                'nama' => 'Dompet Digital',
-                'jml_trx' => $pnfData['jml_trx'],
-                'item_qty' => $pnfData['item_qty'],
-                'nilai_trx' => $pnfData['nilai_trx'],
-                'nilai_hpp' => $pnfData['nilai_hpp'],
-                'laba' => $laba,
-            ];
+            // Check kari ne update karo jo 'Dompet Digital' (id_jenis_barang = 0) pehle thi array ma hoy
+            $existingIndex = null;
+            foreach ($listToko[$pnfData['toko_id']]['type_barang'] as $index => $tb) {
+                if ($tb['id_jenis_barang'] === 0 || $tb['nama'] === 'Dompet Digital') {
+                    $existingIndex = $index;
+                    break;
+                }
+            }
+
+            if ($existingIndex !== null) {
+                // Combine data jo existing Dompet Digital hoy to
+                $listToko[$pnfData['toko_id']]['type_barang'][$existingIndex]['jml_trx'] += $pnfData['jml_trx'];
+                $listToko[$pnfData['toko_id']]['type_barang'][$existingIndex]['item_qty'] += $pnfData['item_qty'];
+                $listToko[$pnfData['toko_id']]['type_barang'][$existingIndex]['nilai_trx'] += $pnfData['nilai_trx'];
+                $listToko[$pnfData['toko_id']]['type_barang'][$existingIndex]['nilai_hpp'] += $pnfData['nilai_hpp'];
+                $listToko[$pnfData['toko_id']]['type_barang'][$existingIndex]['laba'] += $laba;
+            } else {
+                // Nakar navu element add karo
+                $listToko[$pnfData['toko_id']]['type_barang'][] = [
+                    'id_jenis_barang' => 0,
+                    'nama' => 'Dompet Digital',
+                    'jml_trx' => $pnfData['jml_trx'],
+                    'item_qty' => $pnfData['item_qty'],
+                    'nilai_trx' => $pnfData['nilai_trx'],
+                    'nilai_hpp' => $pnfData['nilai_hpp'],
+                    'laba' => $laba,
+                ];
+            }
 
             $nonMember['jumlah'] += $pnfData['jml_trx'];
             $nonMember['nilai'] += $pnfData['nilai_trx'];

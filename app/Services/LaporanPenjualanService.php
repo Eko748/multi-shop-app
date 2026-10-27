@@ -6,6 +6,7 @@ use App\Models\KasTransaksi;
 use App\Models\PembelianBarangDetailAdjustment;
 use App\Models\Pengeluaran;
 use App\Models\ReturMember;
+use App\Models\TransaksiKasir;
 use App\Models\TransaksiKasirHarian;
 use App\Repositories\LaporanPenjualanRepository;
 use Carbon\Carbon;
@@ -20,7 +21,7 @@ class LaporanPenjualanService
         $this->repository = $repository;
     }
 
-    public function generateReport($startDate, $endDate, $idToko = null)
+public function generateReport($startDate, $endDate, $idToko = null)
     {
         $start = Carbon::parse($startDate)->startOfDay()->toDateTimeString();
         $end = Carbon::parse($endDate)->endOfDay()->toDateTimeString();
@@ -106,9 +107,9 @@ class LaporanPenjualanService
             'kas.toko_id',
             'kas.jenis_barang_id',
             DB::raw('SUM(CASE
-        WHEN kas_transaksi.sumber_type = "App\\\\Models\\\\ReturMember" THEN retur_member_detail.total_hpp
-        WHEN kas_transaksi.kategori = "HPP Pembatalan Transaksi" THEN kas_transaksi.total_nominal
-        ELSE 0 END) as total_pengurang_hpp')
+            WHEN kas_transaksi.sumber_type = "App\\\\Models\\\\ReturMember" THEN retur_member_detail.total_hpp
+            WHEN kas_transaksi.kategori = "HPP Pembatalan Transaksi" THEN kas_transaksi.total_nominal
+            ELSE 0 END) as total_pengurang_hpp')
         )
             ->join('kas', 'kas.id', '=', 'kas_transaksi.kas_id')
             ->leftJoin('retur_member', 'retur_member.id', '=', 'kas_transaksi.sumber_id')
@@ -136,9 +137,31 @@ class LaporanPenjualanService
         $hppKoreksiQuery->whereBetween('created_at', [$start, $end]);
         $hppKoreksi = $hppKoreksiQuery->sum('nominal_laba_rugi');
 
+        // --- 6. HITUNG PENJUALAN MEMBER LANGSUNG DARI TABEL transaksi_kasir ---
+        $queryMember = TransaksiKasir::query()
+            ->whereBetween('tanggal', [$start, $end])
+            ->whereNotNull('member_id');
+
+        if ($idToko && $idToko !== 'all' && $idToko != 0) {
+            $queryMember->where('toko_id', $idToko);
+        }
+
+        $totalJmlTrxMember = (int) $queryMember->count();
+        $totalNilaiMember  = (float) $queryMember->sum('total_nominal'); // atau total_bayar
+        $totalHppMember    = (float) ($queryMember->sum('total_hpp') ?? 0);
+
+        $member = [
+            'jumlah' => $totalJmlTrxMember,
+            'nilai'  => $totalNilaiMember,
+            'hpp'    => $totalHppMember,
+            'laba'   => $totalNilaiMember - $totalHppMember,
+        ];
+
+        // --- 7. REKAP DATA OMZET BERDASARKAN TOKO ---
         $listToko = [];
-        $member = ['jumlah' => 0, 'nilai' => 0, 'hpp' => 0, 'laba' => 0];
-        $nonMember = ['jumlah' => 0, 'nilai' => 0, 'hpp' => 0, 'laba' => 0];
+        $totalOmzetSistem = 0;
+        $totalHppSistem   = 0;
+        $totalTrxSistem   = 0;
 
         $total = [
             'jml_trx' => 0,
@@ -178,28 +201,16 @@ class LaporanPenjualanService
                 'laba' => (float) $laba,
             ];
 
-            // --- PERBAIKAN PISAH MEMBER & NON-MEMBER ---
-            // Sesuaikan pengecekan $row->is_member atau !empty($row->member_id) sesuai struktur tabel Anda
-            if (! empty($row->member_id)) {
-                $member['jumlah'] += $row->jml_trx;
-                $member['nilai'] += $nilaiTrx;
-                $member['hpp'] += $hpp;
-            } else {
-                $nonMember['jumlah'] += $row->jml_trx;
-                $nonMember['nilai'] += $nilaiTrx;
-                $nonMember['hpp'] += $hpp;
-            }
+            $totalTrxSistem   += $row->jml_trx;
+            $totalOmzetSistem += $nilaiTrx;
+            $totalHppSistem   += $hpp;
 
-            $total['jml_trx'] += $row->jml_trx;
+            $total['jml_trx']   += $row->jml_trx;
             $total['nilai_trx'] += $nilaiTrx;
             $total['nilai_hpp'] += $hpp;
         }
 
-        // Hitung laba masing-masing setelah loop selesai
-        $member['laba'] = $member['nilai'] - $member['hpp'];
-        $nonMember['laba'] = $nonMember['nilai'] - $nonMember['hpp'];
-
-        // 6. Penjualan Non Fisik (Dompet Digital) - FIXED DUPLICATE
+        // 8. Penjualan Non Fisik (Dompet Digital) - FIXED DUPLICATE MERGE
         $pnf = $this->repository->getPenjualanNonFisik($startDate, $endDate, $idToko);
         $pnfGrouped = [];
 
@@ -237,7 +248,6 @@ class LaporanPenjualanService
                 ];
             }
 
-            // Check kari ne update karo jo 'Dompet Digital' (id_jenis_barang = 0) pehle thi array ma hoy
             $existingIndex = null;
             foreach ($listToko[$pnfData['toko_id']]['type_barang'] as $index => $tb) {
                 if ($tb['id_jenis_barang'] === 0 || $tb['nama'] === 'Dompet Digital') {
@@ -247,14 +257,12 @@ class LaporanPenjualanService
             }
 
             if ($existingIndex !== null) {
-                // Combine data jo existing Dompet Digital hoy to
                 $listToko[$pnfData['toko_id']]['type_barang'][$existingIndex]['jml_trx'] += $pnfData['jml_trx'];
                 $listToko[$pnfData['toko_id']]['type_barang'][$existingIndex]['item_qty'] += $pnfData['item_qty'];
                 $listToko[$pnfData['toko_id']]['type_barang'][$existingIndex]['nilai_trx'] += $pnfData['nilai_trx'];
                 $listToko[$pnfData['toko_id']]['type_barang'][$existingIndex]['nilai_hpp'] += $pnfData['nilai_hpp'];
                 $listToko[$pnfData['toko_id']]['type_barang'][$existingIndex]['laba'] += $laba;
             } else {
-                // Nakar navu element add karo
                 $listToko[$pnfData['toko_id']]['type_barang'][] = [
                     'id_jenis_barang' => 0,
                     'nama' => 'Dompet Digital',
@@ -266,16 +274,25 @@ class LaporanPenjualanService
                 ];
             }
 
-            $nonMember['jumlah'] += $pnfData['jml_trx'];
-            $nonMember['nilai'] += $pnfData['nilai_trx'];
-            $nonMember['hpp'] += $pnfData['nilai_hpp'];
-            $nonMember['laba'] += $pnfData['laba'];
+            $totalTrxSistem   += $pnfData['jml_trx'];
+            $totalOmzetSistem += $pnfData['nilai_trx'];
+            $totalHppSistem   += $pnfData['nilai_hpp'];
 
             $total['jml_trx'] += $pnfData['jml_trx'];
             $total['nilai_trx'] += $pnfData['nilai_trx'];
             $total['nilai_hpp'] += $pnfData['nilai_hpp'];
         }
 
+        // --- 9. HITUNG TRANSAKSI NON-MEMBER (TOTAL - MEMBER) ---
+        $nonMember = [
+            'jumlah' => max(0, $totalTrxSistem - $member['jumlah']),
+            'nilai'  => max(0, $totalOmzetSistem - $member['nilai']),
+            'hpp'    => max(0, $totalHppSistem - $member['hpp']),
+            'laba'   => max(0, ($totalOmzetSistem - $member['nilai']) - ($totalHppSistem - $member['hpp'])),
+        ];
+
+        // Final HPP Koreksi Adjustment
+        $total['nilai_hpp'] += $hppKoreksi;
         $total['biaya_retur'] = 0;
         $total['sub_laba'] = $total['nilai_trx'] - $total['nilai_hpp'];
 

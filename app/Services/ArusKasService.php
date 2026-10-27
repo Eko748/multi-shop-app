@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\DompetSaldo;
 use App\Models\Kas;
 use App\Models\KasSaldoHistory;
 use App\Models\KasTransaksi;
@@ -69,7 +70,7 @@ class ArusKasService
         }
 
         // --------------------------------------------------------------------------
-        // 2. BASE QUERY & PEMISAHAN QUERY
+        // 2. BASE QUERY & PEMISAHAN QUERY (PENTING AGAR SALDO HEADER CONSISTENT)
         // --------------------------------------------------------------------------
         $baseQuery = KasTransaksi::with(['kas.toko'])
             ->whereBetween('tanggal', [$startDate, $endDate])
@@ -91,10 +92,10 @@ class ArusKasService
             }
         }
 
-        // KELONING 1: Untuk Ringkasan Header Saldo (MURNI TANPA FILTER SEARCH)
+        // KELONING 1: Ringkasan Header Saldo (MURNI TANPA SEARCH)
         $summaryQuery = clone $baseQuery;
 
-        // KELONING 2: Untuk List Data Tabel (MEMAKAI FILTER SEARCH)
+        // KELONING 2: List Data Tabel (MEMAKAI SEARCH)
         $query = clone $baseQuery;
 
         // FILTER SEARCH (Hanya diaplikasikan ke list tabel bawah)
@@ -140,7 +141,25 @@ class ArusKasService
         });
 
         // ============================
-        // PENGURANG KAS KECIL IN (SAMA PERSIS DENGAN LABA RUGI)
+        // 1. PENDAPATAN NON TRANSAKSI (DOMPET SALDO)
+        // ============================
+        $pendapatanNonTransaksiQuery = DompetSaldo::query()
+            ->whereColumn('harga_beli', '<', 'saldo');
+
+        if (! empty($tokoIds)) {
+            $pendapatanNonTransaksiQuery->whereIn('toko_id', $tokoIds);
+        }
+
+        if ($hasDateFilter) {
+            $pendapatanNonTransaksiQuery->whereBetween('created_at', [$startDate, $endDate]);
+        } else {
+            $pendapatanNonTransaksiQuery->whereYear('created_at', $year)->whereMonth('created_at', $month);
+        }
+
+        $pendapatanNonTransaksi = (float) ($pendapatanNonTransaksiQuery->selectRaw('SUM(saldo - harga_beli) as total')->value('total') ?? 0);
+
+        // ============================
+        // 2. KOMPONEN PENGURANG KAS KECIL IN (SAMA PERSIS DENGAN LABA RUGI)
         // ============================
 
         // 1. Pengeluaran Tipe 15
@@ -183,11 +202,11 @@ class ArusKasService
         }
         $pembatalanTrxBulanLalu = (float) $pembatalanTrxBulanLaluQuery->sum('total_nominal');
 
-        // Total seluruh pengurang omzet/pendapatan
+        // Total Seluruh Pengurang
         $totalPengurangKasKecilIn = $pengeluaranTipe15 + $nilaiReturMember + $pembatalanTrx + $pembatalanTrxBulanLalu;
 
-        // Kurangkan ke Kas Kecil In
-        $totals['kas_kecil_in'] = max(0, $totals['kas_kecil_in'] - $totalPengurangKasKecilIn);
+        // KALKULASI AKHIR KAS KECIL IN: (Raw In + Pendapatan Non Trx) - Pengurang
+        $totals['kas_kecil_in'] = max(0, $totals['kas_kecil_in'] + $pendapatanNonTransaksi - $totalPengurangKasKecilIn);
 
         // --------------------------------------------------------------------------
         // 4. FETCH DATA LIST TABEL & PAGINATION (MEMAKAI $query)

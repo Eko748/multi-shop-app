@@ -69,8 +69,17 @@ class ArusKasService
             $tokoIds = array_filter($selected, fn ($val) => ! empty($val) && strtolower((string) $val) !== 'all');
         }
 
+        // Helper filter toko konsisten seperti LabaRugiService
+        $filterToko = function ($query) use ($tokoIds) {
+            if (! empty($tokoIds)) {
+                $query->whereHas('kas', function ($q) use ($tokoIds) {
+                    $q->whereIn('toko_id', $tokoIds);
+                });
+            }
+        };
+
         // --------------------------------------------------------------------------
-        // 2. BASE QUERY & PEMISAHAN QUERY (PENTING AGAR SALDO HEADER CONSISTENT)
+        // 2. BASE QUERY & PEMISAHAN QUERY
         // --------------------------------------------------------------------------
         $baseQuery = KasTransaksi::with(['kas.toko'])
             ->whereBetween('tanggal', [$startDate, $endDate])
@@ -141,72 +150,61 @@ class ArusKasService
         });
 
         // ============================
-        // 1. PENDAPATAN NON TRANSAKSI (DOMPET SALDO)
-        // ============================
-        $pendapatanNonTransaksiQuery = DompetSaldo::query()
-            ->whereColumn('harga_beli', '<', 'saldo');
-
-        if (! empty($tokoIds)) {
-            $pendapatanNonTransaksiQuery->whereIn('toko_id', $tokoIds);
-        }
-
-        if ($hasDateFilter) {
-            $pendapatanNonTransaksiQuery->whereBetween('created_at', [$startDate, $endDate]);
-        } else {
-            $pendapatanNonTransaksiQuery->whereYear('created_at', $year)->whereMonth('created_at', $month);
-        }
-
-        $pendapatanNonTransaksi = (float) ($pendapatanNonTransaksiQuery->selectRaw('SUM(saldo - harga_beli) as total')->value('total') ?? 0);
-
-        // ============================
-        // 2. KOMPONEN PENGURANG KAS KECIL IN (SAMA PERSIS DENGAN LABA RUGI)
+        // PENGURANG & PENAMBAH KAS KECIL IN (SAMA PERSIS DENGAN LABA RUGI)
         // ============================
 
-        // 1. Pengeluaran Tipe 15
+        // 1. Retur Member (tipe = out, sumber_type = ReturMember)
+        $nilaiReturMemberQuery = KasTransaksi::where('tipe', 'out')
+            ->where('sumber_type', ReturMember::class)
+            ->whereBetween('tanggal', [$startDate, $endDate])
+            ->where($filterToko);
+        $nilaiReturMember = (float) $nilaiReturMemberQuery->sum('total_nominal');
+
+        // 2. Pembatalan Transaksi Bulan Ini
+        $pembatalanTrxQuery = KasTransaksi::where('tipe', 'out')
+            ->where('kategori', 'Pembatalan Transaksi')
+            ->whereBetween('tanggal', [$startDate, $endDate])
+            ->where($filterToko);
+        $pembatalanTrx = (float) $pembatalanTrxQuery->sum('total_nominal');
+
+        // 3. Pembatalan Transaksi Bulan Lalu
+        $pembatalanTrxBulanLaluQuery = KasTransaksi::where('tipe', 'out')
+            ->where('kategori', 'Pembatalan Transaksi Bulan Lalu')
+            ->whereBetween('tanggal', [$startDate, $endDate])
+            ->where($filterToko);
+        $pembatalanTrxBulanLalu = (float) $pembatalanTrxBulanLaluQuery->sum('total_nominal');
+
+        // 4. Pengeluaran Tipe ID 15
         $pengeluaranTipe15Query = KasTransaksi::where('tipe', 'out')
             ->where('sumber_type', Pengeluaran::class)
             ->whereBetween('tanggal', [$startDate, $endDate])
+            ->where($filterToko)
             ->whereHasMorph('sumber', [Pengeluaran::class], function ($q) {
                 $q->where('pengeluaran_tipe_id', 15)
                     ->whereNull('deleted_at');
             });
-        if (! empty($tokoIds)) {
-            $pengeluaranTipe15Query->whereHas('kas', fn ($q) => $q->whereIn('toko_id', $tokoIds));
-        }
         $pengeluaranTipe15 = (float) $pengeluaranTipe15Query->sum('total_nominal');
 
-        // 2. Retur Member
-        $returMemberQuery = KasTransaksi::where('tipe', 'out')
-            ->where('sumber_type', ReturMember::class)
-            ->whereBetween('tanggal', [$startDate, $endDate]);
+        // 5. Pendapatan Non Transaksi (Dompet Saldo)
+        $pendapatanNonTransaksiQuery = DompetSaldo::query()
+            ->whereColumn('harga_beli', '<', 'saldo');
         if (! empty($tokoIds)) {
-            $returMemberQuery->whereHas('kas', fn ($q) => $q->whereIn('toko_id', $tokoIds));
+            $pendapatanNonTransaksiQuery->whereIn('toko_id', $tokoIds);
         }
-        $nilaiReturMember = (float) $returMemberQuery->sum('total_nominal');
+        $pendapatanNonTransaksiQuery->whereBetween('created_at', [$startDate, $endDate]);
+        $pendapatanNonTransaksi = (float) ($pendapatanNonTransaksiQuery->selectRaw('SUM(saldo - harga_beli) as total')->value('total') ?? 0);
 
-        // 3. Pembatalan Transaksi Bulan Ini
-        $pembatalanTrxQuery = KasTransaksi::where('tipe', 'out')
-            ->where('kategori', 'Pembatalan Transaksi')
-            ->whereBetween('tanggal', [$startDate, $endDate]);
-        if (! empty($tokoIds)) {
-            $pembatalanTrxQuery->whereHas('kas', fn ($q) => $q->whereIn('toko_id', $tokoIds));
-        }
-        $pembatalanTrx = (float) $pembatalanTrxQuery->sum('total_nominal');
-
-        // 4. Pembatalan Transaksi Bulan Lalu
-        $pembatalanTrxBulanLaluQuery = KasTransaksi::where('tipe', 'out')
-            ->where('kategori', 'Pembatalan Transaksi Bulan Lalu')
-            ->whereBetween('tanggal', [$startDate, $endDate]);
-        if (! empty($tokoIds)) {
-            $pembatalanTrxBulanLaluQuery->whereHas('kas', fn ($q) => $q->whereIn('toko_id', $tokoIds));
-        }
-        $pembatalanTrxBulanLalu = (float) $pembatalanTrxBulanLaluQuery->sum('total_nominal');
-
-        // Total Seluruh Pengurang
-        $totalPengurangKasKecilIn = $pengeluaranTipe15 + $nilaiReturMember + $pembatalanTrx + $pembatalanTrxBulanLalu;
-
-        // KALKULASI AKHIR KAS KECIL IN: (Raw In + Pendapatan Non Trx) - Pengurang
-        $totals['kas_kecil_in'] = max(0, $totals['kas_kecil_in'] + $pendapatanNonTransaksi - $totalPengurangKasKecilIn);
+        // Formulasi Akhir Kas Kecil In:
+        // Penjualan Raw + Pendapatan Non Trx - Retur Member - Pembatalan - Pembatalan Bulan Lalu - Pengeluaran Tipe 15
+        $totals['kas_kecil_in'] = max(
+            0,
+            $totals['kas_kecil_in']
+            + $pendapatanNonTransaksi
+            - $nilaiReturMember
+            - $pembatalanTrx
+            - $pembatalanTrxBulanLalu
+            - $pengeluaranTipe15
+        );
 
         // --------------------------------------------------------------------------
         // 4. FETCH DATA LIST TABEL & PAGINATION (MEMAKAI $query)

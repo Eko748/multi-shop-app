@@ -57,27 +57,23 @@ class ArusKasService
         }
 
         // --------------------------------------------------------------------------
-        // FILTER TOKO
+        // FILTER TOKO (DISESUAIKAN DENGAN SKEMA LABA RUGI)
         // --------------------------------------------------------------------------
-        $tokoIds = [];
-
-        if ($request->filled('toko_selected')) {
-            $selected = $request->toko_selected;
-            $selected = is_array($selected) ? $selected : [$selected];
-            $tokoIds = array_filter($selected, fn ($val) => ! empty($val) && strtolower((string) $val) !== 'all');
-        } elseif ($request->filled('toko_id')) {
-            $selected = $request->toko_id;
-            $selected = is_array($selected) ? $selected : [$selected];
-            $tokoIds = array_filter($selected, fn ($val) => ! empty($val) && strtolower((string) $val) !== 'all');
+        $tokoSelected = $request->toko_selected ?? $request->toko_id;
+        if (is_array($tokoSelected)) {
+            $tokoSelected = array_filter($tokoSelected, fn ($val) => ! empty($val) && strtolower((string) $val) !== 'all');
+            $tokoIdParam = ! empty($tokoSelected) ? reset($tokoSelected) : 'all';
+        } else {
+            $tokoIdParam = (! empty($tokoSelected) && strtolower((string) $tokoSelected) !== 'all') ? $tokoSelected : 'all';
         }
 
-        // Scope Filter Toko persis seperti di hitungDetailLabaRugi
-        $filterToko = function ($query) use ($tokoIds) {
-            if (! empty($tokoIds)) {
-                $query->whereHas('kas', function ($q) use ($tokoIds) {
-                    $q->whereIn('toko_id', $tokoIds);
-                });
-            }
+        // Filter Toko persis seperti hitungDetailLabaRugi
+        $filterToko = function ($query) use ($tokoIdParam) {
+            $query->whereHas('kas', function ($q) use ($tokoIdParam) {
+                if ($tokoIdParam !== 'all' && $tokoIdParam !== null && $tokoIdParam != 0) {
+                    $q->where('toko_id', $tokoIdParam);
+                }
+            });
         };
 
         // --------------------------------------------------------------------------
@@ -87,10 +83,8 @@ class ArusKasService
             ->whereBetween('tanggal', [$startDate, $endDate])
             ->where('total_nominal', '>', 0);
 
-        if (! empty($tokoIds)) {
-            $baseQuery->whereHas('kas', function ($q) use ($tokoIds) {
-                $q->whereIn('toko_id', $tokoIds);
-            });
+        if ($tokoIdParam !== 'all' && $tokoIdParam !== null && $tokoIdParam != 0) {
+            $baseQuery->whereHas('kas', fn ($q) => $q->where('toko_id', $tokoIdParam));
         }
 
         // FILTER KATEGORI
@@ -103,13 +97,12 @@ class ArusKasService
             }
         }
 
-        // KELONING 1: Untuk Ringkasan Header Saldo (MURNI TANPA FILTER SEARCH)
+        // KELONING 1: Ringkasan Header Saldo (MURNI TANPA SEARCH)
         $summaryQuery = clone $baseQuery;
 
-        // KELONING 2: Untuk List Data Tabel (MEMAKAI FILTER SEARCH)
+        // KELONING 2: List Data Tabel (MEMAKAI SEARCH)
         $query = clone $baseQuery;
 
-        // FILTER SEARCH (Hanya diaplikasikan ke list tabel bawah)
         if ($request->filled('search') && trim($request->search) !== '') {
             $searchTerm = trim(strtolower($request->search));
 
@@ -124,7 +117,7 @@ class ArusKasService
         }
 
         // --------------------------------------------------------------------------
-        // 3. HITUNG TOTAL SALDO HEADER (MEMAKAI FORMULASI PRESISI LABA RUGI)
+        // 3. HITUNG TOTAL SALDO HEADER (FORMULASI SAMA PERSIS DENGAN LABA RUGI)
         // --------------------------------------------------------------------------
         $totals = [
             'kas_kecil_in' => 0, 'kas_kecil_out' => 0,
@@ -133,10 +126,6 @@ class ArusKasService
             'hutang_in' => 0, 'hutang_out' => 0,
         ];
 
-        // ------------------------------------------------------------------
-        // AKUMULASI PENDAPATAN UMUM PERSIS SEPERTI hitungDetailLabaRugi
-        // ------------------------------------------------------------------
-
         // 1. Penjualan Umum Raw (Murni TransaksiKasirHarian)
         $penjualanUmumRaw = (float) KasTransaksi::where('tipe', 'in')
             ->where('sumber_type', TransaksiKasirHarian::class)
@@ -144,7 +133,7 @@ class ArusKasService
             ->where($filterToko)
             ->sum('total_nominal');
 
-        // 2. Pemasukan Lainnya
+        // 2. Pemasukan Lainnya (Sama seperti hitungDetailLabaRugi)
         $lainnya = (float) KasTransaksi::where('tipe', 'in')
             ->where('sumber_type', Pemasukan::class)
             ->whereBetween('tanggal', [$startDate, $endDate])
@@ -187,26 +176,15 @@ class ArusKasService
             })
             ->sum('total_nominal');
 
-        // 7. Pendapatan Non Transaksi (Dompet Saldo)
-        $pendapatanNonTransaksiQuery = DompetSaldo::query()
-            ->whereColumn('harga_beli', '<', 'saldo');
-
-        if (! empty($tokoIds)) {
-            $pendapatanNonTransaksiQuery->whereIn('toko_id', $tokoIds);
-        }
-        $pendapatanNonTransaksiQuery->whereBetween('created_at', [$startDate, $endDate]);
-
-        $pendapatanNonTransaksi = (float) ($pendapatanNonTransaksiQuery->selectRaw('SUM(saldo - harga_beli) as total')->value('total') ?? 0);
-
-        // --- FORMULASI FINAL KAS KECIL IN ---
+        // FORMULA KAS KECIL IN PERSIS SEPERTI TOTAL PENDAPATAN LABA RUGI
         $penjualanUmum = $penjualanUmumRaw - $nilaiReturMember - $pembatalanTrx - $pengeluaranTipe15;
-        $pendapatanLainnya = $lainnya + $pendapatanNonTransaksi;
-        $totalPendapatanLabaRugi = $penjualanUmum + $pendapatanLainnya - $pembatalanTrxBulanLalu;
+        $pendapatanLainnya = $lainnya; // DompetSaldo bernilai 0
+        $totalPendapatan = $penjualanUmum + $pendapatanLainnya - $pembatalanTrxBulanLalu;
 
-        // Assign nilai kas kecil in langsung menggunakan totalPendapatan Laba Rugi
-        $totals['kas_kecil_in'] = max(0, $totalPendapatanLabaRugi);
+        // Set kas_kecil_in langsung dari totalPendapatan
+        $totals['kas_kecil_in'] = (float) $totalPendapatan;
 
-        // Akumulasi totals lainnya (kas_kecil_out, kas_besar, piutang, hutang) dari $summaryQuery
+        // Accumulate totals selain kas_kecil_in dari summaryQuery
         $summaryQuery->get()->each(function ($item) use (&$totals) {
             $nilai = (float) $item->total_nominal;
             $tipe = strtolower(trim($item->tipe));
@@ -214,7 +192,6 @@ class ArusKasService
 
             if (in_array($tipeKas, ['kecil', 'besar'])) {
                 $key = "kas_{$tipeKas}_{$tipe}";
-                // KECUALIKAN kas_kecil_in karena sudah dihitung presisi di atas
                 if (array_key_exists($key, $totals) && $key !== 'kas_kecil_in') {
                     $totals[$key] += $nilai;
                 }
@@ -227,7 +204,7 @@ class ArusKasService
         });
 
         // --------------------------------------------------------------------------
-        // 4. FETCH DATA LIST TABEL & PAGINATION (MEMAKAI $query)
+        // 4. FETCH DATA LIST TABEL & PAGINATION
         // --------------------------------------------------------------------------
         $totalRows = (clone $query)->count();
 
@@ -288,8 +265,8 @@ class ArusKasService
         // --------------------------------------------------------------------------
         // 5. KALKULASI SALDO AWAL & RESPONSE
         // --------------------------------------------------------------------------
-        $kasList = ! empty($tokoIds)
-            ? Kas::whereIn('toko_id', $tokoIds)->get()
+        $kasList = ($tokoIdParam !== 'all' && $tokoIdParam !== null && $tokoIdParam != 0)
+            ? Kas::where('toko_id', $tokoIdParam)->get()
             : Kas::whereHas('toko', function ($q) {
                 $q->whereNull('deleted_at');
             })->get();
@@ -318,7 +295,7 @@ class ArusKasService
                 'kas_besar_in' => $this->formatAngka($totals['kas_besar_in']),
                 'kas_besar_out' => $this->formatAngka($totals['kas_besar_out']),
                 'saldo_berjalan' => $this->formatAngka($totals['kas_besar_in'] - $totals['kas_besar_out']),
-                'saldo_akhir' => $this->formatAngka($besar_awal + ($totals['kas_besar_in'] - $totals['kas_besar_out'])),
+                'saldo_akhir' => $this->formatAngka($totals['kas_besar_in'] - $totals['kas_besar_out']),
             ],
             'piutang' => [
                 'saldo_awal' => $this->formatAngka(0),

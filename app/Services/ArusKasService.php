@@ -71,7 +71,7 @@ class ArusKasService
             $tokoIds = array_filter($selected, fn ($val) => ! empty($val) && strtolower((string) $val) !== 'all');
         }
 
-        // Helper filter toko konsisten seperti LabaRugiService
+        // Scope Filter Toko persis seperti di hitungDetailLabaRugi
         $filterToko = function ($query) use ($tokoIds) {
             if (! empty($tokoIds)) {
                 $query->whereHas('kas', function ($q) use ($tokoIds) {
@@ -103,10 +103,10 @@ class ArusKasService
             }
         }
 
-        // KELONING 1: Ringkasan Header Saldo (MURNI TANPA SEARCH)
+        // KELONING 1: Untuk Ringkasan Header Saldo (MURNI TANPA FILTER SEARCH)
         $summaryQuery = clone $baseQuery;
 
-        // KELONING 2: List Data Tabel (MEMAKAI SEARCH)
+        // KELONING 2: Untuk List Data Tabel (MEMAKAI FILTER SEARCH)
         $query = clone $baseQuery;
 
         // FILTER SEARCH (Hanya diaplikasikan ke list tabel bawah)
@@ -133,75 +133,80 @@ class ArusKasService
             'hutang_in' => 0, 'hutang_out' => 0,
         ];
 
+        // ------------------------------------------------------------------
+        // AKUMULASI PENDAPATAN UMUM PERSIS SEPERTI hitungDetailLabaRugi
+        // ------------------------------------------------------------------
+
         // 1. Penjualan Umum Raw (Murni TransaksiKasirHarian)
-        $penjualanUmumRawQuery = KasTransaksi::where('tipe', 'in')
+        $penjualanUmumRaw = (float) KasTransaksi::where('tipe', 'in')
             ->where('sumber_type', TransaksiKasirHarian::class)
             ->whereBetween('tanggal', [$startDate, $endDate])
-            ->where($filterToko);
-        $penjualanUmumRaw = (float) $penjualanUmumRawQuery->sum('total_nominal');
+            ->where($filterToko)
+            ->sum('total_nominal');
 
-        // 2. Pemasukan Lainnya (Sama persis seperti hitungDetailLabaRugi)
-        $lainnyaQuery = KasTransaksi::where('tipe', 'in')
+        // 2. Pemasukan Lainnya
+        $lainnya = (float) KasTransaksi::where('tipe', 'in')
             ->where('sumber_type', Pemasukan::class)
             ->whereBetween('tanggal', [$startDate, $endDate])
             ->where($filterToko)
             ->whereHasMorph('sumber', [Pemasukan::class], function ($q) {
                 $q->whereNotIn('pemasukan_tipe_id', [1, 2])
                     ->whereNull('deleted_at');
-            });
-        $lainnya = (float) $lainnyaQuery->sum('total_nominal');
+            })
+            ->sum('total_nominal');
 
         // 3. Retur Member
-        $nilaiReturMemberQuery = KasTransaksi::where('tipe', 'out')
+        $nilaiReturMember = (float) KasTransaksi::where('tipe', 'out')
             ->where('sumber_type', ReturMember::class)
             ->whereBetween('tanggal', [$startDate, $endDate])
-            ->where($filterToko);
-        $nilaiReturMember = (float) $nilaiReturMemberQuery->sum('total_nominal');
+            ->where($filterToko)
+            ->sum('total_nominal');
 
         // 4. Pembatalan Transaksi Bulan Ini
-        $pembatalanTrxQuery = KasTransaksi::where('tipe', 'out')
+        $pembatalanTrx = (float) KasTransaksi::where('tipe', 'out')
             ->where('kategori', 'Pembatalan Transaksi')
             ->whereBetween('tanggal', [$startDate, $endDate])
-            ->where($filterToko);
-        $pembatalanTrx = (float) $pembatalanTrxQuery->sum('total_nominal');
+            ->where($filterToko)
+            ->sum('total_nominal');
 
         // 5. Pembatalan Transaksi Bulan Lalu
-        $pembatalanTrxBulanLaluQuery = KasTransaksi::where('tipe', 'out')
+        $pembatalanTrxBulanLalu = (float) KasTransaksi::where('tipe', 'out')
             ->where('kategori', 'Pembatalan Transaksi Bulan Lalu')
             ->whereBetween('tanggal', [$startDate, $endDate])
-            ->where($filterToko);
-        $pembatalanTrxBulanLalu = (float) $pembatalanTrxBulanLaluQuery->sum('total_nominal');
+            ->where($filterToko)
+            ->sum('total_nominal');
 
         // 6. Pengeluaran Tipe ID 15
-        $pengeluaranTipe15Query = KasTransaksi::where('tipe', 'out')
+        $pengeluaranTipe15 = (float) KasTransaksi::where('tipe', 'out')
             ->where('sumber_type', Pengeluaran::class)
             ->whereBetween('tanggal', [$startDate, $endDate])
             ->where($filterToko)
             ->whereHasMorph('sumber', [Pengeluaran::class], function ($q) {
                 $q->where('pengeluaran_tipe_id', 15)
                     ->whereNull('deleted_at');
-            });
-        $pengeluaranTipe15 = (float) $pengeluaranTipe15Query->sum('total_nominal');
+            })
+            ->sum('total_nominal');
 
         // 7. Pendapatan Non Transaksi (Dompet Saldo)
-        $pendapatanNonTransaksiQuery = DompetSaldo::where($filterToko)
+        $pendapatanNonTransaksiQuery = DompetSaldo::query()
             ->whereColumn('harga_beli', '<', 'saldo');
-        if ($hasDateFilter) {
-            $pendapatanNonTransaksiQuery->whereBetween('created_at', [$startDate, $endDate]);
-        } else {
-            $pendapatanNonTransaksiQuery->whereYear('created_at', $year)->whereMonth('created_at', $month);
+
+        if (! empty($tokoIds)) {
+            $pendapatanNonTransaksiQuery->whereIn('toko_id', $tokoIds);
         }
+        $pendapatanNonTransaksiQuery->whereBetween('created_at', [$startDate, $endDate]);
+
         $pendapatanNonTransaksi = (float) ($pendapatanNonTransaksiQuery->selectRaw('SUM(saldo - harga_beli) as total')->value('total') ?? 0);
 
-        // --- RUMUS IDENTIK DENGAN LABA RUGI ---
+        // --- FORMULASI FINAL KAS KECIL IN ---
         $penjualanUmum = $penjualanUmumRaw - $nilaiReturMember - $pembatalanTrx - $pengeluaranTipe15;
         $pendapatanLainnya = $lainnya + $pendapatanNonTransaksi;
-        $totalPendapatan = $penjualanUmum + $pendapatanLainnya - $pembatalanTrxBulanLalu;
+        $totalPendapatanLabaRugi = $penjualanUmum + $pendapatanLainnya - $pembatalanTrxBulanLalu;
 
-        // Assign nilai kas kecil in persis sesuai totalPendapatan Laba Rugi
-        $totals['kas_kecil_in'] = max(0, $totalPendapatan);
+        // Assign nilai kas kecil in langsung menggunakan totalPendapatan Laba Rugi
+        $totals['kas_kecil_in'] = max(0, $totalPendapatanLabaRugi);
 
-        // Rekap totals selain kas_kecil_in
+        // Akumulasi totals lainnya (kas_kecil_out, kas_besar, piutang, hutang) dari $summaryQuery
         $summaryQuery->get()->each(function ($item) use (&$totals) {
             $nilai = (float) $item->total_nominal;
             $tipe = strtolower(trim($item->tipe));
@@ -209,6 +214,7 @@ class ArusKasService
 
             if (in_array($tipeKas, ['kecil', 'besar'])) {
                 $key = "kas_{$tipeKas}_{$tipe}";
+                // KECUALIKAN kas_kecil_in karena sudah dihitung presisi di atas
                 if (array_key_exists($key, $totals) && $key !== 'kas_kecil_in') {
                     $totals[$key] += $nilai;
                 }
@@ -219,6 +225,7 @@ class ArusKasService
                 }
             }
         });
+
         // --------------------------------------------------------------------------
         // 4. FETCH DATA LIST TABEL & PAGINATION (MEMAKAI $query)
         // --------------------------------------------------------------------------

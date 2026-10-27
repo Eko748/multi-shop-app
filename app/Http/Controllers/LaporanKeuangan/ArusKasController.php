@@ -88,7 +88,7 @@ class ArusKasController extends Controller
                 ->select('kategori')
                 ->whereNotNull('kategori')
                 ->where('kategori', '!=', '')
-                ->where('kategori', '!=', 'HPP Pembatalan Transaksi')
+                ->where('kategori', 'NOT LIKE', '%HPP%')
                 ->distinct();
 
             if ($request->filled('toko_id') && $request->toko_id !== 'all') {

@@ -29,34 +29,20 @@ class ArusKasController extends Controller
 
         return view('laporankeuangan.aruskas.index', compact('menu'));
     }
-
+    
     public function getArusKas(Request $request)
     {
         try {
-            $serviceResult = $this->arusKasService->getArusKasData($request);
-
-            // Jika Service mengembalikan JsonResponse, ubah ke Array
-            $result = ($serviceResult instanceof \Illuminate\Http\JsonResponse)
-                ? $serviceResult->getData(true)
-                : $serviceResult;
+            $result = $this->arusKasService->getArusKasData($request);
 
             $data = $result['data'] ?? [];
             $dataTotal = $result['data_total'] ?? null;
             $hasMorePages = $result['has_more_pages'] ?? false;
             $totalRows = $result['total_rows'] ?? 0;
 
-            // 🔥 Jika data kosong
-            if (empty($data)) {
-                return response()->json([
-                    'data' => [],
-                    'data_total' => $dataTotal,
-                    'has_more_pages' => false,
-                    'total_rows' => 0,
-                    'status_code' => 200,
-                    'errors' => false,
-                    'message' => 'Data Bulan ini Belum ada',
-                ], 200);
-            }
+            $message = empty($data)
+                ? ($request->filled('search') ? 'Data tidak ditemukan' : 'Data Bulan ini Belum ada')
+                : 'Berhasil';
 
             return response()->json([
                 'data' => $data,
@@ -65,7 +51,7 @@ class ArusKasController extends Controller
                 'total_rows' => $totalRows,
                 'status_code' => 200,
                 'errors' => false,
-                'message' => 'Berhasil',
+                'message' => $message,
             ], 200);
         } catch (\Throwable $th) {
             return response()->json([
@@ -76,6 +62,53 @@ class ArusKasController extends Controller
             ], 500);
         }
     }
+
+    // public function getArusKas(Request $request)
+    // {
+    //     try {
+    //         $serviceResult = $this->arusKasService->getArusKasData($request);
+
+    //         // Jika Service mengembalikan JsonResponse, ubah ke Array
+    //         $result = ($serviceResult instanceof \Illuminate\Http\JsonResponse)
+    //             ? $serviceResult->getData(true)
+    //             : $serviceResult;
+
+    //         $data = $result['data'] ?? [];
+    //         $dataTotal = $result['data_total'] ?? null;
+    //         $hasMorePages = $result['has_more_pages'] ?? false;
+    //         $totalRows = $result['total_rows'] ?? 0;
+
+    //         // 🔥 Jika data kosong
+    //         if (empty($data)) {
+    //             return response()->json([
+    //                 'data' => [],
+    //                 'data_total' => $dataTotal,
+    //                 'has_more_pages' => false,
+    //                 'total_rows' => 0,
+    //                 'status_code' => 200,
+    //                 'errors' => false,
+    //                 'message' => 'Data Bulan ini Belum ada',
+    //             ], 200);
+    //         }
+
+    //         return response()->json([
+    //             'data' => $data,
+    //             'data_total' => $dataTotal,
+    //             'has_more_pages' => $hasMorePages,
+    //             'total_rows' => $totalRows,
+    //             'status_code' => 200,
+    //             'errors' => false,
+    //             'message' => 'Berhasil',
+    //         ], 200);
+    //     } catch (\Throwable $th) {
+    //         return response()->json([
+    //             'status' => 'error',
+    //             'message' => 'Data Gagal Dimuat',
+    //             'message_back' => $th->getMessage(),
+    //             'status_code' => 500,
+    //         ], 500);
+    //     }
+    // }
 
     public function getKategori(Request $request)
     {

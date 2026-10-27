@@ -69,12 +69,12 @@ class ArusKasService
         // --------------------------------------------------------------------------
         // 2. BASE QUERY & FILTERING (HPP BENAR-BENAR DI-EXCLUDE)
         // --------------------------------------------------------------------------
-        $query = KasTransaksi::with(['kas.toko'])
+        $baseQuery = KasTransaksi::with(['kas.toko'])
             ->whereBetween('tanggal', [$startDate, $endDate])
             ->where('total_nominal', '>', 0);
 
         if (! empty($tokoIds)) {
-            $query->whereHas('kas', function ($q) use ($tokoIds) {
+            $baseQuery->whereHas('kas', function ($q) use ($tokoIds) {
                 $q->whereIn('toko_id', $tokoIds);
             });
         }
@@ -85,11 +85,17 @@ class ArusKasService
             $kategori = array_filter($kategori, fn ($v) => ! is_null($v) && $v !== '' && strpos($v, 'HPP') === false);
 
             if (! empty($kategori)) {
-                $query->whereIn('kategori', $kategori);
+                $baseQuery->whereIn('kategori', $kategori);
             }
         }
 
-        // FILTER SEARCH
+        // Query khusus untuk Ringkasan Total (Tanpa Filter Search)
+        $summaryQuery = clone $baseQuery;
+
+        // Query utama untuk Baris Data (Menggunakan Filter Search)
+        $query = clone $baseQuery;
+
+        // FILTER SEARCH (Hanya diterapkan pada list baris data)
         if ($request->filled('search') && trim($request->search) !== '') {
             $searchTerm = trim(strtolower($request->search));
 
@@ -104,7 +110,7 @@ class ArusKasService
         }
 
         // --------------------------------------------------------------------------
-        // 3. HITUNG TOTAL KESELURUHAN DATA RINGKASAN
+        // 3. HITUNG TOTAL KESELURUHAN DATA RINGKASAN (Gunakan $summaryQuery)
         // --------------------------------------------------------------------------
         $totals = [
             'kas_kecil_in' => 0, 'kas_kecil_out' => 0,
@@ -112,6 +118,25 @@ class ArusKasService
             'piutang_in' => 0, 'piutang_out' => 0,
             'hutang_in' => 0, 'hutang_out' => 0,
         ];
+
+        // Gunakan $summaryQuery agar total saldo tidak ikut terpotong saat search
+        $summaryQuery->get()->each(function ($item) use (&$totals) {
+            $nilai = (float) $item->total_nominal;
+            $tipe = strtolower(trim($item->tipe));
+            $tipeKas = $item->kas?->tipe_kas ?? 'kecil';
+
+            if (in_array($tipeKas, ['kecil', 'besar'])) {
+                $key = "kas_{$tipeKas}_{$tipe}";
+                if (array_key_exists($key, $totals)) {
+                    $totals[$key] += $nilai;
+                }
+            } else {
+                $key = "{$tipeKas}_{$tipe}";
+                if (array_key_exists($key, $totals)) {
+                    $totals[$key] += $nilai;
+                }
+            }
+        });
 
         (clone $query)->get()->each(function ($item) use (&$totals) {
             $nilai = (float) $item->total_nominal;

@@ -81,7 +81,8 @@ class ArusKasService
         // --------------------------------------------------------------------------
         $baseQuery = KasTransaksi::with(['kas.toko'])
             ->whereBetween('tanggal', [$startDate, $endDate])
-            ->where('total_nominal', '>', 0);
+            ->where('total_nominal', '>', 0)
+            ->where('kategori', 'NOT LIKE', '%HPP%'); // Exclude semua transaksi kategori HPP
 
         if ($tokoIdParam !== 'all' && $tokoIdParam !== null && $tokoIdParam != 0) {
             $baseQuery->whereHas('kas', fn ($q) => $q->where('toko_id', $tokoIdParam));
@@ -91,7 +92,6 @@ class ArusKasService
         if ($request->filled('kategori')) {
             $kategori = is_array($request->kategori) ? $request->kategori : [$request->kategori];
             $kategori = array_filter($kategori, fn ($v) => ! is_null($v) && $v !== '' && strpos($v, 'HPP') === false);
-
             if (! empty($kategori)) {
                 $baseQuery->whereIn('kategori', $kategori);
             }

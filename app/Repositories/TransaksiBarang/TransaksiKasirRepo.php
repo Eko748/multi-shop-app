@@ -20,25 +20,26 @@ class TransaksiKasirRepo
 
     private function applyFilter($query, $filter)
     {
-        // Pastikan data yang sudah dihapus (soft delete) tidak ikut terambil
+        // Pastikan data soft delete tidak terambil
         if (in_array(\Illuminate\Database\Eloquent\SoftDeletes::class, class_uses_recursive($this->model))) {
             $query->whereNull('deleted_at');
         }
 
-        // Filter Search (Nota, Member Name, & Nama Barang)
+        // Filter Search (Nota, Member, & Nama Barang)
         if (! empty($filter->search)) {
             $rawSearch = $filter->search;
 
+            // Split kata kunci berdasarkan slash (/), koma (,), atau spasi berlebih
             $keywords = array_filter(array_map('trim', preg_split('/[\/,]/', $rawSearch)));
 
             $query->where(function ($q) use ($rawSearch, $keywords) {
-                // 1. Search Nota (menggunakan string asli)
+                // 1. Search Nota
                 $q->where('nota', 'like', '%'.$rawSearch.'%')
-                    // 2. Search Nama Member (menggunakan string asli)
+                    // 2. Search Nama Member
                     ->orWhereHas('member', function ($qMember) use ($rawSearch) {
                         $qMember->where('nama', 'like', '%'.$rawSearch.'%');
                     })
-                    // 3. Search Nama Barang (looping setiap kata kunci hasil split)
+                    // 3. Search Nama Barang lewat relasi berantai
                     ->orWhereHas('details', function ($qDetail) use ($keywords) {
                         $qDetail->whereNull('deleted_at')
                             ->whereHas('stockBarangBatch.stockBarang.barang', function ($qBarang) use ($keywords) {
@@ -63,12 +64,14 @@ class TransaksiKasirRepo
         }
 
         // Filter Tanggal
+        // PENTING: Jika sedang melakukan pencarian (search), jangan batasi hanya tanggal hari ini saja!
         if (! empty($filter->start_date) && ! empty($filter->end_date)) {
             $query->whereBetween('tanggal', [
                 Carbon::parse($filter->start_date)->startOfDay(),
                 Carbon::parse($filter->end_date)->endOfDay(),
             ]);
-        } else {
+        } elseif (empty($filter->search)) {
+            // Hanya gunakan default Hari Ini JIKA pengguna TIDAK mengisi pencarian kata kunci
             $query->whereDate('tanggal', Carbon::today());
         }
 
@@ -82,7 +85,6 @@ class TransaksiKasirRepo
 
         $transactionIds = (clone $query)->pluck('id');
 
-        // Hitung total Qty (memperhatikan soft delete pada detail)
         $totalQty = DB::table('transaksi_kasir_detail')
             ->whereIn('transaksi_kasir_id', $transactionIds)
             ->whereNull('deleted_at')
@@ -103,12 +105,17 @@ class TransaksiKasirRepo
             $query->with('toko');
         }
 
-        // Eager load detail dan relasi pendukung lainnya
-        $query->with(['details' => function ($q) {
-            $q->whereNull('deleted_at');
-        }, 'member', 'createdBy']);
+        // Load detail BESERTA relasi berantai barang agar nama barang ikut terbawa di JSON/Service
+        $query->with([
+            'details' => function ($q) {
+                $q->whereNull('deleted_at');
+            },
+            'details.stockBarangBatch.stockBarang.barang',
+            'member',
+            'createdBy',
+        ]);
 
-        // Clone query terfilter untuk kalkulasi total keseluruhan
+        // Clone query terfilter untuk kalkulasi total
         $baseQueryForSum = (clone $query)->setEagerLoads([]);
         $transactionIds = (clone $baseQueryForSum)->pluck('id');
 

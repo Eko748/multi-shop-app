@@ -26,12 +26,12 @@ class LaporanPenjualanService
         $start = Carbon::parse($startDate)->startOfDay()->toDateTimeString();
         $end = Carbon::parse($endDate)->endOfDay()->toDateTimeString();
 
-        // 1. Query Utama dari KasTransaksi & TransaksiKasirHarian
+        // 1. Query Utama dari KasTransaksi & TransaksiKasirHarian (HANYA BARANG FISIK)
         $queryOmzet = KasTransaksi::select(
             'kas.toko_id',
             'toko.nama as nama_toko',
             'kas.jenis_barang_id as id_jenis_barang',
-            DB::raw("COALESCE(jenis_barang.nama_jenis_barang, 'Dompet Digital') as nama_jenis_barang"),
+            'jenis_barang.nama_jenis_barang',
             DB::raw('SUM(transaksi_kasir_harian.total_transaksi) as jml_trx'),
             DB::raw('SUM(transaksi_kasir_harian.total_qty) as item_qty'),
             DB::raw('SUM(kas_transaksi.total_nominal) as omzet_raw')
@@ -39,7 +39,7 @@ class LaporanPenjualanService
             ->join('kas', 'kas.id', '=', 'kas_transaksi.kas_id')
             ->join('toko', 'toko.id', '=', 'kas.toko_id')
             ->join('transaksi_kasir_harian', 'transaksi_kasir_harian.id', '=', 'kas_transaksi.sumber_id')
-            ->leftJoin('jenis_barang', 'jenis_barang.id', '=', 'kas.jenis_barang_id')
+            ->join('jenis_barang', 'jenis_barang.id', '=', 'kas.jenis_barang_id') // Gunakan JOIN agar kas tanpa jenis_barang (PNF/Dompet Digital) tidak terikut di sini
             ->whereBetween('kas_transaksi.tanggal', [$start, $end])
             ->where('kas_transaksi.tipe', 'in')
             ->where('kas_transaksi.sumber_type', TransaksiKasirHarian::class);
@@ -202,7 +202,7 @@ class LaporanPenjualanService
             $total['nilai_hpp'] += $hpp;
         }
 
-        // 8. Penjualan Non Fisik (Dompet Digital)
+        // 8. Penjualan Non Fisik (Dompet Digital) -> Diisi Murni dari Repository PNF
         $pnf = $this->repository->getPenjualanNonFisik($startDate, $endDate, $idToko);
         $pnfGrouped = [];
 
@@ -240,31 +240,16 @@ class LaporanPenjualanService
                 ];
             }
 
-            $existingIndex = null;
-            foreach ($listToko[$pnfData['toko_id']]['type_barang'] as $index => $tb) {
-                if ($tb['id_jenis_barang'] === 0 || $tb['nama'] === 'Dompet Digital') {
-                    $existingIndex = $index;
-                    break;
-                }
-            }
-
-            if ($existingIndex !== null) {
-                $listToko[$pnfData['toko_id']]['type_barang'][$existingIndex]['jml_trx'] += $pnfData['jml_trx'];
-                $listToko[$pnfData['toko_id']]['type_barang'][$existingIndex]['item_qty'] += $pnfData['item_qty'];
-                $listToko[$pnfData['toko_id']]['type_barang'][$existingIndex]['nilai_trx'] += $pnfData['nilai_trx'];
-                $listToko[$pnfData['toko_id']]['type_barang'][$existingIndex]['nilai_hpp'] += $pnfData['nilai_hpp'];
-                $listToko[$pnfData['toko_id']]['type_barang'][$existingIndex]['laba'] += $laba;
-            } else {
-                $listToko[$pnfData['toko_id']]['type_barang'][] = [
-                    'id_jenis_barang' => 0,
-                    'nama' => 'Dompet Digital',
-                    'jml_trx' => $pnfData['jml_trx'],
-                    'item_qty' => $pnfData['item_qty'],
-                    'nilai_trx' => $pnfData['nilai_trx'],
-                    'nilai_hpp' => $pnfData['nilai_hpp'],
-                    'laba' => $laba,
-                ];
-            }
+            // Langsung Push data Dompet Digital secara bersih tanpa penjumlahan berulang
+            $listToko[$pnfData['toko_id']]['type_barang'][] = [
+                'id_jenis_barang' => 0,
+                'nama' => 'Dompet Digital',
+                'jml_trx' => $pnfData['jml_trx'],
+                'item_qty' => $pnfData['item_qty'],
+                'nilai_trx' => $pnfData['nilai_trx'],
+                'nilai_hpp' => $pnfData['nilai_hpp'],
+                'laba' => $laba,
+            ];
 
             $totalTrxSistem   += $pnfData['jml_trx'];
             $totalOmzetSistem += $pnfData['nilai_trx'];
@@ -275,7 +260,7 @@ class LaporanPenjualanService
             $total['nilai_hpp'] += $pnfData['nilai_hpp'];
         }
 
-        // --- 9. PERHITUNGAN PROPORSIONAL HPP & LABA (FIX MEMBER & NON-MEMBER) ---
+        // --- 9. PERHITUNGAN PROPORSIONAL HPP & LABA (MEMBER & NON-MEMBER) ---
         $rasioMember = $totalOmzetSistem > 0 ? ($totalNilaiMember / $totalOmzetSistem) : 0;
         $totalHppMember = $totalHppSistem * $rasioMember;
 

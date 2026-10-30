@@ -39,41 +39,40 @@ class TransaksiKasirService
 
     public function getAll($filter)
     {
-        $result = $this->repository->getAll($filter);
-        $transactions = $result['transactions'];
+        $query = $this->model->query();
+        $this->applyFilter($query, $filter);
 
-        $data = collect(method_exists($transactions, 'items') ? $transactions->items() : $transactions)->map(function ($item) use ($filter) {
+        if ($filter->role_id == 1) {
+            $query->with('toko');
+        }
 
-            // Paksa hitung langsung dari database berdasarkan ID transaksinya untuk memastikan tidak meleset dari relasi Eloquent yang ter-cache
-            $totalQty = DB::table('transaksi_kasir_detail')
-                ->where('transaksi_kasir_id', $item->id)
-                ->whereNull('deleted_at')
-                ->sum('qty');
+        // Eager load detail dan relasi pendukung lainnya
+        $query->with(['details' => function ($q) {
+            $q->whereNull('deleted_at');
+        }, 'member', 'createdBy']);
 
-            $res = [
-                'id' => $item->public_id,
-                'nota' => $item->nota,
-                'member' => $item->member ? $item->member->nama : 'Guest',
-                'qty' => (int) $totalQty, // Menggunakan sum langsung per ID transaksi
-                'nominal' => RupiahGenerate::build($item->total_nominal),
-                'tanggal' => $item->tanggal->format('d-m-Y H:i:s'),
-                'created_at' => $item->created_at ?? null,
-                'created_by' => $item->createdBy->nama ?? 'System',
-            ];
+        // Clone query terfilter untuk kalkulasi total keseluruhan
+        $baseQueryForSum = (clone $query)->setEagerLoads([]);
+        $transactionIds = (clone $baseQueryForSum)->pluck('id');
 
-            if ($filter->role_id == 1) {
-                $res['toko'] = $item->toko ? $item->toko->singkatan : 'Tidak Diketahui';
-            }
+        $totalQty = DB::table('transaksi_kasir_detail')
+            ->whereIn('transaksi_kasir_id', $transactionIds)
+            ->whereNull('deleted_at')
+            ->sum('qty');
 
-            return $res;
-        });
+        $totalNominal = (clone $baseQueryForSum)->sum('total_nominal');
+
+        // Pagination
+        $transactions = ! empty($filter->limit)
+            ? $query->orderByDesc('id')->paginate($filter->limit)
+            : $query->orderByDesc('id')->get();
 
         return [
-            'data' => [
-                'item' => $data,
-                'total' => $result['total'],
+            'transactions' => $transactions,
+            'total' => [
+                'qty' => (int) $totalQty,
+                'nominal' => RupiahGenerate::build($totalNominal),
             ],
-            'pagination' => $this->setPaginate($transactions),
         ];
     }
 

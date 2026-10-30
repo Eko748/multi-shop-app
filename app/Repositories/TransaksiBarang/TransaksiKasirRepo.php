@@ -25,12 +25,23 @@ class TransaksiKasirRepo
             $query->whereNull('deleted_at');
         }
 
-        // Filter Search (Nota & Member Name)
+        // Filter Search (Nota, Member Name, & Nama Barang)
         if (! empty($filter->search)) {
-            $query->where(function ($q) use ($filter) {
-                $q->where('nota', 'like', '%'.$filter->search.'%')
-                    ->orWhereHas('member', function ($q2) use ($filter) {
-                        $q2->where('nama', 'like', '%'.$filter->search.'%');
+            $search = $filter->search;
+
+            $query->where(function ($q) use ($search) {
+                // 1. Search Nota
+                $q->where('nota', 'like', '%'.$search.'%')
+                    // 2. Search Nama Member
+                    ->orWhereHas('member', function ($qMember) use ($search) {
+                        $qMember->where('nama', 'like', '%'.$search.'%');
+                    })
+                    // 3. Search Nama Barang lewat relasi berantai
+                    ->orWhereHas('details', function ($qDetail) use ($search) {
+                        $qDetail->whereNull('deleted_at')
+                            ->whereHas('stockBarangBatch.stockBarang.barang', function ($qBarang) use ($search) {
+                                $qBarang->where('nama', 'like', '%'.$search.'%');
+                            });
                     });
             });
         }
@@ -65,8 +76,10 @@ class TransaksiKasirRepo
 
         $transactionIds = (clone $query)->pluck('id');
 
+        // Hitung total Qty (memperhatikan soft delete pada detail)
         $totalQty = DB::table('transaksi_kasir_detail')
             ->whereIn('transaksi_kasir_id', $transactionIds)
+            ->whereNull('deleted_at')
             ->sum('qty');
 
         return [
@@ -84,27 +97,26 @@ class TransaksiKasirRepo
             $query->with('toko');
         }
 
-        // Hanya eager load detail yang belum dihapus (jika menggunakan SoftDeletes pada TransaksiKasirDetail)
+        // Eager load detail dan relasi pendukung lainnya
         $query->with(['details' => function ($q) {
             $q->whereNull('deleted_at');
-        }]);
+        }, 'member', 'createdBy']);
 
-        $transactions = ! empty($filter->limit)
-            ? $query->orderByDesc('id')->paginate($filter->limit)
-            : $query->orderByDesc('id')->get();
-
-        $baseQueryForSum = clone $query;
-        $baseQueryForSum->setEagerLoads([]);
-
+        // Clone query terfilter untuk kalkulasi total keseluruhan
+        $baseQueryForSum = (clone $query)->setEagerLoads([]);
         $transactionIds = (clone $baseQueryForSum)->pluck('id');
 
-        // Hitung total qty dari detail yang belum dihapus saja
         $totalQty = DB::table('transaksi_kasir_detail')
             ->whereIn('transaksi_kasir_id', $transactionIds)
-            ->whereNull('deleted_at') // Abaikan yang sudah soft delete
+            ->whereNull('deleted_at')
             ->sum('qty');
 
         $totalNominal = (clone $baseQueryForSum)->sum('total_nominal');
+
+        // Pagination / Fetch Data
+        $transactions = ! empty($filter->limit)
+            ? $query->orderByDesc('id')->paginate($filter->limit)
+            : $query->orderByDesc('id')->get();
 
         return [
             'transactions' => $transactions,

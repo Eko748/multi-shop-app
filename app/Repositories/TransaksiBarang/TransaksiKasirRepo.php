@@ -25,29 +25,33 @@ class TransaksiKasirRepo
             $query->whereNull('deleted_at');
         }
 
-        // Filter Search (Nota, Member, & Nama Barang)
+        // 1. Filter Tanggal (Tetap Default Hari Ini / Rentang Tanggal)
+        if (! empty($filter->start_date) && ! empty($filter->end_date)) {
+            $query->whereBetween('tanggal', [
+                Carbon::parse($filter->start_date)->startOfDay(),
+                Carbon::parse($filter->end_date)->endOfDay(),
+            ]);
+        } else {
+            // Default selalu filter tanggal hari ini
+            $query->whereDate('tanggal', Carbon::today());
+        }
+
+        // 2. Filter Search (Nota, Member, & Nama Barang)
         if (! empty($filter->search)) {
-            $rawSearch = $filter->search;
+            $search = trim($filter->search);
 
-            // Split kata kunci berdasarkan slash (/), koma (,), atau spasi berlebih
-            $keywords = array_filter(array_map('trim', preg_split('/[\/,]/', $rawSearch)));
-
-            $query->where(function ($q) use ($rawSearch, $keywords) {
-                // 1. Search Nota
-                $q->where('nota', 'like', '%'.$rawSearch.'%')
-                    // 2. Search Nama Member
-                    ->orWhereHas('member', function ($qMember) use ($rawSearch) {
-                        $qMember->where('nama', 'like', '%'.$rawSearch.'%');
+            $query->where(function ($q) use ($search) {
+                // Search Nota
+                $q->where('nota', 'like', '%'.$search.'%')
+                    // Search Nama Member
+                    ->orWhereHas('member', function ($qMember) use ($search) {
+                        $qMember->where('nama', 'like', '%'.$search.'%');
                     })
-                    // 3. Search Nama Barang lewat relasi berantai
-                    ->orWhereHas('details', function ($qDetail) use ($keywords) {
+                    // Search Nama Barang (Mencari teks utuh tanpa dipotong/split)
+                    ->orWhereHas('details', function ($qDetail) use ($search) {
                         $qDetail->whereNull('deleted_at')
-                            ->whereHas('stockBarangBatch.stockBarang.barang', function ($qBarang) use ($keywords) {
-                                $qBarang->where(function ($qSub) use ($keywords) {
-                                    foreach ($keywords as $keyword) {
-                                        $qSub->orWhere('nama', 'like', '%'.$keyword.'%');
-                                    }
-                                });
+                            ->whereHas('stockBarangBatch.stockBarang.barang', function ($qBarang) use ($search) {
+                                $qBarang->where('nama', 'like', '%'.$search.'%');
                             });
                     });
             });
@@ -61,18 +65,6 @@ class TransaksiKasirRepo
         // Filter Nota
         if (! empty($filter->nota)) {
             $query->where('nota', $filter->nota);
-        }
-
-        // Filter Tanggal
-        // PENTING: Jika sedang melakukan pencarian (search), jangan batasi hanya tanggal hari ini saja!
-        if (! empty($filter->start_date) && ! empty($filter->end_date)) {
-            $query->whereBetween('tanggal', [
-                Carbon::parse($filter->start_date)->startOfDay(),
-                Carbon::parse($filter->end_date)->endOfDay(),
-            ]);
-        } elseif (empty($filter->search)) {
-            // Hanya gunakan default Hari Ini JIKA pengguna TIDAK mengisi pencarian kata kunci
-            $query->whereDate('tanggal', Carbon::today());
         }
 
         return $query;
@@ -105,7 +97,7 @@ class TransaksiKasirRepo
             $query->with('toko');
         }
 
-        // Load detail BESERTA relasi berantai barang agar nama barang ikut terbawa di JSON/Service
+        // Eager load detail beserta relasi barang
         $query->with([
             'details' => function ($q) {
                 $q->whereNull('deleted_at');
@@ -115,7 +107,7 @@ class TransaksiKasirRepo
             'createdBy',
         ]);
 
-        // Clone query terfilter untuk kalkulasi total
+        // Clone query terfilter untuk kalkulasi total keseluruhan
         $baseQueryForSum = (clone $query)->setEagerLoads([]);
         $transactionIds = (clone $baseQueryForSum)->pluck('id');
 

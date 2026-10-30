@@ -20,12 +20,12 @@ class TransaksiKasirRepo
 
     private function applyFilter($query, $filter)
     {
-        // Pastikan data soft delete tidak terambil
+        // Filter Soft Delete
         if (in_array(\Illuminate\Database\Eloquent\SoftDeletes::class, class_uses_recursive($this->model))) {
             $query->whereNull('deleted_at');
         }
 
-        // 1. Filter Tanggal (Default Hari Ini / Sesuai Range Tanggal)
+        // 1. Filter Tanggal
         if (! empty($filter->start_date) && ! empty($filter->end_date)) {
             $query->whereBetween('tanggal', [
                 Carbon::parse($filter->start_date)->startOfDay(),
@@ -35,7 +35,7 @@ class TransaksiKasirRepo
             $query->whereDate('tanggal', Carbon::today());
         }
 
-        // 2. Filter Search (Nota, Member, & Nama Barang)
+        // 2. Filter Search (Nota, Member Name, & Nama Barang)
         if (! empty($filter->search)) {
             $search = trim($filter->search);
 
@@ -46,18 +46,11 @@ class TransaksiKasirRepo
                     ->orWhereHas('member', function ($qMember) use ($search) {
                         $qMember->where('nama', 'like', '%'.$search.'%');
                     })
-                    // Search Nama Barang di Detail Transaksi
+                    // Search Nama Barang lewat Relasi Berantai
                     ->orWhereHas('details', function ($qDetail) use ($search) {
                         $qDetail->whereNull('deleted_at')
-                            ->where(function ($qRelation) use ($search) {
-                                // Jalur 1: Jika TransaksiKasirDetail terhubung via stockBarang -> barang
-                                $qRelation->whereHas('stockBarang.barang', function ($qBarang) use ($search) {
-                                    $qBarang->where('nama', 'like', '%'.$search.'%');
-                                })
-                                // Jalur 2: Jika TransaksiKasirDetail terhubung via stockBarangBatch -> stockBarang -> barang
-                                    ->orWhereHas('stockBarangBatch.stockBarang.barang', function ($qBarang) use ($search) {
-                                        $qBarang->where('nama', 'like', '%'.$search.'%');
-                                    });
+                            ->whereHas('stockBarangBatch.stockBarang.barang', function ($qBarang) use ($search) {
+                                $qBarang->where('nama', 'like', '%'.$search.'%');
                             });
                     });
             });

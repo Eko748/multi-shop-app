@@ -19,7 +19,7 @@ class TransaksiKasir extends Model
 
     public function details()
     {
-        return $this->hasMany(TransaksiKasirDetail::class, 'id');
+        return $this->hasMany(TransaksiKasirDetail::class, 'transaksi_kasir_id', 'id');
     }
 
     public function createdBy()

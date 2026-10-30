@@ -25,14 +25,13 @@ class TransaksiKasirRepo
             $query->whereNull('deleted_at');
         }
 
-        // 1. Filter Tanggal (Tetap Default Hari Ini / Rentang Tanggal)
+        // 1. Filter Tanggal (Default Hari Ini / Sesuai Range Tanggal)
         if (! empty($filter->start_date) && ! empty($filter->end_date)) {
             $query->whereBetween('tanggal', [
                 Carbon::parse($filter->start_date)->startOfDay(),
                 Carbon::parse($filter->end_date)->endOfDay(),
             ]);
         } else {
-            // Default selalu filter tanggal hari ini
             $query->whereDate('tanggal', Carbon::today());
         }
 
@@ -47,11 +46,18 @@ class TransaksiKasirRepo
                     ->orWhereHas('member', function ($qMember) use ($search) {
                         $qMember->where('nama', 'like', '%'.$search.'%');
                     })
-                    // Search Nama Barang (Mencari teks utuh tanpa dipotong/split)
+                    // Search Nama Barang di Detail Transaksi
                     ->orWhereHas('details', function ($qDetail) use ($search) {
                         $qDetail->whereNull('deleted_at')
-                            ->whereHas('stockBarangBatch.stockBarang.barang', function ($qBarang) use ($search) {
-                                $qBarang->where('nama', 'like', '%'.$search.'%');
+                            ->where(function ($qRelation) use ($search) {
+                                // Jalur 1: Jika TransaksiKasirDetail terhubung via stockBarang -> barang
+                                $qRelation->whereHas('stockBarang.barang', function ($qBarang) use ($search) {
+                                    $qBarang->where('nama', 'like', '%'.$search.'%');
+                                })
+                                // Jalur 2: Jika TransaksiKasirDetail terhubung via stockBarangBatch -> stockBarang -> barang
+                                    ->orWhereHas('stockBarangBatch.stockBarang.barang', function ($qBarang) use ($search) {
+                                        $qBarang->where('nama', 'like', '%'.$search.'%');
+                                    });
                             });
                     });
             });

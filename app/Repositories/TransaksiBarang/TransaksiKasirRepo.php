@@ -27,20 +27,26 @@ class TransaksiKasirRepo
 
         // Filter Search (Nota, Member Name, & Nama Barang)
         if (! empty($filter->search)) {
-            $search = $filter->search;
+            $rawSearch = $filter->search;
 
-            $query->where(function ($q) use ($search) {
-                // 1. Search Nota
-                $q->where('nota', 'like', '%'.$search.'%')
-                    // 2. Search Nama Member
-                    ->orWhereHas('member', function ($qMember) use ($search) {
-                        $qMember->where('nama', 'like', '%'.$search.'%');
+            $keywords = array_filter(array_map('trim', preg_split('/[\/,]/', $rawSearch)));
+
+            $query->where(function ($q) use ($rawSearch, $keywords) {
+                // 1. Search Nota (menggunakan string asli)
+                $q->where('nota', 'like', '%'.$rawSearch.'%')
+                    // 2. Search Nama Member (menggunakan string asli)
+                    ->orWhereHas('member', function ($qMember) use ($rawSearch) {
+                        $qMember->where('nama', 'like', '%'.$rawSearch.'%');
                     })
-                    // 3. Search Nama Barang lewat relasi berantai
-                    ->orWhereHas('details', function ($qDetail) use ($search) {
+                    // 3. Search Nama Barang (looping setiap kata kunci hasil split)
+                    ->orWhereHas('details', function ($qDetail) use ($keywords) {
                         $qDetail->whereNull('deleted_at')
-                            ->whereHas('stockBarangBatch.stockBarang.barang', function ($qBarang) use ($search) {
-                                $qBarang->where('nama', 'like', '%'.$search.'%');
+                            ->whereHas('stockBarangBatch.stockBarang.barang', function ($qBarang) use ($keywords) {
+                                $qBarang->where(function ($qSub) use ($keywords) {
+                                    foreach ($keywords as $keyword) {
+                                        $qSub->orWhere('nama', 'like', '%'.$keyword.'%');
+                                    }
+                                });
                             });
                     });
             });

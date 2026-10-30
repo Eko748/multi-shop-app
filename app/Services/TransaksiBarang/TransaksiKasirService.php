@@ -21,6 +21,7 @@ use App\Repositories\TransaksiBarang\TransaksiKasirRepo;
 use App\Services\KasService;
 use App\Traits\PaginateResponse;
 use Carbon\Carbon;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
 class TransaksiKasirService
@@ -39,40 +40,45 @@ class TransaksiKasirService
 
     public function getAll($filter)
     {
-        $query = $this->model->query();
-        $this->applyFilter($query, $filter);
+        $result = $this->repository->getAll($filter);
+        $transactions = $result['transactions'];
 
-        if ($filter->role_id == 1) {
-            $query->with('toko');
-        }
+        // Ambil item baik dari paginator maupun collection biasa
+        $items = $transactions instanceof LengthAwarePaginator ? $transactions->items() : $transactions;
 
-        // Eager load detail dan relasi pendukung lainnya
-        $query->with(['details' => function ($q) {
-            $q->whereNull('deleted_at');
-        }, 'member', 'createdBy']);
+        $data = collect($items)->map(function ($item) use ($filter) {
+            // Mengambil sum Qty dari relasi details yang sudah di-load oleh repository
+            $totalQty = $item->details ? $item->details->sum('qty') : 0;
 
-        // Clone query terfilter untuk kalkulasi total keseluruhan
-        $baseQueryForSum = (clone $query)->setEagerLoads([]);
-        $transactionIds = (clone $baseQueryForSum)->pluck('id');
+            $res = [
+                'id' => $item->public_id,
+                'nota' => $item->nota,
+                'member' => $item->member ? $item->member->nama : 'Guest',
+                'qty' => (int) $totalQty,
+                'nominal' => RupiahGenerate::build($item->total_nominal),
+                'tanggal' => $item->tanggal ? $item->tanggal->format('d-m-Y H:i:s') : null,
+                'created_at' => $item->created_at ?? null,
+                'created_by' => $item->createdBy->nama ?? 'System',
+            ];
 
-        $totalQty = DB::table('transaksi_kasir_detail')
-            ->whereIn('transaksi_kasir_id', $transactionIds)
-            ->whereNull('deleted_at')
-            ->sum('qty');
+            if ($filter->role_id == 1) {
+                $res['toko'] = $item->toko ? $item->toko->singkatan : 'Tidak Diketahui';
+            }
 
-        $totalNominal = (clone $baseQueryForSum)->sum('total_nominal');
+            return $res;
+        });
 
-        // Pagination
-        $transactions = ! empty($filter->limit)
-            ? $query->orderByDesc('id')->paginate($filter->limit)
-            : $query->orderByDesc('id')->get();
+        // Validasi apakah $transactions adalah Paginator sebelum memanggil setPaginate()
+        $pagination = $transactions instanceof LengthAwarePaginator
+            ? $this->setPaginate($transactions)
+            : null;
 
         return [
-            'transactions' => $transactions,
-            'total' => [
-                'qty' => (int) $totalQty,
-                'nominal' => RupiahGenerate::build($totalNominal),
+            'data' => [
+                'item' => $data,
+                'total' => $result['total'],
             ],
+            'pagination' => $pagination,
         ];
     }
 

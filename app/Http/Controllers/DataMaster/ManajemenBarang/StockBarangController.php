@@ -79,7 +79,7 @@ class StockBarangController extends Controller
                     ->where('qty_sisa', '>', 0)
                     ->select(
                         DB::raw('SUM(qty_sisa) as total_qty'),
-                        DB::raw('SUM(qty_sisa * hpp_baru) as total_nilai_hpp')
+                        DB::raw('SUM(qty_sisa * harga_beli) as total_nilai_hpp')
                     )
                     ->first();
             } else {
@@ -88,7 +88,7 @@ class StockBarangController extends Controller
                     ->where('qty_sisa', '>', 0)
                     ->select(
                         DB::raw('SUM(qty_sisa) as total_qty'),
-                        DB::raw('SUM(qty_sisa * hpp_baru) as total_nilai_hpp')
+                        DB::raw('SUM(qty_sisa * harga_beli) as total_nilai_hpp')
                     )
                     ->first();
             }

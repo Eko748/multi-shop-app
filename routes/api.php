@@ -213,6 +213,7 @@ Route::prefix('retur')->as('retur.')->group(function () {
 });
 
 Route::prefix('stock-barang')->as('sb.')->group(function () {
+    Route::get('summary', [StockBarangController::class, 'getSummary'])->name('summary');
     Route::get('get', [StockBarangController::class, 'get'])->name('get');
     Route::get('get-detail', [StockBarangController::class, 'getDetail'])->name('getDetail');
     Route::get('get-level-harga', [StockBarangController::class, 'getLevelHarga'])->name('getLevelHarga');

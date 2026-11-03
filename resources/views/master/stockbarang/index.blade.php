@@ -55,26 +55,53 @@
                 <div class="col-xl-12">
                     <div class="card">
                         <div class="card-header">
-                            <div class="row">
-                                <div class="col-sm-12 col-md-3 col-lg-3 col-xl-2 mb-2">
-                                    {{-- @if (hasPermission('GET /pembelianbarang')) --}}
-                                    <a href="{{ route('transaksi.pembelianbarang.index') }}"
-                                        class="mr-2 btn btn-primary w-100" data-container="body" data-toggle="tooltip"
-                                        data-placement="top" title="Tambah Data Stok Barang">
-                                        <i class="fa fa-circle-plus"></i> Tambah
-                                    </a>
-                                    {{-- @endif --}}
+                            <div class="row align-items-center mb-3">
+                                <!-- Bagian Kiri: Info Total Qty & Total HPP + Tombol Tambah -->
+                                <div class="col-sm-12 col-md-6 col-lg-6 mb-2">
+                                    <div class="d-flex align-items-center">
+
+                                        <!-- Widget Ringkasan Stok & HPP (Disebelah kiri tombol Tambah) -->
+                                        <div id="summaryWidget"
+                                            class="d-flex align-items-center mr-3 p-2 bg-light border rounded shadow-sm">
+                                            <div class="px-2 border-right text-center">
+                                                <small class="text-muted d-block font-weight-bold"
+                                                    style="font-size: 11px;">TOTAL STOK</small>
+                                                <span id="totalQtyVal" class="font-weight-bold text-dark"><i
+                                                        class="fa fa-spinner fa-spin"></i></span>
+                                            </div>
+                                            @if (Auth::user()->role_id == 1)
+                                                <div class="px-2 text-center">
+                                                    <small class="text-muted d-block font-weight-bold"
+                                                        style="font-size: 11px;">TOTAL NILAI HPP</small>
+                                                    <span id="totalHppVal" class="font-weight-bold text-success"><i
+                                                            class="fa fa-spinner fa-spin"></i></span>
+                                                </div>
+                                            @endif
+                                        </div>
+
+                                        <!-- Tombol Tambah -->
+                                        <div>
+                                            <a href="{{ route('transaksi.pembelianbarang.index') }}" class="btn btn-primary"
+                                                data-container="body" data-toggle="tooltip" data-placement="top"
+                                                title="Tambah Data Stok Barang">
+                                                <i class="fa fa-circle-plus"></i> Tambah
+                                            </a>
+                                        </div>
+
+                                    </div>
                                 </div>
-                                <div class="col-sm-12 col-md-9 col-lg-9 col-xl-10 mb-2">
+
+                                <!-- Bagian Kanan: Limit Page & Search Input -->
+                                <div class="col-sm-12 col-md-6 col-lg-6 mb-2">
                                     <div class="row justify-content-end">
-                                        <div class="col-4 col-sm-4 col-md-2 col-lg-2">
-                                            <select name="limitPage" id="limitPage" class="form-control mr-2 mb-2 mb-lg-0">
+                                        <div class="col-4 col-sm-4 col-md-3 col-lg-3">
+                                            <select name="limitPage" id="limitPage" class="form-control mb-2 mb-lg-0">
                                                 <option value="10">10</option>
                                                 <option value="20">20</option>
                                                 <option value="30">30</option>
                                             </select>
                                         </div>
-                                        <div class="col-8 col-sm-8 col-md-4 col-lg-4 justify-content-end">
+                                        <div class="col-8 col-sm-8 col-md-6 col-lg-6 justify-content-end">
                                             <input id="tb-search" class="tb-search form-control mb-2 mb-lg-0" type="search"
                                                 name="search" placeholder="Cari Data" aria-label="search">
                                         </div>
@@ -210,8 +237,39 @@
             }
         });
 
+        async function getSummaryData(search = '') {
+            $('#totalQtyVal').html('<i class="fa fa-spinner fa-spin"></i>');
+            $('#totalHppVal').html('<i class="fa fa-spinner fa-spin"></i>');
+
+            try {
+                let response = await renderAPI(
+                    'GET',
+                    '{{ route('sb.summary') }}', {
+                        toko_id: {{ auth()->user()->toko_id }},
+                        search: search
+                    }
+                );
+
+                if (response && response.status == 200 && response.data.data) {
+                    let resData = response.data.data;
+                    $('#totalQtyVal').text(resData.total_qty + ' Pcs');
+                    $('#totalHppVal').text(resData.total_hpp);
+                } else {
+                    $('#totalQtyVal').text('0 Pcs');
+                    $('#totalHppVal').text('Rp 0');
+                }
+            } catch (error) {
+                $('#totalQtyVal').text('0 Pcs');
+                $('#totalHppVal').text('Rp 0');
+            }
+        }
+
+        // Update fungsi getListData Anda untuk memanggil getSummaryData
         async function getListData(limit = 10, page = 1, ascending = 0, search = '', customFilter = {}) {
             $('#listData').html(loadingData());
+
+            // Panggil API summary secara paralel
+            getSummaryData(search);
 
             let filterParams = {};
 
@@ -240,9 +298,9 @@
             } else {
                 errorMessage = getDataRest?.data?.message;
                 let errorRow = `
-                            <tr class="text-dark">
-                                <th class="text-center" colspan="${$('.tb-head th').length}"> ${errorMessage} </th>
-                            </tr>`;
+                    <tr class="text-dark">
+                        <th class="text-center" colspan="${$('.tb-head th').length}"> ${errorMessage} </th>
+                    </tr>`;
                 $('#listData').html(errorRow);
                 $('#countPage').text("0 - 0");
                 $('#totalPage').text("0");

@@ -47,6 +47,64 @@ class StockBarangController extends Controller
         return view('master.stockbarang.index', compact('menu'));
     }
 
+    public function getSummary(Request $request)
+    {
+        try {
+            $tokoId = $request->input('toko_id');
+            $search = trim($request->input('search', ''));
+
+            // Query dasar StockBarang
+            $query = StockBarang::query();
+
+            if (! empty($tokoId)) {
+                $query->whereHas('tokoGroup.toko', function ($q) use ($tokoId) {
+                    $q->where('toko.id', $tokoId);
+                });
+            }
+
+            if (! empty($search)) {
+                $query->whereHas('barang', function ($subquery) use ($search) {
+                    $subquery->where('nama', 'LIKE', "%{$search}%");
+                });
+            }
+
+            // Ambil ID stock_barang yang lolos filter
+            $stockBarangIds = $query->pluck('id');
+
+            // Hitung total Qty & total Aset HPP langsung via SQL dari batch aktif (super cepat & akurat)
+            $summary = DB::table('stock_barang_batch')
+                ->whereIn('stock_barang_id', $stockBarangIds)
+                ->where('qty_sisa', '>', 0)
+                ->whereNull('deleted_at')
+                ->select(
+                    DB::raw('SUM(qty_sisa) as total_qty'),
+                    DB::raw('SUM(qty_sisa * hpp_baru) as total_nilai_hpp')
+                )
+                ->first();
+
+            $totalQty = (int) ($summary->total_qty ?? 0);
+            $totalNilaiHpp = (float) ($summary->total_nilai_hpp ?? 0);
+
+            return response()->json([
+                'status_code' => 200,
+                'errors' => false,
+                'data' => [
+                    'total_qty' => number_format($totalQty, 0, ',', '.'),
+                    'total_hpp' => RupiahGenerate::build($totalNilaiHpp),
+                    'raw_qty' => $totalQty,
+                    'raw_hpp' => $totalNilaiHpp,
+                ],
+            ], 200);
+
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status_code' => 500,
+                'errors' => true,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function get(Request $request)
     {
         try {

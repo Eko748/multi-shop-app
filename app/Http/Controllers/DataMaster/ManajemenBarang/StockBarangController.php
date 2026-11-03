@@ -72,14 +72,28 @@ class StockBarangController extends Controller
             $stockBarangIds = $query->pluck('id');
 
             // Hitung total Qty & total Aset HPP langsung via SQL dari batch aktif (super cepat & akurat)
-            $summary = DB::table('stock_barang_batch')
-                ->whereIn('stock_barang_id', $stockBarangIds)
-                ->where('qty_sisa', '>', 0)
-                ->select(
-                    DB::raw('SUM(qty_sisa) as total_qty'),
-                    DB::raw('SUM(qty_sisa * hpp_baru) as total_nilai_hpp')
-                )
-                ->first();
+            if (! empty($tokoId)) {
+                $summary = DB::table('stock_barang_batch')
+                    ->whereIn('stock_barang_id', $stockBarangIds)
+                    ->where('toko_id', $tokoId)
+                    ->where('qty_sisa', '>', 0)
+                    ->whereNull('deleted_at')
+                    ->select(
+                        DB::raw('SUM(qty_sisa) as total_qty'),
+                        DB::raw('SUM(qty_sisa * hpp_baru) as total_nilai_hpp')
+                    )
+                    ->first();
+            } else {
+                $summary = DB::table('stock_barang_batch')
+                    ->whereIn('stock_barang_id', $stockBarangIds)
+                    ->where('qty_sisa', '>', 0)
+                    ->whereNull('deleted_at')
+                    ->select(
+                        DB::raw('SUM(qty_sisa) as total_qty'),
+                        DB::raw('SUM(qty_sisa * hpp_baru) as total_nilai_hpp')
+                    )
+                    ->first();
+            }
 
             $totalQty = (int) ($summary->total_qty ?? 0);
             $totalNilaiHpp = (float) ($summary->total_nilai_hpp ?? 0);

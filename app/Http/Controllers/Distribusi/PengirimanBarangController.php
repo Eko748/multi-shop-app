@@ -391,7 +391,7 @@ class PengirimanBarangController extends Controller
         DB::beginTransaction();
 
         try {
-            $tanggalSend = $request->send_at;
+            $tanggalSendNew = $request->send_at;
 
             // ===============================
             // 🔥 MODE UPDATE (ROLLBACK STOK LAMA)
@@ -400,6 +400,14 @@ class PengirimanBarangController extends Controller
 
                 $pengiriman = PengirimanBarang::lockForUpdate()
                     ->findOrFail($request->pengiriman_barang_id);
+
+                // 1. GUARD CLAUSE: CEK JIKA TRANSAKSI DIBUAT BULAN LALU
+                $tanggalSendAsli = \Carbon\Carbon::parse($pengiriman->send_at);
+                $now = \Carbon\Carbon::now();
+
+                if ($tanggalSendAsli->format('Y-m') < $now->format('Y-m')) {
+                    throw new \Exception('Pengiriman barang dari bulan lalu yang telah tutup buku tidak dapat di-edit/direvisi.');
+                }
 
                 // Ambil detail lama untuk restore stok & rekap
                 $oldDetails = PengirimanBarangDetail::where('pengiriman_barang_id', $pengiriman->id)->get();
@@ -419,14 +427,15 @@ class PengirimanBarangController extends Controller
                             // 🟢 ROLLBACK STOK KELUAR BULANAN (Toko Asal)
                             $jenisId = $oldStock->barang->jenis_barang_id ?? null;
                             if ($jenisId) {
-                                $nilaiAsetOld = $old->qty_send * $oldBatch->harga_beli; // Sesuaikan field harga
+                                $nilaiAsetOld = $old->qty_send * $oldBatch->harga_beli;
 
+                                // PERBAIKAN: Pakai $tanggalSendAsli (tanggal pengiriman lama di DB), BUKAN $request->send_at
                                 $stockBulananService->rollbackStokKeluar(
                                     $pengiriman->toko_asal_id,
                                     $jenisId,
                                     $old->qty_send,
                                     $nilaiAsetOld,
-                                    $tanggalSend
+                                    $tanggalSendAsli->toDateString()
                                 );
                             }
                         }
@@ -504,14 +513,14 @@ class PengirimanBarangController extends Controller
                     throw new \Exception('Jenis barang tidak ditemukan');
                 }
 
-                $nilaiAsetNew = $row['qty_send'] * $batchOrigin->harga_beli; // Sesuaikan field harga
+                $nilaiAsetNew = $row['qty_send'] * $batchOrigin->harga_beli;
 
                 $stockBulananService->tambahStokKeluar(
                     $request->toko_asal_id,
                     $jenisId,
                     $row['qty_send'],
                     $nilaiAsetNew,
-                    $tanggalSend
+                    $tanggalSendNew
                 );
 
                 PengirimanBarangDetail::create([

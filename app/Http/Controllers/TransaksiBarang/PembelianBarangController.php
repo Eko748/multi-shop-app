@@ -514,84 +514,229 @@ class PembelianBarangController extends Controller
     // public function putDetail(Request $request)
     // {
     //     $request->validate([
-    //         'id'           => 'required|integer|exists:pembelian_barang_detail,id',
-    //         'qty'          => 'required|numeric|min:1',
+    //         'id' => 'required|integer|exists:pembelian_barang_detail,id',
+    //         'qty' => 'required|numeric|min:1',
     //         'harga_barang' => 'required|numeric|min:0',
-    //         'user_id'      => 'required|integer|exists:users,id',
+    //         'user_id' => 'required|integer|exists:users,id',
     //     ]);
 
     //     DB::beginTransaction();
-
     //     try {
+    //         // Instantiate Service
+    //         $stockBulananService = app(\App\Services\StockBulananService::class);
+
     //         $detail = PembelianBarangDetail::with([
     //             'pembelianBarang',
-    //             'stockBarangBatch.stockBarang',
-    //             'barang'
+    //             'stockBarangBatch.stockBarang.barang',
     //         ])->lockForUpdate()->findOrFail($request->id);
 
-    //         $pembelian   = $detail->pembelianBarang;
+    //         $pembelian = $detail->pembelianBarang;
     //         $editedBatch = $detail->stockBarangBatch;
     //         $stockBarang = $editedBatch->stockBarang;
 
-    //         $oldQty      = $detail->qty;
-    //         $oldHarga    = $detail->harga_beli;
-    //         $oldSubtotal = $detail->subtotal;
+    //         $oldQty = $detail->qty;
+    //         $oldHarga = $detail->harga_beli;
+    //         $oldSubtotal = $oldQty * $oldHarga;
 
-    //         $newQty      = $request->qty;
-    //         $newHarga    = $request->harga_barang;
+    //         $newQty = $request->qty;
+    //         $newHarga = $request->harga_barang;
     //         $newSubtotal = $newQty * $newHarga;
 
-    //         $deltaQty    = $newQty - $oldQty;
-    //         $deltaNilai  = $newSubtotal - $oldSubtotal;
+    //         $deltaQty = $newQty - $oldQty;
+    //         $deltaNilai = $newSubtotal - $oldSubtotal;
+
+    //         $qtyKeluar = $editedBatch->qty_masuk - $editedBatch->qty_sisa;
+    //         $qtySisa = $editedBatch->qty_sisa;
+
+    //         if ($newQty < $qtyKeluar) {
+    //             throw new \Exception(
+    //                 "Qty tidak boleh kurang dari yang sudah keluar ({$qtyKeluar})"
+    //             );
+    //         }
 
     //         /**
-    //          * 🔥 FIX UTAMA:
-    //          * Kalau sudah ada qty keluar 1 saja => tidak boleh edit sama sekali
+    //          * =====================================================
+    //          * HITUNG ADJUSTMENT
+    //          * =====================================================
     //          */
-    //         // $qtyKeluar = $editedBatch->qty_masuk - $editedBatch->qty_sisa;
+    //         $selisihHarga = $newHarga - $oldHarga;
+    //         $nominalLabaRugi = $qtyKeluar * $selisihHarga;
+    //         $nominalStok = $qtySisa * $selisihHarga;
 
-    //         // if ($qtyKeluar > 0) {
-    //         //     throw new \Exception(
-    //         //         "Tidak bisa edit. Barang sudah terjual / keluar sebanyak {$qtyKeluar} qty"
-    //         //     );
-    //         // }
+    //         if (
+    //             $oldQty != $newQty ||
+    //             $oldHarga != $newHarga
+    //         ) {
+    //             PembelianBarangDetailAdjustment::create([
+    //                 'toko_id' => $pembelian->toko_id,
+    //                 'pembelian_barang_id' => $pembelian->id,
+    //                 'pembelian_barang_detail_id' => $detail->id,
+    //                 'stock_barang_batch_id' => $editedBatch->id,
 
-    //         // =========================
-    //         // UPDATE DETAIL
-    //         // =========================
+    //                 'old_qty' => $oldQty,
+    //                 'new_qty' => $newQty,
+
+    //                 'old_harga' => $oldHarga,
+    //                 'new_harga' => $newHarga,
+
+    //                 'selisih_harga' => $selisihHarga,
+
+    //                 'nominal_laba_rugi' => $nominalLabaRugi,
+    //                 'nominal_stok' => $nominalStok,
+
+    //                 'created_by' => $request->user_id,
+    //             ]);
+    //         }
+
+    //         if ($qtyKeluar > 0) {
+
+    //             $selisihHarga = $newHarga - $oldHarga;
+    //             $labaNominal = abs($qtyKeluar * $selisihHarga);
+
+    //             $tokoId = $pembelian->toko_id;
+    //             $tahunNow = Carbon::parse($pembelian->tanggal)->year;
+    //             $bulanNow = Carbon::parse($pembelian->tanggal)->month;
+
+    //             /**
+    //              * harga beli naik = out (beban bertambah)
+    //              * harga beli turun = in (beban berkurang / laba naik)
+    //              */
+    //             $tipe = $selisihHarga > 0 ? ['out'] : ['in'];
+
+    //             /* ============================
+    //             | LABA RUGI BULANAN
+    //             ==============================*/
+    //             $labaRugi = LabaRugi::firstOrCreate(
+    //                 [
+    //                     'toko_id' => $tokoId,
+    //                     'tahun' => $tahunNow,
+    //                     'bulan' => $bulanNow,
+    //                 ],
+    //                 [
+    //                     'pendapatan' => 0,
+    //                     'beban' => 0,
+    //                     'laba_bersih' => 0,
+    //                 ]
+    //             );
+
+    //             if ($tipe[0] === 'in') {
+    //                 $labaRugi->pendapatan += $labaNominal;
+    //             } elseif ($tipe[0] === 'out') {
+    //                 $labaRugi->beban += $labaNominal;
+    //             }
+
+    //             $labaRugi->laba_bersih = $labaRugi->pendapatan - $labaRugi->beban;
+    //             $labaRugi->save();
+
+    //             /* ============================
+    //             | LABA RUGI TAHUNAN
+    //             ==============================*/
+    //             $labaRugiTahunan = LabaRugiTahunan::firstOrCreate(
+    //                 [
+    //                     'toko_id' => $tokoId,
+    //                     'tahun' => $tahunNow,
+    //                 ],
+    //                 [
+    //                     'pendapatan' => 0,
+    //                     'beban' => 0,
+    //                     'laba_bersih' => 0,
+    //                 ]
+    //             );
+
+    //             if ($tipe[0] === 'in') {
+    //                 $labaRugiTahunan->pendapatan += $labaNominal;
+    //             } elseif ($tipe[0] === 'out') {
+    //                 $labaRugiTahunan->beban += $labaNominal;
+    //             }
+
+    //             $labaRugiTahunan->laba_bersih = $labaRugiTahunan->pendapatan - $labaRugiTahunan->beban;
+    //             $labaRugiTahunan->save();
+    //         }
+
     //         $detail->update([
-    //             'qty'        => $newQty,
+    //             'qty' => $newQty,
     //             'harga_beli' => $newHarga,
-    //             'subtotal'   => $newSubtotal,
+    //             'subtotal' => $newSubtotal,
     //         ]);
 
-    //         // =========================
-    //         // UPDATE BATCH
-    //         // =========================
-    //         $editedBatch->update([
-    //             'qty_masuk'  => $newQty,
-    //             'qty_sisa'   => $newQty,
-    //             'harga_beli' => $newHarga,
+    //         $batches = StockBarangBatch::where('stock_barang_id', $stockBarang->id)
+    //             ->orderBy('tanggal')
+    //             ->orderBy('id')
+    //             ->lockForUpdate()
+    //             ->get();
+
+    //         $hppStockLama = $stockBarang->hpp_baru;
+    //         $prevHpp = null;
+
+    //         foreach ($batches as $batch) {
+
+    //             // kalau ini batch yang diedit
+    //             if ($batch->id === $editedBatch->id) {
+    //                 $batch->qty_masuk = $newQty;
+    //                 $batch->qty_sisa = $newQty - $qtyKeluar;
+    //                 $batch->harga_beli = $newHarga;
+    //             }
+
+    //             // set hpp_awal
+    //             if ($prevHpp !== null) {
+    //                 $batch->hpp_awal = $prevHpp;
+    //             }
+
+    //             // hitung hpp_akhir batch
+    //             if ($batch->qty_masuk > 0) {
+    //                 $batch->hpp_baru = (
+    //                     ($batch->hpp_awal * $batch->stok_awal)
+    //                     + ($batch->qty_masuk * $batch->harga_beli)
+    //                 ) / ($batch->stok_awal + $batch->qty_masuk);
+    //             } else {
+    //                 $batch->hpp_baru = $batch->hpp_awal;
+    //             }
+
+    //             $batch->save();
+
+    //             $prevHpp = $batch->hpp_baru;
+    //         }
+
+    //         $stockBarang->update([
+    //             'stok' => $stockBarang->stok + $deltaQty,
+    //             'hpp_awal' => $hppStockLama, // SEBELUM DIUBAH
+    //             'hpp_baru' => $prevHpp,      // HPP AKHIR BATCH TERAKHIR
     //         ]);
 
-    //         // =========================
-    //         // UPDATE PEMBELIAN HEADER
-    //         // =========================
     //         $pembelian->update([
-    //             'qty'   => $pembelian->qty + $deltaQty,
+    //             'qty' => $pembelian->qty + $deltaQty,
     //             'total' => $pembelian->total + $deltaNilai,
     //         ]);
 
-    //         // =========================
-    //         // 🔥 RECALC HPP AKURAT
-    //         // =========================
+    //         // =========================================================================
+    //         // PENERAPAN STOCK BULANAN SERVICE (ADJUSTMENT STOK PEMBELIAN)
+    //         // =========================================================================
+    //         $jenisBarangId = $stockBarang->barang->jenis_barang_id ?? null;
+    //         if ($jenisBarangId && ($deltaQty != 0 || $deltaNilai != 0)) {
+    //             if ($deltaQty >= 0) {
+    //                 // Jika ada penambahan Qty / Nilai Aset Pembelian
+    //                 $stockBulananService->tambahStokMasuk(
+    //                     tokoId: $pembelian->toko_id,
+    //                     jenisBarangId: $jenisBarangId,
+    //                     qty: $deltaQty,
+    //                     nilaiAset: $deltaNilai,
+    //                     tanggal: $pembelian->tanggal
+    //                 );
+    //             } else {
+    //                 // Jika Qty / Nilai Aset Pembelian berkurang
+    //                 $stockBulananService->kurangiStokKeluar(
+    //                     tokoId: $pembelian->toko_id,
+    //                     jenisBarangId: $jenisBarangId,
+    //                     qty: abs($deltaQty),
+    //                     nilaiAset: abs($deltaNilai),
+    //                     tanggal: $pembelian->tanggal
+    //                 );
+    //             }
+    //         }
+
     //         HppGenerate::recalcHpp($stockBarang->id);
 
-    //         // =========================
-    //         // CASH
-    //         // =========================
     //         if ($pembelian->tipe === 'cash' && $deltaNilai != 0) {
-
     //             KasService::updatePembelianBarang(
     //                 pembelian: $pembelian,
     //                 deltaNominal: $deltaNilai,
@@ -599,46 +744,46 @@ class PembelianBarangController extends Controller
     //             );
     //         }
 
-    //         // =========================
-    //         // HUTANG
-    //         // =========================
     //         if ($pembelian->tipe === 'hutang' && $deltaNilai != 0) {
-
     //             $hutang = Hutang::where('sumber_type', PembelianBarang::class)
     //                 ->where('sumber_id', $pembelian->id)
     //                 ->lockForUpdate()
     //                 ->first();
 
-    //             if (!$hutang) {
-    //                 throw new \Exception("Data hutang tidak ditemukan");
+    //             if (! $hutang) {
+    //                 throw new \Exception('Data hutang tidak ditemukan');
     //             }
 
     //             $totalDibayar = $hutang->nominal - $hutang->sisa;
 
     //             if ($totalDibayar > 0) {
-    //                 throw new \Exception(
-    //                     "Tidak bisa edit pembelian karena hutang sudah pernah dibayar"
-    //                 );
+    //                 throw new \Exception('Tidak bisa edit pembelian karena hutang sudah pernah dibayar');
     //             }
 
     //             $oldNominal = $hutang->nominal;
     //             $newNominal = $oldNominal + $deltaNilai;
 
     //             if ($newNominal < 0) {
-    //                 throw new \Exception("Nominal hutang tidak valid");
+    //                 throw new \Exception('Nominal hutang tidak valid');
     //             }
 
+    //             // Update hutang
     //             $hutang->update([
     //                 'nominal' => $newNominal,
-    //                 'sisa'    => $hutang->sisa + $deltaNilai
+    //                 'sisa' => $hutang->sisa + $deltaNilai,
     //             ]);
 
-    //             $kasJenisBarang = $detail->barang
-    //                 ? $detail->barang->jenis_barang_id
+    //             // Ambil jenis barang
+    //             $firstDetail = PembelianBarangDetail::where('pembelian_barang_id', $pembelian->id)->first();
+
+    //             $kasJenisBarang = $firstDetail && $firstDetail->barang
+    //                 ? $firstDetail->barang->jenis_barang_id
     //                 : null;
 
+    //             // Update kas (mirroring logic di update())
     //             if ($deltaNilai > 0) {
 
+    //                 // Hutang bertambah
     //                 KasService::neutralIN(
     //                     toko_id: $hutang->toko_id,
     //                     jenis_barang_id: $kasJenisBarang,
@@ -665,6 +810,7 @@ class PembelianBarangController extends Controller
     //                 );
     //             } else {
 
+    //                 // Hutang berkurang
     //                 $absDelta = abs($deltaNilai);
 
     //                 KasService::neutralOUT(
@@ -693,6 +839,7 @@ class PembelianBarangController extends Controller
     //                 );
     //             }
 
+    //             // Logging
     //             LogAktivitasGenerate::store(
     //                 logName: 'Hutang',
     //                 subjectType: Hutang::class,
@@ -700,9 +847,13 @@ class PembelianBarangController extends Controller
     //                 event: 'Update Data',
     //                 properties: [
     //                     'changes' => [
-    //                         'old' => ['nominal' => $oldNominal],
-    //                         'new' => ['nominal' => $newNominal],
-    //                     ]
+    //                         'old' => [
+    //                             'nominal' => $oldNominal,
+    //                         ],
+    //                         'new' => [
+    //                             'nominal' => $newNominal,
+    //                         ],
+    //                     ],
     //                 ],
     //                 description: "Update nominal hutang dari {$oldNominal} menjadi {$newNominal}",
     //                 userId: $request->user_id,
@@ -712,573 +863,208 @@ class PembelianBarangController extends Controller
 
     //         DB::commit();
 
+    //         return $this->success(null, 200, 'Detail pembelian berhasil diperbarui');
+    //     } catch (\Throwable $e) {
+    //         DB::rollBack();
+
+    //         return $this->error(500, 'Gagal update detail pembelian', [
+    //             'exception' => $e->getMessage(),
+    //         ]);
+    //     }
+    // }
+
+    // public function deleteDetail(Request $request)
+    // {
+    //     $request->validate([
+    //         'id' => 'required|integer|exists:pembelian_barang_detail,id',
+    //         'deleted_by' => 'required|integer|exists:users,id',
+    //         'pin' => 'required',
+    //         'toko_id' => 'required|integer|exists:toko,id',
+    //         'message' => 'required|string',
+    //     ]);
+
+    //     $pinCheck = PinCheck::validate($request->toko_id, $request->pin);
+
+    //     if (! $pinCheck['status']) {
+    //         return $this->error(403, $pinCheck['message']);
+    //     }
+
+    //     DB::beginTransaction();
+
+    //     try {
+    //         // Instantiate Service
+    //         $stockBulananService = app(\App\Services\StockBulananService::class);
+
+    //         $detail = PembelianBarangDetail::with([
+    //             'pembelianBarang',
+    //             'stockBarangBatch.stockBarang',
+    //             'barang',
+    //         ])->lockForUpdate()->findOrFail($request->id);
+
+    //         $pembelian = $detail->pembelianBarang;
+    //         $batch = $detail->stockBarangBatch;
+    //         $stockBarang = $batch->stockBarang;
+
+    //         $qty = $detail->qty;
+    //         $nilai = $detail->subtotal;
+
+    //         // 🔒 VALIDASI: tidak boleh jika sudah ada barang keluar
+    //         $qtyKeluar = $batch->qty_masuk - $batch->qty_sisa;
+
+    //         if ($qtyKeluar > 0) {
+    //             throw new \Exception(
+    //                 "Tidak bisa hapus, Barang sudah terjual / keluar sebanyak {$qtyKeluar} qty"
+    //             );
+    //         }
+
+    //         // =========================
+    //         // 🔥 HANDLE HUTANG
+    //         // =========================
+    //         if ($pembelian->tipe === 'hutang') {
+
+    //             $hutang = Hutang::where('sumber_type', PembelianBarang::class)
+    //                 ->where('sumber_id', $pembelian->id)
+    //                 ->lockForUpdate()
+    //                 ->first();
+
+    //             if (! $hutang) {
+    //                 throw new \Exception('Data hutang tidak ditemukan');
+    //             }
+
+    //             $totalDibayar = $hutang->nominal - $hutang->sisa;
+
+    //             if ($totalDibayar > 0) {
+    //                 throw new \Exception(
+    //                     'Tidak bisa hapus karena hutang sudah pernah dibayar'
+    //                 );
+    //             }
+
+    //             $oldNominal = $hutang->nominal;
+    //             $newNominal = $oldNominal - $nilai;
+
+    //             if ($newNominal < 0) {
+    //                 throw new \Exception('Nominal hutang tidak valid');
+    //             }
+
+    //             $hutang->update([
+    //                 'nominal' => $newNominal,
+    //                 'sisa' => $hutang->sisa - $nilai,
+    //             ]);
+
+    //             $kasJenisBarang = $detail->barang
+    //                 ? $detail->barang->jenis_barang_id
+    //                 : null;
+
+    //             KasService::neutralOUT(
+    //                 toko_id: $hutang->toko_id,
+    //                 jenis_barang_id: $kasJenisBarang,
+    //                 tipe_kas: 'kecil',
+    //                 total_nominal: $nilai,
+    //                 item: 'hutang',
+    //                 kategori: 'Hutang',
+    //                 keterangan: $hutang->hutangTipe->tipe ?? 'Hutang Lainnya',
+    //                 sumber: $hutang,
+    //                 tanggal: $hutang->tanggal,
+    //             );
+
+    //             KasService::out(
+    //                 toko_id: $hutang->toko_id,
+    //                 jenis_barang_id: $kasJenisBarang,
+    //                 tipe_kas: 'kecil',
+    //                 total_nominal: $nilai,
+    //                 item: 'kecil',
+    //                 kategori: 'Hutang',
+    //                 keterangan: $hutang->hutangTipe->tipe ?? 'Hutang Lainnya',
+    //                 sumber: $hutang,
+    //                 tanggal: $hutang->tanggal,
+    //                 laba: false
+    //             );
+
+    //             LogAktivitasGenerate::store(
+    //                 logName: 'Hutang',
+    //                 subjectType: Hutang::class,
+    //                 subjectId: $hutang->id,
+    //                 event: 'Delete Detail Pembelian Barang',
+    //                 properties: [
+    //                     'changes' => [
+    //                         'old' => ['nominal' => $oldNominal],
+    //                         'new' => ['nominal' => $newNominal],
+    //                     ],
+    //                 ],
+    //                 description: 'Pengurangan hutang karena hapus item pembelian',
+    //                 userId: $request->deleted_by,
+    //                 message: $request->message
+    //             );
+    //         }
+
+    //         // =========================
+    //         // 🔥 HANDLE CASH
+    //         // =========================
+    //         if ($pembelian->tipe === 'cash') {
+
+    //             KasService::updatePembelianBarang(
+    //                 pembelian: $pembelian,
+    //                 deltaNominal: -$nilai,
+    //                 userId: $request->deleted_by,
+    //                 edit: false
+    //             );
+    //         }
+
+    //         // =========================================================================
+    //         // PENERAPAN STOCK BULANAN SERVICE (PENGURANGAN STOK MASUK / PEMBELIAN)
+    //         // =========================================================================
+    //         $jenisBarangId = $detail->barang->jenis_barang_id ?? null;
+    //         if ($jenisBarangId) {
+    //             $stockBulananService->kurangiStokKeluar(
+    //                 tokoId: $pembelian->toko_id,
+    //                 jenisBarangId: $jenisBarangId,
+    //                 qty: $qty,
+    //                 nilaiAset: $nilai,
+    //                 tanggal: $pembelian->tanggal
+    //             );
+    //         }
+
+    //         // =========================
+    //         // 🔥 DELETE BATCH DULU
+    //         // =========================
+    //         $stockBarangId = $batch->stock_barang_id;
+
+    //         $batch->delete();
+
+    //         // =========================
+    //         // 🔥 UPDATE PEMBELIAN
+    //         // =========================
+    //         $pembelian->update([
+    //             'qty' => $pembelian->qty - $qty,
+    //             'total' => $pembelian->total - $nilai,
+    //         ]);
+
+    //         // =========================
+    //         // 🔥 DELETE DETAIL
+    //         // =========================
+    //         $detail->delete();
+
+    //         // =========================
+    //         // 🔥 RECALC HPP + STOK
+    //         // =========================
+    //         HppGenerate::recalcHpp($stockBarangId);
+
+    //         DB::commit();
+
     //         return $this->success(
     //             null,
     //             200,
-    //             'Detail pembelian berhasil diperbarui'
+    //             'Detail pembelian berhasil dihapus'
     //         );
     //     } catch (\Throwable $e) {
 
     //         DB::rollBack();
 
-    //         return $this->error(500, $e->getMessage());
+    //         return $this->error(500, $e->getMessage(), [
+    //             'exception' => $e->getMessage(),
+    //         ]);
     //     }
     // }
-
-    public function putDetail(Request $request)
-    {
-        $request->validate([
-            'id' => 'required|integer|exists:pembelian_barang_detail,id',
-            'qty' => 'required|numeric|min:1',
-            'harga_barang' => 'required|numeric|min:0',
-            'user_id' => 'required|integer|exists:users,id',
-        ]);
-
-        DB::beginTransaction();
-        try {
-            // Instantiate Service
-            $stockBulananService = app(\App\Services\StockBulananService::class);
-
-            $detail = PembelianBarangDetail::with([
-                'pembelianBarang',
-                'stockBarangBatch.stockBarang.barang',
-            ])->lockForUpdate()->findOrFail($request->id);
-
-            $pembelian = $detail->pembelianBarang;
-            $editedBatch = $detail->stockBarangBatch;
-            $stockBarang = $editedBatch->stockBarang;
-
-            $oldQty = $detail->qty;
-            $oldHarga = $detail->harga_beli;
-            $oldSubtotal = $oldQty * $oldHarga;
-
-            $newQty = $request->qty;
-            $newHarga = $request->harga_barang;
-            $newSubtotal = $newQty * $newHarga;
-
-            $deltaQty = $newQty - $oldQty;
-            $deltaNilai = $newSubtotal - $oldSubtotal;
-
-            $qtyKeluar = $editedBatch->qty_masuk - $editedBatch->qty_sisa;
-            $qtySisa = $editedBatch->qty_sisa;
-
-            if ($newQty < $qtyKeluar) {
-                throw new \Exception(
-                    "Qty tidak boleh kurang dari yang sudah keluar ({$qtyKeluar})"
-                );
-            }
-
-            /**
-             * =====================================================
-             * HITUNG ADJUSTMENT
-             * =====================================================
-             */
-            $selisihHarga = $newHarga - $oldHarga;
-            $nominalLabaRugi = $qtyKeluar * $selisihHarga;
-            $nominalStok = $qtySisa * $selisihHarga;
-
-            if (
-                $oldQty != $newQty ||
-                $oldHarga != $newHarga
-            ) {
-                PembelianBarangDetailAdjustment::create([
-                    'toko_id' => $pembelian->toko_id,
-                    'pembelian_barang_id' => $pembelian->id,
-                    'pembelian_barang_detail_id' => $detail->id,
-                    'stock_barang_batch_id' => $editedBatch->id,
-
-                    'old_qty' => $oldQty,
-                    'new_qty' => $newQty,
-
-                    'old_harga' => $oldHarga,
-                    'new_harga' => $newHarga,
-
-                    'selisih_harga' => $selisihHarga,
-
-                    'nominal_laba_rugi' => $nominalLabaRugi,
-                    'nominal_stok' => $nominalStok,
-
-                    'created_by' => $request->user_id,
-                ]);
-            }
-
-            if ($qtyKeluar > 0) {
-
-                $selisihHarga = $newHarga - $oldHarga;
-                $labaNominal = abs($qtyKeluar * $selisihHarga);
-
-                $tokoId = $pembelian->toko_id;
-                $tahunNow = Carbon::parse($pembelian->tanggal)->year;
-                $bulanNow = Carbon::parse($pembelian->tanggal)->month;
-
-                /**
-                 * harga beli naik = out (beban bertambah)
-                 * harga beli turun = in (beban berkurang / laba naik)
-                 */
-                $tipe = $selisihHarga > 0 ? ['out'] : ['in'];
-
-                /* ============================
-                | LABA RUGI BULANAN
-                ==============================*/
-                $labaRugi = LabaRugi::firstOrCreate(
-                    [
-                        'toko_id' => $tokoId,
-                        'tahun' => $tahunNow,
-                        'bulan' => $bulanNow,
-                    ],
-                    [
-                        'pendapatan' => 0,
-                        'beban' => 0,
-                        'laba_bersih' => 0,
-                    ]
-                );
-
-                if ($tipe[0] === 'in') {
-                    $labaRugi->pendapatan += $labaNominal;
-                } elseif ($tipe[0] === 'out') {
-                    $labaRugi->beban += $labaNominal;
-                }
-
-                $labaRugi->laba_bersih = $labaRugi->pendapatan - $labaRugi->beban;
-                $labaRugi->save();
-
-                /* ============================
-                | LABA RUGI TAHUNAN
-                ==============================*/
-                $labaRugiTahunan = LabaRugiTahunan::firstOrCreate(
-                    [
-                        'toko_id' => $tokoId,
-                        'tahun' => $tahunNow,
-                    ],
-                    [
-                        'pendapatan' => 0,
-                        'beban' => 0,
-                        'laba_bersih' => 0,
-                    ]
-                );
-
-                if ($tipe[0] === 'in') {
-                    $labaRugiTahunan->pendapatan += $labaNominal;
-                } elseif ($tipe[0] === 'out') {
-                    $labaRugiTahunan->beban += $labaNominal;
-                }
-
-                $labaRugiTahunan->laba_bersih = $labaRugiTahunan->pendapatan - $labaRugiTahunan->beban;
-                $labaRugiTahunan->save();
-            }
-
-            $detail->update([
-                'qty' => $newQty,
-                'harga_beli' => $newHarga,
-                'subtotal' => $newSubtotal,
-            ]);
-
-            $batches = StockBarangBatch::where('stock_barang_id', $stockBarang->id)
-                ->orderBy('tanggal')
-                ->orderBy('id')
-                ->lockForUpdate()
-                ->get();
-
-            $hppStockLama = $stockBarang->hpp_baru;
-            $prevHpp = null;
-
-            foreach ($batches as $batch) {
-
-                // kalau ini batch yang diedit
-                if ($batch->id === $editedBatch->id) {
-                    $batch->qty_masuk = $newQty;
-                    $batch->qty_sisa = $newQty - $qtyKeluar;
-                    $batch->harga_beli = $newHarga;
-                }
-
-                // set hpp_awal
-                if ($prevHpp !== null) {
-                    $batch->hpp_awal = $prevHpp;
-                }
-
-                // hitung hpp_akhir batch
-                if ($batch->qty_masuk > 0) {
-                    $batch->hpp_baru = (
-                        ($batch->hpp_awal * $batch->stok_awal)
-                        + ($batch->qty_masuk * $batch->harga_beli)
-                    ) / ($batch->stok_awal + $batch->qty_masuk);
-                } else {
-                    $batch->hpp_baru = $batch->hpp_awal;
-                }
-
-                $batch->save();
-
-                $prevHpp = $batch->hpp_baru;
-            }
-
-            $stockBarang->update([
-                'stok' => $stockBarang->stok + $deltaQty,
-                'hpp_awal' => $hppStockLama, // SEBELUM DIUBAH
-                'hpp_baru' => $prevHpp,      // HPP AKHIR BATCH TERAKHIR
-            ]);
-
-            $pembelian->update([
-                'qty' => $pembelian->qty + $deltaQty,
-                'total' => $pembelian->total + $deltaNilai,
-            ]);
-
-            // =========================================================================
-            // PENERAPAN STOCK BULANAN SERVICE (ADJUSTMENT STOK PEMBELIAN)
-            // =========================================================================
-            $jenisBarangId = $stockBarang->barang->jenis_barang_id ?? null;
-            if ($jenisBarangId && ($deltaQty != 0 || $deltaNilai != 0)) {
-                if ($deltaQty >= 0) {
-                    // Jika ada penambahan Qty / Nilai Aset Pembelian
-                    $stockBulananService->tambahStokMasuk(
-                        tokoId: $pembelian->toko_id,
-                        jenisBarangId: $jenisBarangId,
-                        qty: $deltaQty,
-                        nilaiAset: $deltaNilai,
-                        tanggal: $pembelian->tanggal
-                    );
-                } else {
-                    // Jika Qty / Nilai Aset Pembelian berkurang
-                    $stockBulananService->kurangiStokKeluar(
-                        tokoId: $pembelian->toko_id,
-                        jenisBarangId: $jenisBarangId,
-                        qty: abs($deltaQty),
-                        nilaiAset: abs($deltaNilai),
-                        tanggal: $pembelian->tanggal
-                    );
-                }
-            }
-
-            HppGenerate::recalcHpp($stockBarang->id);
-
-            if ($pembelian->tipe === 'cash' && $deltaNilai != 0) {
-                KasService::updatePembelianBarang(
-                    pembelian: $pembelian,
-                    deltaNominal: $deltaNilai,
-                    userId: $request->user_id
-                );
-            }
-
-            if ($pembelian->tipe === 'hutang' && $deltaNilai != 0) {
-                $hutang = Hutang::where('sumber_type', PembelianBarang::class)
-                    ->where('sumber_id', $pembelian->id)
-                    ->lockForUpdate()
-                    ->first();
-
-                if (! $hutang) {
-                    throw new \Exception('Data hutang tidak ditemukan');
-                }
-
-                $totalDibayar = $hutang->nominal - $hutang->sisa;
-
-                if ($totalDibayar > 0) {
-                    throw new \Exception('Tidak bisa edit pembelian karena hutang sudah pernah dibayar');
-                }
-
-                $oldNominal = $hutang->nominal;
-                $newNominal = $oldNominal + $deltaNilai;
-
-                if ($newNominal < 0) {
-                    throw new \Exception('Nominal hutang tidak valid');
-                }
-
-                // Update hutang
-                $hutang->update([
-                    'nominal' => $newNominal,
-                    'sisa' => $hutang->sisa + $deltaNilai,
-                ]);
-
-                // Ambil jenis barang
-                $firstDetail = PembelianBarangDetail::where('pembelian_barang_id', $pembelian->id)->first();
-
-                $kasJenisBarang = $firstDetail && $firstDetail->barang
-                    ? $firstDetail->barang->jenis_barang_id
-                    : null;
-
-                // Update kas (mirroring logic di update())
-                if ($deltaNilai > 0) {
-
-                    // Hutang bertambah
-                    KasService::neutralIN(
-                        toko_id: $hutang->toko_id,
-                        jenis_barang_id: $kasJenisBarang,
-                        tipe_kas: 'kecil',
-                        total_nominal: $deltaNilai,
-                        item: 'hutang',
-                        kategori: 'Hutang',
-                        keterangan: $hutang->hutangTipe->tipe ?? 'Hutang Lainnya',
-                        sumber: $hutang,
-                        tanggal: $hutang->tanggal,
-                    );
-
-                    KasService::in(
-                        toko_id: $hutang->toko_id,
-                        jenis_barang_id: $kasJenisBarang,
-                        tipe_kas: 'kecil',
-                        total_nominal: $deltaNilai,
-                        item: 'kecil',
-                        kategori: 'Hutang',
-                        keterangan: $hutang->hutangTipe->tipe ?? 'Hutang Lainnya',
-                        sumber: $hutang,
-                        tanggal: $hutang->tanggal,
-                        laba: false
-                    );
-                } else {
-
-                    // Hutang berkurang
-                    $absDelta = abs($deltaNilai);
-
-                    KasService::neutralOUT(
-                        toko_id: $hutang->toko_id,
-                        jenis_barang_id: $kasJenisBarang,
-                        tipe_kas: 'kecil',
-                        total_nominal: $absDelta,
-                        item: 'hutang',
-                        kategori: 'Hutang',
-                        keterangan: $hutang->hutangTipe->tipe ?? 'Hutang Lainnya',
-                        sumber: $hutang,
-                        tanggal: $hutang->tanggal,
-                    );
-
-                    KasService::out(
-                        toko_id: $hutang->toko_id,
-                        jenis_barang_id: $kasJenisBarang,
-                        tipe_kas: 'kecil',
-                        total_nominal: $absDelta,
-                        item: 'kecil',
-                        kategori: 'Hutang',
-                        keterangan: $hutang->hutangTipe->tipe ?? 'Hutang Lainnya',
-                        sumber: $hutang,
-                        tanggal: $hutang->tanggal,
-                        laba: false
-                    );
-                }
-
-                // Logging
-                LogAktivitasGenerate::store(
-                    logName: 'Hutang',
-                    subjectType: Hutang::class,
-                    subjectId: $hutang->id,
-                    event: 'Update Data',
-                    properties: [
-                        'changes' => [
-                            'old' => [
-                                'nominal' => $oldNominal,
-                            ],
-                            'new' => [
-                                'nominal' => $newNominal,
-                            ],
-                        ],
-                    ],
-                    description: "Update nominal hutang dari {$oldNominal} menjadi {$newNominal}",
-                    userId: $request->user_id,
-                    message: '(Sistem) Update hutang dari edit pembelian.'
-                );
-            }
-
-            DB::commit();
-
-            return $this->success(null, 200, 'Detail pembelian berhasil diperbarui');
-        } catch (\Throwable $e) {
-            DB::rollBack();
-
-            return $this->error(500, 'Gagal update detail pembelian', [
-                'exception' => $e->getMessage(),
-            ]);
-        }
-    }
-
-    public function deleteDetail(Request $request)
-    {
-        $request->validate([
-            'id' => 'required|integer|exists:pembelian_barang_detail,id',
-            'deleted_by' => 'required|integer|exists:users,id',
-            'pin' => 'required',
-            'toko_id' => 'required|integer|exists:toko,id',
-            'message' => 'required|string',
-        ]);
-
-        $pinCheck = PinCheck::validate($request->toko_id, $request->pin);
-
-        if (! $pinCheck['status']) {
-            return $this->error(403, $pinCheck['message']);
-        }
-
-        DB::beginTransaction();
-
-        try {
-            // Instantiate Service
-            $stockBulananService = app(\App\Services\StockBulananService::class);
-
-            $detail = PembelianBarangDetail::with([
-                'pembelianBarang',
-                'stockBarangBatch.stockBarang',
-                'barang',
-            ])->lockForUpdate()->findOrFail($request->id);
-
-            $pembelian = $detail->pembelianBarang;
-            $batch = $detail->stockBarangBatch;
-            $stockBarang = $batch->stockBarang;
-
-            $qty = $detail->qty;
-            $nilai = $detail->subtotal;
-
-            // 🔒 VALIDASI: tidak boleh jika sudah ada barang keluar
-            $qtyKeluar = $batch->qty_masuk - $batch->qty_sisa;
-
-            if ($qtyKeluar > 0) {
-                throw new \Exception(
-                    "Tidak bisa hapus, Barang sudah terjual / keluar sebanyak {$qtyKeluar} qty"
-                );
-            }
-
-            // =========================
-            // 🔥 HANDLE HUTANG
-            // =========================
-            if ($pembelian->tipe === 'hutang') {
-
-                $hutang = Hutang::where('sumber_type', PembelianBarang::class)
-                    ->where('sumber_id', $pembelian->id)
-                    ->lockForUpdate()
-                    ->first();
-
-                if (! $hutang) {
-                    throw new \Exception('Data hutang tidak ditemukan');
-                }
-
-                $totalDibayar = $hutang->nominal - $hutang->sisa;
-
-                if ($totalDibayar > 0) {
-                    throw new \Exception(
-                        'Tidak bisa hapus karena hutang sudah pernah dibayar'
-                    );
-                }
-
-                $oldNominal = $hutang->nominal;
-                $newNominal = $oldNominal - $nilai;
-
-                if ($newNominal < 0) {
-                    throw new \Exception('Nominal hutang tidak valid');
-                }
-
-                $hutang->update([
-                    'nominal' => $newNominal,
-                    'sisa' => $hutang->sisa - $nilai,
-                ]);
-
-                $kasJenisBarang = $detail->barang
-                    ? $detail->barang->jenis_barang_id
-                    : null;
-
-                KasService::neutralOUT(
-                    toko_id: $hutang->toko_id,
-                    jenis_barang_id: $kasJenisBarang,
-                    tipe_kas: 'kecil',
-                    total_nominal: $nilai,
-                    item: 'hutang',
-                    kategori: 'Hutang',
-                    keterangan: $hutang->hutangTipe->tipe ?? 'Hutang Lainnya',
-                    sumber: $hutang,
-                    tanggal: $hutang->tanggal,
-                );
-
-                KasService::out(
-                    toko_id: $hutang->toko_id,
-                    jenis_barang_id: $kasJenisBarang,
-                    tipe_kas: 'kecil',
-                    total_nominal: $nilai,
-                    item: 'kecil',
-                    kategori: 'Hutang',
-                    keterangan: $hutang->hutangTipe->tipe ?? 'Hutang Lainnya',
-                    sumber: $hutang,
-                    tanggal: $hutang->tanggal,
-                    laba: false
-                );
-
-                LogAktivitasGenerate::store(
-                    logName: 'Hutang',
-                    subjectType: Hutang::class,
-                    subjectId: $hutang->id,
-                    event: 'Delete Detail Pembelian Barang',
-                    properties: [
-                        'changes' => [
-                            'old' => ['nominal' => $oldNominal],
-                            'new' => ['nominal' => $newNominal],
-                        ],
-                    ],
-                    description: 'Pengurangan hutang karena hapus item pembelian',
-                    userId: $request->deleted_by,
-                    message: $request->message
-                );
-            }
-
-            // =========================
-            // 🔥 HANDLE CASH
-            // =========================
-            if ($pembelian->tipe === 'cash') {
-
-                KasService::updatePembelianBarang(
-                    pembelian: $pembelian,
-                    deltaNominal: -$nilai,
-                    userId: $request->deleted_by,
-                    edit: false
-                );
-            }
-
-            // =========================================================================
-            // PENERAPAN STOCK BULANAN SERVICE (PENGURANGAN STOK MASUK / PEMBELIAN)
-            // =========================================================================
-            $jenisBarangId = $detail->barang->jenis_barang_id ?? null;
-            if ($jenisBarangId) {
-                $stockBulananService->kurangiStokKeluar(
-                    tokoId: $pembelian->toko_id,
-                    jenisBarangId: $jenisBarangId,
-                    qty: $qty,
-                    nilaiAset: $nilai,
-                    tanggal: $pembelian->tanggal
-                );
-            }
-
-            // =========================
-            // 🔥 DELETE BATCH DULU
-            // =========================
-            $stockBarangId = $batch->stock_barang_id;
-
-            $batch->delete();
-
-            // =========================
-            // 🔥 UPDATE PEMBELIAN
-            // =========================
-            $pembelian->update([
-                'qty' => $pembelian->qty - $qty,
-                'total' => $pembelian->total - $nilai,
-            ]);
-
-            // =========================
-            // 🔥 DELETE DETAIL
-            // =========================
-            $detail->delete();
-
-            // =========================
-            // 🔥 RECALC HPP + STOK
-            // =========================
-            HppGenerate::recalcHpp($stockBarangId);
-
-            DB::commit();
-
-            return $this->success(
-                null,
-                200,
-                'Detail pembelian berhasil dihapus'
-            );
-        } catch (\Throwable $e) {
-
-            DB::rollBack();
-
-            return $this->error(500, $e->getMessage(), [
-                'exception' => $e->getMessage(),
-            ]);
-        }
-    }
 
     public function postTemp(Request $request)
     {
@@ -1475,6 +1261,467 @@ class PembelianBarangController extends Controller
         }
     }
 
+    public function putDetail(Request $request)
+    {
+        $request->validate([
+            'id' => 'required|integer|exists:pembelian_barang_detail,id',
+            'qty' => 'required|numeric|min:1',
+            'harga_barang' => 'required|numeric|min:0',
+            'user_id' => 'required|integer|exists:users,id',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $stockBulananService = app(\App\Services\StockBulananService::class);
+
+            $detail = PembelianBarangDetail::with([
+                'pembelianBarang',
+                'stockBarangBatch.stockBarang.barang',
+            ])->lockForUpdate()->findOrFail($request->id);
+
+            $pembelian = $detail->pembelianBarang;
+
+            // 🔒 GUARD CLAUSE: KUNCI EDIT BULAN LALU (TUTUP BUKU)
+            $tanggalTrx = Carbon::parse($pembelian->tanggal);
+            if ($tanggalTrx->format('Y-m') < Carbon::now()->format('Y-m')) {
+                throw new \Exception('Transaksi Pembelian bulan lalu yang telah tutup buku tidak dapat di-edit.');
+            }
+
+            $editedBatch = $detail->stockBarangBatch;
+            $stockBarang = $editedBatch->stockBarang;
+
+            $oldQty = $detail->qty;
+            $oldHarga = $detail->harga_beli;
+            $oldSubtotal = $oldQty * $oldHarga;
+
+            $newQty = $request->qty;
+            $newHarga = $request->harga_barang;
+            $newSubtotal = $newQty * $newHarga;
+
+            $deltaQty = $newQty - $oldQty;
+            $deltaNilai = $newSubtotal - $oldSubtotal;
+
+            $qtyKeluar = $editedBatch->qty_masuk - $editedBatch->qty_sisa;
+            $qtySisa = $editedBatch->qty_sisa;
+
+            if ($newQty < $qtyKeluar) {
+                throw new \Exception("Qty tidak boleh kurang dari yang sudah keluar ({$qtyKeluar})");
+            }
+
+            // --- Logika Adjustment Laba Rugi & Hutang/Kas (Tetap Sama) ---
+            $selisihHarga = $newHarga - $oldHarga;
+            $nominalLabaRugi = $qtyKeluar * $selisihHarga;
+            $nominalStok = $qtySisa * $selisihHarga;
+
+            if ($oldQty != $newQty || $oldHarga != $newHarga) {
+                PembelianBarangDetailAdjustment::create([
+                    'toko_id' => $pembelian->toko_id,
+                    'pembelian_barang_id' => $pembelian->id,
+                    'pembelian_barang_detail_id' => $detail->id,
+                    'stock_barang_batch_id' => $editedBatch->id,
+                    'old_qty' => $oldQty,
+                    'new_qty' => $newQty,
+                    'old_harga' => $oldHarga,
+                    'new_harga' => $newHarga,
+                    'selisih_harga' => $selisihHarga,
+                    'nominal_laba_rugi' => $nominalLabaRugi,
+                    'nominal_stok' => $nominalStok,
+                    'created_by' => $request->user_id,
+                ]);
+            }
+
+            if ($qtyKeluar > 0) {
+                $labaNominal = abs($qtyKeluar * $selisihHarga);
+                $tokoId = $pembelian->toko_id;
+                $tahunNow = Carbon::parse($pembelian->tanggal)->year;
+                $bulanNow = Carbon::parse($pembelian->tanggal)->month;
+                $tipe = $selisihHarga > 0 ? ['out'] : ['in'];
+
+                $labaRugi = LabaRugi::firstOrCreate(
+                    ['toko_id' => $tokoId, 'tahun' => $tahunNow, 'bulan' => $bulanNow],
+                    ['pendapatan' => 0, 'beban' => 0, 'laba_bersih' => 0]
+                );
+
+                if ($tipe[0] === 'in') {
+                    $labaRugi->pendapatan += $labaNominal;
+                } else {
+                    $labaRugi->beban += $labaNominal;
+                }
+                $labaRugi->laba_bersih = $labaRugi->pendapatan - $labaRugi->beban;
+                $labaRugi->save();
+
+                $labaRugiTahunan = LabaRugiTahunan::firstOrCreate(
+                    ['toko_id' => $tokoId, 'tahun' => $tahunNow],
+                    ['pendapatan' => 0, 'beban' => 0, 'laba_bersih' => 0]
+                );
+
+                if ($tipe[0] === 'in') {
+                    $labaRugiTahunan->pendapatan += $labaNominal;
+                } else {
+                    $labaRugiTahunan->beban += $labaNominal;
+                }
+                $labaRugiTahunan->laba_bersih = $labaRugiTahunan->pendapatan - $labaRugiTahunan->beban;
+                $labaRugiTahunan->save();
+            }
+
+            $detail->update([
+                'qty' => $newQty,
+                'harga_beli' => $newHarga,
+                'subtotal' => $newSubtotal,
+            ]);
+
+            // Recalc Batches
+            $batches = StockBarangBatch::where('stock_barang_id', $stockBarang->id)
+                ->orderBy('tanggal')
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+
+            $hppStockLama = $stockBarang->hpp_baru;
+            $prevHpp = null;
+
+            foreach ($batches as $batch) {
+                if ($batch->id === $editedBatch->id) {
+                    $batch->qty_masuk = $newQty;
+                    $batch->qty_sisa = $newQty - $qtyKeluar;
+                    $batch->harga_beli = $newHarga;
+                }
+
+                if ($prevHpp !== null) {
+                    $batch->hpp_awal = $prevHpp;
+                }
+
+                if ($batch->qty_masuk > 0) {
+                    $batch->hpp_baru = (($batch->hpp_awal * $batch->stok_awal) + ($batch->qty_masuk * $batch->harga_beli)) / ($batch->stok_awal + $batch->qty_masuk);
+                } else {
+                    $batch->hpp_baru = $batch->hpp_awal;
+                }
+
+                $batch->save();
+                $prevHpp = $batch->hpp_baru;
+            }
+
+            $stockBarang->update([
+                'stok' => $stockBarang->stok + $deltaQty,
+                'hpp_awal' => $hppStockLama,
+                'hpp_baru' => $prevHpp,
+            ]);
+
+            $pembelian->update([
+                'qty' => $pembelian->qty + $deltaQty,
+                'total' => $pembelian->total + $deltaNilai,
+            ]);
+
+            // =========================================================================
+            // 🟢 PERBAIKAN STOK BULANAN SERVICE (EDIT DETAIL PEMBELIAN)
+            // =========================================================================
+            $jenisBarangId = $stockBarang->barang->jenis_barang_id ?? null;
+            if ($jenisBarangId && ($deltaQty != 0 || $deltaNilai != 0)) {
+                if ($deltaQty >= 0 && $deltaNilai >= 0) {
+                    // Qty/Nilai Pembelian Bertambah -> Tambah Stok Masuk
+                    $stockBulananService->tambahStokMasuk(
+                        tokoId: $pembelian->toko_id,
+                        jenisBarangId: $jenisBarangId,
+                        qty: $deltaQty,
+                        nilaiAset: $deltaNilai,
+                        tanggal: $pembelian->tanggal
+                    );
+                } else {
+                    // Qty/Nilai Pembelian Berkurang -> Kurangi Stok Masuk
+                    $stockBulananService->kurangiStokMasuk(
+                        tokoId: $pembelian->toko_id,
+                        jenisBarangId: $jenisBarangId,
+                        qty: abs($deltaQty),
+                        nilaiAset: abs($deltaNilai),
+                        tanggal: $pembelian->tanggal
+                    );
+                }
+            }
+
+            HppGenerate::recalcHpp($stockBarang->id);
+
+            // Update Kas & Hutang
+            if ($pembelian->tipe === 'cash' && $deltaNilai != 0) {
+                KasService::updatePembelianBarang(
+                    pembelian: $pembelian,
+                    deltaNominal: $deltaNilai,
+                    userId: $request->user_id
+                );
+            }
+
+            if ($pembelian->tipe === 'hutang' && $deltaNilai != 0) {
+                $hutang = Hutang::where('sumber_type', PembelianBarang::class)
+                    ->where('sumber_id', $pembelian->id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $hutang) {
+                    throw new \Exception('Data hutang tidak ditemukan');
+                }
+
+                $totalDibayar = $hutang->nominal - $hutang->sisa;
+                if ($totalDibayar > 0) {
+                    throw new \Exception('Tidak bisa edit pembelian karena hutang sudah pernah dibayar');
+                }
+
+                $oldNominal = $hutang->nominal;
+                $newNominal = $oldNominal + $deltaNilai;
+
+                if ($newNominal < 0) {
+                    throw new \Exception('Nominal hutang tidak valid');
+                }
+
+                $hutang->update([
+                    'nominal' => $newNominal,
+                    'sisa' => $hutang->sisa + $deltaNilai,
+                ]);
+
+                $firstDetail = PembelianBarangDetail::where('pembelian_barang_id', $pembelian->id)->first();
+                $kasJenisBarang = $firstDetail && $firstDetail->barang ? $firstDetail->barang->jenis_barang_id : null;
+
+                if ($deltaNilai > 0) {
+                    KasService::neutralIN(
+                        toko_id: $hutang->toko_id,
+                        jenis_barang_id: $kasJenisBarang,
+                        tipe_kas: 'kecil',
+                        total_nominal: $deltaNilai,
+                        item: 'hutang',
+                        kategori: 'Hutang',
+                        keterangan: $hutang->hutangTipe->tipe ?? 'Hutang Lainnya',
+                        sumber: $hutang,
+                        tanggal: $hutang->tanggal
+                    );
+
+                    KasService::in(
+                        toko_id: $hutang->toko_id,
+                        jenis_barang_id: $kasJenisBarang,
+                        tipe_kas: 'kecil',
+                        total_nominal: $deltaNilai,
+                        item: 'kecil',
+                        kategori: 'Hutang',
+                        keterangan: $hutang->hutangTipe->tipe ?? 'Hutang Lainnya',
+                        sumber: $hutang,
+                        tanggal: $hutang->tanggal,
+                        laba: false
+                    );
+                } else {
+                    $absDelta = abs($deltaNilai);
+                    KasService::neutralOUT(
+                        toko_id: $hutang->toko_id,
+                        jenis_barang_id: $kasJenisBarang,
+                        tipe_kas: 'kecil',
+                        total_nominal: $absDelta,
+                        item: 'hutang',
+                        kategori: 'Hutang',
+                        keterangan: $hutang->hutangTipe->tipe ?? 'Hutang Lainnya',
+                        sumber: $hutang,
+                        tanggal: $hutang->tanggal
+                    );
+
+                    KasService::out(
+                        toko_id: $hutang->toko_id,
+                        jenis_barang_id: $kasJenisBarang,
+                        tipe_kas: 'kecil',
+                        total_nominal: $absDelta,
+                        item: 'kecil',
+                        kategori: 'Hutang',
+                        keterangan: $hutang->hutangTipe->tipe ?? 'Hutang Lainnya',
+                        sumber: $hutang,
+                        tanggal: $hutang->tanggal,
+                        laba: false
+                    );
+                }
+
+                LogAktivitasGenerate::store(
+                    logName: 'Hutang',
+                    subjectType: Hutang::class,
+                    subjectId: $hutang->id,
+                    event: 'Update Data',
+                    properties: [
+                        'changes' => [
+                            'old' => ['nominal' => $oldNominal],
+                            'new' => ['nominal' => $newNominal],
+                        ],
+                    ],
+                    description: "Update nominal hutang dari {$oldNominal} menjadi {$newNominal}",
+                    userId: $request->user_id,
+                    message: '(Sistem) Update hutang dari edit pembelian.'
+                );
+            }
+
+            DB::commit();
+
+            return $this->success(null, 200, 'Detail pembelian berhasil diperbarui');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            return $this->error(500, 'Gagal update detail pembelian', [
+                'exception' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    public function deleteDetail(Request $request)
+    {
+        $request->validate([
+            'id' => 'required|integer|exists:pembelian_barang_detail,id',
+            'deleted_by' => 'required|integer|exists:users,id',
+            'pin' => 'required',
+            'toko_id' => 'required|integer|exists:toko,id',
+            'message' => 'required|string',
+        ]);
+
+        $pinCheck = PinCheck::validate($request->toko_id, $request->pin);
+        if (! $pinCheck['status']) {
+            return $this->error(403, $pinCheck['message']);
+        }
+
+        DB::beginTransaction();
+
+        try {
+            $stockBulananService = app(\App\Services\StockBulananService::class);
+
+            $detail = PembelianBarangDetail::with([
+                'pembelianBarang',
+                'stockBarangBatch.stockBarang',
+                'barang',
+            ])->lockForUpdate()->findOrFail($request->id);
+
+            $pembelian = $detail->pembelianBarang;
+
+            // 🔒 GUARD CLAUSE: KUNCI PEMBELIAN BULAN LALU
+            $tanggalTrx = Carbon::parse($pembelian->tanggal);
+            if ($tanggalTrx->format('Y-m') < Carbon::now()->format('Y-m')) {
+                throw new \Exception('Detail Pembelian bulan lalu yang sudah tutup buku tidak dapat dihapus.');
+            }
+
+            $batch = $detail->stockBarangBatch;
+            $stockBarang = $batch->stockBarang;
+
+            $qty = $detail->qty;
+            $nilai = $detail->subtotal;
+
+            $qtyKeluar = $batch->qty_masuk - $batch->qty_sisa;
+            if ($qtyKeluar > 0) {
+                throw new \Exception("Tidak bisa hapus, Barang sudah terjual / keluar sebanyak {$qtyKeluar} qty");
+            }
+
+            if ($pembelian->tipe === 'hutang') {
+                $hutang = Hutang::where('sumber_type', PembelianBarang::class)
+                    ->where('sumber_id', $pembelian->id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $hutang) {
+                    throw new \Exception('Data hutang tidak ditemukan');
+                }
+
+                $totalDibayar = $hutang->nominal - $hutang->sisa;
+                if ($totalDibayar > 0) {
+                    throw new \Exception('Tidak bisa hapus karena hutang sudah pernah dibayar');
+                }
+
+                $oldNominal = $hutang->nominal;
+                $newNominal = $oldNominal - $nilai;
+                if ($newNominal < 0) {
+                    throw new \Exception('Nominal hutang tidak valid');
+                }
+
+                $hutang->update([
+                    'nominal' => $newNominal,
+                    'sisa' => $hutang->sisa - $nilai,
+                ]);
+
+                $kasJenisBarang = $detail->barang ? $detail->barang->jenis_barang_id : null;
+
+                KasService::neutralOUT(
+                    toko_id: $hutang->toko_id,
+                    jenis_barang_id: $kasJenisBarang,
+                    tipe_kas: 'kecil',
+                    total_nominal: $nilai,
+                    item: 'hutang',
+                    kategori: 'Hutang',
+                    keterangan: $hutang->hutangTipe->tipe ?? 'Hutang Lainnya',
+                    sumber: $hutang,
+                    tanggal: $hutang->tanggal,
+                );
+
+                KasService::out(
+                    toko_id: $hutang->toko_id,
+                    jenis_barang_id: $kasJenisBarang,
+                    tipe_kas: 'kecil',
+                    total_nominal: $nilai,
+                    item: 'kecil',
+                    kategori: 'Hutang',
+                    keterangan: $hutang->hutangTipe->tipe ?? 'Hutang Lainnya',
+                    sumber: $hutang,
+                    tanggal: $hutang->tanggal,
+                    laba: false
+                );
+
+                LogAktivitasGenerate::store(
+                    logName: 'Hutang',
+                    subjectType: Hutang::class,
+                    subjectId: $hutang->id,
+                    event: 'Delete Detail Pembelian Barang',
+                    properties: [
+                        'changes' => [
+                            'old' => ['nominal' => $oldNominal],
+                            'new' => ['nominal' => $newNominal],
+                        ],
+                    ],
+                    description: 'Pengurangan hutang karena hapus item pembelian',
+                    userId: $request->deleted_by,
+                    message: $request->message
+                );
+            }
+
+            if ($pembelian->tipe === 'cash') {
+                KasService::updatePembelianBarang(
+                    pembelian: $pembelian,
+                    deltaNominal: -$nilai,
+                    userId: $request->deleted_by,
+                    edit: false
+                );
+            }
+
+            // =========================================================================
+            // 🟢 PERBAIKAN: GUNAKAN kurangiStokMasuk (ROLLBACK_IN)
+            // =========================================================================
+            $jenisBarangId = $detail->barang->jenis_barang_id ?? null;
+            if ($jenisBarangId) {
+                $stockBulananService->kurangiStokMasuk(
+                    tokoId: $pembelian->toko_id,
+                    jenisBarangId: $jenisBarangId,
+                    qty: $qty,
+                    nilaiAset: $nilai,
+                    tanggal: $pembelian->tanggal
+                );
+            }
+
+            $stockBarangId = $batch->stock_barang_id;
+            $batch->delete();
+
+            $pembelian->update([
+                'qty' => $pembelian->qty - $qty,
+                'total' => $pembelian->total - $nilai,
+            ]);
+
+            $detail->delete();
+            HppGenerate::recalcHpp($stockBarangId);
+
+            DB::commit();
+
+            return $this->success(null, 200, 'Detail pembelian berhasil dihapus');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            return $this->error(500, $e->getMessage(), [
+                'exception' => $e->getMessage(),
+            ]);
+        }
+    }
+
     public function delete(Request $request)
     {
         try {
@@ -1486,32 +1733,25 @@ class PembelianBarangController extends Controller
                 'message' => 'required|string',
             ]);
 
-            // ✅ VALIDASI PIN
             $pinCheck = PinCheck::validate($validated['toko_id'], $validated['pin']);
             if (! $pinCheck['status']) {
                 return $this->error(403, $pinCheck['message']);
             }
 
             DB::beginTransaction();
-
-            // Instantiate Service
             $stockBulananService = app(\App\Services\StockBulananService::class);
 
-            // 🔥 Ambil pembelian saja dulu
             $pembelian = PembelianBarang::lockForUpdate()->findOrFail($validated['id']);
 
-            // =========================
-            // 🟡 KONDISI: MASIH PROGRESS
-            // =========================
+            // 🔒 GUARD CLAUSE: KUNCI PEMBELIAN BULAN LALU
+            $tanggalTrx = Carbon::parse($pembelian->tanggal);
+            if ($tanggalTrx->format('Y-m') < Carbon::now()->format('Y-m')) {
+                throw new \Exception('Pembelian barang bulan lalu yang telah tutup buku tidak dapat dihapus.');
+            }
+
             if ($pembelian->status == 'progress') {
-
-                $tempDetails = PembelianBarangDetailTemp::where(
-                    'pembelian_barang_id',
-                    $pembelian->id
-                )->get();
-
+                $tempDetails = PembelianBarangDetailTemp::where('pembelian_barang_id', $pembelian->id)->get();
                 foreach ($tempDetails as $temp) {
-
                     $stockBarang = StockBarang::where('barang_id', $temp->barang_id)
                         ->where('toko_group_id', $pembelian->toko_group_id)
                         ->first();
@@ -1522,47 +1762,31 @@ class PembelianBarangController extends Controller
                             'hpp_baru' => 0,
                         ]);
                     }
-
                     $temp->delete();
                 }
 
                 $pembelian->delete();
-
                 DB::commit();
 
                 return $this->success(null, 200, 'Draft pembelian berhasil dihapus');
             }
 
-            /**
-             * 🔥 PENTING:
-             * Reload detail terbaru langsung dari DB
-             * supaya detail yg sudah dihapus via deleteDetail
-             * tidak ikut terbaca lagi
-             */
             $details = PembelianBarangDetail::with('barang')
                 ->where('pembelian_barang_id', $pembelian->id)
                 ->lockForUpdate()
                 ->get();
 
-            // =========================
-            // 🔴 VALIDASI STOK TERPAKAI
-            // =========================
             foreach ($details as $detail) {
-
                 $batch = StockBarangBatch::find($detail->stock_barang_batch_id);
-
                 if ($batch && $batch->qty_sisa != $batch->qty_masuk) {
                     DB::rollBack();
 
-                    return $this->error(
-                        400,
-                        'Tidak bisa hapus pembelian. Ada stok yang sudah terjual.'
-                    );
+                    return $this->error(400, 'Tidak bisa hapus pembelian. Ada stok yang sudah terjual.');
                 }
             }
 
             // =========================================================================
-            // 🟢 PENERAPAN STOCK BULANAN SERVICE (PENGURANGAN REKAP PEMBELIAN/STOK MASUK)
+            // 🟢 PERBAIKAN: GUNAKAN kurangiStokMasuk (ROLLBACK_IN)
             // =========================================================================
             $grouped = $details->groupBy(fn ($d) => $d->barang->jenis_barang_id ?? null);
 
@@ -1571,7 +1795,7 @@ class PembelianBarangController extends Controller
                     $totalQty = $rows->sum('qty');
                     $totalNilai = $rows->sum('subtotal');
 
-                    $stockBulananService->kurangiStokKeluar(
+                    $stockBulananService->kurangiStokMasuk(
                         tokoId: $pembelian->toko_id,
                         jenisBarangId: $jenisId,
                         qty: $totalQty,
@@ -1581,30 +1805,17 @@ class PembelianBarangController extends Controller
                 }
             }
 
-            // =========================
-            // 🔥 DELETE DETAIL AKTIF SAJA
-            // =========================
             foreach ($details as $detail) {
-
                 $batch = StockBarangBatch::find($detail->stock_barang_batch_id);
-
                 if ($batch) {
                     $stockBarangId = $batch->stock_barang_id;
-
                     $batch->delete();
-
-                    // recalc setelah batch dihapus
                     HppGenerate::recalcHpp($stockBarangId);
                 }
-
                 $detail->delete();
             }
 
-            // =========================
-            // 💰 HANDLE KAS & HUTANG
-            // =========================
             if ($pembelian->tipe == 'cash') {
-
                 KasService::delete(
                     $pembelian->kas_id,
                     $pembelian->id,
@@ -1613,13 +1824,11 @@ class PembelianBarangController extends Controller
                     false
                 );
             } elseif ($pembelian->tipe == 'hutang') {
-
                 $hutang = Hutang::where('sumber_type', PembelianBarang::class)
                     ->where('sumber_id', $pembelian->id)
                     ->first();
 
                 if ($hutang) {
-
                     KasService::delete(
                         $hutang->kas_id,
                         $hutang->id,
@@ -1628,22 +1837,15 @@ class PembelianBarangController extends Controller
                         false,
                         false
                     );
-
                     $hutang->delete();
                 }
             }
 
             $pembelian->delete();
-
             DB::commit();
 
-            return $this->success(
-                null,
-                200,
-                'Pembelian berhasil dihapus & stok dikembalikan'
-            );
+            return $this->success(null, 200, 'Pembelian berhasil dihapus & stok dikembalikan');
         } catch (\Throwable $e) {
-
             DB::rollBack();
 
             return $this->error(500, 'Gagal menghapus data', [

@@ -55,7 +55,7 @@ class StockBarangController extends Controller
 
             $query = StockBarang::query();
 
-            // 1. Filter Toko (Aman & Ringan)
+            // 1. Filter Toko
             if (! empty($request['toko_id'])) {
                 $query->whereHas('tokoGroup.toko', function ($q) use ($request) {
                     $q->where('toko.id', $request['toko_id']);
@@ -78,21 +78,19 @@ class StockBarangController extends Controller
                 ]);
             }
 
-            // 4. Eager Loading Batch Aktif + Order By DB
+            // 4. Eager Loading Batch Aktif (Tanpa withSum yang bikin lambat)
             $query->with([
                 'barang:id,nama,barcode',
                 'tokoGroup:id,nama',
                 'stockBarangBatch' => function ($q) {
                     $q->where('qty_sisa', '>', 0)
+                        ->whereHas('toko', fn ($t) => $t->whereNull('deleted_at'))
                         ->orderBy('created_at', 'desc');
                 },
             ])
-                ->withSum(['stockBarangBatch as total_qty_sisa' => function ($q) {
-                    $q->where('qty_sisa', '>', 0);
-                }], 'qty_sisa')
-                ->orderBy('total_qty_sisa', $orderBy);
+                ->orderBy('id', $orderBy); // Fast Index Sorting
 
-            // Paginate
+            // Paginate dulu (hanya mengambil 10/30 record saja)
             $data = $query->paginate($limit);
 
             if ($data->isEmpty()) {
@@ -107,12 +105,11 @@ class StockBarangController extends Controller
                 ->pluck('nama_level_harga')
                 ->toArray();
 
-            // 5. Mapping Response Fast & Safe
+            // 5. Hitung total stok HANYA untuk 10-30 item yang tampil di page ini
             $mappedData = collect($data->items())->map(function ($item) use ($levelNames) {
                 $barang = $item->barang;
                 $tokoGroup = $item->tokoGroup;
 
-                // Batch terbaru dari eager load
                 $latestBatch = $item->stockBarangBatch->first();
                 $hppBaruNumeric = $latestBatch ? (int) $latestBatch->hpp_baru : (int) $item->hpp_baru;
 
@@ -134,6 +131,9 @@ class StockBarangController extends Controller
                     $level_harga[$level_name] = RupiahGenerate::build($numeric);
                 }
 
+                // Hitung sum stok batch secara memori (Hanya memproses 10 item, super cepat < 10ms)
+                $totalStockBatch = (int) $item->stockBarangBatch->sum('qty_sisa');
+
                 return [
                     'id' => $item->id,
                     'id_barang' => $barang->id ?? null,
@@ -143,7 +143,7 @@ class StockBarangController extends Controller
                     'nama_toko_group' => $tokoGroup->nama ?? null,
                     'hpp_baru' => RupiahGenerate::build($hppBaruNumeric),
                     'real_hpp' => $hppBaruNumeric,
-                    'stock' => (int) ($item->total_qty_sisa ?? 0),
+                    'stock' => $totalStockBatch,
                     'level_harga' => $level_harga,
                     'warning' => $warning,
                 ];
@@ -167,8 +167,6 @@ class StockBarangController extends Controller
                 'status_code' => 500,
                 'errors' => true,
                 'message' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
             ], 500);
         }
     }

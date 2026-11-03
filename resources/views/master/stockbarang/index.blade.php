@@ -59,27 +59,34 @@
                                 <!-- Bagian Kiri: Info Total Qty & Total HPP + Tombol Tambah -->
                                 <div class="col-sm-12 col-md-6 col-lg-6 mb-2">
                                     <div class="d-flex align-items-center">
-
-                                        <!-- Widget Ringkasan Stok & HPP (Disebelah kiri tombol Tambah) -->
                                         <div id="summaryWidget"
                                             class="d-flex align-items-center mr-3 p-2 bg-light border rounded shadow-sm">
-                                            <div class="px-2 border-right text-center">
-                                                <small class="text-muted d-block font-weight-bold"
-                                                    style="font-size: 11px;">TOTAL STOK</small>
-                                                <span id="totalQtyVal" class="font-weight-bold text-dark"><i
-                                                        class="fa fa-spinner fa-spin"></i></span>
+                                            <!-- TOTAL STOK -->
+                                            <div class="px-2 border-right text-center position-relative">
+                                                <small class="text-muted d-block font-weight-bold" style="font-size: 11px;">
+                                                    TOTAL STOK
+                                                    <i class="fa fa-info-circle text-info ml-1 cursor-pointer"
+                                                        id="btnDetailJenis" data-toggle="popover" data-trigger="click"
+                                                        data-html="true" data-placement="bottom"
+                                                        title="<b>Pecahan Per Jenis Barang</b>"
+                                                        data-content="<i class='fa fa-spinner fa-spin'></i> Memuat..."></i>
+                                                </small>
+                                                <span id="totalQtyVal" class="font-weight-bold text-dark">
+                                                    <i class="fa fa-spinner fa-spin"></i>
+                                                </span>
                                             </div>
+
+                                            <!-- TOTAL NILAI HPP -->
                                             @if (Auth::user()->role_id == 1)
                                                 <div class="px-2 text-center">
                                                     <small class="text-muted d-block font-weight-bold"
                                                         style="font-size: 11px;">TOTAL NILAI HPP</small>
-                                                    <span id="totalHppVal" class="font-weight-bold text-success"><i
-                                                            class="fa fa-spinner fa-spin"></i></span>
+                                                    <span id="totalHppVal" class="font-weight-bold text-success">
+                                                        <i class="fa fa-spinner fa-spin"></i>
+                                                    </span>
                                                 </div>
                                             @endif
                                         </div>
-
-                                        <!-- Tombol Tambah -->
                                         <div>
                                             <a href="{{ route('transaksi.pembelianbarang.index') }}" class="btn btn-primary"
                                                 data-container="body" data-toggle="tooltip" data-placement="top"
@@ -160,8 +167,8 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="modalLabel"><i class="fa fa-edit mr-1"></i>Form Pengurangan Stok Barang</h5>
-                    <button type="button" class="btn-close reset-all close" data-bs-dismiss="modal" aria-label="Close"><i
-                            class="fa fa-xmark"></i></button>
+                    <button type="button" class="btn-close reset-all close" data-bs-dismiss="modal"
+                        aria-label="Close"><i class="fa fa-xmark"></i></button>
                 </div>
                 <div class="modal-body card-body">
                     <div class="mb-2">
@@ -239,7 +246,9 @@
 
         async function getSummaryData(search = '') {
             $('#totalQtyVal').html('<i class="fa fa-spinner fa-spin"></i>');
-            $('#totalHppVal').html('<i class="fa fa-spinner fa-spin"></i>');
+            if ($('#totalHppVal').length) {
+                $('#totalHppVal').html('<i class="fa fa-spinner fa-spin"></i>');
+            }
 
             try {
                 let response = await renderAPI(
@@ -253,16 +262,62 @@
                 if (response && response.status == 200 && response.data.data) {
                     let resData = response.data.data;
                     $('#totalQtyVal').text(resData.total_qty + ' Pcs');
-                    $('#totalHppVal').text(resData.total_hpp);
+
+                    if ($('#totalHppVal').length) {
+                        $('#totalHppVal').text(resData.total_hpp);
+                    }
+
+                    // ==========================================
+                    // RENDER HTML PECAHAN PER JENIS (POPOVER)
+                    // ==========================================
+                    let isRoleAdmin = {{ Auth::user()->role_id == 1 ? 'true' : 'false' }};
+                    let htmlPerJenis =
+                        '<div class="p-1" style="max-height: 250px; overflow-y: auto; min-width: 220px;">';
+
+                    if (Array.isArray(resData.per_jenis) && resData.per_jenis.length > 0) {
+                        htmlPerJenis += '<table class="table table-sm table-borderless m-0 style="font-size: 12px;">';
+                        htmlPerJenis += '<tbody>';
+
+                        resData.per_jenis.forEach(item => {
+                            htmlPerJenis += `
+                        <tr class="border-bottom">
+                            <td class="font-weight-bold text-left p-1">${item.nama_jenis}</td>
+                            <td class="text-right p-1"><span class="badge badge-info">${item.qty} Pcs</span></td>
+                            ${isRoleAdmin ? `<td class="text-right p-1 text-success font-weight-bold">${item.total_hpp}</td>` : ''}
+                        </tr>
+                    `;
+                        });
+
+                        htmlPerJenis += '</tbody></table>';
+                    } else {
+                        htmlPerJenis += '<span class="text-muted text-center d-block">Tidak ada data jenis.</span>';
+                    }
+                    htmlPerJenis += '</div>';
+
+                    // Re-initialize Popover Bootstrap
+                    $('#btnDetailJenis').popover('dispose').popover({
+                        html: true,
+                        content: htmlPerJenis,
+                        trigger: 'click',
+                        placement: 'bottom'
+                    });
+
                 } else {
                     $('#totalQtyVal').text('0 Pcs');
-                    $('#totalHppVal').text('Rp 0');
+                    if ($('#totalHppVal').length) $('#totalHppVal').text('Rp 0');
                 }
             } catch (error) {
                 $('#totalQtyVal').text('0 Pcs');
-                $('#totalHppVal').text('Rp 0');
+                if ($('#totalHppVal').length) $('#totalHppVal').text('Rp 0');
             }
         }
+
+        // Tutup Popover jika klik di luar widget
+        $(document).on('click', function(e) {
+            if ($(e.target).data('toggle') !== 'popover' && $(e.target).parents('.popover.show').length === 0) {
+                $('#btnDetailJenis').popover('hide');
+            }
+        });
 
         // Update fungsi getListData Anda untuk memanggil getSummaryData
         async function getListData(limit = 10, page = 1, ascending = 0, search = '', customFilter = {}) {

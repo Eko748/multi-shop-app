@@ -49,40 +49,34 @@ class StockBarangController extends Controller
 
     public function get(Request $request)
     {
-        $meta['orderBy'] = $request->input('ascending', 0) ? 'asc' : 'desc';
-        $meta['limit'] = $request->has('limit') && $request->limit <= 30 ? (int) $request->limit : 30;
+        $orderBy = $request->input('ascending', 0) ? 'asc' : 'desc';
+        $limit = $request->has('limit') && (int) $request->limit <= 300 ? (int) $request->limit : 30;
 
-        // Callback filter hanya untuk batch yang masih aktif & tokonya belum dihapus
-        $activeBatchQuery = function ($q) {
+        // Callback filter batch aktif
+        $activeBatchConstraint = function ($q) {
             $q->where('qty_sisa', '>', 0)
-                ->whereHas('toko', function ($tokoQuery) {
-                    $tokoQuery->whereNull('deleted_at');
-                });
+                ->whereHas('toko', fn ($tokoQuery) => $tokoQuery->whereNull('deleted_at'));
         };
 
-        // 1. Eager load batch yang aktif saja (batch lama/habis tidak di-load agar ringan)
-        $query = StockBarang::with([
-            'barang',
-            'tokoGroup',
-            'stockBarangBatch' => $activeBatchQuery,
-        ]);
-
-        // DIHAPUS: $query->whereHas('stockBarangBatch', ...)
-        // agar data StockBarang tetap muncul meskipun stoknya 0.
+        // 1. Optimasi Query Utama: Gunakan JOIN sederhana jika ada filter toko_id
+        $query = StockBarang::query();
 
         if (! empty($request['toko_id'])) {
-            $query->whereHas('tokoGroup.toko', function ($q) use ($request) {
-                $q->where('toko.id', $request['toko_id']);
+            // Lebih cepat dari whereHas('tokoGroup.toko')
+            $query->whereExists(function ($q) use ($request) {
+                $q->select(DB::raw(1))
+                    ->from('toko')
+                    ->whereColumn('toko.toko_group_id', 'stock_barang.toko_group_id')
+                    ->where('toko.id', $request['toko_id'])
+                    ->whereNull('toko.deleted_at');
             });
         }
 
+        // 2. Optimasi Search (Gunakan LIKE standar agar memanfaatkan INDEX)
         if (! empty($request['search'])) {
-            $searchTerm = trim(strtolower($request['search']));
-
-            $query->where(function ($q) use ($searchTerm) {
-                $q->whereHas('barang', function ($subquery) use ($searchTerm) {
-                    $subquery->whereRaw('LOWER(nama) LIKE ?', ["%$searchTerm%"]);
-                });
+            $searchTerm = trim($request['search']);
+            $query->whereHas('barang', function ($subquery) use ($searchTerm) {
+                $subquery->where('nama', 'LIKE', "%{$searchTerm}%");
             });
         }
 
@@ -93,34 +87,45 @@ class StockBarangController extends Controller
             ]);
         }
 
-        // 2. Hitung total qty_sisa batch aktif untuk keperluan sorting
-        $query->withSum(['stockBarangBatch as total_qty_sisa' => $activeBatchQuery], 'qty_sisa')
-            ->orderBy('total_qty_sisa', $meta['orderBy']);
+        // 3. Eager Loading & Aggregation bawaan DB (Sangat Cepat!)
+        $query->with([
+            'barang:id,nama,barcode',
+            'tokoGroup:id,nama',
+            'stockBarangBatch' => function ($q) use ($activeBatchConstraint) {
+                $activeBatchConstraint($q);
+                // Ambil batch terbaru saja untuk HPP
+                $q->orderBy('created_at', 'desc');
+            },
+        ])
+            ->withSum(['stockBarangBatch as total_qty_sisa' => $activeBatchConstraint], 'qty_sisa')
+            ->orderBy('total_qty_sisa', $orderBy);
 
-        $data = $query->paginate($meta['limit']);
+        // Paginate data
+        $data = $query->paginate($limit);
 
-        $paginationMeta = [
-            'total' => $data->total(),
-            'per_page' => $data->perPage(),
-            'current_page' => $data->currentPage(),
-            'total_pages' => $data->lastPage(),
-        ];
+        if ($data->isEmpty()) {
+            return response()->json([
+                'status_code' => 400,
+                'errors' => true,
+                'message' => 'Tidak ada data',
+            ], 400);
+        }
 
         $levelNames = LevelHarga::orderBy('id', 'asc')
             ->pluck('nama_level_harga')
             ->toArray();
 
+        // 4. Mapping Data Ringan
         $mappedData = collect($data->items())->map(function ($item) use ($levelNames) {
-
             $barang = $item->barang;
             $tokoGroup = $item->tokoGroup;
 
+            // Ambil batch pertama dari Eager Loading (sudah di-sort descending di query)
+            $latestBatch = $item->stockBarangBatch->first();
+            $hppBaruNumeric = $latestBatch ? (int) $latestBatch->hpp_baru : (int) $item->hpp_baru;
+
             $decoded = json_decode($item->level_harga, true);
             $decoded = is_array($decoded) ? $decoded : [];
-
-            // 1. Ambil batch terbaru untuk mendapatkan hpp_baru dari stock_barang_batch
-            $latestBatch = $item->stockBarangBatch ? $item->stockBarangBatch->sortByDesc('created_at')->first() : null;
-            $hppBaruNumeric = $latestBatch ? (int) $latestBatch->hpp_baru : (int) $item->hpp_baru;
 
             $level_harga = [];
             $warning = false;
@@ -133,46 +138,36 @@ class StockBarangController extends Controller
                     $warning = true;
                 }
 
-                $formatted = RupiahGenerate::build($numeric);
                 $level_name = $levelNames[$index] ?? 'Level '.($index + 1);
-
-                $level_harga[$level_name] = $formatted;
+                $level_harga[$level_name] = RupiahGenerate::build($numeric);
             }
-
-            // 2. Jika tidak ada batch aktif, sum() menghasilkan 0
-            $totalStockBatch = (int) $item->stockBarangBatch->sum('qty_sisa');
 
             return [
                 'id' => $item->id,
                 'id_barang' => $barang->id ?? null,
                 'nama_barang' => TextGenerate::smartTail($barang->nama ?? ''),
                 'barcode' => $barang->barcode ?? null,
-
                 'toko_group_id' => $tokoGroup->id ?? null,
                 'nama_toko_group' => $tokoGroup->nama ?? null,
-
                 'hpp_baru' => RupiahGenerate::build($hppBaruNumeric),
                 'real_hpp' => $hppBaruNumeric,
-                'stock' => $totalStockBatch, // Akan bernilai 0 jika batch habis/tidak ada
+                'stock' => (int) ($item->total_qty_sisa ?? 0), // Menggunakan hasil withSum DB (super cepat)
                 'level_harga' => $level_harga,
                 'warning' => $warning,
             ];
         });
-
-        if ($mappedData->isEmpty()) {
-            return response()->json([
-                'status_code' => 400,
-                'errors' => true,
-                'message' => 'Tidak ada data',
-            ], 400);
-        }
 
         return response()->json([
             'data' => $mappedData,
             'status_code' => 200,
             'errors' => false,
             'message' => 'Sukses',
-            'pagination' => $paginationMeta,
+            'pagination' => [
+                'total' => $data->total(),
+                'per_page' => $data->perPage(),
+                'current_page' => $data->currentPage(),
+                'total_pages' => $data->lastPage(),
+            ],
         ], 200);
     }
 

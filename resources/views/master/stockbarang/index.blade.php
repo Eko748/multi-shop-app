@@ -55,7 +55,7 @@
                 <div class="col-xl-12">
                     <div class="card">
                         <div class="card-header">
-                            <div class="row align-items-center mb-3">
+                            <div class="row align-items-center">
                                 <!-- Bagian Kiri: Info Total Qty & Total HPP + Tombol Tambah -->
                                 <div class="col-sm-12 col-md-6 col-lg-6 mb-2">
                                     <div class="d-flex align-items-center">

@@ -75,7 +75,6 @@ class StockBarangController extends Controller
             $summary = DB::table('stock_barang_batch')
                 ->whereIn('stock_barang_id', $stockBarangIds)
                 ->where('qty_sisa', '>', 0)
-                ->whereNull('deleted_at')
                 ->select(
                     DB::raw('SUM(qty_sisa) as total_qty'),
                     DB::raw('SUM(qty_sisa * hpp_baru) as total_nilai_hpp')

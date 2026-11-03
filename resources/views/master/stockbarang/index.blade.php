@@ -61,19 +61,35 @@
                                     <div class="d-flex align-items-center">
                                         <div id="summaryWidget"
                                             class="d-flex align-items-center mr-3 p-2 bg-light border rounded shadow-sm">
-                                            <!-- TOTAL STOK -->
-                                            <div class="px-2 border-right text-center position-relative">
+                                            <!-- TOTAL STOK + DROPDOWN PER JENIS -->
+                                            <div class="px-2 border-right text-center dropdown">
                                                 <small class="text-muted d-block font-weight-bold" style="font-size: 11px;">
                                                     TOTAL STOK
-                                                    <i class="fa fa-info-circle text-info ml-1 cursor-pointer"
-                                                        id="btnDetailJenis" data-toggle="popover" data-trigger="click"
-                                                        data-html="true" data-placement="bottom"
-                                                        title="<b>Pecahan Per Jenis Barang</b>"
-                                                        data-content="<i class='fa fa-spinner fa-spin'></i> Memuat..."></i>
+                                                    <i class="fa fa-caret-down text-primary ml-1 cursor-pointer"
+                                                        id="dropdownJenisBtn" data-toggle="dropdown" aria-haspopup="true"
+                                                        aria-expanded="false" title="Lihat pecahan per jenis barang"
+                                                        style="cursor: pointer;"></i>
                                                 </small>
+
                                                 <span id="totalQtyVal" class="font-weight-bold text-dark">
                                                     <i class="fa fa-spinner fa-spin"></i>
                                                 </span>
+
+                                                <!-- Menu Dropdown -->
+                                                <div class="dropdown-menu dropdown-menu-left shadow-lg p-3 border-0 mt-2"
+                                                    aria-labelledby="dropdownJenisBtn"
+                                                    style="min-width: 280px; max-height: 300px; overflow-y: auto;">
+                                                    <h6
+                                                        class="dropdown-header px-0 text-dark font-weight-bold border-bottom pb-2 mb-2">
+                                                        <i class="fa fa-boxes mr-1 text-primary"></i> Pecahan Per Jenis
+                                                        Barang
+                                                    </h6>
+                                                    <div id="listPecahanJenis">
+                                                        <div class="text-center text-muted p-2">
+                                                            <i class="fa fa-spinner fa-spin"></i> Memuat...
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
 
                                             <!-- TOTAL NILAI HPP -->
@@ -166,7 +182,8 @@
         <div class="modal-dialog modal-xl" role="document">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="modalLabel"><i class="fa fa-edit mr-1"></i>Form Pengurangan Stok Barang</h5>
+                    <h5 class="modal-title" id="modalLabel"><i class="fa fa-edit mr-1"></i>Form Pengurangan Stok Barang
+                    </h5>
                     <button type="button" class="btn-close reset-all close" data-bs-dismiss="modal"
                         aria-label="Close"><i class="fa fa-xmark"></i></button>
                 </div>
@@ -249,6 +266,8 @@
             if ($('#totalHppVal').length) {
                 $('#totalHppVal').html('<i class="fa fa-spinner fa-spin"></i>');
             }
+            $('#listPecahanJenis').html(
+                '<div class="text-center text-muted p-2"><i class="fa fa-spinner fa-spin"></i> Memuat...</div>');
 
             try {
                 let response = await renderAPI(
@@ -268,47 +287,45 @@
                     }
 
                     // ==========================================
-                    // RENDER HTML PECAHAN PER JENIS (POPOVER)
+                    // RENDER ITEM PECAHAN PER JENIS DROPDOWN
                     // ==========================================
                     let isRoleAdmin = {{ Auth::user()->role_id == 1 ? 'true' : 'false' }};
-                    let htmlPerJenis =
-                        '<div class="p-1" style="max-height: 250px; overflow-y: auto; min-width: 220px;">';
+                    let htmlList = '';
 
                     if (Array.isArray(resData.per_jenis) && resData.per_jenis.length > 0) {
-                        htmlPerJenis += '<table class="table table-sm table-borderless m-0 style="font-size: 12px;">';
-                        htmlPerJenis += '<tbody>';
+                        htmlList +=
+                            '<table class="table table-sm table-hover table-borderless mb-0" style="font-size: 12px;">';
+                        htmlList += '<tbody>';
 
                         resData.per_jenis.forEach(item => {
-                            htmlPerJenis += `
+                            htmlList += `
                         <tr class="border-bottom">
-                            <td class="font-weight-bold text-left p-1">${item.nama_jenis}</td>
-                            <td class="text-right p-1"><span class="badge badge-info">${item.qty} Pcs</span></td>
-                            ${isRoleAdmin ? `<td class="text-right p-1 text-success font-weight-bold">${item.total_hpp}</td>` : ''}
+                            <td class="font-weight-bold text-left align-middle px-1 py-2">${item.nama_jenis}</td>
+                            <td class="text-right align-middle px-1 py-2">
+                                <span class="badge badge-primary px-2 py-1">${item.qty} Pcs</span>
+                            </td>
+                            ${isRoleAdmin ? `<td class="text-right align-middle px-1 py-2 text-success font-weight-bold">${item.total_hpp}</td>` : ''}
                         </tr>
                     `;
                         });
 
-                        htmlPerJenis += '</tbody></table>';
+                        htmlList += '</tbody></table>';
                     } else {
-                        htmlPerJenis += '<span class="text-muted text-center d-block">Tidak ada data jenis.</span>';
+                        htmlList = '<div class="text-center text-muted py-2 small">Tidak ada data jenis barang.</div>';
                     }
-                    htmlPerJenis += '</div>';
 
-                    // Re-initialize Popover Bootstrap
-                    $('#btnDetailJenis').popover('dispose').popover({
-                        html: true,
-                        content: htmlPerJenis,
-                        trigger: 'click',
-                        placement: 'bottom'
-                    });
+                    $('#listPecahanJenis').html(htmlList);
 
                 } else {
                     $('#totalQtyVal').text('0 Pcs');
                     if ($('#totalHppVal').length) $('#totalHppVal').text('Rp 0');
+                    $('#listPecahanJenis').html(
+                        '<div class="text-center text-muted py-2 small">Gagal memuat data.</div>');
                 }
             } catch (error) {
                 $('#totalQtyVal').text('0 Pcs');
                 if ($('#totalHppVal').length) $('#totalHppVal').text('Rp 0');
+                $('#listPecahanJenis').html('<div class="text-center text-muted py-2 small">Terjadi kesalahan.</div>');
             }
         }
 

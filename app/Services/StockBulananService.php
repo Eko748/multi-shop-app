@@ -72,9 +72,6 @@ class StockBulananService
         $this->kurangiStokKeluar($tokoId, $jenisBarangId, $qty, $nilaiAset, $tanggal);
     }
 
-    /**
-     * Core Function untuk Kalkulasi Stok Bulanan
-     */
     private function updateStok(
         int $tokoId,
         int $jenisBarangId,
@@ -83,55 +80,72 @@ class StockBulananService
         string $tipe,
         ?string $tanggal = null
     ): void {
-        $date  = $tanggal ? Carbon::parse($tanggal) : Carbon::now();
+        $date = $tanggal ? Carbon::parse($tanggal) : Carbon::now();
         $tahun = $date->year;
         $bulan = $date->month;
 
-        // Cari atau buat baris baru
-        $stokBulanan = StockBarangBulanan::firstOrCreate(
-            [
-                'toko_id'         => $tokoId,
-                'jenis_barang_id' => $jenisBarangId,
-                'tahun'           => $tahun,
-                'bulan'           => $bulan,
-            ],
-            [
-                'qty_awal'    => 0,
-                'qty_masuk'   => 0,
-                'qty_keluar'  => 0,
-                'qty_sisa'    => 0,
-                'nilai_aset'  => 0,
-                'qty_retur'   => 0,
-                'nilai_retur' => 0,
-            ]
-        );
+        // Cek apakah data bulan ini sudah ada di DB
+        $stokBulanan = StockBarangBulanan::where([
+            'toko_id' => $tokoId,
+            'jenis_barang_id' => $jenisBarangId,
+            'tahun' => $tahun,
+            'bulan' => $bulan,
+        ])->first();
 
+        // 🟢 JIKA BELUM ADA (TRANSAKSI PERTAMA BULAN INI)
+        if (! $stokBulanan) {
+            // Cari data bulan sebelumnya
+            $prevDate = $date->copy()->subMonth();
+
+            $stokLalu = StockBarangBulanan::where([
+                'toko_id' => $tokoId,
+                'jenis_barang_id' => $jenisBarangId,
+                'tahun' => $prevDate->year,
+                'bulan' => $prevDate->month,
+            ])->first();
+
+            // Ambil sisa stok & nilai aset bulan lalu (jika tidak ada, set 0)
+            $qtyAwal = $stokLalu ? $stokLalu->qty_sisa : 0;
+            $nilaiAwal = $stokLalu ? $stokLalu->nilai_aset : 0;
+
+            $stokBulanan = StockBarangBulanan::create([
+                'toko_id' => $tokoId,
+                'jenis_barang_id' => $jenisBarangId,
+                'tahun' => $tahun,
+                'bulan' => $bulan,
+                'qty_awal' => $qtyAwal,     // 🟢 Saldo awal dari bulan lalu
+                'qty_masuk' => 0,
+                'qty_keluar' => 0,
+                'qty_sisa' => $qtyAwal,     // 🟢 Sisa awal dari bulan lalu
+                'nilai_aset' => $nilaiAwal,   // 🟢 Nilai aset awal dari bulan lalu
+                'qty_retur' => 0,
+                'nilai_retur' => 0,
+            ]);
+        }
+
+        // Eksekusi kalkulasi transaksi sesuai tipe
         switch ($tipe) {
             case 'IN':
-                // Barang Masuk: Tambah Qty Masuk, Sisa, & Aset
-                $stokBulanan->qty_masuk  += $qty;
-                $stokBulanan->qty_sisa   += $qty;
+                $stokBulanan->qty_masuk += $qty;
+                $stokBulanan->qty_sisa += $qty;
                 $stokBulanan->nilai_aset += $nilaiAset;
                 break;
 
             case 'ROLLBACK_IN':
-                // Batal Barang Masuk: Kurangi Qty Masuk, Sisa, & Aset
-                $stokBulanan->qty_masuk  = max(0, $stokBulanan->qty_masuk - $qty);
-                $stokBulanan->qty_sisa   = max(0, $stokBulanan->qty_sisa - $qty);
+                $stokBulanan->qty_masuk = max(0, $stokBulanan->qty_masuk - $qty);
+                $stokBulanan->qty_sisa = max(0, $stokBulanan->qty_sisa - $qty);
                 $stokBulanan->nilai_aset = max(0, $stokBulanan->nilai_aset - $nilaiAset);
                 break;
 
             case 'OUT':
-                // Barang Keluar: Tambah Qty Keluar, Kurangi Sisa & Aset
                 $stokBulanan->qty_keluar += $qty;
-                $stokBulanan->qty_sisa    = max(0, $stokBulanan->qty_sisa - $qty);
-                $stokBulanan->nilai_aset  = max(0, $stokBulanan->nilai_aset - $nilaiAset);
+                $stokBulanan->qty_sisa = max(0, $stokBulanan->qty_sisa - $qty);
+                $stokBulanan->nilai_aset = max(0, $stokBulanan->nilai_aset - $nilaiAset);
                 break;
 
             case 'ROLLBACK_OUT':
-                // Batal Barang Keluar: Kurangi Qty Keluar, Menambah Sisa & Aset
-                $stokBulanan->qty_keluar  = max(0, $stokBulanan->qty_keluar - $qty);
-                $stokBulanan->qty_sisa   += $qty;
+                $stokBulanan->qty_keluar = max(0, $stokBulanan->qty_keluar - $qty);
+                $stokBulanan->qty_sisa += $qty;
                 $stokBulanan->nilai_aset += $nilaiAset;
                 break;
         }

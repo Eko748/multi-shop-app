@@ -108,11 +108,11 @@ class StockBarangController extends Controller
             $perJenisRaw = $perJenisQuery
                 ->select(
                     DB::raw('COALESCE(b.jenis_barang_id, 0) as jenis_barang_id'),
-                    DB::raw("COALESCE(jb.nama, 'Lain-lain / Tanpa Jenis') as nama_jenis"),
+                    DB::raw("COALESCE(jb.nama_jenis_barang, 'Lain-lain / Tanpa Jenis') as nama_jenis"),
                     DB::raw('SUM(sbb.qty_sisa) as qty'),
                     DB::raw('SUM(sbb.qty_sisa * sbb.harga_beli) as total_hpp')
                 )
-                ->groupBy('b.jenis_barang_id', 'jb.nama')
+                ->groupBy('b.jenis_barang_id', 'jb.nama_jenis_barang')
                 ->orderBy('total_hpp', 'desc')
                 ->get();
 

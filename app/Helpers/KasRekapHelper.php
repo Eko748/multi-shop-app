@@ -50,14 +50,31 @@ class KasRekapHelper
         // Hitung selisih lama vs baru
         $oldNominal = $transaksi->exists ? $transaksi->total_nominal : 0;
 
-        // Update total_nominal sesuai sumber
+        // Update atribut transaksi
         $transaksi->tipe = 'in';
         $transaksi->kode_transaksi = $transaksi->kode_transaksi ?? 'KS-'.time().rand(100, 999);
-        $transaksi->total_nominal = $sumber->total_nominal; // <-- pakai total_nominal dari TransaksiKasirHarian
+        $transaksi->total_nominal = $sumber->total_nominal;
         $transaksi->kategori = 'Pendapatan Umum';
         $transaksi->keterangan = "Kas {$jenisNama}";
         $transaksi->item = 'kecil';
-        $transaksi->tanggal = $tanggal;
+
+        // =========================================================================
+        // UPDATE TANGGAL & JAM:
+        // 1. Jika penambahan nominal (POST transaksi baru), selalu timpa dengan jam saat ini (NOW).
+        // 2. Jika pengurangan nominal (DELETE transaksi), pertahankan tanggal/jam transaksi terakhir.
+        // =========================================================================
+        $isPostingBaru = $pendapatan > 0;
+
+        if (! $transaksi->exists || $isPostingBaru) {
+            if (Carbon::parse($tanggal)->isToday()) {
+                // Transaksi hari ini -> gunakan jam saat ini
+                $transaksi->tanggal = Carbon::now()->toDateTimeString();
+            } else {
+                // Transaksi tanggal lalu (backdate) -> pertahankan tanggalnya tetapi set jam ke waktu saat ini
+                $transaksi->tanggal = Carbon::parse($tanggal)->setTimeFrom(Carbon::now())->toDateTimeString();
+            }
+        }
+
         $transaksi->save();
 
         // Update saldo kas pakai selisih
@@ -73,7 +90,6 @@ class KasRekapHelper
         ])->first();
 
         if (! $historyNow) {
-            // Cari saldo akhir bulan sebelumnya
             $lastHistory = KasSaldoHistory::where('kas_id', $kas->id)
                 ->orderByDesc('tahun')
                 ->orderByDesc('bulan')
@@ -89,18 +105,17 @@ class KasRekapHelper
                 'saldo_akhir' => $kas->saldo,
             ]);
         } else {
-            // hanya update saldo akhir
             $historyNow->saldo_akhir = $kas->saldo;
             $historyNow->save();
         }
 
-        // Laba Rugi tetap aman karena pendapatan & beban dari TransaksiKasirHarian
+        // Laba Rugi
         $labaRugi = LabaRugi::firstOrCreate([
             'toko_id' => $toko_id,
             'tahun' => $tahunNow,
             'bulan' => $bulanNow,
         ]);
-        $labaRugi->increment('pendapatan', $selisih);
+        $labaRugi->increment('pendapatan', $pendapatan);
         $labaRugi->increment('beban', $beban);
         $labaRugi->update(['laba_bersih' => $labaRugi->pendapatan - $labaRugi->beban]);
 
@@ -108,7 +123,7 @@ class KasRekapHelper
             'toko_id' => $toko_id,
             'tahun' => $tahunNow,
         ]);
-        $labaRugiTahunan->increment('pendapatan', $selisih);
+        $labaRugiTahunan->increment('pendapatan', $pendapatan);
         $labaRugiTahunan->increment('beban', $beban);
         $labaRugiTahunan->update(['laba_bersih' => $labaRugiTahunan->pendapatan - $labaRugiTahunan->beban]);
     }

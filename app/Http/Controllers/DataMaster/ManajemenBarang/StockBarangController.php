@@ -52,39 +52,67 @@ class StockBarangController extends Controller
         try {
             $tokoId = $request->input('toko_id');
             $search = trim($request->input('search', ''));
-            $now = \Carbon\Carbon::now();
 
-            // 1. Baca dari Rekap Bulanan Bulan Berjalan
-            $query = \App\Models\StockBarangBulanan::query()
-                ->leftJoin('jenis_barang', 'stock_barang_bulanan.jenis_barang_id', '=', 'jenis_barang.id')
-                ->where('stock_barang_bulanan.tahun', $now->year)
-                ->where('stock_barang_bulanan.bulan', $now->month);
+            // 1. Query dasar StockBarang (Filter Active & Soft Delete)
+            $query = StockBarang::whereNull('deleted_at');
 
-            if (! empty($tokoId) && $tokoId !== 'all' && $tokoId != 0) {
-                $query->where('stock_barang_bulanan.toko_id', $tokoId);
+            if (! empty($tokoId)) {
+                $query->whereHas('tokoGroup.toko', function ($q) use ($tokoId) {
+                    $q->where('toko.id', $tokoId);
+                });
             }
 
-            // 2. Agregasi Per Jenis Barang
-            $perJenisRaw = $query->select(
-                DB::raw('COALESCE(jenis_barang.id, stock_barang_bulanan.jenis_barang_id) as jenis_barang_id'),
-                DB::raw("CASE WHEN stock_barang_bulanan.jenis_barang_id = 0 THEN 'Aset Lainnya' ELSE jenis_barang.nama_jenis_barang END as nama_jenis"),
-                DB::raw('SUM(stock_barang_bulanan.qty_sisa) as qty'),
-                DB::raw('SUM(stock_barang_bulanan.nilai_aset) as total_hpp')
-            )
-                ->groupBy('stock_barang_bulanan.jenis_barang_id', 'jenis_barang.id', 'jenis_barang.nama_jenis_barang')
+            if (! empty($search)) {
+                $query->whereHas('barang', function ($subquery) use ($search) {
+                    $subquery->whereNull('deleted_at')
+                        ->where('nama', 'LIKE', "%{$search}%");
+                });
+            }
+
+            // Ambil ID stock_barang yang lolos filter
+            $stockBarangIds = $query->pluck('id');
+
+            // 2. Query Utama Agregasi Per Jenis Barang (Inner JOIN Konsisten)
+            $perJenisQuery = DB::table('stock_barang_batch as sbb')
+                ->join('stock_barang as sb', 'sbb.stock_barang_id', '=', 'sb.id')
+                ->join('barang as b', 'sb.barang_id', '=', 'b.id')
+                ->leftJoin('jenis_barang as jb', 'b.jenis_barang_id', '=', 'jb.id')
+                ->whereIn('sbb.stock_barang_id', $stockBarangIds)
+                ->where('sbb.qty_sisa', '>', 0)
+                ->whereNull('sb.deleted_at')
+                ->whereNull('b.deleted_at');
+
+            if (! empty($tokoId)) {
+                $perJenisQuery->where('sbb.toko_id', $tokoId);
+            }
+
+            $perJenisRaw = $perJenisQuery
+                ->select(
+                    DB::raw('COALESCE(b.jenis_barang_id, 0) as jenis_barang_id'),
+                    DB::raw("COALESCE(jb.nama_jenis_barang, 'Lain-lain / Tanpa Jenis') as nama_jenis"),
+                    DB::raw('SUM(sbb.qty_sisa) as qty'),
+                    DB::raw('SUM(sbb.qty_sisa * sbb.harga_beli) as total_hpp')
+                )
+                ->groupBy('b.jenis_barang_id', 'jb.nama_jenis_barang')
+                ->orderBy('total_hpp', 'desc')
                 ->get();
 
-            $totalQty = $perJenisRaw->sum('qty');
-            $totalNilaiHpp = $perJenisRaw->sum('total_hpp');
+            // 🟢 HITUNG TOTAL DARI AGREGASI PER JENIS (PASTI SINKRON & SAMA PERSIS)
+            $totalQty = (int) $perJenisRaw->sum('qty');
+            $totalNilaiHpp = (float) $perJenisRaw->sum('total_hpp');
 
+            // Formating Data Breakdown
             $detailPerJenis = $perJenisRaw->map(function ($item) {
+                $qty = (int) $item->qty;
+                $hpp = (float) $item->total_hpp;
+
                 return [
                     'jenis_barang_id' => $item->jenis_barang_id,
                     'nama_jenis' => $item->nama_jenis,
-                    'qty' => number_format($item->qty, 0, ',', '.'),
-                    'total_hpp' => RupiahGenerate::build($item->total_hpp),
-                    'raw_qty' => (int) $item->qty,
-                    'raw_hpp' => (float) $item->total_hpp,
+                    'qty' => number_format($qty, 0, ',', '.'),
+                    'total_hpp' => RupiahGenerate::build($hpp),
+                    'raw_qty' => $qty,
+                    'raw_hpp' => $hpp,
                 ];
             });
 

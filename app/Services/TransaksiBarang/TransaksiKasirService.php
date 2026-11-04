@@ -266,7 +266,7 @@ class TransaksiKasirService
                 // =========================================================================
                 // PENERAPAN STOCK BULANAN SERVICE (STOK KELUAR / OUT)
                 // =========================================================================
-                $stockBulananService->kurangiStokKeluar(
+                $stockBulananService->tambahStokKeluar(
                     tokoId: $header->toko_id,
                     jenisBarangId: $jenisId,
                     qty: $total_qty,
@@ -368,13 +368,12 @@ class TransaksiKasirService
                         header: $header
                     );
 
-                    // Kembalikan Stok Masuk / Nilai Aset di Periode Bulan Ini
-                    $stockBulananService->tambahStokMasuk(
+                    $stockBulananService->kurangiStokKeluar(
                         tokoId: $tokoId,
                         jenisBarangId: $jenisId,
                         qty: $total_qty,
                         nilaiAset: $total_harga_beli,
-                        tanggal: $todayStr
+                        tanggal: $todayStr // <-- Bulan Ini
                     );
 
                 } else {
@@ -412,8 +411,7 @@ class TransaksiKasirService
                         );
                     }
 
-                    // Kurangi Stok Keluar pada bulan transaksi berlangsung (Rollback Aset)
-                    $stockBulananService->tambahStokMasuk(
+                    $stockBulananService->kurangiStokKeluar(
                         tokoId: $tokoId,
                         jenisBarangId: $jenisId,
                         qty: $total_qty,
@@ -535,15 +533,13 @@ class TransaksiKasirService
                     header: $header
                 );
 
-                // Kembalikan Stok Masuk / Nilai Aset di Periode Bulan Ini
-                $stockBulananService->tambahStokMasuk(
+                $stockBulananService->kurangiStokKeluar(
                     tokoId: $tokoId,
                     jenisBarangId: $jenisId,
                     qty: $qtyTrx,
                     nilaiAset: $hargaBeliTrx,
                     tanggal: $todayStr
                 );
-
             } else {
                 // =========================================================================
                 // OPSI B: TRANSAKSI BULAN INI (DIRECT REVERSE)
@@ -583,8 +579,7 @@ class TransaksiKasirService
                     );
                 }
 
-                // Kurangi Stok Keluar pada tanggal transaksi berlangsung
-                $stockBulananService->tambahStokMasuk(
+                $stockBulananService->kurangiStokKeluar(
                     tokoId: $tokoId,
                     jenisBarangId: $jenisId,
                     qty: $qtyTrx,

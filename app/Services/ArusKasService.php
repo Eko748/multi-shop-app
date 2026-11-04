@@ -324,14 +324,7 @@ class ArusKasService
 
     private function getSaldoAwal($kas, $year, $month)
     {
-        $prevMonth = $month - 1;
-        $prevYear = $year;
-
-        if ($prevMonth == 0) {
-            $prevMonth = 12;
-            $prevYear--;
-        }
-
+        // 1. Cek history bulan yang dicari
         $history = KasSaldoHistory::where('kas_id', $kas->id)
             ->where('tahun', $year)
             ->where('bulan', $month)
@@ -341,15 +334,28 @@ class ArusKasService
             return $history->saldo_awal;
         }
 
+        // 2. Cek history bulan sebelumnya
+        $prevMonth = $month - 1;
+        $prevYear = $year;
+
+        if ($prevMonth == 0) {
+            $prevMonth = 12;
+            $prevYear--;
+        }
+
         $prevHistory = KasSaldoHistory::where('kas_id', $kas->id)
             ->where('tahun', $prevYear)
             ->where('bulan', $prevMonth)
             ->orderByDesc('id')
             ->first();
 
-        return $prevHistory
-            ? $prevHistory->saldo_akhir
-            : $kas->saldo_awal;
+        if ($prevHistory) {
+            return $prevHistory->saldo_akhir;
+        }
+
+        // 3. AMBIL LANGSUNG DARI PARAMETER $kas (Model Kas)
+        // Jika history bulan berjalan & bulan lalu tidak ada, ambil kolom `saldo` dari model $kas
+        return $kas->saldo ?? $kas->saldo_awal ?? 0;
     }
 
     private function formatAngka($value)

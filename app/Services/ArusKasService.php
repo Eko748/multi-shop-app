@@ -295,7 +295,7 @@ class ArusKasService
                 'kas_besar_in' => $this->formatAngka($totals['kas_besar_in']),
                 'kas_besar_out' => $this->formatAngka($totals['kas_besar_out']),
                 'saldo_berjalan' => $this->formatAngka($totals['kas_besar_in'] - $totals['kas_besar_out']),
-                'saldo_akhir' => $this->formatAngka($totals['kas_besar_in'] - $totals['kas_besar_out']),
+                'saldo_akhir' => $this->formatAngka($besar_awal + ($totals['kas_besar_in'] - $totals['kas_besar_out'])),
             ],
             'piutang' => [
                 'saldo_awal' => $this->formatAngka(0),

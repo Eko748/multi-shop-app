@@ -132,9 +132,10 @@
 
             let filterParams = {};
 
-            if (customFilter['startDate'] && customFilter['endDate']) {
-                filterParams.startDate = customFilter['startDate'];
-                filterParams.endDate = customFilter['endDate'];
+            // Menggunakan key snake_case agar sesuai dengan Repository
+            if (customFilter['start_date'] && customFilter['end_date']) {
+                filterParams.start_date = customFilter['start_date'];
+                filterParams.end_date = customFilter['end_date'];
             }
 
             let getDataRest = await renderAPI(
@@ -150,8 +151,7 @@
             ).then(function(response) {
                 return response;
             }).catch(function(error) {
-                let resp = error.response;
-                return resp;
+                return error.response;
             });
 
             if (getDataRest && getDataRest.status == 200 && Array.isArray(getDataRest.data.data.item) && getDataRest
@@ -161,11 +161,11 @@
                 );
                 await setListData(handleDataArray, getDataRest.data.pagination);
             } else {
-                errorMessage = 'Tidak ada data';
+                let errorMessage = 'Tidak ada data';
                 let errorRow = `
-                            <tr class="text-dark">
-                                <th class="text-center" colspan="${$('.tb-head th').length}"> ${errorMessage} </th>
-                            </tr>`;
+                    <tr class="text-dark">
+                        <th class="text-center" colspan="${$('.tb-head th').length}"> ${errorMessage} </th>
+                    </tr>`;
                 $('#listData').html(errorRow);
                 $('#countPage').text("0 - 0");
                 $('#totalPage').text("0");
@@ -213,34 +213,37 @@
 
             document.getElementById('custom-filter').addEventListener('submit', async function(e) {
                 e.preventDefault();
-                let startDate = dateRangePickerList.data('daterangepicker').startDate;
-                let endDate = dateRangePickerList.data('daterangepicker').endDate;
+                let picker = dateRangePickerList.data('daterangepicker');
+                let startDate = picker ? picker.startDate : null;
+                let endDate = picker ? picker.endDate : null;
 
-                if (!startDate || !endDate) {
-                    startDate = null;
-                    endDate = null;
+                let formattedStart = '';
+                let formattedEnd = '';
+
+                if ($("#daterange").val() !== '' && startDate && endDate) {
+                    formattedStart = startDate.clone().startOf('day').format('YYYY-MM-DD HH:mm:ss');
+                    formattedEnd = endDate.clone().endOf('day').format('YYYY-MM-DD HH:mm:ss');
+
+                    customFilter = {
+                        'start_date': formattedStart,
+                        'end_date': formattedEnd
+                    };
+
+                    $('#time-report').html(
+                        `<i class="fa fa-file-text mr-1"></i><b>${title}</b> (<b class="text-primary">${formattedStart}</b> s/d <b class="text-primary">${formattedEnd}</b>)`
+                    );
                 } else {
-                    startDate = startDate.startOf('day').format('YYYY-MM-DD HH:mm:ss');
-                    endDate = endDate.endOf('day').format('YYYY-MM-DD HH:mm:ss');
+                    customFilter = {};
+                    await setTimeReport();
                 }
-
-                customFilter = {
-                    'start_date': $("#daterange").val() != '' ? startDate : '',
-                    'end_date': $("#daterange").val() != '' ? endDate : ''
-                };
 
                 defaultSearch = $('.tb-search').val();
                 defaultLimitPage = $("#limitPage").val();
                 currentPage = 1;
 
-                $('#time-report').html(
-                    `<i class="fa fa-file-text mr-1"></i><b>${title}</b> (<b class="text-primary">${startDate}</b> s/d <b class="text-primary">${endDate}</b>)`
-                );
-
                 await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
                     customFilter);
             });
-
 
             document.getElementById('tb-reset').addEventListener('click', async function() {
                 $('#daterange').val('');
@@ -248,6 +251,7 @@
                 defaultSearch = $('.tb-search').val();
                 defaultLimitPage = $("#limitPage").val();
                 currentPage = 1;
+
                 await setTimeReport();
                 await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch,
                     customFilter);
@@ -257,10 +261,10 @@
         function setTimeReport() {
             const now = new Date();
             const formattedNow =
-                `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+                `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
             $('#time-report').html(
-                `<i class="fa fa-file-text mr-1"></i><b>${title}</b> saat ini (<b class="text-primary">${formattedNow}</b>)`
+                `<i class="fa fa-file-text mr-1"></i><b>${title}</b> Hari ini (<b class="text-primary">${formattedNow}</b>)`
             );
         }
 

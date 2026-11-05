@@ -4,6 +4,7 @@ namespace App\Repositories\Distribusi;
 
 use App\Models\PengirimanBarang;
 use App\Models\PengirimanBarangDetail;
+use Carbon\Carbon;
 
 class PengirimanBarangRepo
 {
@@ -18,17 +19,17 @@ class PengirimanBarangRepo
     {
         $query = $this->model->newQuery();
 
-        if (!empty($filter->search)) {
+        if (! empty($filter->search)) {
             $query->where(function ($q) use ($filter) {
-                $q->where('no_resi', 'like', '%' . $filter->search . '%');
+                $q->where('no_resi', 'like', '%'.$filter->search.'%');
             });
         }
 
-        if (!empty($filter->start_date) && !empty($filter->end_date)) {
+        if (! empty($filter->start_date) && ! empty($filter->end_date)) {
             $query->whereBetween('send_at', [$filter->start_date, $filter->end_date]);
         }
 
-        return !empty($filter->limit)
+        return ! empty($filter->limit)
             ? $query->orderByDesc('id')->paginate($filter->limit)
             : $query->orderByDesc('id')->get();
     }
@@ -41,7 +42,7 @@ class PengirimanBarangRepo
                     ->whereMonth('send_at', $month)
                     ->whereYear('send_at', $year)
                     // Filter toko asal HANYA JIKA $idToko tidak kosong
-                    ->when(!empty($idToko), function ($subQuery) use ($idToko) {
+                    ->when(! empty($idToko), function ($subQuery) use ($idToko) {
                         $subQuery->where('toko_asal_id', $idToko);
                     });
             })
@@ -55,7 +56,7 @@ class PengirimanBarangRepo
         });
 
         return [
-            'total_qty'   => $totalQty,
+            'total_qty' => $totalQty,
             'total_harga' => $totalHarga,
         ];
     }
@@ -75,22 +76,25 @@ class PengirimanBarangRepo
         ')
             ->groupBy('pengiriman_barang.toko_asal_id', 'pengiriman_barang.toko_tujuan_id');
 
-        if (!empty($filter->search)) {
+        if (! empty($filter->search)) {
             $query->where(function ($q) use ($filter) {
                 $q->whereHas('tokoAsal', function ($q2) use ($filter) {
-                    $q2->where('nama', 'like', '%' . $filter->search . '%');
+                    $q2->where('nama', 'like', '%'.$filter->search.'%');
                 })
                     ->orWhereHas('tokoTujuan', function ($q2) use ($filter) {
-                        $q2->where('nama', 'like', '%' . $filter->search . '%');
+                        $q2->where('nama', 'like', '%'.$filter->search.'%');
                     });
             });
         }
 
-        if (!empty($filter->start_date) && !empty($filter->end_date)) {
+        // Default ke Hari Ini jika filter tanggal kosong
+        if (! empty($filter->start_date) && ! empty($filter->end_date)) {
             $query->whereBetween('pengiriman_barang.send_at', [$filter->start_date, $filter->end_date]);
+        } else {
+            $query->whereDate('pengiriman_barang.send_at', Carbon::today());
         }
 
-        return !empty($filter->limit)
+        return ! empty($filter->limit)
             ? $query->orderByDesc('total_nominal')->paginate($filter->limit)
             : $query->orderByDesc('total_nominal')->get();
     }

@@ -70,6 +70,48 @@
             padding-left: 4px !important;
             padding-right: 4px !important;
         }
+
+        /* ========================================== */
+        /* STICKY HEADER FIX                          */
+        /* ========================================== */
+
+        /* Container pembungkus tabel harus memiliki height & scroll */
+        .table-scroll-wrapper {
+            max-height: 70vh;
+            /* Sesuaikan tinggi kontainer sesuai kebutuhan (misal 65vh - 75vh) */
+            overflow-y: auto;
+            position: relative;
+        }
+
+        /* Memastikan border tabel tetap rapi saat sticky */
+        .table-scroll-wrapper table {
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+
+        /* Baris Header Pertama (.tb-head) */
+        .table-scroll-wrapper thead tr.tb-head th {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background-color: #f8f9fa;
+            /* Memberikan background padat agar isi td tidak menembus */
+            box-shadow: 0 1px 0 #dee2e6;
+        }
+
+        /* Baris Header Kedua (.tb-subhead) */
+        .table-scroll-wrapper thead tr.tb-subhead th {
+            position: sticky;
+            top: 40px;
+            /* Sesuaikan angka ini dengan tinggi rata-rata dari baris .tb-head */
+            z-index: 9;
+            box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Menjaga background gradien subheader toko tetap tampil padat */
+        .table-scroll-wrapper thead tr.tb-subhead th[colspan="2"] {
+            background-color: #f8f9fa;
+        }
     </style>
 @endsection
 
@@ -442,15 +484,15 @@
             }).join('');
 
             let tableHeaders = `
-            <tr class="tb-head">
-                <th class="text-center text-wrap align-top" style="width: 10px;">No</th>
-                <th class="text-wrap align-top" style="width: 200px;">Nama Barang</th>
-                ${dynamicHeaders}
-            </tr>
-            <tr class="tb-subhead">
-                <th colspan="2"></th>
-                ${subHeaders}
-            </tr>`;
+                <tr class="tb-head">
+                    <th class="text-center text-wrap align-top" style="width: 10px;">No</th>
+                    <th class="text-wrap align-top" style="width: 200px;">Nama Barang</th>
+                    ${dynamicHeaders}
+                </tr>
+                <tr class="tb-subhead">
+                    <th colspan="2" class="bg-light"></th>
+                    ${subHeaders}
+                </tr>`;
 
             $('#dynamicHeaders').html(tableHeaders);
 

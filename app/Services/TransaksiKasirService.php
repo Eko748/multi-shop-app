@@ -121,8 +121,6 @@ class TransaksiKasirService
             toko_id: $toko->id,
             jenis_barang_id: $rekap->jenis_barang_id,
             tipe_kas: $kas->tipe_kas,
-            qty: $rekap->total_qty,
-            nominal: $rekap->total_bayar,
             total_nominal: $rekap->total_bayar,
             item: 'kecil',
             kategori: 'Pendapatan Umum',

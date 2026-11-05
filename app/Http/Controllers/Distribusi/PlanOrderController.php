@@ -256,11 +256,11 @@ class PlanOrderController extends Controller
                 ->get()
                 ->groupBy('barang_id');
 
-            $otwGrouped = PengirimanBarangDetail::selectRaw('pengiriman_barang_detail.barang_id, pengiriman_barang.toko_asal_id as toko_id, SUM(qty_send) as total_otw')
+            $otwGrouped = PengirimanBarangDetail::selectRaw('pengiriman_barang_detail.barang_id, pengiriman_barang.toko_tujuan_id as toko_id, SUM(qty_send) as total_otw')
                 ->join('pengiriman_barang', 'pengiriman_barang.id', '=', 'pengiriman_barang_detail.pengiriman_barang_id')
                 ->where('pengiriman_barang.status', '!=', 'success')
-                ->whereIn('pengiriman_barang.toko_asal_id', $selectedTokoIds)
-                ->groupBy('pengiriman_barang_detail.barang_id', 'pengiriman_barang.toko_asal_id')
+                ->whereIn('pengiriman_barang.toko_tujuan_id', $selectedTokoIds)
+                ->groupBy('pengiriman_barang_detail.barang_id', 'pengiriman_barang.toko_tujuan_id')
                 ->get()
                 ->groupBy('barang_id');
 

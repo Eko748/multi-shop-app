@@ -223,74 +223,83 @@ class PlanOrderController extends Controller
     }
 
     public function getplanorder(Request $request)
-    {
-        try {
-            $orderDirection = strtolower($request->input('order', 'desc'));
-            if (! in_array($orderDirection, ['asc', 'desc'])) {
-                $orderDirection = 'desc';
-            }
+{
+    try {
+        $orderDirection = strtolower($request->input('order', 'desc'));
+        if (! in_array($orderDirection, ['asc', 'desc'])) {
+            $orderDirection = 'desc';
+        }
 
-            $limit = $request->has('limit') && $request->limit <= 50 ? (int) $request->limit : 10;
-            $page = (int) $request->input('page', 1);
+        $limit = $request->has('limit') && $request->limit <= 50 ? (int) $request->limit : 10;
+        $page = (int) $request->input('page', 1);
 
-            $startDate = $request->input('startDate');
-            $endDate = $request->input('endDate');
-            $hasDate = ! empty($startDate) && ! empty($endDate);
+        $startDate = $request->input('startDate');
+        $endDate = $request->input('endDate');
+        $hasDate = ! empty($startDate) && ! empty($endDate);
 
-            $selectedTokoIds = $request->input('toko_id', []);
-            if (empty($selectedTokoIds)) {
-                $selectedTokoIds = Toko::pluck('id')->toArray();
-            }
+        // Ambikan toko_id (bisa berbentuk array atau single value dari HTTP GET)
+        $selectedTokoIds = $request->input('toko_id');
+        if (is_string($selectedTokoIds)) {
+            $selectedTokoIds = explode(',', $selectedTokoIds);
+        }
 
-            $tokoList = Toko::whereIn('id', $selectedTokoIds)
-                ->select('id', 'singkatan', 'nama')
-                ->get();
+        $selectedTokoIds = array_filter((array) $selectedTokoIds);
 
-            // =========================================================
-            // 2. QUERY AGGREGATION GLOBAL (Stock, OTW, Last Order, Terjual)
-            // =========================================================
-            $stockGrouped = StockBarangBatch::selectRaw('stock_barang.barang_id, stock_barang_batch.toko_id, SUM(qty_sisa) as total_stock')
-                ->join('stock_barang', 'stock_barang.id', '=', 'stock_barang_batch.stock_barang_id')
-                ->whereIn('stock_barang_batch.toko_id', $selectedTokoIds)
-                ->groupBy('stock_barang.barang_id', 'stock_barang_batch.toko_id')
-                ->get()
-                ->groupBy('barang_id');
+        // Jika tidak ada filter toko yang dipilih, default ke seluruh Toko
+        if (empty($selectedTokoIds)) {
+            $selectedTokoIds = Toko::pluck('id')->toArray();
+        }
 
-            $otwGrouped = PengirimanBarangDetail::selectRaw('pengiriman_barang_detail.barang_id, pengiriman_barang.toko_tujuan_id as toko_id, SUM(qty_send) as total_otw')
-                ->join('pengiriman_barang', 'pengiriman_barang.id', '=', 'pengiriman_barang_detail.pengiriman_barang_id')
-                ->where('pengiriman_barang.status', '!=', 'success')
-                ->whereIn('pengiriman_barang.toko_tujuan_id', $selectedTokoIds)
-                ->groupBy('pengiriman_barang_detail.barang_id', 'pengiriman_barang.toko_tujuan_id')
-                ->get()
-                ->groupBy('barang_id');
+        $tokoList = Toko::whereIn('id', $selectedTokoIds)
+            ->select('id', 'singkatan', 'nama')
+            ->get();
 
-            $lastOrders = TransaksiKasirDetail::selectRaw('stock_barang.barang_id, transaksi_kasir.toko_id, MAX(transaksi_kasir.tanggal) as last_date')
-                ->join('transaksi_kasir', 'transaksi_kasir.id', '=', 'transaksi_kasir_detail.transaksi_kasir_id')
-                ->join('stock_barang_batch', 'stock_barang_batch.id', '=', 'transaksi_kasir_detail.stock_barang_batch_id')
-                ->join('stock_barang', 'stock_barang.id', '=', 'stock_barang_batch.stock_barang_id')
-                ->whereIn('transaksi_kasir.toko_id', $selectedTokoIds)
-                ->groupBy('stock_barang.barang_id', 'transaksi_kasir.toko_id')
-                ->get()
-                ->groupBy('barang_id');
+        // =========================================================
+        // QUERY AGGREGATION & LOGIC SELANJUTNYA SAMA...
+        // =========================================================
 
-            $terjualQuery = TransaksiKasirDetail::selectRaw('stock_barang.barang_id, transaksi_kasir.toko_id, SUM(transaksi_kasir_detail.qty - COALESCE(retur_member_detail.qty_request,0)) as net_terjual')
-                ->join('transaksi_kasir', 'transaksi_kasir.id', '=', 'transaksi_kasir_detail.transaksi_kasir_id')
-                ->join('stock_barang_batch', 'stock_barang_batch.id', '=', 'transaksi_kasir_detail.stock_barang_batch_id')
-                ->join('stock_barang', 'stock_barang.id', '=', 'stock_barang_batch.stock_barang_id')
-                ->leftJoin('retur_member_detail', function ($join) {
-                    $join->on('transaksi_kasir_detail.id', '=', 'retur_member_detail.transaksi_kasir_detail_id');
-                })
-                ->whereIn('transaksi_kasir.toko_id', $selectedTokoIds);
+        $stockGrouped = StockBarangBatch::selectRaw('stock_barang.barang_id, stock_barang_batch.toko_id, SUM(qty_sisa) as total_stock')
+            ->join('stock_barang', 'stock_barang.id', '=', 'stock_barang_batch.stock_barang_id')
+            ->whereIn('stock_barang_batch.toko_id', $selectedTokoIds)
+            ->groupBy('stock_barang.barang_id', 'stock_barang_batch.toko_id')
+            ->get()
+            ->groupBy('barang_id');
 
-            if ($hasDate) {
-                $terjualQuery->whereBetween('transaksi_kasir_detail.created_at', [$startDate, $endDate]);
-            } else {
-                $terjualQuery->whereDate('transaksi_kasir_detail.created_at', \Carbon\Carbon::today());
-            }
+        $otwGrouped = PengirimanBarangDetail::selectRaw('pengiriman_barang_detail.barang_id, pengiriman_barang.toko_tujuan_id as toko_id, SUM(qty_send) as total_otw')
+            ->join('pengiriman_barang', 'pengiriman_barang.id', '=', 'pengiriman_barang_detail.pengiriman_barang_id')
+            ->where('pengiriman_barang.status', '!=', 'success')
+            ->whereIn('pengiriman_barang.toko_tujuan_id', $selectedTokoIds)
+            ->groupBy('pengiriman_barang_detail.barang_id', 'pengiriman_barang.toko_tujuan_id')
+            ->get()
+            ->groupBy('barang_id');
 
-            $terjualGrouped = $terjualQuery->groupBy('stock_barang.barang_id', 'transaksi_kasir.toko_id')
-                ->get()
-                ->groupBy('barang_id');
+        $lastOrders = TransaksiKasirDetail::selectRaw('stock_barang.barang_id, transaksi_kasir.toko_id, MAX(transaksi_kasir.tanggal) as last_date')
+            ->join('transaksi_kasir', 'transaksi_kasir.id', '=', 'transaksi_kasir_detail.transaksi_kasir_id')
+            ->join('stock_barang_batch', 'stock_barang_batch.id', '=', 'transaksi_kasir_detail.stock_barang_batch_id')
+            ->join('stock_barang', 'stock_barang.id', '=', 'stock_barang_batch.stock_barang_id')
+            ->whereIn('transaksi_kasir.toko_id', $selectedTokoIds)
+            ->groupBy('stock_barang.barang_id', 'transaksi_kasir.toko_id')
+            ->get()
+            ->groupBy('barang_id');
+
+        $terjualQuery = TransaksiKasirDetail::selectRaw('stock_barang.barang_id, transaksi_kasir.toko_id, SUM(transaksi_kasir_detail.qty - COALESCE(retur_member_detail.qty_request,0)) as net_terjual')
+            ->join('transaksi_kasir', 'transaksi_kasir.id', '=', 'transaksi_kasir_detail.transaksi_kasir_id')
+            ->join('stock_barang_batch', 'stock_barang_batch.id', '=', 'transaksi_kasir_detail.stock_barang_batch_id')
+            ->join('stock_barang', 'stock_barang.id', '=', 'stock_barang_batch.stock_barang_id')
+            ->leftJoin('retur_member_detail', function ($join) {
+                $join->on('transaksi_kasir_detail.id', '=', 'retur_member_detail.transaksi_kasir_detail_id');
+            })
+            ->whereIn('transaksi_kasir.toko_id', $selectedTokoIds);
+
+        if ($hasDate) {
+            $terjualQuery->whereBetween('transaksi_kasir_detail.created_at', [$startDate, $endDate]);
+        } else {
+            $terjualQuery->whereDate('transaksi_kasir_detail.created_at', \Carbon\Carbon::today());
+        }
+
+        $terjualGrouped = $terjualQuery->groupBy('stock_barang.barang_id', 'transaksi_kasir.toko_id')
+            ->get()
+            ->groupBy('barang_id');
 
             // =========================================================
             // 3. FETCH BARANG DENGAN FILTER SEARCH

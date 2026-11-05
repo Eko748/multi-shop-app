@@ -268,15 +268,9 @@
             return html;
         }
 
+        // Function getListData: Pastikan customFilter selalu dikirim utuh
         async function getListData(limit = 10, page = 1, ascending = 0, search = '', filter = {}) {
             $('#listData').html(renderData());
-
-            let filterParams = {
-                ...customFilter
-            };
-            if (filter['toko_id']) {
-                filterParams.toko_id = filter['toko_id'];
-            }
 
             let getDataRest = await renderAPI(
                 'GET',
@@ -287,7 +281,7 @@
                     sort_by: currentSortBy,
                     sort_toko: currentSortToko,
                     order: currentOrder,
-                    ...filterParams
+                    ...customFilter // Mengirim seluruh filter (startDate, endDate, toko_id)
                 }
             ).then(response => response).catch(error => error.response || {});
 
@@ -311,13 +305,77 @@
             } else {
                 let errorMessage = getDataRest?.data?.message || 'Data gagal dimuat';
                 let errorRow = `
-                <tr class="text-dark">
-                    <th class="text-center" colspan="100"> ${errorMessage} </th>
-                </tr>`;
+        <tr class="text-dark">
+            <th class="text-center" colspan="100"> ${errorMessage} </th>
+        </tr>`;
                 $('#listData').html(errorRow);
                 $('#countPage').text("0 - 0");
                 $('#totalPage').text("0");
             }
+        }
+
+        // Function filterList: Perbaikan objek customFilter
+        async function filterList() {
+            let dateRangePickerList = initializeDateRangePicker();
+
+            document.getElementById('custom-filter').addEventListener('submit', async function(e) {
+                e.preventDefault();
+
+                let selectedTokoIds = $('#f_toko').val();
+
+                let startDate = dateRangePickerList.data('daterangepicker').startDate;
+                let endDate = dateRangePickerList.data('daterangepicker').endDate;
+
+                let formattedStart = '';
+                let formattedEnd = '';
+
+                if ($("#daterange").val() != '' && startDate && endDate) {
+                    formattedStart = startDate.startOf('day').format('YYYY-MM-DD HH:mm:ss');
+                    formattedEnd = endDate.endOf('day').format('YYYY-MM-DD HH:mm:ss');
+                }
+
+                // Susun customFilter secara utuh tanpa ter-override
+                customFilter = {
+                    startDate: formattedStart,
+                    endDate: formattedEnd
+                };
+
+                if (selectedTokoIds && selectedTokoIds.length > 0) {
+                    customFilter.toko_id = selectedTokoIds;
+                }
+
+                defaultSearch = $('.tb-search').val();
+                defaultLimitPage = $('#limitPage').val();
+                currentPage = 1;
+
+                if (formattedStart && formattedEnd) {
+                    $('#time-report').html(
+                        `<i class="fa fa-file-text mr-1"></i><b>${title}</b> <br>(<b class="text-primary">${formattedStart}</b> s/d <b class="text-primary">${formattedEnd}</b>)`
+                    );
+                } else {
+                    await setTimeReport();
+                }
+
+                await getListData(defaultLimitPage, currentPage, 0, defaultSearch, customFilter);
+            });
+
+            document.getElementById('tb-reset').addEventListener('click', async function() {
+                $('.select2').val(null).trigger('change');
+                $('.tb-search').val('');
+                $('#daterange').val('');
+
+                customFilter = {};
+                defaultSearch = '';
+                defaultLimitPage = 10;
+                currentPage = 1;
+
+                currentSortBy = '';
+                currentSortToko = '';
+                currentOrder = 'desc';
+
+                await setTimeReport();
+                await getListData(defaultLimitPage, currentPage, 0, defaultSearch, customFilter);
+            });
         }
 
         async function setListData(dataList, pagination, dynamicKeys = [], tokoMap = {}) {
@@ -496,65 +554,6 @@
             currentPage = 1;
             await getListData(defaultLimitPage, currentPage, defaultAscending, defaultSearch, customFilter);
         });
-
-        async function filterList() {
-            let dateRangePickerList = initializeDateRangePicker();
-
-            document.getElementById('custom-filter').addEventListener('submit', async function(e) {
-                e.preventDefault();
-
-                let selectedTokoIds = $('#f_toko').val();
-                if (selectedTokoIds && selectedTokoIds.length > 0) {
-                    customFilter['toko_id'] = selectedTokoIds;
-                } else {
-                    delete customFilter['toko_id'];
-                }
-
-                let startDate = dateRangePickerList.data('daterangepicker').startDate;
-                let endDate = dateRangePickerList.data('daterangepicker').endDate;
-
-                if (!startDate || !endDate) {
-                    startDate = null;
-                    endDate = null;
-                } else {
-                    startDate = startDate.startOf('day').format('YYYY-MM-DD HH:mm:ss');
-                    endDate = endDate.endOf('day').format('YYYY-MM-DD HH:mm:ss');
-                }
-
-                customFilter = {
-                    startDate: $("#daterange").val() != '' ? startDate : '',
-                    endDate: $("#daterange").val() != '' ? endDate : '',
-                };
-
-                defaultSearch = $('.tb-search').val();
-                defaultLimitPage = $('#limitPage').val();
-                currentPage = 1;
-
-                $('#time-report').html(
-                    `<i class="fa fa-file-text mr-1"></i><b>${title}</b> <br>(<b class="text-primary">${startDate}</b> s/d <b class="text-primary">${endDate}</b>)`
-                );
-
-                await getListData(defaultLimitPage, currentPage, 0, defaultSearch, customFilter);
-            });
-
-            document.getElementById('tb-reset').addEventListener('click', async function() {
-                $('.select2').val('').trigger('change');
-                $('.tb-search').val('');
-                $('#daterange').val('');
-
-                customFilter = {};
-                defaultSearch = '';
-                defaultLimitPage = 10;
-                currentPage = 1;
-
-                currentSortBy = '';
-                currentSortToko = '';
-                currentOrder = 'desc';
-
-                await setTimeReport();
-                await getListData(defaultLimitPage, currentPage, 0, defaultSearch, customFilter);
-            });
-        }
 
         function setTimeReport() {
             const now = new Date();

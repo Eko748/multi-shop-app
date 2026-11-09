@@ -75,15 +75,12 @@
         /* STICKY HEADER FIX                          */
         /* ========================================== */
 
-        /* Container pembungkus tabel harus memiliki height & scroll */
         .table-scroll-wrapper {
             max-height: 70vh;
-            /* Sesuaikan tinggi kontainer sesuai kebutuhan (misal 65vh - 75vh) */
             overflow-y: auto;
             position: relative;
         }
 
-        /* Memastikan border tabel tetap rapi saat sticky */
         .table-scroll-wrapper table {
             border-collapse: separate;
             border-spacing: 0;
@@ -95,22 +92,17 @@
             top: 0;
             z-index: 10;
             background-color: #f8f9fa;
-            /* Memberikan background padat agar isi td tidak menembus */
             box-shadow: 0 1px 0 #dee2e6;
         }
 
-        /* Baris Header Kedua (.tb-subhead) */
+        /* Baris Header Kedua (.tb-subhead) - Menggunakan kalkulasi tinggi header pertama */
         .table-scroll-wrapper thead tr.tb-subhead th {
             position: sticky;
-            top: 40px;
-            /* Sesuaikan angka ini dengan tinggi rata-rata dari baris .tb-head */
+            top: 41px;
+            /* Sesuaikan dengan tinggi riil th baris pertama (biasanya sekitar 40-45px) */
             z-index: 9;
-            box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.1);
-        }
-
-        /* Menjaga background gradien subheader toko tetap tampil padat */
-        .table-scroll-wrapper thead tr.tb-subhead th[colspan="2"] {
             background-color: #f8f9fa;
+            box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.1);
         }
     </style>
 @endsection
@@ -435,10 +427,11 @@
             let display_from = ((pagination.per_page * (currentPage - 1)) + 1);
             let display_to = Math.min(display_from + dataList.length - 1, pagination.total);
 
+            // Colspan diset 2 karena ada 2 sub-kolom per toko (Stok & OTW)
             let dynamicHeaders = dynamicKeys.map((key, index) => {
                 let title = tokoMap[key] || key;
                 return `
-                    <th class="text-wrap align-top text-center toggle-header" colspan="3" data-key="header-${index}" id="header-${index}" title="${title}" data-toggle="tooltip" data-placement="top">
+                    <th class="text-wrap align-top text-center toggle-header" colspan="2" data-key="header-${index}" id="header-${index}" title="${title}" data-toggle="tooltip" data-placement="top">
                         <div class="d-flex align-items-center justify-content-center header-wrapper cursor-pointer">
                             <span class="fw-bold">${key}</span>
                             <i class="fa fa-caret-left ml-2"></i>
@@ -461,26 +454,24 @@
                     'border border-dark shadow-sm' : '';
                 let activeOtw = (currentSortToko === key && currentSortBy === 'otw') ?
                     'border border-dark shadow-sm' : '';
-                let activeLo = (currentSortToko === key && currentSortBy === 'lo') ?
-                    'border border-dark shadow-sm' : '';
 
                 return `
                     <th class="text-wrap align-top text-center sortable-col header-${index}-stock ${activeStock}"
-                    data-sort-by="stock" data-sort-toko="${key}" title="Urutkan Stok ${key}"
-                    style="width: 1px; white-space: nowrap; padding-left: 4px; padding-right: 4px; cursor: pointer;">
-                    <div class="d-flex align-items-center justify-content-center">
-                        <i class="fa fa-box"></i>
-                        ${getSortIcon('stock')}
-                    </div>
-                </th>
-                <th class="text-wrap align-top text-center sortable-col header-${index}-otw ${activeOtw}"
-                    data-sort-by="otw" data-sort-toko="${key}" title="Urutkan OTW ${key}"
-                    style="width: 1px; white-space: nowrap; padding-left: 4px; padding-right: 4px; cursor: pointer;">
-                    <div class="d-flex align-items-center justify-content-center">
-                        <i class="fa fa-truck-fast"></i>
-                        ${getSortIcon('otw')}
-                    </div>
-                </th>
+                        data-sort-by="stock" data-sort-toko="${key}" title="Urutkan Stok ${key}"
+                        style="width: 1px; white-space: nowrap; padding-left: 4px; padding-right: 4px; cursor: pointer;">
+                        <div class="d-flex align-items-center justify-content-center">
+                            <i class="fa fa-box"></i>
+                            ${getSortIcon('stock')}
+                        </div>
+                    </th>
+                    <th class="text-wrap align-top text-center sortable-col header-${index}-otw ${activeOtw}"
+                        data-sort-by="otw" data-sort-toko="${key}" title="Urutkan OTW ${key}"
+                        style="width: 1px; white-space: nowrap; padding-left: 4px; padding-right: 4px; cursor: pointer;">
+                        <div class="d-flex align-items-center justify-content-center">
+                            <i class="fa fa-truck-fast"></i>
+                            ${getSortIcon('otw')}
+                        </div>
+                    </th>
                 `;
             }).join('');
 
@@ -545,34 +536,25 @@
                 let targetKey = $(this).data('key');
                 let targetColumnClassStock = `.header-${targetKey.split('-')[1]}-stock`;
                 let targetColumnClassOtw = `.header-${targetKey.split('-')[1]}-otw`;
-                let targetColumnClassLo = `.header-${targetKey.split('-')[1]}-lo`;
                 let header = $(`#${targetKey}`);
                 let headerColumn = header.attr('colspan');
 
                 $(targetColumnClassStock).css('transition', 'opacity 0.5s ease, transform 0.5s ease');
                 $(targetColumnClassOtw).css('transition', 'opacity 0.5s ease, transform 0.5s ease');
-                $(targetColumnClassLo).css('transition', 'opacity 0.5s ease, transform 0.5s ease');
 
-                if (headerColumn === '3') {
+                if (headerColumn === '2') {
                     header.attr('colspan', '1');
 
-                    $(targetColumnClassStock).css('opacity', '1').css('visibility', 'visible').css('transform',
-                        'translateX(0)').show();
-                    $(targetColumnClassOtw).css('opacity', '0').css('visibility', 'hidden').css('transform',
-                        'translateX(100%)').hide();
-                    $(targetColumnClassLo).css('opacity', '0').css('visibility', 'hidden').css('transform',
-                        'translateX(100%)').hide();
+                    $(targetColumnClassStock).css('opacity', '1').css('visibility', 'visible').css('transform', 'translateX(0)').show();
+                    $(targetColumnClassOtw).css('opacity', '0').css('visibility', 'hidden').css('transform', 'translateX(100%)').hide();
+
                     $(this).find('i').removeClass('fa-caret-left').addClass('fa-caret-right');
                     $(this).addClass('bg-secondary text-white');
                 } else {
-                    header.attr('colspan', '3');
+                    header.attr('colspan', '2');
 
-                    $(targetColumnClassStock).css('opacity', '1').css('visibility', 'visible').css('transform',
-                        'translateX(0)').show();
-                    $(targetColumnClassOtw).css('opacity', '1').css('visibility', 'visible').css('transform',
-                        'translateX(0)').show();
-                    $(targetColumnClassLo).css('opacity', '1').css('visibility', 'visible').css('transform',
-                        'translateX(0)').show();
+                    $(targetColumnClassStock).css('opacity', '1').css('visibility', 'visible').css('transform', 'translateX(0)').show();
+                    $(targetColumnClassOtw).css('opacity', '1').css('visibility', 'visible').css('transform', 'translateX(0)').show();
 
                     $(this).find('i').removeClass('fa-caret-right').addClass('fa-caret-left');
                     $(this).removeClass('bg-secondary text-white');

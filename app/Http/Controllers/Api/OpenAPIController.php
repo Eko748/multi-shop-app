@@ -9,19 +9,26 @@ use App\Models\PenjualanNonFisikDetail;
 use App\Models\ReturMemberDetail;
 use App\Models\ReturSupplierDetail;
 use App\Models\Toko;
-use App\Models\TransaksiKasirDetail;
 use App\Models\User;
+use App\Models\StockOpname;
+use App\Models\StockOpnameDetail;
+use App\Models\StockBarangBatch;
+use App\Models\TransaksiKasirDetail;
 use App\Services\NeracaKeuanganService;
+use App\Services\StockBulananService;
 use App\Traits\ApiResponse;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class OpenAPIController extends Controller
 {
     use ApiResponse;
+
     protected $neracaKeuanganService;
 
     public function __construct(NeracaKeuanganService $neracaKeuanganService)
@@ -32,56 +39,79 @@ class OpenAPIController extends Controller
     public function login(Request $request)
     {
         $request->validate([
-            'username' => 'required',
-            'password' => 'required',
+            'username' => 'required|string',
+            'password' => 'required|string',
+            'toko_id'  => 'nullable|integer|exists:toko,id',
         ]);
 
-        $username = $request->input('username');
-        $password = $request->input('password');
+        try {
+            $user = User::where('username', $request->username)->first();
 
-        // 1. Cek user di DB server ini
-        $user = User::where('username', $username)->first();
+            if (!$user || !Hash::check($request->password, $user->password)) {
+                return $this->error(401, 'Username atau password salah.');
+            }
 
-        if (!$user) {
-            return $this->error(404, 'User tidak ditemukan di server ini');
+            if ($user->role_id != 1) {
+                return $this->error(403, 'Akses ditolak. Hanya Role ID 1 yang diizinkan.');
+            }
+
+            $user->update([
+                'ip_login' => $request->ip(),
+                'last_activity' => Carbon::now(),
+            ]);
+
+            $daftarToko = Toko::select('id', 'nama', 'singkatan', 'alamat', 'mitraw', 'parent_id')->get();
+            $showTokoSelection = false;
+            $activeTokoId = $user->toko_id;
+
+            if ($daftarToko->count() > 1) {
+                if ($request->has('toko_id')) {
+                    $activeTokoId = $request->toko_id;
+                } else {
+                    $showTokoSelection = true;
+                }
+            }
+
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return $this->success(
+                data: [
+                    'token' => $token,
+                    'token_type' => 'Bearer',
+                    'show_toko_selection' => $showTokoSelection,
+                    'active_toko_id' => $activeTokoId,
+                    'daftar_toko' => $showTokoSelection ? $daftarToko : [],
+                    'user' => [
+                        'id' => $user->id,
+                        'nama' => $user->nama,
+                        'username' => $user->username,
+                        'role_id' => $user->role_id,
+                        'nama_role' => $user->role ? $user->role->name : null,
+                        'toko_id' => $user->toko_id,
+                    ]
+                ],
+                code: 200,
+                message: 'Login berhasil'
+            );
+        } catch (\Throwable $e) {
+            return $this->error(500, 'Gagal melakukan proses login', $e->getMessage());
         }
-
-        // 2. Filter Khusus: Hanya role_id == 1
-        if ($user->role_id != 1) {
-            return $this->error(403, 'Akses ditolak. Hanya Role ID 1 yang diizinkan.');
-        }
-
-        // 3. Verifikasi Password
-        if (!Hash::check($password, $user->password)) {
-            return $this->error(401, 'Password yang Anda masukkan salah.');
-        }
-
-        // 4. Update IP & Aktivitas
-        $user->update([
-            'ip_login' => $request->ip(),
-            'last_activity' => Carbon::now(),
-        ]);
-
-        // 5. Generate Bearer Token
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-        // 6. Return Token & Data User SAJA (Tanpa Route Redirect)
-        return $this->success(
-            data: [
-                'token' => $token,
-                'token_type' => 'Bearer',
-                'user' => [
-                    'id' => $user->id,
-                    'username' => $user->username,
-                    'role_id' => $user->role_id,
-                    'nama_level' => $user->nama_level,
-                ]
-            ],
-            code: 200,
-            message: 'Login berhasil'
-        );
     }
 
+    public function logout(Request $request)
+    {
+        try {
+            $token = $request->user()?->currentAccessToken();
+
+            if ($token instanceof PersonalAccessToken) {
+                $token->delete();
+            }
+
+            return $this->success(null, 200, 'Logout berhasil.');
+        } catch (\Throwable $e) {
+            return $this->error(500, 'Gagal melakukan logout', $e->getMessage());
+        }
+    }
     public function getNeraca(Request $request)
     {
         try {
@@ -98,7 +128,6 @@ class OpenAPIController extends Controller
             });
 
             return $this->success($data, 200, 'Data laporan keuangan seluruh toko berhasil diambil!');
-
         } catch (\Throwable $e) {
             return $this->error(500, 'Gagal mengambil data laporan keuangan', $e->getMessage());
         }
@@ -108,14 +137,13 @@ class OpenAPIController extends Controller
     {
         $startDateInput = $request->input('start_date', now()->toDateString());
         $endDateInput   = $request->input('end_date', now()->toDateString());
-        $period         = $request->input('period', 'daily'); // 'daily', 'monthly', 'yearly'
+        $period         = $request->input('period', 'daily');
         $idToko         = $request->input('toko_id', 'all');
 
         $startDate = Carbon::parse($startDateInput)->startOfDay();
         $endDate   = Carbon::parse($endDateInput)->endOfDay();
 
         try {
-            // --- 1. FILTER TOKO (INDUK + CHILD) ---
             $queryToko = Toko::select('id', 'singkatan', 'nama', 'parent_id');
             if ($idToko !== 'all') {
                 $queryToko->where(function ($q) use ($idToko) {
@@ -130,7 +158,6 @@ class OpenAPIController extends Controller
                 ->pluck('id')
                 ->toArray();
 
-            // --- 2. QUERY PENJUALAN KASIR & HPP (Group by Toko & DATE) ---
             $kasirData = TransaksiKasirDetail::join('transaksi_kasir', 'transaksi_kasir.id', '=', 'transaksi_kasir_detail.transaksi_kasir_id')
                 ->join('stock_barang_batch', 'stock_barang_batch.id', '=', 'transaksi_kasir_detail.stock_barang_batch_id')
                 ->whereIn('transaksi_kasir.toko_id', $allTokoIds)
@@ -148,7 +175,6 @@ class OpenAPIController extends Controller
                 ->get()
                 ->groupBy('toko_id');
 
-            // --- 3. QUERY PENJUALAN NON-FISIK (PNF) & HPP (Group by Toko & DATE) ---
             $pnfData = PenjualanNonFisikDetail::join('td_penjualan_nonfisik', 'td_penjualan_nonfisik.id', '=', 'td_penjualan_nonfisik_detail.penjualan_nonfisik_id')
                 ->join('users', 'users.id', '=', 'td_penjualan_nonfisik.created_by')
                 ->whereBetween('td_penjualan_nonfisik_detail.created_at', [$startDate, $endDate])
@@ -163,7 +189,6 @@ class OpenAPIController extends Controller
                 ->get()
                 ->groupBy('toko_id');
 
-            // --- 4. QUERY RETUR & LABA RETUR MEMBER ---
             $pengurangPerToko = $this->getKomponenPengurang($startDate, $endDate, 'toko');
 
             $labaReturMemberPerToko = ReturMemberDetail::join('retur_member', 'retur_member_detail.retur_id', '=', 'retur_member.id')
@@ -186,33 +211,27 @@ class OpenAPIController extends Controller
                 'total_transaksi'   => 0,
             ];
 
-            // Inisialisasi Template Period Range
             $datePeriod = CarbonPeriod::create($startDate->toDateString(), $endDate->toDateString());
 
-            // --- 5. KALKULASI UTAMA PER TOKO ---
             foreach ($tokos as $toko) {
                 $tokoId = $toko->id;
                 $isParent = is_null($toko->parent_id) || in_array($tokoId, $parentIdsList);
 
-                // A. Data Kasir
                 $txKasirToko = $kasirData->get($tokoId, collect());
                 $omsetKasirToko = (float) $txKasirToko->sum('total_penjualan');
                 $hppKasirToko   = (float) $txKasirToko->sum('total_hpp');
                 $jumlahTxKasir  = (int) $txKasirToko->sum('total_tx');
 
-                // B. Data PNF
                 $txPnfToko = $pnfData->get($tokoId, collect());
                 $omsetPnfToko = (float) $txPnfToko->sum('total_penjualan');
                 $hppPnfToko   = (float) $txPnfToko->sum('total_hpp');
 
-                // C. Retur & Kasbon
                 $refundMember       = $pengurangPerToko['refund'][$tokoId] ?? 0;
                 $keuntunganSupplier = $pengurangPerToko['untung'][$tokoId] ?? 0;
                 $kerugianSupplier   = $pengurangPerToko['rugi'][$tokoId] ?? 0;
                 $biayaRetur         = max($refundMember - $keuntunganSupplier + $kerugianSupplier, 0);
                 $kasbon             = 0;
 
-                // D. Laba Kotor
                 $labaReturMember = (float) ($labaReturMemberPerToko[$tokoId] ?? 0);
                 $returLabaTotal  = $labaReturMember - $keuntunganSupplier + $kerugianSupplier;
 
@@ -221,11 +240,9 @@ class OpenAPIController extends Controller
                 $totalOmsetBersih = max($totalPenjualan - $biayaRetur - $kasbon, 0);
                 $labaKotor        = max($totalPenjualan - $totalHpp - $returLabaTotal, 0);
 
-                // E. Deret Waktu untuk Grafik Sesuai Period
                 $timeSeriesData = [];
 
                 if ($period === 'daily') {
-                    // Mapping omset per tanggal 'YYYY-MM-DD'
                     $mapPerDate = [];
                     foreach ($txKasirToko as $row) {
                         $mapPerDate[$row->tanggal_tx] = ($mapPerDate[$row->tanggal_tx] ?? 0) + $row->total_penjualan;
@@ -234,16 +251,11 @@ class OpenAPIController extends Controller
                         $mapPerDate[$row->tanggal_tx] = ($mapPerDate[$row->tanggal_tx] ?? 0) + $row->total_penjualan;
                     }
 
-                    // Buat array lengkap sesuai rentang start_date s/d end_date
-                    // Jika default 1 hari (hari ini), array berisi 1 data. Jika 1 bulan (tgl 1-31), array berisi 31 data.
                     $dailyTotals = [];
-                    $totalDays = count($datePeriod);
-
                     foreach ($datePeriod as $dt) {
                         $keyDate = $dt->toDateString();
                         $omsetHariIni = $mapPerDate[$keyDate] ?? 0;
 
-                        // Pengurang proporsional jika ada biaya retur
                         if ($totalPenjualan > 0 && ($biayaRetur + $kasbon) > 0) {
                             $proporsi = $omsetHariIni / $totalPenjualan;
                             $omsetHariIni = max($omsetHariIni - ($proporsi * ($biayaRetur + $kasbon)), 0);
@@ -251,15 +263,11 @@ class OpenAPIController extends Controller
 
                         $dailyTotals[] = round($omsetHariIni, 2);
                     }
-
                     $timeSeriesData = $dailyTotals;
-
                 } elseif ($period === 'monthly') {
-                    // Array 12 Bulan (Januari s/d Desember)
                     $monthlyTotals = array_fill(0, 12, 0);
-
                     foreach ($txKasirToko as $row) {
-                        $monthIndex = (int) Carbon::parse($row->tanggal_tx)->format('n') - 1; // 0 = Jan, 11 = Des
+                        $monthIndex = (int) Carbon::parse($row->tanggal_tx)->format('n') - 1;
                         $monthlyTotals[$monthIndex] += $row->total_penjualan;
                     }
                     foreach ($txPnfToko as $row) {
@@ -267,12 +275,9 @@ class OpenAPIController extends Controller
                         $monthlyTotals[$monthIndex] += $row->total_penjualan;
                     }
 
-                    // Pengurang retur pada bulan terkait
                     $activeMonthIdx = $startDate->month - 1;
                     $monthlyTotals[$activeMonthIdx] = max($monthlyTotals[$activeMonthIdx] - ($biayaRetur + $kasbon), 0);
-
-                    $timeSeriesData = array_map(fn ($v) => round($v, 2), $monthlyTotals);
-
+                    $timeSeriesData = array_map(fn($v) => round($v, 2), $monthlyTotals);
                 } elseif ($period === 'yearly') {
                     $timeSeriesData = [$startDate->year => round($totalOmsetBersih, 2)];
                 }
@@ -297,7 +302,6 @@ class OpenAPIController extends Controller
                     'total_omset'      => round($totalOmsetBersih, 2),
                 ];
 
-                // Akumulasi Summary
                 $summary['grand_total']       += $totalOmsetBersih;
                 $summary['total_laba_kotor']  += $labaKotor;
                 $summary['total_hpp']         += $totalHpp;
@@ -308,7 +312,6 @@ class OpenAPIController extends Controller
                 $summary['total_transaksi']   += $jumlahTxKasir;
             }
 
-            // Pembulatan Desimal Summary
             foreach ($summary as $key => $val) {
                 $summary[$key] = round($val, 2);
             }
@@ -324,15 +327,11 @@ class OpenAPIController extends Controller
             ];
 
             return $this->success($responseData, 200, 'Data laporan toko berhasil diambil!');
-
         } catch (\Throwable $e) {
             return $this->error(500, 'Gagal mengambil data laporan toko', $e->getMessage());
         }
     }
 
-    /**
-     * 2. GET TOP MEMBER & BARANG (Drill-down saat Toko Diklik)
-     */
     public function getTopMemberBarang(Request $request)
     {
         $idToko = $request->input('toko_id', 'all');
@@ -349,7 +348,6 @@ class OpenAPIController extends Controller
                 $tokoIds = Toko::where('id', $idToko)->orWhere('parent_id', $idToko)->pluck('id')->toArray();
             }
 
-            // --- QUERY TOP 10 BARANG TERJUAL ---
             $subqueryReturBarang = ReturMemberDetail::select(
                 'retur_member_detail.barang_id',
                 DB::raw('SUM(retur_member_detail.qty_refund) as total_qty_refund'),
@@ -357,7 +355,7 @@ class OpenAPIController extends Controller
             )
                 ->join('retur_member', 'retur_member_detail.retur_id', '=', 'retur_member.id')
                 ->whereBetween(DB::raw('DATE(retur_member.tanggal)'), [$startDate->toDateString(), $endDate->toDateString()])
-                ->when(! empty($tokoIds), fn ($q) => $q->whereIn('retur_member.toko_id', $tokoIds))
+                ->when(! empty($tokoIds), fn($q) => $q->whereIn('retur_member.toko_id', $tokoIds))
                 ->groupBy('retur_member_detail.barang_id');
 
             $topBarang = TransaksiKasirDetail::select(
@@ -370,30 +368,29 @@ class OpenAPIController extends Controller
                 ->join('stock_barang', 'stock_barang_batch.stock_barang_id', '=', 'stock_barang.id')
                 ->join('barang', 'stock_barang.barang_id', '=', 'barang.id')
                 ->join('transaksi_kasir', 'transaksi_kasir_detail.transaksi_kasir_id', '=', 'transaksi_kasir.id')
-                ->leftJoinSub($subqueryReturBarang, 'retur_sub', fn ($join) => $join->on('stock_barang.barang_id', '=', 'retur_sub.barang_id'))
+                ->leftJoinSub($subqueryReturBarang, 'retur_sub', fn($join) => $join->on('stock_barang.barang_id', '=', 'retur_sub.barang_id'))
                 ->where('transaksi_kasir.total_qty', '>', 0)
                 ->whereNull('transaksi_kasir.deleted_at')
                 ->whereBetween(DB::raw('DATE(transaksi_kasir.tanggal)'), [$startDate->toDateString(), $endDate->toDateString()])
-                ->when(! empty($tokoIds), fn ($q) => $q->whereIn('transaksi_kasir.toko_id', $tokoIds))
+                ->when(! empty($tokoIds), fn($q) => $q->whereIn('transaksi_kasir.toko_id', $tokoIds))
                 ->groupBy('stock_barang.barang_id', 'barang.nama', 'retur_sub.total_qty_refund', 'retur_sub.total_nominal_refund')
                 ->orderByDesc('net_terjual')
                 ->limit(10)
                 ->get()
-                ->map(fn ($item) => [
+                ->map(fn($item) => [
                     'nama_barang' => class_exists('TextGenerate') ? TextGenerate::smartTail($item->nama) : $item->nama,
                     'jumlah' => (int) $item->net_terjual,
                     'total_retur' => (int) $item->total_retur,
                     'total_nilai' => round((float) $item->net_nilai, 2),
                 ]);
 
-            // --- QUERY TOP 10 MEMBER ---
             $subqueryReturMember = ReturMemberDetail::select(
                 'retur_member_detail.transaksi_kasir_detail_id',
                 DB::raw('SUM(retur_member_detail.qty_refund) as total_qty_refund')
             )
                 ->join('retur_member', 'retur_member_detail.retur_id', '=', 'retur_member.id')
                 ->whereBetween(DB::raw('DATE(retur_member.tanggal)'), [$startDate->toDateString(), $endDate->toDateString()])
-                ->when(! empty($tokoIds), fn ($sub) => $sub->whereIn('retur_member.toko_id', $tokoIds))
+                ->when(! empty($tokoIds), fn($sub) => $sub->whereIn('retur_member.toko_id', $tokoIds))
                 ->groupBy('retur_member_detail.transaksi_kasir_detail_id');
 
             $topMember = Member::select(
@@ -412,12 +409,12 @@ class OpenAPIController extends Controller
                 ->where('transaksi_kasir.total_qty', '>', 0)
                 ->whereNull('transaksi_kasir.deleted_at')
                 ->whereBetween(DB::raw('DATE(transaksi_kasir.tanggal)'), [$startDate->toDateString(), $endDate->toDateString()])
-                ->when(! empty($tokoIds), fn ($q) => $q->whereIn('transaksi_kasir.toko_id', $tokoIds))
+                ->when(! empty($tokoIds), fn($q) => $q->whereIn('transaksi_kasir.toko_id', $tokoIds))
                 ->groupBy('transaksi_kasir.toko_id', 'toko.nama', 'member.id', 'nama_member')
                 ->orderByDesc('total_pembayaran_setelah_retur')
                 ->limit(10)
                 ->get()
-                ->map(fn ($item) => [
+                ->map(fn($item) => [
                     'nama_member' => $item->nama_member,
                     'toko_id' => $item->toko_id,
                     'nama_toko' => $item->nama_toko,
@@ -438,9 +435,113 @@ class OpenAPIController extends Controller
             ];
 
             return $this->success($responseData, 200, 'Data detail top barang dan member berhasil diambil!');
-
         } catch (\Throwable $th) {
             return $this->error(500, 'Gagal mengambil detail toko', $th->getMessage());
+        }
+    }
+
+    public function scanOpnameItem(Request $request)
+    {
+        $request->validate([
+            'toko_id' => 'required|integer|exists:toko,id',
+            'qrcode' => 'required|string',
+        ]);
+
+        try {
+            $barang = \App\Models\Barang::where('qrcode', $request->qrcode)->first();
+
+            if (!$barang) {
+                return $this->error(404, 'Barang dengan QR Code tersebut tidak ditemukan.');
+            }
+
+            $stockBarang = \App\Models\StockBarang::where('barang_id', $barang->id)
+                ->where('toko_group_id', $request->toko_id)
+                ->first();
+
+            $batches = [];
+            if ($stockBarang) {
+                $batches = \App\Models\StockBarangBatch::where('stock_barang_id', $stockBarang->id)
+                    ->where('toko_id', $request->toko_id)
+                    ->where('qty_sisa', '>', 0)
+                    ->get()
+                    ->map(fn($batch) => [
+                        'stock_barang_batch_id' => $batch->id,
+                        'qty_sisa' => $batch->qty_sisa,
+                        'harga_beli' => $batch->harga_beli,
+                        'tanggal' => $batch->tanggal,
+                    ]);
+            }
+
+            $data = [
+                'barang_id' => $barang->id,
+                'nama_barang' => $barang->nama,
+                'qrcode' => $barang->qrcode,
+                'barcode' => $barang->barcode,
+                'total_stok_sistem' => $stockBarang ? $stockBarang->stok : 0,
+                'batches' => $batches,
+            ];
+
+            return $this->success($data, 200, 'Data barang berhasil di-scan.');
+        } catch (\Throwable $e) {
+            return $this->error(500, 'Gagal memproses scan barang', $e->getMessage());
+        }
+    }
+
+    public function storeOpname(Request $request)
+    {
+        $request->validate([
+            'toko_id' => 'required|integer|exists:toko,id',
+            'user_id' => 'required|integer|exists:users,id',
+            'tanggal' => 'required|date',
+            'keterangan' => 'nullable|string',
+            'items' => 'required|array|min:1',
+            'items.*.stock_barang_batch_id' => 'required|integer|exists:stock_barang_batch,id',
+            'items.*.qty_fisik' => 'required|integer|min:0',
+            'items.*.status_kondisi' => 'required|in:normal,mati,rusak,hilang',
+            'items.*.catatan_item' => 'nullable|string',
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            $opname = StockOpname::create([
+                'toko_id' => $request->toko_id,
+                'user_id' => $request->user_id,
+                'tanggal' => Carbon::parse($request->tanggal)->toDateString(),
+                'status' => 'selesai',
+                'keterangan' => $request->keterangan,
+            ]);
+
+            foreach ($request->items as $item) {
+                $batch = StockBarangBatch::find($item['stock_barang_batch_id']);
+                if (!$batch) {
+                    continue;
+                }
+
+                $qtySistem = $batch->qty_sisa;
+                $qtyFisik = $item['qty_fisik'];
+                $selisih = $qtyFisik - $qtySistem;
+
+                StockOpnameDetail::create([
+                    'stock_opname_id' => $opname->id,
+                    'stock_barang_batch_id' => $batch->id,
+                    'qty_sistem' => $qtySistem,
+                    'qty_fisik' => $qtyFisik,
+                    'selisih' => $selisih,
+                    'status_kondisi' => $item['status_kondisi'],
+                    'catatan_item' => $item['catatan_item'] ?? null,
+                ]);
+            }
+
+            DB::commit();
+
+            return $this->success([
+                'stock_opname_id' => $opname->id,
+                'total_item' => count($request->items),
+            ], 200, 'Data stok opname berhasil disimpan.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return $this->error(500, 'Gagal menyimpan data stok opname', $e->getMessage());
         }
     }
 
@@ -465,7 +566,7 @@ class OpenAPIController extends Controller
             ->where('retur_supplier_detail.qty_refund', '>', 0)->where('retur_supplier_detail.keterangan', 'rugi')
             ->whereBetween('retur_supplier_detail.created_at', [$startDate, $endDate])
             ->selectRaw("{$supplierGroup} as key_group, SUM(retur_supplier_detail.selisih) as total")
-            ->groupBy('key_group')->pluck('total', 'key_group')->toArray();
+            ->groupBy('key_group')->pluck('key_group')->toArray();
 
         return ['refund' => $refund, 'untung' => $untung, 'rugi' => $rugi];
     }

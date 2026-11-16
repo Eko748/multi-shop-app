@@ -143,13 +143,17 @@ class OpnameController extends Controller
                 return $this->error(404, 'Barang dengan QR Code tersebut tidak ditemukan.');
             }
 
-            // Ambil data toko untuk mengecek apakah toko ini punya toko_group_id atau mengarah ke id-nya sendiri
-            $toko = Toko::find($request->toko_id);
-            $tokoGroupId = $toko->toko_group_id ?? $request->toko_id;
+            // Ambil data toko beserta grup-grupnya dari tabel pivot toko_group_item
+            $toko = Toko::with('groups')->find($request->toko_id);
 
-            // Cari stok berdasarkan barang_id dan group toko yang sesuai
+            // Ambil kumpulan ID grup tempat toko ini berada
+            $tokoGroupIds = $toko ? $toko->groups->pluck('id')->toArray() : [];
+
+            // Cari stok berdasarkan barang_id dan salah satu toko_group_id yang dimiliki toko tersebut
             $stockBarang = StockBarang::where('barang_id', $barang->id)
-                ->where('toko_group_id', $tokoGroupId)
+                ->when(!empty($tokoGroupIds), function ($q) use ($tokoGroupIds) {
+                    $q->whereIn('toko_group_id', $tokoGroupIds);
+                })
                 ->first();
 
             $batches = [];

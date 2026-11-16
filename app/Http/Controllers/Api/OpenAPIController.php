@@ -51,25 +51,29 @@ class OpenAPIController extends Controller
                 return $this->error(401, 'Username atau password salah.');
             }
 
-            if ($user->role_id != 1) {
-                return $this->error(403, 'Akses ditolak. Hanya Role ID 1 yang diizinkan.');
-            }
-
             $user->update([
                 'ip_login' => $request->ip(),
                 'last_activity' => Carbon::now(),
             ]);
 
-            $daftarToko = Toko::select('id', 'nama', 'singkatan', 'alamat', 'mitra', 'parent_id')->get();
+            $isSuperAdmin = ((int) $user->role_id === 1);
             $showTokoSelection = false;
             $activeTokoId = $user->toko_id;
+            $daftarToko = collect();
 
-            if ($daftarToko->count() > 1) {
-                if ($request->has('toko_id')) {
-                    $activeTokoId = $request->toko_id;
-                } else {
-                    $showTokoSelection = true;
+            if ($isSuperAdmin) {
+                $daftarToko = Toko::select('id', 'nama', 'singkatan', 'alamat', 'mitra', 'parent_id')->get();
+                if ($daftarToko->count() > 1) {
+                    if ($request->filled('toko_id')) {
+                        $activeTokoId = $request->toko_id;
+                    } else {
+                        $showTokoSelection = true;
+                    }
                 }
+            } elseif (!is_null($user->toko_id)) {
+                $daftarToko = Toko::select('id', 'nama', 'singkatan', 'alamat', 'mitra', 'parent_id')
+                    ->where('id', $user->toko_id)
+                    ->get();
             }
 
             $token = $user->createToken('auth_token')->plainTextToken;

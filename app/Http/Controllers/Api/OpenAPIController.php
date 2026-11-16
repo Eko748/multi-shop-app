@@ -60,7 +60,7 @@ class OpenAPIController extends Controller
                 'last_activity' => Carbon::now(),
             ]);
 
-            $daftarToko = Toko::select('id', 'nama', 'singkatan', 'alamat', 'mitraw', 'parent_id')->get();
+            $daftarToko = Toko::select('id', 'nama', 'singkatan', 'alamat', 'mitra', 'parent_id')->get();
             $showTokoSelection = false;
             $activeTokoId = $user->toko_id;
 

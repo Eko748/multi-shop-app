@@ -4,25 +4,21 @@ namespace App\Http\Controllers\Api;
 
 use App\Helpers\TextGenerate;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Rekapitulasi\OpnameController;
 use App\Models\Member;
 use App\Models\PenjualanNonFisikDetail;
 use App\Models\ReturMemberDetail;
 use App\Models\ReturSupplierDetail;
 use App\Models\Toko;
 use App\Models\User;
-use App\Models\StockOpname;
-use App\Models\StockOpnameDetail;
-use App\Models\StockBarangBatch;
 use App\Models\TransaksiKasirDetail;
 use App\Services\NeracaKeuanganService;
-use App\Services\StockBulananService;
 use App\Traits\ApiResponse;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rule;
 use Laravel\Sanctum\PersonalAccessToken;
 
 class OpenAPIController extends Controller
@@ -116,6 +112,7 @@ class OpenAPIController extends Controller
             return $this->error(500, 'Gagal melakukan logout', $e->getMessage());
         }
     }
+
     public function getNeraca(Request $request)
     {
         try {
@@ -444,109 +441,25 @@ class OpenAPIController extends Controller
         }
     }
 
+    // Pendelegasian ke OpnameController
     public function scanOpnameItem(Request $request)
     {
-        $request->validate([
-            'toko_id' => 'required|integer|exists:toko,id',
-            'qrcode' => 'required|string',
-        ]);
-
-        try {
-            $barang = \App\Models\Barang::where('qrcode', $request->qrcode)->first();
-
-            if (!$barang) {
-                return $this->error(404, 'Barang dengan QR Code tersebut tidak ditemukan.');
-            }
-
-            $stockBarang = \App\Models\StockBarang::where('barang_id', $barang->id)
-                ->where('toko_group_id', $request->toko_id)
-                ->first();
-
-            $batches = [];
-            if ($stockBarang) {
-                $batches = \App\Models\StockBarangBatch::where('stock_barang_id', $stockBarang->id)
-                    ->where('toko_id', $request->toko_id)
-                    ->where('qty_sisa', '>', 0)
-                    ->get()
-                    ->map(fn($batch) => [
-                        'stock_barang_batch_id' => $batch->id,
-                        'qty_sisa' => $batch->qty_sisa,
-                        'harga_beli' => $batch->harga_beli,
-                        'tanggal' => $batch->tanggal,
-                    ]);
-            }
-
-            $data = [
-                'barang_id' => $barang->id,
-                'nama_barang' => $barang->nama,
-                'qrcode' => $barang->qrcode,
-                'barcode' => $barang->barcode,
-                'total_stok_sistem' => $stockBarang ? $stockBarang->stok : 0,
-                'batches' => $batches,
-            ];
-
-            return $this->success($data, 200, 'Data barang berhasil di-scan.');
-        } catch (\Throwable $e) {
-            return $this->error(500, 'Gagal memproses scan barang', $e->getMessage());
-        }
+        return app(OpnameController::class)->scanItem($request);
     }
 
     public function storeOpname(Request $request)
     {
-        $request->validate([
-            'toko_id' => 'required|integer|exists:toko,id',
-            'user_id' => 'required|integer|exists:users,id',
-            'tanggal' => 'required|date',
-            'keterangan' => 'nullable|string',
-            'items' => 'required|array|min:1',
-            'items.*.stock_barang_batch_id' => 'required|integer|exists:stock_barang_batch,id',
-            'items.*.qty_fisik' => 'required|integer|min:0',
-            'items.*.status_kondisi' => 'required|in:normal,mati,rusak,hilang',
-            'items.*.catatan_item' => 'nullable|string',
-        ]);
+        return app(OpnameController::class)->store($request);
+    }
 
-        DB::beginTransaction();
+    public function getOpname(Request $request)
+    {
+        return app(OpnameController::class)->get($request);
+    }
 
-        try {
-            $opname = StockOpname::create([
-                'toko_id' => $request->toko_id,
-                'user_id' => $request->user_id,
-                'tanggal' => Carbon::parse($request->tanggal)->toDateString(),
-                'status' => 'selesai',
-                'keterangan' => $request->keterangan,
-            ]);
-
-            foreach ($request->items as $item) {
-                $batch = StockBarangBatch::find($item['stock_barang_batch_id']);
-                if (!$batch) {
-                    continue;
-                }
-
-                $qtySistem = $batch->qty_sisa;
-                $qtyFisik = $item['qty_fisik'];
-                $selisih = $qtyFisik - $qtySistem;
-
-                StockOpnameDetail::create([
-                    'stock_opname_id' => $opname->id,
-                    'stock_barang_batch_id' => $batch->id,
-                    'qty_sistem' => $qtySistem,
-                    'qty_fisik' => $qtyFisik,
-                    'selisih' => $selisih,
-                    'status_kondisi' => $item['status_kondisi'],
-                    'catatan_item' => $item['catatan_item'] ?? null,
-                ]);
-            }
-
-            DB::commit();
-
-            return $this->success([
-                'stock_opname_id' => $opname->id,
-                'total_item' => count($request->items),
-            ], 200, 'Data stok opname berhasil disimpan.');
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            return $this->error(500, 'Gagal menyimpan data stok opname', $e->getMessage());
-        }
+    public function detailOpname(Request $request)
+    {
+        return app(OpnameController::class)->detail($request);
     }
 
     private function getKomponenPengurang($startDate, $endDate, $groupBy = 'toko')

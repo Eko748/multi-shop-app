@@ -416,13 +416,18 @@ Route::prefix('rekapitulasi')->as('rekapitulasi.')->group(function () {
 
 Route::middleware('verify.apikey')->prefix('v1')->group(function () {
     Route::post('/login', [OpenAPIController::class, 'login']);
-    Route::post('/logout', [OpenAPIController::class, 'logout'])->middleware('auth:sanctum');
-    Route::get('/laporan-toko', [OpenAPIController::class, 'getLaporanToko']);
-    Route::get('/laporan-toko-detail', [OpenAPIController::class, 'getTopMemberBarang']);
-    Route::get('/neraca-toko', [OpenAPIController::class, 'getNeraca']);
 
     Route::middleware('auth:sanctum')->group(function () {
+        Route::post('/logout', [OpenAPIController::class, 'logout']);
+        Route::get('/laporan-toko', [OpenAPIController::class, 'getLaporanToko']);
+        Route::get('/laporan-toko-detail', [OpenAPIController::class, 'getTopMemberBarang']);
+        Route::get('/neraca-toko', [OpenAPIController::class, 'getNeraca']);
+
         Route::post('/stock-opname/scan', [OpenAPIController::class, 'scanOpnameItem']);
         Route::post('/stock-opname', [OpenAPIController::class, 'storeOpname']);
+
+        // Tambahan route untuk Riwayat & Detail Stok Opname
+        Route::get('/stock-opname', [OpenAPIController::class, 'getOpname']);
+        Route::get('/stock-opname/detail', [OpenAPIController::class, 'detailOpname']);
     });
 });

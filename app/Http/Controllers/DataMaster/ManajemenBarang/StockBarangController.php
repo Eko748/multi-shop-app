@@ -127,7 +127,6 @@ class StockBarangController extends Controller
                     'per_jenis' => $detailPerJenis,
                 ],
             ], 200);
-
         } catch (\Throwable $e) {
             return response()->json([
                 'status_code' => 500,
@@ -174,7 +173,7 @@ class StockBarangController extends Controller
                 'tokoGroup:id,nama',
                 'stockBarangBatch' => function ($q) {
                     $q->where('qty_sisa', '>', 0)
-                        ->whereHas('toko', fn ($t) => $t->whereNull('deleted_at'))
+                        ->whereHas('toko', fn($t) => $t->whereNull('deleted_at'))
                         ->orderBy('created_at', 'desc');
                 },
             ])
@@ -217,7 +216,7 @@ class StockBarangController extends Controller
                         $warning = true;
                     }
 
-                    $level_name = $levelNames[$index] ?? 'Level '.($index + 1);
+                    $level_name = $levelNames[$index] ?? 'Level ' . ($index + 1);
                     $level_harga[$level_name] = RupiahGenerate::build($numeric);
                 }
 
@@ -251,7 +250,6 @@ class StockBarangController extends Controller
                     'total_pages' => $data->lastPage(),
                 ],
             ], 200);
-
         } catch (\Throwable $e) {
             return response()->json([
                 'status_code' => 500,
@@ -286,13 +284,18 @@ class StockBarangController extends Controller
                 return $this->error(404, 'Data stok tidak ditemukan.');
             }
 
+            // Validasi kecocokan barang jika diperlukan
+            if ($stok->barang_id != $validated['id_barang']) {
+                throw new \Exception('Data barang tidak sesuai dengan stok yang dipilih.');
+            }
+
             $jenisBarangId = $stok->barang->jenis_barang_id ?? null;
             if (! $jenisBarangId) {
                 throw new \Exception('Jenis barang tidak ditemukan pada data stok ini.');
             }
 
             $oldStock = $stok->stok;
-            $totalHargaBeli = 0; // 🔑 total kerugian HPP
+            $totalHargaBeli = 0; // 🔑 total nilai kerugian HPP (stok mati)
             $fTanggal = now();
 
             // Ambil semua batch
@@ -311,7 +314,7 @@ class StockBarangController extends Controller
                 $batchHargaBeli = $qtyDikosongkan * ($batch->harga_beli ?? 0);
                 $totalHargaBeli += $batchHargaBeli;
 
-                // Catat stok bermasalah PER BATCH
+                // Catat stok bermasalah PER BATCH (Status: mati)
                 StockBarangBermasalah::create([
                     'stock_barang_batch_id' => $batch->id,
                     'status' => 'mati',
@@ -337,10 +340,13 @@ class StockBarangController extends Controller
             $stok->stok = 0;
             $stok->save();
 
-            // 🔥 Update laba rugi (OUT)
+            /* ============================
+        | LABA RUGI / BEBAN TOKO SENDIRI (STOK MATI)
+        ============================ */
+            // Berlaku untuk SEMUA toko (Mitra maupun Non-Mitra) karena statusnya 'mati' (Bukan Piutang)
             if ($totalHargaBeli > 0) {
                 KasService::updateLabaRugi(
-                    tokoId: $request->toko_id,
+                    tokoId: $validated['toko_id'],
                     tahun: $fTanggal->year,
                     bulan: $fTanggal->month,
                     tipe: 'out',
@@ -348,7 +354,7 @@ class StockBarangController extends Controller
                 );
             }
 
-            // Log aktivitas
+            // Log aktivitas utama (Kosongkan Stok)
             LogAktivitasGenerate::store(
                 logName: $this->title[0] ?? 'Stok Barang',
                 subjectType: StockBarang::class,
@@ -358,9 +364,9 @@ class StockBarangController extends Controller
                     'old' => ['stok' => $oldStock],
                     'new' => ['stok' => 0],
                 ],
-                description: "Stok barang ID {$request->id_barang} dikosongkan.",
-                userId: $request->user_id,
-                message: $request->message ?? '(Sistem) Stok barang dikosongkan.'
+                description: "Stok barang ID {$validated['id_barang']} dikosongkan.",
+                userId: $validated['user_id'],
+                message: $validated['message']
             );
 
             DB::commit();
@@ -498,13 +504,13 @@ class StockBarangController extends Controller
             $toko = Toko::findOrFail($tokoId);
             $isMitra = (bool) $toko->mitra;
 
-            $stokPengurangan = []; // per stock_barang_id
-            $totalHargaBeli = 0;   // total beban HPP
-            $jenisBarangId = null; // Variabel penampung jenis_barang_id
+            $stokPengurangan = [];
             $fTanggal = now();
 
-            foreach ($request->reductions as $reduction) {
+            $bebanPerJenisBarang = []; // Akumulasi beban/kerugian (mati/rusak) per jenis barang untuk toko sendiri
+            $piutangDataList = [];     // Akumulasi piutang (khusus Toko Mitra + status hilang)
 
+            foreach ($request->reductions as $reduction) {
                 $batch = StockBarangBatch::lockForUpdate()
                     ->find($reduction['stock_barang_batch_id']);
 
@@ -520,18 +526,15 @@ class StockBarangController extends Controller
                 $qtyOld = $batch->qty_sisa;
                 $nilaiAsetBatch = $batch->harga_beli * $qtyKurangi;
 
-                // HITUNG TOTAL HPP
-                $totalHargaBeli += $nilaiAsetBatch;
-
-                // kurangi batch
+                // Kurangi batch
                 $batch->qty_sisa -= $qtyKurangi;
                 $batch->save();
 
-                // kumpulkan total per stok
+                // Kumpulkan total per stok utama
                 $stokPengurangan[$batch->stock_barang_id] =
                     ($stokPengurangan[$batch->stock_barang_id] ?? 0) + $qtyKurangi;
 
-                // stok bermasalah
+                // Buat record stok bermasalah
                 $bermasalah = StockBarangBermasalah::create([
                     'stock_barang_batch_id' => $batch->id,
                     'status' => $reduction['status'],
@@ -539,14 +542,12 @@ class StockBarangController extends Controller
                     'toko_id' => $tokoId,
                 ]);
 
-                // Log & ambil jenis_barang_id dari relasi StockBarang -> Barang
+                // Ambil relasi StockBarang -> Barang untuk mendapatkan jenis_barang_id
                 $stok = StockBarang::with('barang')->find($batch->stock_barang_id);
-                if ($stok && $stok->barang) {
-                    $jenisBarangId = $stok->barang->jenis_barang_id;
-                }
+                $jenisBarangId = $stok && $stok->barang ? $stok->barang->jenis_barang_id : null;
 
-                // 🔴 INTEGRASI STOCK BULANAN SERVICE (STOK KELUAR / OUT)
                 if ($jenisBarangId) {
+                    // 🔴 INTEGRASI STOCK BULANAN SERVICE (STOK KELUAR / OUT)
                     $stockBulananService->tambahStokKeluar(
                         tokoId: $tokoId,
                         jenisBarangId: $jenisBarangId,
@@ -556,13 +557,28 @@ class StockBarangController extends Controller
                     );
                 }
 
+                // 🔑 PEMISAHAN AKUNTANSI YANG TEGAS
+                // Piutang HANYA untuk Toko Mitra DAN statusnya 'hilang'
+                if ($isMitra && $reduction['status'] === 'hilang') {
+                    $piutangDataList[] = [
+                        'jenis_barang_id' => $jenisBarangId,
+                        'nominal' => $nilaiAsetBatch,
+                        'sumber_id' => $bermasalah->id,
+                    ];
+                } else {
+                    // Stok mati, rusak, atau status apa pun di toko non-mitra -> Masuk ke beban toko sendiri
+                    if ($jenisBarangId) {
+                        $bebanPerJenisBarang[$jenisBarangId] = ($bebanPerJenisBarang[$jenisBarangId] ?? 0) + $nilaiAsetBatch;
+                    }
+                }
+
                 $namaBarang = $stok?->barang?->nama_barang ?? '-';
 
                 LogAktivitasGenerate::store(
                     logName: $this->title[0] ?? 'Stok Barang',
                     subjectType: StockBarang::class,
-                    subjectId: $stok->id,
-                    event: 'Pengurangan Stok '.ucfirst(strtolower($reduction['status'])),
+                    subjectId: $stok?->id,
+                    event: 'Pengurangan Stok ' . ucfirst(strtolower($reduction['status'])),
                     properties: [
                         'changes' => [
                             'old' => ['qty_sisa' => $qtyOld],
@@ -576,10 +592,9 @@ class StockBarangController extends Controller
             }
 
             /* ============================
-            | UPDATE STOK UTAMA
-            ============================ */
+        | UPDATE STOK UTAMA
+        ============================ */
             foreach ($stokPengurangan as $stockBarangId => $qtyTotal) {
-
                 $stok = StockBarang::lockForUpdate()->find($stockBarangId);
                 if (! $stok) {
                     throw new \Exception("Stok barang ID {$stockBarangId} tidak ditemukan.");
@@ -594,81 +609,83 @@ class StockBarangController extends Controller
             }
 
             /* ============================
-            | LABA RUGI / PIUTANG MITRA
-            ============================ */
-            if ($totalHargaBeli > 0) {
+        | 1. UPDATE LABA RUGI / BEBAN TOKO SENDIRI (MATI / RUSAK)
+        ============================ */
+            foreach ($bebanPerJenisBarang as $jenisBarangId => $nominalBeban) {
+                if ($nominalBeban <= 0) continue;
 
-                if ($isMitra) {
-                    // 🔍 CARI MODEL KAS SESUAI toko_id & jenis_barang_id
-                    $kas = Kas::where('toko_id', $tokoId)
-                        ->where('jenis_barang_id', $jenisBarangId)
-                        ->first();
+                // Pastikan terikat ke toko dan jenis barang milik toko tersebut (bukan pusat)
+                KasService::updateLabaRugi(
+                    tokoId: $tokoId,
+                    tahun: $fTanggal->year,
+                    bulan: $fTanggal->month,
+                    tipe: 'out',
+                    nominal: $nominalBeban
+                );
+            }
 
-                    if (! $kas) {
-                        throw new \Exception("Data Kas untuk toko ID {$tokoId} dan jenis barang ID {$jenisBarangId} tidak ditemukan.");
-                    }
+            /* ============================
+        | 2. PENCATATAN PIUTANG (KHUSUS MITRA + HILANG)
+        ============================ */
+            foreach ($piutangDataList as $pData) {
+                if (!$pData['jenis_barang_id']) continue;
 
-                    // 🔹 LOGIC UNTUK TOKO MITRA (Pencatatan Piutang)
-                    $piutang = Piutang::create([
-                        'kas_id' => $kas->id,
-                        'toko_id' => $tokoId,
-                        'piutang_tipe_id' => $request->piutang_tipe_id ?? 4,
-                        'keterangan' => 'Pengurangan Stok Barang Mitra',
-                        'nominal' => $totalHargaBeli,
-                        'sisa' => $totalHargaBeli,
-                        'status' => false,
-                        'jangka' => $request->jangka ?? 'pendek',
-                        'tanggal' => $fTanggal->toDateString(),
-                        'created_by' => $userId,
-                        'sumber_type' => StockBarangBermasalah::class,
-                        'sumber_id' => $bermasalah->id ?? null,
-                    ]);
+                $kas = Kas::where('toko_id', $tokoId)
+                    ->where('jenis_barang_id', $pData['jenis_barang_id'])
+                    ->first();
 
-                    $nominalFormatted = RupiahGenerate::build($totalHargaBeli);
-                    $kasLabel = KasJenisBarangGenerate::labelForKas($piutang);
+                if (! $kas) {
+                    throw new \Exception("Data Kas untuk toko ID {$tokoId} dan jenis barang ID {$pData['jenis_barang_id']} tidak ditemukan.");
+                }
 
-                    LogAktivitasGenerate::store(
-                        logName: 'Piutang',
-                        subjectType: Piutang::class,
-                        subjectId: $piutang->id,
-                        event: 'Tambah Data',
-                        properties: [
-                            'changes' => [
-                                'new' => [
-                                    'nominal' => $piutang->nominal,
-                                    'tanggal' => $piutang->tanggal,
-                                    'kas' => $kasLabel,
-                                ],
+                $piutang = Piutang::create([
+                    'kas_id' => $kas->id,
+                    'toko_id' => $tokoId,
+                    'piutang_tipe_id' => $request->piutang_tipe_id ?? 4,
+                    'keterangan' => 'Pengurangan Stok Barang Hilang Mitra',
+                    'nominal' => $pData['nominal'],
+                    'sisa' => $pData['nominal'],
+                    'status' => false,
+                    'jangka' => $request->jangka ?? 'pendek',
+                    'tanggal' => $fTanggal->toDateString(),
+                    'created_by' => $userId,
+                    'sumber_type' => StockBarangBermasalah::class,
+                    'sumber_id' => $pData['sumber_id'],
+                ]);
+
+                $nominalFormatted = RupiahGenerate::build($pData['nominal']);
+                $kasLabel = KasJenisBarangGenerate::labelForKas($piutang);
+
+                LogAktivitasGenerate::store(
+                    logName: 'Piutang',
+                    subjectType: Piutang::class,
+                    subjectId: $piutang->id,
+                    event: 'Tambah Data',
+                    properties: [
+                        'changes' => [
+                            'new' => [
+                                'nominal' => $piutang->nominal,
+                                'tanggal' => $piutang->tanggal,
+                                'kas' => $kasLabel,
                             ],
                         ],
-                        description: "{$this->title[0]} ditambahkan pada {$kasLabel} senilai Rp {$nominalFormatted} (ID {$piutang->id})",
-                        userId: $userId,
-                        message: '(Sistem) Piutang otomatis dari pengurangan stok mitra.'
-                    );
+                    ],
+                    description: "Piutang ditambahkan pada {$kasLabel} senilai Rp {$nominalFormatted} (ID {$piutang->id})",
+                    userId: $userId,
+                    message: '(Sistem) Piutang otomatis dari stok hilang mitra.'
+                );
 
-                    // Neutral IN
-                    KasService::neutralIN(
-                        toko_id: $tokoId,
-                        jenis_barang_id: $jenisBarangId,
-                        tipe_kas: $kas->tipe_kas,
-                        total_nominal: $totalHargaBeli,
-                        item: 'piutang',
-                        kategori: 'Piutang',
-                        keterangan: $piutang->piutangTipe->tipe ?? 'Stok Barang Bermasalah',
-                        sumber: $piutang,
-                        tanggal: $fTanggal->toDateString()
-                    );
-
-                } else {
-                    // 🔹 LOGIC UNTUK TOKO NON-MITRA
-                    KasService::updateLabaRugi(
-                        tokoId: $tokoId,
-                        tahun: $fTanggal->year,
-                        bulan: $fTanggal->month,
-                        tipe: 'out',
-                        nominal: $totalHargaBeli
-                    );
-                }
+                KasService::neutralIN(
+                    toko_id: $tokoId,
+                    jenis_barang_id: $pData['jenis_barang_id'],
+                    tipe_kas: $kas->tipe_kas,
+                    total_nominal: $pData['nominal'],
+                    item: 'piutang',
+                    kategori: 'Piutang',
+                    keterangan: $piutang->piutangTipe->tipe ?? 'Stok Barang Bermasalah',
+                    sumber: $piutang,
+                    tanggal: $fTanggal->toDateString()
+                );
             }
 
             DB::commit();
@@ -745,7 +762,7 @@ class StockBarangController extends Controller
         }
 
         $tokoList = Toko::all()
-            ->sortByDesc(fn ($tk) => $tk->id == $request->toko_id ? 1 : 0);
+            ->sortByDesc(fn($tk) => $tk->id == $request->toko_id ? 1 : 0);
 
         // ===============================
         // 🔥 Ambil stock per toko
@@ -786,7 +803,7 @@ class StockBarangController extends Controller
                 $harga = $hargaMapping[$id] ?? null;
 
                 if ($harga !== null) {
-                    $formatted = 'Rp '.number_format($harga, 0, ',', '.');
+                    $formatted = 'Rp ' . number_format($harga, 0, ',', '.');
                     $output[] = "{$namaLevel} ({$formatted})";
                 }
             }
@@ -973,7 +990,7 @@ class StockBarangController extends Controller
 
             // 🔥 PAKSA JADI STRING DENGAN PETIK
             // hasil: "[33000,43000,45000]"
-            $levelHargaString = '"'.json_encode($levelHarga).'"';
+            $levelHargaString = '"' . json_encode($levelHarga) . '"';
 
             StockBarang::where('id', $request->stock_barang_id)
                 ->update([
@@ -992,7 +1009,7 @@ class StockBarangController extends Controller
 
             return response()->json([
                 'status' => false,
-                'message' => 'Terjadi kesalahan: '.$e->getMessage(),
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage(),
             ], 500);
         }
     }

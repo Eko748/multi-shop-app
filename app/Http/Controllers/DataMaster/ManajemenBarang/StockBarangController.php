@@ -53,68 +53,57 @@ class StockBarangController extends Controller
             $tokoId = $request->input('toko_id');
             $search = trim($request->input('search', ''));
 
-            // 1. Query dasar StockBarang (Filter Active & Soft Delete)
-            $query = StockBarang::whereNull('deleted_at');
+            // Gunakan Model StockBarangBatch dengan relasi yang dibutuhkan
+            $query = StockBarangBatch::query()
+                ->with(['stockBarang.barang.jenisBarang'])
+                ->where('qty_sisa', '>', 0)
+                ->whereHas('stockBarang', function ($q) {
+                    $q->whereNull('deleted_at');
+                })
+                ->whereHas('stockBarang.barang', function ($q) {
+                    $q->whereNull('deleted_at');
+                });
 
-            if (! empty($tokoId)) {
-                $query->whereHas('tokoGroup.toko', function ($q) use ($tokoId) {
-                    $q->where('toko.id', $tokoId);
+            // Filter Toko jika dipilih
+            if (!empty($tokoId)) {
+                $query->where('toko_id', $tokoId);
+            }
+
+            // Filter Pencarian Nama Barang
+            if (!empty($search)) {
+                $query->whereHas('stockBarang.barang', function ($q) use ($search) {
+                    $q->where('nama', 'LIKE', "%{$search}%");
                 });
             }
 
-            if (! empty($search)) {
-                $query->whereHas('barang', function ($subquery) use ($search) {
-                    $subquery->whereNull('deleted_at')
-                        ->where('nama', 'LIKE', "%{$search}%");
+            // Ambil semua data batch yang lolos filter untuk dikelompokkan
+            $batches = $query->get();
+
+            // Kelompokkan berdasarkan jenis barang menggunakan collection PHP
+            $perJenis = $batches->groupBy(function ($batch) {
+                return optional($batch->stockBarang->barang->jenisBarang)->id ?? 0;
+            })->map(function ($group) {
+                $firstItem = $group->first();
+                $jenisBarang = optional(optional($firstItem->stockBarang)->barang)->jenisBarang;
+
+                $totalQty = $group->sum('qty_sisa');
+                $totalHpp = $group->sum(function ($item) {
+                    return $item->qty_sisa * $item->harga_beli;
                 });
-            }
-
-            // Ambil ID stock_barang yang lolos filter
-            $stockBarangIds = $query->pluck('id');
-
-            // 2. Query Utama Agregasi Per Jenis Barang (Inner JOIN Konsisten)
-            $perJenisQuery = DB::table('stock_barang_batch as sbb')
-                ->join('stock_barang as sb', 'sbb.stock_barang_id', '=', 'sb.id')
-                ->join('barang as b', 'sb.barang_id', '=', 'b.id')
-                ->leftJoin('jenis_barang as jb', 'b.jenis_barang_id', '=', 'jb.id')
-                ->whereIn('sbb.stock_barang_id', $stockBarangIds)
-                ->where('sbb.qty_sisa', '>', 0)
-                ->whereNull('sb.deleted_at')
-                ->whereNull('b.deleted_at');
-
-            if (! empty($tokoId)) {
-                $perJenisQuery->where('sbb.toko_id', $tokoId);
-            }
-
-            $perJenisRaw = $perJenisQuery
-                ->select(
-                    DB::raw('COALESCE(b.jenis_barang_id, 0) as jenis_barang_id'),
-                    DB::raw("COALESCE(jb.nama_jenis_barang, 'Lain-lain / Tanpa Jenis') as nama_jenis"),
-                    DB::raw('SUM(sbb.qty_sisa) as qty'),
-                    DB::raw('SUM(sbb.qty_sisa * sbb.harga_beli) as total_hpp')
-                )
-                ->groupBy('b.jenis_barang_id', 'jb.nama_jenis_barang')
-                ->orderBy('total_hpp', 'desc')
-                ->get();
-
-            // 🟢 HITUNG TOTAL DARI AGREGASI PER JENIS (PASTI SINKRON & SAMA PERSIS)
-            $totalQty = (int) $perJenisRaw->sum('qty');
-            $totalNilaiHpp = (float) $perJenisRaw->sum('total_hpp');
-
-            // Formating Data Breakdown
-            $detailPerJenis = $perJenisRaw->map(function ($item) {
-                $qty = (int) $item->qty;
-                $hpp = (float) $item->total_hpp;
 
                 return [
-                    'jenis_barang_id' => $item->jenis_barang_id,
-                    'nama_jenis' => $item->nama_jenis,
-                    'qty' => number_format($qty, 0, ',', '.'),
-                    'total_hpp' => RupiahGenerate::build($hpp),
-                    'raw_qty' => $qty,
-                    'raw_hpp' => $hpp,
+                    'jenis_barang_id' => $jenisBarang->id ?? 0,
+                    'nama_jenis' => $jenisBarang->nama_jenis_barang ?? 'Lain-lain / Tanpa Jenis',
+                    'qty' => number_format($totalQty, 0, ',', '.'),
+                    'total_hpp' => RupiahGenerate::build($totalHpp),
+                    'raw_qty' => $totalQty,
+                    'raw_hpp' => $totalHpp,
                 ];
-            });
+            })->sortByDesc('raw_hpp')->values();
+
+            // Hitung Grand Total dari hasil group
+            $totalQty = (int) $perJenis->sum('raw_qty');
+            $totalNilaiHpp = (float) $perJenis->sum('raw_hpp');
 
             return response()->json([
                 'status_code' => 200,
@@ -124,7 +113,7 @@ class StockBarangController extends Controller
                     'total_hpp' => RupiahGenerate::build($totalNilaiHpp),
                     'raw_qty' => $totalQty,
                     'raw_hpp' => $totalNilaiHpp,
-                    'per_jenis' => $detailPerJenis,
+                    'per_jenis' => $perJenis,
                 ],
             ], 200);
         } catch (\Throwable $e) {

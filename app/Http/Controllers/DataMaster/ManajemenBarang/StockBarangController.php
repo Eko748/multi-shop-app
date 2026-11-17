@@ -55,7 +55,7 @@ class StockBarangController extends Controller
 
             // Gunakan Model StockBarangBatch dengan relasi yang dibutuhkan
             $query = StockBarangBatch::query()
-                ->with(['stockBarang.barang.jenisBarang'])
+                ->with(['stockBarang.barang.jenis'])
                 ->where('qty_sisa', '>', 0)
                 ->whereHas('stockBarang', function ($q) {
                     $q->whereNull('deleted_at');
@@ -81,10 +81,10 @@ class StockBarangController extends Controller
 
             // Kelompokkan berdasarkan jenis barang menggunakan collection PHP
             $perJenis = $batches->groupBy(function ($batch) {
-                return optional($batch->stockBarang->barang->jenisBarang)->id ?? 0;
+                return optional($batch->stockBarang->barang->jenis)->id ?? 0;
             })->map(function ($group) {
                 $firstItem = $group->first();
-                $jenisBarang = optional(optional($firstItem->stockBarang)->barang)->jenisBarang;
+                $jenisBarang = optional(optional($firstItem->stockBarang)->barang)->jenis;
 
                 $totalQty = $group->sum('qty_sisa');
                 $totalHpp = $group->sum(function ($item) {

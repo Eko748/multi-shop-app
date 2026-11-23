@@ -326,13 +326,13 @@ class ReturSupplierController extends Controller
     {
         try {
             $validated = $request->validate([
-                'id' => 'required|exists:retur,id',
-                'deleted_by' => 'required|exists:users,id',
+                'id' => 'required|integer|exists:retur_supplier,id',
+                'deleted_by' => 'required|integer|exists:users,id',
             ]);
 
             $deleted = $this->service->delete($validated['id'], $validated);
 
-            if (!$deleted) {
+            if (! $deleted) {
                 return $this->error(404, 'Data tidak ditemukan');
             }
 

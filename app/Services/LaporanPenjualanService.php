@@ -26,6 +26,22 @@ class LaporanPenjualanService
         $start = Carbon::parse($startDate)->startOfDay()->toDateTimeString();
         $end = Carbon::parse($endDate)->endOfDay()->toDateTimeString();
 
+        // Subquery pengurang qty dari retur_member & retur_member_detail per toko + jenis barang
+        $subReturQty = DB::table('retur_member_detail as rmd')
+            ->join('retur_member as rm', 'rm.id', '=', 'rmd.retur_id')
+            ->join('barang as b', 'b.id', '=', 'rmd.barang_id')
+            ->whereNull('rm.deleted_at')
+            ->whereBetween('rm.tanggal', [$start, $end])
+            ->when($idToko && $idToko !== 'all' && $idToko != 0, function ($q) use ($idToko) {
+                $q->where('rm.toko_id', $idToko);
+            })
+            ->select(
+                'rm.toko_id',
+                'b.jenis_barang_id',
+                DB::raw('SUM(COALESCE(rmd.qty_request, 0)) as qty_retur')
+            )
+            ->groupBy('rm.toko_id', 'b.jenis_barang_id');
+
         // 1. Query Utama dari KasTransaksi & TransaksiKasirHarian (HANYA BARANG FISIK)
         $queryOmzet = KasTransaksi::select(
             'kas.toko_id',
@@ -33,13 +49,18 @@ class LaporanPenjualanService
             'kas.jenis_barang_id as id_jenis_barang',
             'jenis_barang.nama_jenis_barang',
             DB::raw('SUM(transaksi_kasir_harian.total_transaksi) as jml_trx'),
-            DB::raw('SUM(transaksi_kasir_harian.total_qty) as item_qty'),
+            DB::raw('SUM(transaksi_kasir_harian.total_qty) as item_qty_raw'),
+            DB::raw('COALESCE(retur_qty_agg.qty_retur, 0) as qty_retur'),
             DB::raw('SUM(kas_transaksi.total_nominal) as omzet_raw')
         )
             ->join('kas', 'kas.id', '=', 'kas_transaksi.kas_id')
             ->join('toko', 'toko.id', '=', 'kas.toko_id')
             ->join('transaksi_kasir_harian', 'transaksi_kasir_harian.id', '=', 'kas_transaksi.sumber_id')
-            ->join('jenis_barang', 'jenis_barang.id', '=', 'kas.jenis_barang_id') // Gunakan JOIN agar kas tanpa jenis_barang (PNF/Dompet Digital) tidak terikut di sini
+            ->join('jenis_barang', 'jenis_barang.id', '=', 'kas.jenis_barang_id')
+            ->leftJoinSub($subReturQty, 'retur_qty_agg', function ($join) {
+                $join->on('retur_qty_agg.toko_id', '=', 'kas.toko_id')
+                    ->on('retur_qty_agg.jenis_barang_id', '=', 'kas.jenis_barang_id');
+            })
             ->whereBetween('kas_transaksi.tanggal', [$start, $end])
             ->where('kas_transaksi.tipe', 'in')
             ->where('kas_transaksi.sumber_type', TransaksiKasirHarian::class);
@@ -52,7 +73,8 @@ class LaporanPenjualanService
             'kas.toko_id',
             'toko.nama',
             'kas.jenis_barang_id',
-            'jenis_barang.nama_jenis_barang'
+            'jenis_barang.nama_jenis_barang',
+            'retur_qty_agg.qty_retur'
         )->get();
 
         // 2. Query Pengurang Omzet
@@ -107,9 +129,9 @@ class LaporanPenjualanService
             'kas.toko_id',
             'kas.jenis_barang_id',
             DB::raw('SUM(CASE
-            WHEN kas_transaksi.sumber_type = "App\\\\Models\\\\ReturMember" THEN retur_member_detail.total_hpp
-            WHEN kas_transaksi.kategori = "HPP Pembatalan Transaksi" THEN kas_transaksi.total_nominal
-            ELSE 0 END) as total_pengurang_hpp')
+                WHEN kas_transaksi.sumber_type = "App\\\\Models\\\\ReturMember" THEN retur_member_detail.total_hpp
+                WHEN kas_transaksi.kategori = "HPP Pembatalan Transaksi" THEN kas_transaksi.total_nominal
+                ELSE 0 END) as total_pengurang_hpp')
         )
             ->join('kas', 'kas.id', '=', 'kas_transaksi.kas_id')
             ->leftJoin('retur_member', 'retur_member.id', '=', 'kas_transaksi.sumber_id')
@@ -174,6 +196,7 @@ class LaporanPenjualanService
             $nilaiTrx = $row->omzet_raw - $pengurangOmzet;
             $hpp = $hppRaw - $pengurangHpp;
             $laba = $nilaiTrx - $hpp;
+            $itemQty = max(0, (float) $row->item_qty_raw - (float) $row->qty_retur);
 
             if (! isset($listToko[$row->toko_id])) {
                 $listToko[$row->toko_id] = [
@@ -187,7 +210,7 @@ class LaporanPenjualanService
                 'id_jenis_barang' => $jenisId,
                 'nama' => $row->nama_jenis_barang,
                 'jml_trx' => (int) $row->jml_trx,
-                'item_qty' => (float) $row->item_qty,
+                'item_qty' => $itemQty,
                 'nilai_trx' => (float) $nilaiTrx,
                 'nilai_hpp' => (float) $hpp,
                 'laba' => (float) $laba,
@@ -240,7 +263,6 @@ class LaporanPenjualanService
                 ];
             }
 
-            // Langsung Push data Dompet Digital secara bersih tanpa penjumlahan berulang
             $listToko[$pnfData['toko_id']]['type_barang'][] = [
                 'id_jenis_barang' => 0,
                 'nama' => 'Dompet Digital',

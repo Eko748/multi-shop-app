@@ -8,9 +8,6 @@ use Illuminate\Support\Facades\DB;
 
 class StockBulananService
 {
-    /**
-     * Tambah Stok Masuk (IN) -> Pembelian / Barang Masuk
-     */
     public function tambahStokMasuk(
         int $tokoId,
         int $jenisBarangId,
@@ -21,9 +18,6 @@ class StockBulananService
         $this->updateStok($tokoId, $jenisBarangId, $qty, $nilaiAset, 'IN', $tanggal);
     }
 
-    /**
-     * Kurangi Stok Masuk (ROLLBACK IN) -> Hapus Pembelian / Cancel Barang Masuk
-     */
     public function kurangiStokMasuk(
         int $tokoId,
         int $jenisBarangId,
@@ -34,9 +28,6 @@ class StockBulananService
         $this->updateStok($tokoId, $jenisBarangId, $qty, $nilaiAset, 'ROLLBACK_IN', $tanggal);
     }
 
-    /**
-     * Tambah Stok Keluar (OUT) -> Penjualan / Pengeluaran Barang Pengganti
-     */
     public function tambahStokKeluar(
         int $tokoId,
         int $jenisBarangId,
@@ -47,9 +38,6 @@ class StockBulananService
         $this->updateStok($tokoId, $jenisBarangId, $qty, $nilaiAset, 'OUT', $tanggal);
     }
 
-    /**
-     * Kurangi / Rollback Stok Keluar (ROLLBACK OUT) -> Hapus Penjualan / Batal Retur
-     */
     public function kurangiStokKeluar(
         int $tokoId,
         int $jenisBarangId,
@@ -60,9 +48,6 @@ class StockBulananService
         $this->updateStok($tokoId, $jenisBarangId, $qty, $nilaiAset, 'ROLLBACK_OUT', $tanggal);
     }
 
-    /**
-     * Alias untuk rollbackStokKeluar
-     */
     public function rollbackStokKeluar(
         int $tokoId,
         int $jenisBarangId,
@@ -73,6 +58,32 @@ class StockBulananService
         $this->kurangiStokKeluar($tokoId, $jenisBarangId, $qty, $nilaiAset, $tanggal);
     }
 
+    /**
+     * Catat barang retur dari konsumen ke rekap bulanan (qty_retur & nilai_retur)
+     */
+    public function catatRetur(
+        int $tokoId,
+        int $jenisBarangId,
+        int $qty,
+        float $nilaiRetur,
+        ?string $tanggal = null
+    ): void {
+        $this->updateStok($tokoId, $jenisBarangId, $qty, $nilaiRetur, 'RETUR', $tanggal);
+    }
+
+    /**
+     * Rollback catatan retur saat data retur dihapus/dibatalkan
+     */
+    public function rollbackRetur(
+        int $tokoId,
+        int $jenisBarangId,
+        int $qty,
+        float $nilaiRetur,
+        ?string $tanggal = null
+    ): void {
+        $this->updateStok($tokoId, $jenisBarangId, $qty, $nilaiRetur, 'ROLLBACK_RETUR', $tanggal);
+    }
+
     private function updateStok(
         int $tokoId,
         int $jenisBarangId,
@@ -81,19 +92,21 @@ class StockBulananService
         string $tipe,
         ?string $tanggal = null
     ): void {
-        $date = $tanggal ? Carbon::parse($tanggal) : Carbon::now();
-        $tahun = $date->year;
-        $bulan = $date->month;
+        if ($qty <= 0) {
+            return;
+        }
 
-        // Cek apakah data bulan ini sudah ada
+        $date = $tanggal ? Carbon::parse($tanggal) : Carbon::now();
+        $tahun = (int) $date->year;
+        $bulan = (int) $date->month;
+
         $stokBulanan = StockBarangBulanan::where([
             'toko_id' => $tokoId,
             'jenis_barang_id' => $jenisBarangId,
             'tahun' => $tahun,
             'bulan' => $bulan,
-        ])->first();
+        ])->lockForUpdate()->first();
 
-        // Jika record bulan ini belum ada, buat baru dan SELALU Recalculate dari Batch Aktif
         if (! $stokBulanan) {
             $realBatch = DB::table('stock_barang_batch as sbb')
                 ->join('stock_barang as sb', 'sbb.stock_barang_id', '=', 'sb.id')
@@ -104,8 +117,8 @@ class StockBulananService
                 ->whereNull('sb.deleted_at')
                 ->whereNull('b.deleted_at')
                 ->select(
-                    DB::raw('SUM(sbb.qty_sisa) as total_qty'),
-                    DB::raw('SUM(sbb.qty_sisa * sbb.harga_beli) as total_aset')
+                    DB::raw('COALESCE(SUM(sbb.qty_sisa), 0) as total_qty'),
+                    DB::raw('COALESCE(SUM(sbb.qty_sisa * sbb.harga_beli), 0) as total_aset')
                 )
                 ->first();
 
@@ -127,7 +140,6 @@ class StockBulananService
             ]);
         }
 
-        // Update Angka Transaksi Berjalan
         switch ($tipe) {
             case 'IN':
                 $stokBulanan->qty_masuk += $qty;
@@ -151,6 +163,16 @@ class StockBulananService
                 $stokBulanan->qty_keluar = max(0, $stokBulanan->qty_keluar - $qty);
                 $stokBulanan->qty_sisa += $qty;
                 $stokBulanan->nilai_aset += $nilaiAset;
+                break;
+
+            case 'RETUR':
+                $stokBulanan->qty_retur += $qty;
+                $stokBulanan->nilai_retur += $nilaiAset;
+                break;
+
+            case 'ROLLBACK_RETUR':
+                $stokBulanan->qty_retur = max(0, $stokBulanan->qty_retur - $qty);
+                $stokBulanan->nilai_retur = max(0, $stokBulanan->nilai_retur - $nilaiAset);
                 break;
         }
 

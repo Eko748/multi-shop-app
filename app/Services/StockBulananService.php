@@ -58,9 +58,6 @@ class StockBulananService
         $this->kurangiStokKeluar($tokoId, $jenisBarangId, $qty, $nilaiAset, $tanggal);
     }
 
-    /**
-     * Catat barang retur dari konsumen ke rekap bulanan (qty_retur & nilai_retur)
-     */
     public function catatRetur(
         int $tokoId,
         int $jenisBarangId,
@@ -71,9 +68,6 @@ class StockBulananService
         $this->updateStok($tokoId, $jenisBarangId, $qty, $nilaiRetur, 'RETUR', $tanggal);
     }
 
-    /**
-     * Rollback catatan retur saat data retur dihapus/dibatalkan
-     */
     public function rollbackRetur(
         int $tokoId,
         int $jenisBarangId,

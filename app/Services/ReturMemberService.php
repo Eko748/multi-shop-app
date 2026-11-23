@@ -210,6 +210,7 @@ class ReturMemberService
             $kasGrouped = [];
 
             foreach ($data['items'] as $detail) {
+                $tipeKompensasi = $this->resolveTipeKompensasi($detail);
                 $qtyRequest = (int) ($detail['qty_request'] ?? 0);
                 $qtyBarang = (int) ($detail['qty_barang'] ?? 0);
                 $qtyRefund = (int) ($detail['qty_refund'] ?? 0);
@@ -218,6 +219,7 @@ class ReturMemberService
                 $hpp = (float) ($detail['hpp'] ?? 0);
                 $nilaiRetur = (float) ($detail['total_hpp'] ?? ($qtyRequest * $hpp));
 
+                $detail['tipe_kompensasi'] = $tipeKompensasi;
                 $detail['retur_id'] = $retur->id;
                 $detail['total_hpp'] = $nilaiRetur;
 
@@ -239,8 +241,9 @@ class ReturMemberService
 
                 $barang = Barang::with('jenis')->find($detail['barang_id']);
 
-                if ($barang) {
-                    if ($qtyRefund > 0 && $totalRefund > 0) {
+                // Kompensasi REFUND: tidak mengubah stock_barang_bulanan, hanya kas & margin laba rugi
+                if ($tipeKompensasi === 'refund') {
+                    if ($barang && $qtyRefund > 0 && $totalRefund > 0) {
                         $totalHargaJual = $hargaJual * $qtyRefund;
                         $totalHppRefund = $hpp * $qtyRefund;
 
@@ -266,19 +269,10 @@ class ReturMemberService
                         $kasGrouped[$jenisId]['margin'] += $margin;
                     }
 
-                    // Catat rekap retur bulanan (qty_retur & nilai_retur)
-                    if ($qtyRequest > 0 && $tokoId > 0 && $barang->jenis_barang_id) {
-                        $stockBulananService->catatRetur(
-                            tokoId: $tokoId,
-                            jenisBarangId: (int) $barang->jenis_barang_id,
-                            qty: $qtyRequest,
-                            nilaiRetur: $nilaiRetur,
-                            tanggal: $tanggalStr
-                        );
-                    }
+                    continue;
                 }
 
-                // Pengeluaran barang pengganti (stok keluar & rekap keluar bulanan)
+                // Kompensasi BARANG: proses pengeluaran stok/batch barang pengganti & rekap bulanan
                 if ($qtyBarang > 0) {
                     $stok = $this->stokRepo->findByBarangId($detail['barang_id']);
                     if (! $stok || $stok->stok < $qtyBarang) {
@@ -345,6 +339,16 @@ class ReturMemberService
                             tanggal: $tanggalStr
                         );
                     }
+                }
+
+                if ($barang && $tokoId > 0 && $barang->jenis_barang_id && $qtyRequest > 0) {
+                    $stockBulananService->catatRetur(
+                        tokoId: $tokoId,
+                        jenisBarangId: (int) $barang->jenis_barang_id,
+                        qty: $qtyRequest,
+                        nilaiRetur: $nilaiRetur,
+                        tanggal: $tanggalStr
+                    );
                 }
             }
 
@@ -444,53 +448,14 @@ class ReturMemberService
     public function update($id, array $data)
     {
         return DB::transaction(function () use ($id, $data) {
-            /** @var StockBulananService $stockBulananService */
-            $stockBulananService = app(StockBulananService::class);
-
             $existingRetur = $this->repository->findWithDetails($id);
             if (! $existingRetur) {
                 throw new \Exception("Data retur member dengan ID {$id} tidak ditemukan.");
             }
 
-            $tokoId = (int) ($data['toko_id'] ?? $existingRetur->toko_id ?? 0);
-            $oldTanggalStr = $this->normalizeTanggal($existingRetur->tanggal);
             $newTanggalStr = isset($data['tanggal'])
                 ? $this->normalizeTanggal($data['tanggal'])
-                : $oldTanggalStr;
-
-            // Rollback rekap bulanan lama sebelum update detail
-            if ($tokoId > 0) {
-                foreach ($existingRetur->detail as $oldDetail) {
-                    $barang = $oldDetail->barang ?? Barang::with('jenis')->find($oldDetail->barang_id);
-                    if (! $barang || ! $barang->jenis_barang_id) {
-                        continue;
-                    }
-
-                    $oldQtyRequest = (int) ($oldDetail->qty_request ?? 0);
-                    if ($oldQtyRequest > 0) {
-                        $oldNilaiRetur = (float) ($oldDetail->total_hpp ?? ($oldQtyRequest * ($oldDetail->hpp ?? 0)));
-                        $stockBulananService->rollbackRetur(
-                            tokoId: $tokoId,
-                            jenisBarangId: (int) $barang->jenis_barang_id,
-                            qty: $oldQtyRequest,
-                            nilaiRetur: $oldNilaiRetur,
-                            tanggal: $oldTanggalStr
-                        );
-                    }
-
-                    $oldQtyBarang = (int) ($oldDetail->qty_barang ?? 0);
-                    if ($oldQtyBarang > 0) {
-                        $oldNilaiKeluar = $this->hitungNilaiKeluarDariBatch($oldDetail);
-                        $stockBulananService->kurangiStokKeluar(
-                            tokoId: $tokoId,
-                            jenisBarangId: (int) $barang->jenis_barang_id,
-                            qty: $oldQtyBarang,
-                            nilaiAset: $oldNilaiKeluar,
-                            tanggal: $oldTanggalStr
-                        );
-                    }
-                }
-            }
+                : $this->normalizeTanggal($existingRetur->tanggal);
 
             $retur = $this->repository->update($id, [
                 'status' => $data['status'] ?? $existingRetur->status,
@@ -509,43 +474,7 @@ class ReturMemberService
                 }
             }
 
-            $updatedRetur = $this->repository->findWithDetails($id) ?? $retur->load('detail.batch');
-
-            // Terapkan kembali rekap bulanan sesuai data detail terbaru
-            if ($tokoId > 0) {
-                foreach ($updatedRetur->detail as $newDetail) {
-                    $barang = $newDetail->barang ?? Barang::with('jenis')->find($newDetail->barang_id);
-                    if (! $barang || ! $barang->jenis_barang_id) {
-                        continue;
-                    }
-
-                    $newQtyRequest = (int) ($newDetail->qty_request ?? 0);
-                    if ($newQtyRequest > 0) {
-                        $newNilaiRetur = (float) ($newDetail->total_hpp ?? ($newQtyRequest * ($newDetail->hpp ?? 0)));
-                        $stockBulananService->catatRetur(
-                            tokoId: $tokoId,
-                            jenisBarangId: (int) $barang->jenis_barang_id,
-                            qty: $newQtyRequest,
-                            nilaiRetur: $newNilaiRetur,
-                            tanggal: $newTanggalStr
-                        );
-                    }
-
-                    $newQtyBarang = (int) ($newDetail->qty_barang ?? 0);
-                    if ($newQtyBarang > 0) {
-                        $newNilaiKeluar = $this->hitungNilaiKeluarDariBatch($newDetail);
-                        $stockBulananService->tambahStokKeluar(
-                            tokoId: $tokoId,
-                            jenisBarangId: (int) $barang->jenis_barang_id,
-                            qty: $newQtyBarang,
-                            nilaiAset: $newNilaiKeluar,
-                            tanggal: $newTanggalStr
-                        );
-                    }
-                }
-            }
-
-            return $updatedRetur->load('detail.batch');
+            return $retur->load('detail.batch');
         });
     }
 
@@ -566,6 +495,7 @@ class ReturMemberService
 
             foreach ($retur->detail as $detail) {
                 $barang = $detail->barang ?? Barang::with('jenis')->find($detail->barang_id);
+                $tipeKompensasi = $this->resolveTipeKompensasi((array) $detail->toArray());
 
                 // A. Rollback retur_qty dan retur_by pada transaksi kasir asal
                 if ($detail->transaksi_kasir_detail_id) {
@@ -599,21 +529,29 @@ class ReturMemberService
                     }
                 }
 
-                // B. Rollback Rekap Retur Bulanan (qty_retur & nilai_retur)
-                $qtyRequest = (int) ($detail->qty_request ?? 0);
-                if ($barang && $barang->jenis_barang_id && $qtyRequest > 0 && $tokoId > 0) {
-                    $nilaiRetur = (float) ($detail->total_hpp ?? ($qtyRequest * ($detail->hpp ?? 0)));
+                // B. Rollback margin laba rugi jika item ini kompensasi refund
+                if ($tipeKompensasi === 'refund') {
+                    if (($detail->qty_refund ?? 0) > 0 && ($detail->total_refund ?? 0) > 0) {
+                        $totalHargaJual = ($detail->harga_jual ?? 0) * $detail->qty_refund;
+                        $totalHpp = ($detail->hpp ?? 0) * $detail->qty_refund;
+                        $margin = $totalHargaJual - $totalHpp;
 
-                    $stockBulananService->rollbackRetur(
-                        tokoId: $tokoId,
-                        jenisBarangId: (int) $barang->jenis_barang_id,
-                        qty: $qtyRequest,
-                        nilaiRetur: $nilaiRetur,
-                        tanggal: $tanggalRetur
-                    );
+                        if ($margin > 0 && $tokoId > 0) {
+                            $carbonDate = Carbon::parse($tanggalRetur);
+                            KasService::updateLabaRugi(
+                                tokoId: $tokoId,
+                                tahun: $carbonDate->year,
+                                bulan: $carbonDate->month,
+                                tipe: 'in',
+                                nominal: $margin
+                            );
+                        }
+                    }
+
+                    continue;
                 }
 
-                // C. Rollback Barang Pengganti (Master stok, batch, dan rekap keluar bulanan)
+                // C. Rollback barang pengganti (master stok, batch, dan rekap keluar bulanan)
                 $qtyBarang = (int) ($detail->qty_barang ?? 0);
                 if ($qtyBarang > 0) {
                     $stok = $this->stokRepo->findByBarangId($detail->barang_id);
@@ -652,22 +590,18 @@ class ReturMemberService
                     }
                 }
 
-                // D. Rollback Laba Rugi jika ada Refund
-                if (($detail->qty_refund ?? 0) > 0 && ($detail->total_refund ?? 0) > 0) {
-                    $totalHargaJual = ($detail->harga_jual ?? 0) * $detail->qty_refund;
-                    $totalHpp = ($detail->hpp ?? 0) * $detail->qty_refund;
-                    $margin = $totalHargaJual - $totalHpp;
+                // D. Rollback rekap retur bulanan untuk item kompensasi barang
+                $qtyRequest = (int) ($detail->qty_request ?? 0);
+                if ($barang && $barang->jenis_barang_id && $qtyRequest > 0 && $tokoId > 0) {
+                    $nilaiRetur = (float) ($detail->total_hpp ?? ($qtyRequest * ($detail->hpp ?? 0)));
 
-                    if ($margin > 0 && $tokoId > 0) {
-                        $carbonDate = Carbon::parse($tanggalRetur);
-                        KasService::updateLabaRugi(
-                            tokoId: $tokoId,
-                            tahun: $carbonDate->year,
-                            bulan: $carbonDate->month,
-                            tipe: 'in',
-                            nominal: $margin
-                        );
-                    }
+                    $stockBulananService->rollbackRetur(
+                        tokoId: $tokoId,
+                        jenisBarangId: (int) $barang->jenis_barang_id,
+                        qty: $qtyRequest,
+                        nilaiRetur: $nilaiRetur,
+                        tanggal: $tanggalRetur
+                    );
                 }
             }
 
@@ -683,26 +617,20 @@ class ReturMemberService
         });
     }
 
-    private function hitungNilaiKeluarDariBatch($detail): float
+    private function resolveTipeKompensasi(array $detail): string
     {
-        $total = 0.0;
-        $hasBatch = false;
-
-        if ($detail->batch) {
-            foreach ($detail->batch as $detailBatch) {
-                $hasBatch = true;
-                $batch = $detailBatch->stokDetail ?? $this->stokDetailRepo->find($detailBatch->stock_barang_batch_id);
-                $hargaBeli = (float) ($batch->harga_beli ?? ($detail->hpp ?? 0));
-                $total += (float) (($detailBatch->qty ?? 0) * $hargaBeli);
-            }
+        if (! empty($detail['tipe_kompensasi'])) {
+            return (string) $detail['tipe_kompensasi'];
         }
 
-        if (! $hasBatch) {
-            $qtyBarang = (int) ($detail->qty_barang ?? 0);
-            $total = (float) ($qtyBarang * ($detail->hpp ?? 0));
+        $qtyBarang = (int) ($detail['qty_barang'] ?? 0);
+        $qtyRefund = (int) ($detail['qty_refund'] ?? 0);
+
+        if ($qtyRefund > 0 && $qtyBarang <= 0) {
+            return 'refund';
         }
 
-        return $total;
+        return 'barang';
     }
 
     private function normalizeTanggal($tanggal): string

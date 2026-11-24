@@ -275,13 +275,15 @@ class LabaRugiService
 
         $hppReturSuplierQuery = ReturSupplierDetail::query()
             ->join('retur_supplier', 'retur_supplier.id', '=', 'retur_supplier_detail.retur_supplier_id')
-            ->join('pembelian_barang_detail', 'retur_supplier_detail.pembelian_barang_detail_id', '=', 'pembelian_barang_detail.id')
+            ->where('retur_supplier.status', 'selesai')
             ->where('retur_supplier_detail.qty_refund', '>', 0)
             ->whereNull('retur_supplier.deleted_at');
 
         $applyTokoDirect($hppReturSuplierQuery, 'retur_supplier.toko_id');
-        $applyDateFilterOnly($hppReturSuplierQuery, 'retur_supplier.created_at');
-        $hppReturSuplier = $hppReturSuplierQuery->selectRaw('SUM(retur_supplier_detail.qty_refund * pembelian_barang_detail.harga_beli) as total')->value('total') ?? 0;
+        $applyDateFilter($hppReturSuplierQuery, 'retur_supplier.verify_date');
+        $hppReturSuplier = $hppReturSuplierQuery
+            ->selectRaw('SUM(retur_supplier_detail.qty_refund * retur_supplier_detail.hpp) as total')
+            ->value('total') ?? 0;
 
         // HPP Penjualan Bersih (setelah dipotong HPP pembatalan bulan ini)
         $hppPenjualan = $hppTrxRaw - $hppretur + $hppKoreksi - $hppPembatalanTrx;
@@ -313,7 +315,7 @@ class LabaRugiService
         foreach ($jenisList as $index => $jenis) {
             $nilai = isset($pengeluaran[$jenis->id]) ? (int) $pengeluaran[$jenis->id]->total : 0;
             $bebanOperasional[] = [
-                'label' => '3.'.($index + 1).' '.$jenis->tipe,
+                'label' => '3.' . ($index + 1) . ' ' . $jenis->tipe,
                 'value' => $nilai,
             ];
             $totalBeban += $nilai;
@@ -335,7 +337,7 @@ class LabaRugiService
 
         $nextNumber = count($jenisList) + 1;
         $bebanOperasional[] = [
-            'label' => '3.'.$nextNumber.' Selisih Top-up Saldo Digital',
+            'label' => '3.' . $nextNumber . ' Selisih Top-up Saldo Digital',
             'value' => (int) $hppSelisihTopup,
         ];
         $totalBeban += $hppSelisihTopup;
@@ -343,21 +345,21 @@ class LabaRugiService
         if ($isMitra) {
             $nextNumber++;
             $bebanOperasional[] = [
-                'label' => '3.'.$nextNumber.' Stok Mati/Rusak',
+                'label' => '3.' . $nextNumber . ' Stok Mati/Rusak',
                 'value' => (int) $stockMati,
             ];
             $totalBeban += $stockMati;
         } else {
             $nextNumber++;
             $bebanOperasional[] = [
-                'label' => '3.'.$nextNumber.' Stok Hilang',
+                'label' => '3.' . $nextNumber . ' Stok Hilang',
                 'value' => (int) $stockHilang,
             ];
             $totalBeban += $stockHilang;
 
             $nextNumber++;
             $bebanOperasional[] = [
-                'label' => '3.'.$nextNumber.' Stok Mati/Rusak',
+                'label' => '3.' . $nextNumber . ' Stok Mati/Rusak',
                 'value' => (int) $stockMati,
             ];
             $totalBeban += $stockMati;

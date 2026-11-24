@@ -8,6 +8,7 @@ use App\Helpers\TextGenerate;
 use App\Models\Barang;
 use App\Models\Kas;
 use App\Models\PembelianBarangDetail;
+use App\Models\PengirimanBarangDetail;
 use App\Models\StockBarangBatch;
 use App\Repositories\KasirDetailRepository;
 use App\Repositories\ReturMemberDetailRepository;
@@ -481,26 +482,23 @@ class ReturSupplierService
                             throw new \Exception('sumber_id batch tidak ditemukan');
                         }
 
-                        $pembelianBarangDetailId = $batch->sumber_id;
-                        if (! empty($batch->sumber_type) && $batch->sumber_type !== PembelianBarangDetail::class) {
-                            throw new \Exception('Sumber batch bukan pembelian barang detail');
+                        $allowedSumberTypes = [
+                            PembelianBarangDetail::class,
+                            PengirimanBarangDetail::class,
+                        ];
+
+                        if (! empty($batch->sumber_type) && ! in_array($batch->sumber_type, $allowedSumberTypes, true)) {
+                            throw new \Exception("Sumber batch tidak valid: {$batch->sumber_type}");
                         }
 
-                        $stokDetail = $this->stokDetailRepo->findByPembelianWithZero(
-                            $batch->id,
-                            $pembelianBarangDetailId
-                        );
+                        $stokDetail = $this->stokDetailRepo->find($batch->id);
                         if (! $stokDetail) {
                             throw new \Exception('Stock detail tidak ditemukan');
                         }
 
-                        $this->stokDetailRepo->updateWithPembelian(
-                            $batch->id,
-                            $pembelianBarangDetailId,
-                            [
-                                'qty_sisa' => (float) $stokDetail->qty_sisa + $qtyBarang,
-                            ]
-                        );
+                        $this->stokDetailRepo->update($batch->id, [
+                            'qty_sisa' => (float) $stokDetail->qty_sisa + $qtyBarang,
+                        ]);
 
                         if (! empty($stokDetail->stock_barang_id)) {
                             $stok = $this->stokRepo->find($stokDetail->stock_barang_id);

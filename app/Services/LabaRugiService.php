@@ -164,28 +164,30 @@ class LabaRugiService
         };
 
         // ============================
-        // QUERY RETUR SUPPLIER (REFUND: UNTUNG / RUGI)
+        // QUERY SELISIH RETUR SUPPLIER (UNTUNG / RUGI / SEIMBANG)
         // ============================
-        $returSuplierRefundQuery = ReturSupplierDetail::query()
+        $returSuplierQuery = ReturSupplierDetail::query()
             ->join('retur_supplier', 'retur_supplier.id', '=', 'retur_supplier_detail.retur_supplier_id')
             ->where('retur_supplier.status', 'selesai')
             ->where('retur_supplier_detail.qty_refund', '>', 0)
             ->whereNull('retur_supplier.deleted_at');
 
-        $applyTokoDirect($returSuplierRefundQuery, 'retur_supplier.toko_id');
-        $applyDateFilter($returSuplierRefundQuery, 'retur_supplier.verify_date');
+        $applyTokoDirect($returSuplierQuery, 'retur_supplier.toko_id');
+        $applyDateFilter($returSuplierQuery, 'retur_supplier.verify_date');
 
-        $returSuplierRefundData = $returSuplierRefundQuery
-            ->selectRaw('
-                SUM(retur_supplier_detail.qty_refund * retur_supplier_detail.hpp) as total_hpp,
-                SUM(COALESCE(retur_supplier_detail.total_refund_real, retur_supplier_detail.qty_refund * retur_supplier_detail.jumlah_refund, 0)) as total_refund
-            ')
-            ->first();
+        $selisihReturSuplier = $returSuplierQuery
+            ->selectRaw("
+                SUM(
+                    CASE
+                        WHEN retur_supplier_detail.keterangan = 'rugi' THEN -ABS(retur_supplier_detail.selisih)
+                        WHEN retur_supplier_detail.keterangan = 'untung' THEN ABS(retur_supplier_detail.selisih)
+                        ELSE 0
+                    END
+                ) as total_selisih
+            ")
+            ->value('total_selisih') ?? 0;
 
-        $hppReturSuplier = (float) ($returSuplierRefundData->total_hpp ?? 0);
-        $nominalRefundSuplier = (float) ($returSuplierRefundData->total_refund ?? 0);
-        // Untung (+) jika refund > HPP, Rugi (-) jika refund < HPP
-        $selisihRefundReturSuplier = $nominalRefundSuplier - $hppReturSuplier;
+        $hppReturSuplier = 0;
 
         // ============================
         // PENDAPATAN
@@ -245,8 +247,8 @@ class LabaRugiService
             ->selectRaw('SUM(saldo - harga_beli) as total')
             ->value('total') ?? 0;
 
-        // 1.2 Pendapatan Retur/Lainnya (Untung/Rugi Refund Retur Supplier + Pendapatan Lainnya)
-        $pendapatanLainnya = $lainnya + $pendapatanNonTransaksi + $selisihRefundReturSuplier;
+        // 1.2 Pendapatan Retur/Lainnya (Selisih Untung/Rugi Retur Supplier + Pendapatan Lainnya)
+        $pendapatanLainnya = $lainnya + $pendapatanNonTransaksi + $selisihReturSuplier;
 
         // Pendapatan Umum Bersih (dikurangi retur member, pembatalan bulan ini, DAN pengeluaran tipe ID 15)
         $penjualanUmum = $penjualanUmumRaw - $nilaiReturMember - $pembatalanTrx - $pengeluaranTipe15;
@@ -453,8 +455,8 @@ class LabaRugiService
                 'I. Pendapatan',
                 [
                     ['1.1 Pendapatan Umum', RupiahGenerate::build($penjualanUmum)],
-                    ['1.2 Pendapatan Retur/Lainnya', RupiahGenerate::build($pendapatanLainnya)],
-                    ['1.3 Pembatalan Transaksi Bulan Lalu', RupiahGenerate::build(-abs($pembatalanTrxBulanLalu))],
+                    ['1.2 Pembatalan Transaksi Bulan Lalu', RupiahGenerate::build(-abs($pembatalanTrxBulanLalu))],
+                    ['1.3 Pendapatan Retur/Lainnya', RupiahGenerate::build($pendapatanLainnya)],
                     ['Total Pendapatan', RupiahGenerate::build($totalPendapatan)],
                 ],
             ],
@@ -462,8 +464,7 @@ class LabaRugiService
                 'II. HPP',
                 [
                     ['2.1 HPP Pendapatan Umum', RupiahGenerate::build($hppPenjualan)],
-                    ['2.2 HPP Pendapatan Retur', RupiahGenerate::build($hppReturSuplier)],
-                    ['2.3 HPP Pembatalan Transaksi Bulan Lalu', RupiahGenerate::build(-abs($hppPembatalanTrxBulanLalu))],
+                    ['2.2 HPP Pembatalan Transaksi Bulan Lalu', RupiahGenerate::build(-abs($hppPembatalanTrxBulanLalu))],
                     ['Total HPP', RupiahGenerate::build($total_hpp)],
                 ],
             ],

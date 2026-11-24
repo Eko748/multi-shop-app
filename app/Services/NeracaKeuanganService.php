@@ -148,7 +148,7 @@ class NeracaKeuanganService
 
             // Format Teks Keterangan Laba / Ditahan dengan info Dividen
             $labelStatus = ($i == $month) ? 'Berjalan' : 'Ditahan';
-            $teksDividen = ($totalDividen > 0) ? ' (Total Dividen '.RupiahGenerate::build($totalDividen).')' : '';
+            $teksDividen = ($totalDividen > 0) ? ' (Total Dividen ' . RupiahGenerate::build($totalDividen) . ')' : '';
             $namaItem = "Laba (Rugi) $labelStatus Periode $namaPeriode$teksDividen";
 
             $items[] = [
@@ -175,7 +175,7 @@ class NeracaKeuanganService
 
         // List Kas Toko Ini (Jika $tokoId kosong/all, tarik seluruh kas dari semua toko)
         $kasList = Kas::query()
-            ->when($isFilteredByToko, fn ($q) => $q->where('toko_id', $tokoId))
+            ->when($isFilteredByToko, fn($q) => $q->where('toko_id', $tokoId))
             ->orderBy('jenis_barang_id')
             ->get();
 
@@ -213,8 +213,8 @@ class NeracaKeuanganService
 
             if ($saldoBesar > 0) {
                 $kasBesarItems[] = [
-                    'kode'   => 'I.1.'.$counterBesar,
-                    'nama'   => 'Kas Besar - '.$jenisNama,
+                    'kode'   => 'I.1.' . $counterBesar,
+                    'nama'   => 'Kas Besar - ' . $jenisNama,
                     'nilai'  => (int) $saldoBesar,
                     'format' => RupiahGenerate::build($saldoBesar),
                     'sub'    => 'I.1',
@@ -235,8 +235,8 @@ class NeracaKeuanganService
 
             if ($saldoKecil > 0) {
                 $kasKecilItems[] = [
-                    'kode'   => 'I.2.'.$counterKecil,
-                    'nama'   => 'Kas Kecil - '.$jenisNama,
+                    'kode'   => 'I.2.' . $counterKecil,
+                    'nama'   => 'Kas Kecil - ' . $jenisNama,
                     'nilai'  => (int) $saldoKecil,
                     'format' => RupiahGenerate::build($saldoKecil),
                     'sub'    => 'I.2',
@@ -339,8 +339,8 @@ class NeracaKeuanganService
             $nilai = (int) $item['total_harga'];
 
             $stokPerJenisItems[] = [
-                'kode' => 'I.4.'.($index + 1),
-                'nama' => $item['nama_jenis_barang'].' ('.number_format($qty, 0, ',', '.').')',
+                'kode' => 'I.4.' . ($index + 1),
+                'nama' => $item['nama_jenis_barang'] . ' (' . number_format($qty, 0, ',', '.') . ')',
                 'nilai' => $nilai,
                 'format' => RupiahGenerate::build($nilai),
                 'sub' => 'I.4',
@@ -352,7 +352,7 @@ class NeracaKeuanganService
 
         $stokBarangParent = [
             'kode' => 'I.4',
-            'nama' => 'Stok Barang Jualan ('.number_format($totalQtyJenis, 0, ',', '.').')',
+            'nama' => 'Stok Barang Jualan (' . number_format($totalQtyJenis, 0, ',', '.') . ')',
             'nilai' => $totalStokJenis,
             'format' => RupiahGenerate::build($totalStokJenis),
         ];
@@ -378,7 +378,7 @@ class NeracaKeuanganService
         foreach ($piutangData as $item) {
             if ((int) $item['nilai'] > 0) {
                 $piutangItems[] = [
-                    'kode' => 'I.3.'.$idx++, // $idx hanya bertambah jika data dimasukkan
+                    'kode' => 'I.3.' . $idx++, // $idx hanya bertambah jika data dimasukkan
                     'nama' => $item['nama'],
                     'nilai' => (int) $item['nilai'],
                     'format' => $item['format'],
@@ -390,7 +390,7 @@ class NeracaKeuanganService
         // 3. Proses Kasbon Member (Hanya masukkan ke array jika nilainya > 0)
         if ((int) $piutangKasbon > 0) {
             $piutangItems[] = [
-                'kode' => 'I.3.'.$idx++, // Melanjutkan nomor urut terakhir yang valid
+                'kode' => 'I.3.' . $idx++, // Melanjutkan nomor urut terakhir yang valid
                 'nama' => 'Kasbon Member',
                 'nilai' => (int) $piutangKasbon,
                 'format' => RupiahGenerate::build($piutangKasbon),
@@ -403,6 +403,12 @@ class NeracaKeuanganService
 
         $returMemberTotal = (int) ($returData['retur_member'] ?? 0);
         $returSuplierTotal = (int) ($returData['retur_suplier'] ?? 0);
+        $totalReturNilai = $returMemberTotal + $returSuplierTotal;
+
+        $stockReturMember = (int) ($returData['stock_retur_member'] ?? 0);
+        $stockReturSuplier = (int) ($returData['stock_retur_suplier'] ?? 0);
+        $totalStockRetur = $stockReturMember + $stockReturSuplier;
+
         $pengirimanTotal = (int) ($pengirimanData['total_harga'] ?? 0);
         $penyesuaian = (int) $penyesuaianNeraca;
 
@@ -415,8 +421,7 @@ class NeracaKeuanganService
             $piutangTotal +
             $totalStokJenis +
             $hppDompetSaldoNilai +
-            $returMemberTotal +
-            $returSuplierTotal +
+            $totalReturNilai +
             $pengirimanTotal +
             $penyesuaian;
 
@@ -445,24 +450,32 @@ class NeracaKeuanganService
                 ],
                 [
                     'kode' => 'I.6',
-                    'nama' => "Stok Barang Retur ({$returData['stock_retur_member']})",
+                    'nama' => "Retur Barang ({$totalStockRetur})",
+                    'nilai' => $totalReturNilai,
+                    'format' => RupiahGenerate::build($totalReturNilai),
+                ],
+                [
+                    'kode' => 'I.6.1',
+                    'nama' => "Stok Retur Member ({$stockReturMember})",
                     'nilai' => $returMemberTotal,
                     'format' => RupiahGenerate::build($returMemberTotal),
+                    'sub' => 'I.6',
+                ],
+                [
+                    'kode' => 'I.6.2',
+                    'nama' => "Stok Proses Retur Suplier ({$stockReturSuplier})",
+                    'nilai' => $returSuplierTotal,
+                    'format' => RupiahGenerate::build($returSuplierTotal),
+                    'sub' => 'I.6',
                 ],
                 [
                     'kode' => 'I.7',
-                    'nama' => "Stok Pengiriman Barang Retur ({$returData['stock_retur_suplier']})",
-                    'nilai' => $returSuplierTotal,
-                    'format' => RupiahGenerate::build($returSuplierTotal),
-                ],
-                [
-                    'kode' => 'I.8',
                     'nama' => "Stok Pengiriman Barang ({$pengirimanData['total_qty']})",
                     'nilai' => $pengirimanTotal,
                     'format' => RupiahGenerate::build($pengirimanTotal),
                 ],
                 [
-                    'kode' => 'I.9',
+                    'kode' => 'I.8',
                     'nama' => 'Penyesuaian',
                     'nilai' => $penyesuaian,
                     'format' => RupiahGenerate::build($penyesuaian),

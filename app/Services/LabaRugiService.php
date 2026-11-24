@@ -164,6 +164,30 @@ class LabaRugiService
         };
 
         // ============================
+        // QUERY RETUR SUPPLIER (REFUND: UNTUNG / RUGI)
+        // ============================
+        $returSuplierRefundQuery = ReturSupplierDetail::query()
+            ->join('retur_supplier', 'retur_supplier.id', '=', 'retur_supplier_detail.retur_supplier_id')
+            ->where('retur_supplier.status', 'selesai')
+            ->where('retur_supplier_detail.qty_refund', '>', 0)
+            ->whereNull('retur_supplier.deleted_at');
+
+        $applyTokoDirect($returSuplierRefundQuery, 'retur_supplier.toko_id');
+        $applyDateFilter($returSuplierRefundQuery, 'retur_supplier.verify_date');
+
+        $returSuplierRefundData = $returSuplierRefundQuery
+            ->selectRaw('
+                SUM(retur_supplier_detail.qty_refund * retur_supplier_detail.hpp) as total_hpp,
+                SUM(COALESCE(retur_supplier_detail.total_refund_real, retur_supplier_detail.qty_refund * retur_supplier_detail.jumlah_refund, 0)) as total_refund
+            ')
+            ->first();
+
+        $hppReturSuplier = (float) ($returSuplierRefundData->total_hpp ?? 0);
+        $nominalRefundSuplier = (float) ($returSuplierRefundData->total_refund ?? 0);
+        // Untung (+) jika refund > HPP, Rugi (-) jika refund < HPP
+        $selisihRefundReturSuplier = $nominalRefundSuplier - $hppReturSuplier;
+
+        // ============================
         // PENDAPATAN
         // ============================
 
@@ -221,7 +245,8 @@ class LabaRugiService
             ->selectRaw('SUM(saldo - harga_beli) as total')
             ->value('total') ?? 0;
 
-        $pendapatanLainnya = $lainnya + $pendapatanNonTransaksi;
+        // 1.2 Pendapatan Retur/Lainnya (Untung/Rugi Refund Retur Supplier + Pendapatan Lainnya)
+        $pendapatanLainnya = $lainnya + $pendapatanNonTransaksi + $selisihRefundReturSuplier;
 
         // Pendapatan Umum Bersih (dikurangi retur member, pembatalan bulan ini, DAN pengeluaran tipe ID 15)
         $penjualanUmum = $penjualanUmumRaw - $nilaiReturMember - $pembatalanTrx - $pengeluaranTipe15;
@@ -273,18 +298,6 @@ class LabaRugiService
         $applyDateFilter($hppSelisihTopupQuery, 'tanggal');
         $hppSelisihTopup = $hppSelisihTopupQuery->sum('total_nominal');
 
-        $hppReturSuplierQuery = ReturSupplierDetail::query()
-            ->join('retur_supplier', 'retur_supplier.id', '=', 'retur_supplier_detail.retur_supplier_id')
-            ->where('retur_supplier.status', 'selesai')
-            ->where('retur_supplier_detail.qty_refund', '>', 0)
-            ->whereNull('retur_supplier.deleted_at');
-
-        $applyTokoDirect($hppReturSuplierQuery, 'retur_supplier.toko_id');
-        $applyDateFilter($hppReturSuplierQuery, 'retur_supplier.verify_date');
-        $hppReturSuplier = $hppReturSuplierQuery
-            ->selectRaw('SUM(retur_supplier_detail.qty_refund * retur_supplier_detail.hpp) as total')
-            ->value('total') ?? 0;
-
         // HPP Penjualan Bersih (setelah dipotong HPP pembatalan bulan ini)
         $hppPenjualan = $hppTrxRaw - $hppretur + $hppKoreksi - $hppPembatalanTrx;
 
@@ -315,7 +328,7 @@ class LabaRugiService
         foreach ($jenisList as $index => $jenis) {
             $nilai = isset($pengeluaran[$jenis->id]) ? (int) $pengeluaran[$jenis->id]->total : 0;
             $bebanOperasional[] = [
-                'label' => '3.' . ($index + 1) . ' ' . $jenis->tipe,
+                'label' => '3.'.($index + 1).' '.$jenis->tipe,
                 'value' => $nilai,
             ];
             $totalBeban += $nilai;
@@ -337,7 +350,7 @@ class LabaRugiService
 
         $nextNumber = count($jenisList) + 1;
         $bebanOperasional[] = [
-            'label' => '3.' . $nextNumber . ' Selisih Top-up Saldo Digital',
+            'label' => '3.'.$nextNumber.' Selisih Top-up Saldo Digital',
             'value' => (int) $hppSelisihTopup,
         ];
         $totalBeban += $hppSelisihTopup;
@@ -345,21 +358,21 @@ class LabaRugiService
         if ($isMitra) {
             $nextNumber++;
             $bebanOperasional[] = [
-                'label' => '3.' . $nextNumber . ' Stok Mati/Rusak',
+                'label' => '3.'.$nextNumber.' Stok Mati/Rusak',
                 'value' => (int) $stockMati,
             ];
             $totalBeban += $stockMati;
         } else {
             $nextNumber++;
             $bebanOperasional[] = [
-                'label' => '3.' . $nextNumber . ' Stok Hilang',
+                'label' => '3.'.$nextNumber.' Stok Hilang',
                 'value' => (int) $stockHilang,
             ];
             $totalBeban += $stockHilang;
 
             $nextNumber++;
             $bebanOperasional[] = [
-                'label' => '3.' . $nextNumber . ' Stok Mati/Rusak',
+                'label' => '3.'.$nextNumber.' Stok Mati/Rusak',
                 'value' => (int) $stockMati,
             ];
             $totalBeban += $stockMati;
@@ -440,7 +453,7 @@ class LabaRugiService
                 'I. Pendapatan',
                 [
                     ['1.1 Pendapatan Umum', RupiahGenerate::build($penjualanUmum)],
-                    ['1.2 Pendapatan Lainnya', RupiahGenerate::build($pendapatanLainnya)],
+                    ['1.2 Pendapatan Retur/Lainnya', RupiahGenerate::build($pendapatanLainnya)],
                     ['1.3 Pembatalan Transaksi Bulan Lalu', RupiahGenerate::build(-abs($pembatalanTrxBulanLalu))],
                     ['Total Pendapatan', RupiahGenerate::build($totalPendapatan)],
                 ],

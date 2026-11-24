@@ -456,7 +456,7 @@ class LabaRugiService
                 [
                     ['1.1 Pendapatan Umum', RupiahGenerate::build($penjualanUmum)],
                     ['1.2 Pembatalan Transaksi Bulan Lalu', RupiahGenerate::build(-abs($pembatalanTrxBulanLalu))],
-                    ['1.3 Pendapatan Retur/Lainnya', RupiahGenerate::build($pendapatanLainnya)],
+                    ['1.3 Retur/Lainnya', RupiahGenerate::build($pendapatanLainnya)],
                     ['Total Pendapatan', RupiahGenerate::build($totalPendapatan)],
                 ],
             ],

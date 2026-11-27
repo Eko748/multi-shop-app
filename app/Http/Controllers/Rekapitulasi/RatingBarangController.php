@@ -9,6 +9,7 @@ use App\Models\TransaksiKasirDetail;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class RatingBarangController extends Controller
 {
@@ -74,13 +75,14 @@ class RatingBarangController extends Controller
             $hasDate = ! empty($startDate) && ! empty($endDate);
             $allowShowEmptyItems = $hasSearch;
 
-            // 2. Subquery retur agar tidak terjadi Cartesian product (duplikasi qty) saat 1 item diretur > 1x
+            // 2. Subquery retur (cek soft delete otomatis)
             $returSub = DB::table('retur_member_detail')
                 ->select(
                     'transaksi_kasir_detail_id',
                     'barang_id',
                     DB::raw('SUM(qty_request) as total_retur')
                 )
+                ->when(Schema::hasColumn('retur_member_detail', 'deleted_at'), fn($q) => $q->whereNull('deleted_at'))
                 ->groupBy('transaksi_kasir_detail_id', 'barang_id');
 
             // 3. Query Data Transaksi Utama
@@ -101,8 +103,9 @@ class RatingBarangController extends Controller
                     $join->on('transaksi_kasir_detail.id', '=', 'retur_agg.transaksi_kasir_detail_id')
                         ->on('barang.id', '=', 'retur_agg.barang_id');
                 })
-                ->whereNull('transaksi_kasir.deleted_at')
-                ->whereNull('barang.deleted_at')
+                ->when(Schema::hasColumn('transaksi_kasir', 'deleted_at'), fn($q) => $q->whereNull('transaksi_kasir.deleted_at'))
+                ->when(Schema::hasColumn('stock_barang_batch', 'deleted_at'), fn($q) => $q->whereNull('stock_barang_batch.deleted_at'))
+                ->when(Schema::hasColumn('barang', 'deleted_at'), fn($q) => $q->whereNull('barang.deleted_at'))
                 ->where('transaksi_kasir.total_qty', '>', 0)
                 ->whereIn('transaksi_kasir.toko_id', $selectedTokoIds)
                 ->groupBy(

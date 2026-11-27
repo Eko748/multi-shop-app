@@ -102,7 +102,6 @@ class RatingBarangController extends Controller
                         ->on('barang.id', '=', 'retur_agg.barang_id');
                 })
                 ->whereNull('transaksi_kasir.deleted_at')
-                ->whereNull('stock_barang_batch.deleted_at')
                 ->whereNull('barang.deleted_at')
                 ->where('transaksi_kasir.total_qty', '>', 0)
                 ->whereIn('transaksi_kasir.toko_id', $selectedTokoIds)
